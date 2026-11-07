@@ -2,6 +2,12 @@
 
 Generated from Git history. Player-facing release summaries are in [release notes](RELEASE_NOTES.md).
 
+## v0.24.0 · 2026-11-07
+
+### Features
+
+- **worldgen:** Distribute structures by island cluster ([958dff6](https://github.com/mannie-exe/skyweave-compat/commit/958dff6495250dca610c5d3e616d1e6034629033))
+
 ## v0.23.1 · 2026-11-07
 
 ### Fixes

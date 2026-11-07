@@ -1,20 +1,30 @@
-# Skyweave: Compatibility Patches 0.23.1
+# Skyweave: Compatibility Patches 0.24.0
 
-Preserve connected-pane edge culling before adding interior backfaces. Fusion now
-finishes its pane modifiers before Compat wraps Minecraft's pane models, so
-stacked panes no longer expose horizontal strips at their shared edges. Connected
-textures, exposed edges and different-material boundaries retain their native
-behavior. The existing Fusion backface switch controls this repair; no new setting
-is required.
+The Skyweave preset distributes vanilla structure families across island clusters
+instead of collecting every nearby source opportunity. Variants share an allowance;
+eligible terrain and biome area contribute to it, while surrounding void does not.
+Family rates, cluster limits, a global multiplier and final village/outpost distance
+are editable in the existing configuration screen.
 
-This is a client rendering correction. Terrain generation, saved worlds, LODs and
-other adaptations are unchanged. Pair it with Create: Skyweave 0.3.1 for the separate
-Visual Patches correction to connected-pane lighting.
+Multiple ordinary villages can share a cluster. Sky Villages keeps its separate
+allowance. Portals and ordinary/beached wrecks each share a one-per-cluster limit.
+Temples, huts, igloos, mansions and underground families retain native layouts,
+loot and fitting. Unknown sets, strongholds, local placed features and ocean
+monuments/ruins retain their existing controls.
 
-Native checks cover red and magenta pane walls, Create and Macaw controls, partial
-connections, different-color boundaries, resource reload and shaders off/on. The
-owner also accepted the combined changes in the playing client. See
-[verification](docs/development/verification.md#connected-pane-edges) for the exact
-fixture and remaining coverage limits.
+Owned portals use island-relative height bounds. Igloos retain their top, ladder
+and optional basement at the accepted island anchor. Desert pyramids retain their
+accepted height, traps and archaeology, with complete body support beneath their
+footprint. Native reservation and duplicate guards follow the generator's lifetime;
+parallel layout planning initializes vanilla's lazy rotation tables before use.
 
-Previous release: [0.23.0](docs/releases/0.23.0.md).
+Floating ocean habitats now default on. Existing explicit ocean opt-outs are
+preserved; the continuous global ocean layer remains disabled.
+
+This changes generation identity and requires a fresh world. Existing saves are
+not silently converted. See [configuration](docs/configuration.md#structure-distribution)
+for units and exceptions, and [verification](docs/development/verification.md) for
+native coverage and limitations. Numeric rates describe allowances before fitting,
+not guaranteed encounter probabilities.
+
+Previous release: [0.23.1](docs/releases/0.23.1.md).
