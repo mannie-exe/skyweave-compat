@@ -9,6 +9,7 @@ public enum Feature {
     ANCIENT_CITIES("terrain.ancient_cities"),
     SPAWN("terrain.spawn_landing"),
     STRUCTURE_LOCATION("terrain.structure_location"),
+    STRUCTURE_DISTRIBUTION("terrain.structure_distribution"),
     WATER_SPAWNS("terrain.water_animal_spawns"),
     CLIMATE("terrain.climate"),
     VILLAGE_CLEARANCE("villages.clearance"),

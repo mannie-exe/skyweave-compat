@@ -16,6 +16,24 @@ class JsonEditsTest {
         Files.writeString(directory.resolve(definition.filename()), definition.defaults());
         return new JsonEdits(directory, definition);
     }
+    @Test void structureFamiliesUseTheSharedTypedEditorAndRetainOtherRules() throws IOException {
+        var edits = create("structures");
+        var path = directory.resolve(edits.definition().filename());
+        var before = design.inherent.skyweavecompat.terrain.structure.StructureConfiguration.parse(Files.readString(path));
+        edits.set("families.villages.maximumPerCluster", "4");
+        edits.set("families.villages.targetStartsPer1024Chunks", ".75");
+        edits.save();
+        var after = design.inherent.skyweavecompat.terrain.structure.StructureConfiguration.parse(Files.readString(path));
+        assertEquals(4, after.rule(design.inherent.skyweavecompat.terrain.structure.StructureFamily.VILLAGES).maximumPerCluster());
+        assertEquals(.75, after.rule(design.inherent.skyweavecompat.terrain.structure.StructureFamily.VILLAGES).targetStartsPer1024Chunks());
+        assertEquals(before.rule(design.inherent.skyweavecompat.terrain.structure.StructureFamily.PORTALS),
+                after.rule(design.inherent.skyweavecompat.terrain.structure.StructureFamily.PORTALS));
+        edits.set("families.villages.maximumPerCluster", "1.5");
+        String saved = Files.readString(path);
+        assertThrows(ArithmeticException.class, edits::save);
+        assertEquals(saved, Files.readString(path));
+        assertTrue(edits.dirty());
+    }
     @Test void stagedValuesDoNotChangeRuntimeOrDiskAndRoundTripThroughTheOwningParser() throws IOException {
         var edits = create("generation");
         var path = directory.resolve(edits.definition().filename());
@@ -51,10 +69,10 @@ class JsonEditsTest {
         assertEquals(List.of("overworld", "island-map"), maps.strings("maps"));
         maps.strings("maps", List.of("same", "same")); assertThrows(IllegalArgumentException.class, maps::save);
         maps.discard(); assertFalse(maps.dirty());
-        var oceans = create("oceans"); oceans.set("enabled", "true"); oceans.save();
-        assertTrue(JsonParser.parseString(Files.readString(directory.resolve(oceans.definition().filename())))
+        var oceans = create("oceans"); oceans.set("enabled", "false"); oceans.save();
+        assertFalse(JsonParser.parseString(Files.readString(directory.resolve(oceans.definition().filename())))
                 .getAsJsonObject().get("enabled").getAsBoolean());
-        oceans.reset("enabled"); assertTrue(oceans.dirty()); oceans.save(); assertEquals("false", oceans.value("enabled"));
+        oceans.reset("enabled"); assertTrue(oceans.dirty()); oceans.save(); assertEquals("true", oceans.value("enabled"));
     }
     @Test void missingDuplicateUnknownAndOversizedInputsAreNotRepairedOrMaterialized() throws IOException {
         var definition = JsonSettings.FILES.getFirst(); Path path = directory.resolve(definition.filename());

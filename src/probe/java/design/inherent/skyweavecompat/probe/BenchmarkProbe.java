@@ -22,7 +22,7 @@ final class BenchmarkProbe {
                 .filter(p -> p.family() == IslandFamily.ANCHOR_PLATEAU)
                 .sorted(Comparator.comparingDouble(p -> Math.hypot(p.x(), p.z()))).toList();
         long columns = 0, solidSamples = 0;
-        for (var anchor : anchors.stream().limit(12).toList()) {
+        for (var anchor : anchors.stream().limit(Math.clamp(Integer.getInteger("neighbors.probe.samples", 12), 1, 12)).toList()) {
             for (int dx = -800; dx <= 800; dx += 16) for (int dz = -800; dz <= 800; dz += 16) {
                 if (field.sampleColumn(anchor.x() + dx, anchor.z() + dz, settings).exists()) solidSamples++;
                 columns++;
@@ -36,6 +36,7 @@ final class BenchmarkProbe {
             }
         }
         var report = new JsonObject(); report.addProperty("seed", level.getSeed());
+        report.addProperty("structuresEnabled", server.getWorldData().worldGenOptions().generateStructures());
         report.addProperty("columns", columns); report.addProperty("occupiedColumnSamples", solidSamples);
         report.addProperty("columnSeconds", columnSeconds);
         report.addProperty("chunksRequested", 18);

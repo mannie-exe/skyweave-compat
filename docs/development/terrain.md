@@ -155,7 +155,7 @@ Completed point queries and chunk filling consume the same cached native snapsho
 
 ## Ocean habitats
 
-The global ocean layer stays disabled. `OceanProfile.enabled` separately admits native floating water archetypes in eligible ocean-biome locations; its default is false. Native settings own archetype weights, land/water materials, biome projections, seals and underbellies. Wet anchors do not receive land companions.
+The global ocean layer stays disabled. `OceanProfile.enabled` separately admits native floating water archetypes in eligible ocean-biome locations; its default is true. Existing explicit false values remain authoritative and settings remain part of saved generation identity. Native settings own archetype weights, land/water materials, biome projections, seals and underbellies. Wet anchors do not receive land companions.
 
 `OceanIslands` extends native Lagoon and Reef Ring profiles only. Coastal mode lowers a selected rim corridor to provide an intentional outlet; perimeter mode lowers the rim around the native footprint to provide falling edges. Other native profiles remain unchanged. There is no independent enclosed basin, ocean-biome projector or underside-outlet generator. Selection and extension parameters are deterministic and configurable; configured chances are not measured realized frequencies.
 
@@ -219,7 +219,7 @@ below the local heightmap and reject excessive empty corners. Standalone jungle
 vines use a separate `relative_surface` tag: reference 64 to 100 becomes actual
 column top through top+36, preserving their neighbor-attachment test. Blue ice is
 not moved: its native feature requires water, packed ice and a position below sea
-level, which this oceanless preset does not provide naturally. Moving its origin
+level, which the disabled global-ocean layer does not provide. Moving its origin
 would not supply that environment. Ocean-specific content is not guaranteed.
 
 The tag includes vanilla Overworld ores, underground clay, both fossil placements,
@@ -353,6 +353,75 @@ late height re-anchoring after island placement, explaining valid land wrecks
 without a new airship generator. Monuments and ocean ruins use native WATER placement and require a suitable actual water host; disabling the global ocean layer alone is not a rejection rule. A missing start in a bounded search is not proof
 of a missing implementation. Lootr conversion occurs after chunk loading and server
 ticks, not synchronously when a structure's chest block is first placed.
+
+### Cluster structure policy
+
+`terrain/structure/` owns vanilla-family admission in the marked preset. Registered
+structure sets remain unchanged; `StructurePolicyStateMixin` supplies runtime
+random-spread views. The shared `managedFamily` decision also owns attempt scoping,
+so unwrapped rings, mixed sets and disabled city adaptations are not accidentally
+filtered. Native custom-rule opt-outs, explicit whitelists and unsupported category
+changes also keep the whole registered set native. Do not wrap its placement while
+leaving its attempt unowned (or vice versa). Foreign generators retain native placements. [Configuration](../configuration.md#structure-distribution)
+owns rates, caps, units and exceptions.
+
+`StructureDistribution` samples accepted cluster members, estimates eligible area,
+then ranks lattice destinations independently of visitation. It uses per-generator,
+bounded caches as memoization, not commitments. Fitted choices retain the weighted
+native variant, immutable piece geometry, adjusted native bounds, portal impact
+bounds and category padding. Ground, village, igloo, water and underground helpers
+reuse their native routing and fit stages. Planning commits no starts, references,
+terrain reservations or blocks; native postprocessing remains part of actual
+materialization.
+
+The distribution binds detached registries, templates and height metadata on level
+load, including saved levels with no new chunks. The structure-pass hook remains a
+fallback. No live chunk, structure manager or level is retained. Queries never
+load neighboring chunks. Fractional admission, bounded alternatives and fitted
+piece conflicts are deterministic. The village committer supplies raw grounded
+unions, while other routes can supply terrain-adjusted or portal-impact bounds;
+matching recognizes all three representations of a fitted layout. Native final delivery and unknown-geometry
+checks remain active. Early two-dimensional footprints do not overrule a fitted
+three-dimensional plan. Native adjusted/reservation bounds remain the collision
+volume except between two ordinary villages, where separate padded buildings
+allow neighboring settlements without treating the empty space between them as
+solid. Portal spread/drip influence remains part of its occupied volume.
+
+Scoped exact-ID diversity, regional no-host misses, adaptive DEFAULT cost throttles
+and shared anchor claims cannot own managed eligibility. Native anchor cache keys
+do not describe the selected-host scope, so scoped results are recomputed rather
+than reused from unscoped searches. The native physical duplicate-key set and reservation arbiter are
+owned by each generator instead of the process. Native padding, duplicate checks,
+bounded reservation storage and pending takeover rules remain active. Deferred
+revocation callbacks retain a weak owner, including an explicit unowned context.
+Postprocess descriptor/delivery claims reset at server start and after full stop;
+this clears only ephemeral memory, never saved starts, blocks or player data.
+Native reference delivery already follows registry-session identity. Startup also
+initializes vanilla's small OctahedralGroup direction tables before parallel fits:
+its lazy map publication can otherwise expose missing directions to concurrent
+jigsaw rotation. No generation lock or new rotation implementation is added. Sky Villages retains
+its independent placement owner and allowance.
+
+Owned portal searches stop at the island body rather than the dimension floor;
+the mountain datum follows island geology. Owned igloos must be drafted at their
+surface anchor before native grounding checks. Their top, rather than the buried
+laboratory, supplies the contact plane. `SkyweaveIslandAnchor` persists on pieces
+and prevents a second vanilla Y=90 correction during placement. Unmarked pieces
+retain vanilla behavior. Owned desert pyramids also persist their fitted anchor:
+vanilla's later minimum-height scan can encounter a void column at an otherwise
+supported footprint and drop the entire temple below the island. The accepted
+native support/fit remains authoritative; the marker suppresses only that second
+height adjustment, retaining native traps, archaeology and loot. Pyramid admission
+also checks the complete footprint and trap depth against the island body, so an
+unsupported edge cannot become a native foundation pillar extending to the void floor.
+
+For Sky Archipelago updates, recheck category routing, weighted alternatives,
+catalog footprint requirements, all native pre-anchor/grounding/trimming/fit APIs,
+claims and cache keys, vanilla rotation-cache initialization, budget units, pending delivery/revocation and canonical
+references. For Minecraft updates, also check placement codecs, locate offsets,
+terrain-adjusted bounds, portal impact/height behavior and pyramid/igloo template/NBT and
+deferred-placement contracts. Compare final starts and materialized content across
+query order and reopening; a layout-only positive does not prove loot or placement.
 
 ## Climate and villages
 

@@ -9,6 +9,7 @@ implementation tests to the exact released artifacts.
 | Adapter family | Implementation and interactions | Update and retirement checks |
 | --- | --- | --- |
 | Island preset | `TerrainIntegration`, terrain mixins, terrain built-in pack; dependent generation switches require `terrain.preset` | Review Sky Archipelago generator/field contracts, codecs, dimensions, and saved identity. Run native generation/reopen checks. Never substitute a saved generator. |
+| Cluster discoveries | `terrain/structure/`, scoped structure-policy hooks; active preset, city branch additionally needs the city adaptation | Review [placement ownership](terrain.md#cluster-structure-policy), family membership, native fit/claims/references and saved-level initialization. Compare order, reopening, actual structures and cost. |
 | Relative placements | `OreHeightMixin`, ores built-in pack | Review vanilla placements and optional Create/Propulsion IDs; disabling removes both the hook and tags. |
 | Village clearance/placement | Separate hook selections; neighbor tuning only when relevant | Review Sky Villages + Architectury and Sky Archipelago validator order. Check ordinary/expanded terrain, footprint bounds, allowance, and disabled combinations. |
 | Sable pressure | `DimensionPhysicsMixin`, pressure built-in pack | Review Sable physics profile codec and island-only selection; preserve upstream machine/block weights. |

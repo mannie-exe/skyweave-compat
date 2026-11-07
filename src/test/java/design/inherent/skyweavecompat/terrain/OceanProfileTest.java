@@ -5,8 +5,10 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class OceanProfileTest {
-    @Test void experimentsRequireExplicitBooleanOptIn() {
+    @Test void enabledDefaultRetainsExplicitOptOutAndRejectsStringBooleans() {
         var json = JsonParser.parseString(new Gson().toJson(OceanProfile.INITIAL)).getAsJsonObject();
+        assertTrue(OceanConfiguration.parse(json.toString()).enabled());
+        json.addProperty("enabled", false);
         assertFalse(OceanConfiguration.parse(json.toString()).enabled());
         json.addProperty("enabled", "false");
         assertThrows(IllegalArgumentException.class, () -> OceanConfiguration.parse(json.toString()));

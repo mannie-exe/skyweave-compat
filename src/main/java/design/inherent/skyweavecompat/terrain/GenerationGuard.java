@@ -52,6 +52,10 @@ public final class GenerationGuard {
         identity.add("interiors", new Gson().toJsonTree(InteriorConfiguration.profile()));
         identity.addProperty("hydrology", "native_skyarch_1.4");
         identity.add("oceans", new Gson().toJsonTree(OceanConfiguration.profile()));
+        if (OptionalIntegrations.enabled(Feature.STRUCTURE_DISTRIBUTION)) {
+            identity.addProperty("structureDistribution", "cluster_family_v1");
+            identity.add("structures", new Gson().toJsonTree(design.inherent.skyweavecompat.terrain.structure.StructureConfiguration.policy()));
+        }
         var mudBiomes = new JsonArray();
         server.registryAccess().registryOrThrow(Registries.BIOME).getTag(BiomeMaterials.MUD).ifPresent(tag ->
                 tag.stream().map(biome -> biome.getRegisteredName()).sorted().forEach(mudBiomes::add));

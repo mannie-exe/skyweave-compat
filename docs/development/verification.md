@@ -1,10 +1,51 @@
 # Verification
 
+## Cluster structure distribution
+
+Verified on 2026-11-07 with Minecraft 1.21.1, NeoForge 21.1.265, Temurin
+21.0.13 and the pinned Sky Archipelago 1.4 artifact listed below.
+`./gradlew --no-daemon check build probeJar clientProbeJar` passes 194 Java tests
+and the tooling, generated-resource, upstream-hash and package checks.
+
+| Boundary | Observations |
+| --- | --- |
+| Family policy | Three fixed seeds each cover 32 distinct accepted clusters. Surface-quiet counts are 18, 15 and 18; portal plans are 8, 9 and 5. Villages, wrecks and hidden underground content remain available. These are fitted plans, with only the explicitly sampled native starts committed; the sample does not establish rare-feature absence or playtested scarcity. |
+| Native ground routes | Ordinary wreck, mansion, jungle temple and swamp hut fixtures materialize native content and retain starts through reopening. The wreck retains supply, treasure and map loot. Igloo fixtures retain top, ladder and optional basement. Ordinary/beached wrecks share policy, but the latest positive wreck is the ordinary variant. |
+| Desert pyramids | A controlled failure dropped a fitted temple to Y=-129 after a footprint-height scan encountered void. Persisting the accepted anchor preserves four loot chests, nine TNT and the pressure plate. Native client inspection then exposed an unsupported foundation column; complete footprint/trap-depth admission selects a supported alternative, with the same loot/trap and saved outcome. Full-pack checks include C2ME. |
+| Native underground routes | A default-policy BASELINE city has 90 pieces, sampled exterior burial 0.9979, nine core floor/roof witnesses and 1,090 two-high air samples opened from 1,729 solid samples. Loot, locate and reopening pass. A small forced-city fixture rejects all four hosts through existing burial/core/roof checks. Existing NOISE/HOLLOW terrain and cavern fixtures below retain their own scope. |
+| Archaeology and parallel plans | Trail ruins retain native pieces and 87 suspicious-gravel blocks through reopening. Concurrent detached owners reproduced a vanilla lazy rotation-table race; startup initialization removes the observed null-direction failure. Independent concurrent plans and recomputation after cache eviction agree. |
+| Delivery and lifecycle | Native duplicate guards and reservation stores remain independent between same-seed generator owners. Deferred releases preserve both owned and unowned contexts. Three fitted villages survive both forward and reverse source visitation with identical geometry and piece NBT. The probe rechecks all starts after later attempts, including pending revocation. |
+| Configuration and sides | Standalone and installed-but-disabled dedicated startup pass. Minimum and full clients expose localized typed settings, search and selected section anchors. Native save requires the existing new-world confirmation and reads the edited value back. A full client loads the native temple world, saves and rejoins it in the same JVM. |
+
+The matched structures-enabled cost observation requests 10,201 columns and 18
+chunks at seed 42. Released 0.23.1 takes 19.84 seconds for columns and 15.67 for
+chunk requests; the policy candidate takes 19.16 and 12.76. Both report 1,080
+occupied column samples. This is one bounded observation under host contention,
+not a statistical speedup or pregen ETA. Later scoped support/matching repairs
+have their own native checks; point queries and rare failed fits still cost work.
+
+Use `tools/probe.py` for fixtures: `--surface-structures` or `--structures`,
+`--structure-config`, `--structure-id`, `--structure-clusters`, `--far-structure-fixture`,
+`--layouts-only`, `--reverse-structure-order` and `--reopen` distinguish plans,
+starts and full content. Fixed-biome tests must supply compatible river settings.
+A shore-only source spends excessive time in upstream host-biome search; the
+positive wreck fixture therefore uses the normal multi-biome generator.
+
+Native clients used shaders off. The pass does not establish survival balance,
+every modded structure, ocean progression, a beached-wreck positive, or every
+possible layout. `/locate` checks resolve the committed destination; finite native
+search budgets are not a guarantee that any rare structure can be discovered from
+any origin. Historical Atlas village surveys remain observations of their recorded
+preset and are not measurements of this new cluster policy.
+
 ## Sky Archipelago 1.4 terrain and city boundaries
 
-Native checks on 2026-11-06 use Minecraft 1.21.1, NeoForge 21.1.265, Temurin 21.0.13 and exact Sky Archipelago 1.4 (`XPc17YJD`, SHA-256 `4aa55186f8c49c4143cc0d9fd8e11acad103edaf0cc8dcee7845ac10c80ccc20`). The current candidate has SHA-256 `69cdab9aa94a06be419cdc7665cc05f6a781b350ce609039975ea380f1ff06bd`. This is the unpublished 0.23.0 release candidate. The directly exercised 0.23.0 native artifact is `4693e6ff5b123b1c5fab754fcc271effc6cd229da782f10960115f0b7714d55c`; the final source cleanup changes only source-line mappings in two mixins. Their `javap -c -p` output is identical, and all other archive entries match. Earlier fixtures retain their exact artifact scope.
-
-`./gradlew --no-daemon check build probeJar clientProbeJar` passes 178 Java tests and the existing tooling, generated-resource, upstream-hash and packaging checks. Earlier retained-terrain candidates pass minimum seed-42 coverage and full-pack seed-1 generation. That full-pack check includes C2ME and compares 6,193,152 noise blocks against direct base-column reads across two anchors and a companion crossing its source-cell boundary. Sample spans are Y=85–437, 36–349 and 323–436; work after startup took 5.92 seconds. Vanilla ores, Create zinc, Propulsion platinum, temperate/cold climate controls and Sable pressure/wire/Nether controls pass. Presence and bounded samples do not establish scarcity or every integration's gameplay behavior.
+Terrain and city regression evidence uses Minecraft 1.21.1, NeoForge 21.1.265,
+Temurin 21.0.13 and exact Sky Archipelago 1.4 (`XPc17YJD`, SHA-256
+`4aa55186f8c49c4143cc0d9fd8e11acad103edaf0cc8dcee7845ac10c80ccc20`).
+The 0.23 series established the terrain/city boundaries below. Structure-family
+admission is covered separately; historical terrain witnesses do not establish its
+current frequency or every integration's gameplay behavior.
 
 The final configuration check reproduced duplicate-key acceptance in all three generation/interior/ocean startup readers while the editor rejected the same files. Those readers now delegate to the existing strict reader. The focused test fails before the fix and passes afterward. The configuration-validation candidate `a1287c4ba1b9751f7a3dd349b4f0619751e4423bda464cbb3b4087624e9eb563` differs from `5884e1811f66ca186798e2783e3284bbbbb1be1a800eec5ef283cca6a206b2ed` only in `ProfileJson`, `InteriorConfiguration` and `OceanConfiguration`; terrain, rendering and other resources are byte-identical. That validation candidate repeats minimum Sky Archipelago startup and full-pack seed-1 generation. The city-clearance candidate below adds its own scoped implementation and checks. Earlier seed-42 and visual observations retain their recorded artifact scope.
 

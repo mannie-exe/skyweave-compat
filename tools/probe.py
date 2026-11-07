@@ -48,6 +48,7 @@ mode.add_argument('--oceans', action='store_true', help='Check experimental ocea
 parser.add_argument('--fixed-biome', help='Isolated marked preset with one explicit biome, for deterministic rare-feature fixtures')
 parser.add_argument('--structure-id', help='One vanilla structure name for a focused --structures or --surface-structures run')
 parser.add_argument('--structure-debug', action='store_true', help='Enable native decision logs only in the disposable structure fixture')
+parser.add_argument('--structure-clusters', type=int, default=16, help='Accepted main-island clusters for structure sampling (1..64)')
 parser.add_argument('--layouts-only', action='store_true', help='With structure checks, inspect canonical starts without generating their entire footprints')
 parser.add_argument('--fluid-ticks', type=int, default=600, help='Native ticks for --water; 0 checks only initial material, maximum 3600')
 parser.add_argument('--natural-profile', choices=['current', 'adapted'], default='current', help='Preset for the natural village survey')
@@ -56,6 +57,11 @@ parser.add_argument('--generation-config', type=Path, help='Explicit candidate g
 parser.add_argument('--interior-config', type=Path, help='Explicit candidate interiors; installed config remains read-only')
 parser.add_argument('--river-config', type=Path, help='Explicit native river/lake candidate; installed config remains read-only')
 parser.add_argument('--ocean-config', type=Path, help='Explicit ocean habitat candidate; installed config remains read-only')
+parser.add_argument('--structure-config', type=Path, help='Explicit structure policy in the disposable fixture only')
+parser.add_argument('--disable-structure-policy', action='store_true', help='Use native structure opportunities in the disposable fixture')
+parser.add_argument('--reverse-structure-order', action='store_true', help='Visit the same bounded structure candidates in reverse order')
+parser.add_argument('--far-structure-fixture', action='store_true', help='Use structure destinations at least 4096 blocks from spawn for fresh-order checks')
+parser.add_argument('--empty-village-start', action='store_true', help='In a fixed-plains fixture, make village layouts fail with an empty start pool')
 parser.add_argument('--seed', type=int, default=1)
 parser.add_argument('--terrain-seed', type=int, help='Survey this exact seed instead of the five-seed terrain comparison')
 parser.add_argument('--maximum-gap', type=int, default=512)
@@ -90,6 +96,12 @@ if (args.structure_id or args.layouts_only) and not (args.structures or args.sur
     parser.error('--structure-id and --layouts-only require a structure check')
 if args.structure_debug and not (args.structures or args.surface_structures):
     parser.error('--structure-debug requires a structure check')
+if not 1 <= args.structure_clusters <= 64:
+    parser.error('--structure-clusters must be between 1 and 64')
+if args.far_structure_fixture and not (args.structures or args.surface_structures):
+    parser.error('--far-structure-fixture requires a structure check')
+if args.empty_village_start and (not args.surface_structures or args.fixed_biome != 'minecraft:plains'):
+    parser.error('--empty-village-start requires --surface-structures --fixed-biome minecraft:plains')
 if args.fixed_biome:
     import re
     if not re.fullmatch(r'[a-z0-9_.-]+:[a-z0-9_/.-]+', args.fixed_biome):
@@ -132,6 +144,11 @@ if args.minimal:
 if args.audio: name = f'audio-{args.audio}'
 if args.structure_id: name += '-' + args.structure_id
 if args.layouts_only: name += '-layouts'
+if args.disable_structure_policy: name += '-native-policy'
+if args.reverse_structure_order: name += '-reverse'
+if args.far_structure_fixture: name += '-far'
+if args.empty_village_start: name += '-empty-village'
+if args.structure_config: name += '-' + args.structure_config.stem
 if args.fixed_biome: name += '-' + args.fixed_biome.replace(':', '-').replace('/', '-')
 if args.oceans: name += '-' + args.ocean_config.stem
 report = output / (name + '.json')
@@ -176,6 +193,8 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
                 feature_settings[key.strip()] = value.strip()
     if args.disable_carver_adapter:
         feature_settings['terrain.relative_carvers'] = 'false'
+    if args.disable_structure_policy:
+        feature_settings['terrain.structure_distribution'] = 'false'
     if args.dh_pregen:
         feature_settings['distant_horizons.world_cache'] = str(args.dh_world_key).lower()
     if feature_settings:
@@ -197,6 +216,8 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
         shutil.copy2(args.river_config.expanduser().resolve(), run / 'config/skyweave_compat-rivers.json')
     if args.ocean_config:
         shutil.copy2(args.ocean_config.expanduser().resolve(), run / 'config/skyweave_compat-oceans.json')
+    if args.structure_config:
+        shutil.copy2(args.structure_config.expanduser().resolve(), run / 'config/skyweave_compat-structures.json')
     # Reuse the owner's existing EULA acceptance; never create acceptance implicitly.
     shutil.copy2(server / 'eula.txt', run / 'eula.txt')
     preset = {'current': 'sky_archipelago:sky_islands', 'adapted': 'skyweave_compat:islands_v1', 'vanilla': 'minecraft:normal'}.get(args.generation, ('skyweave_compat:islands_v1' if args.natural_profile == 'adapted' else 'sky_archipelago:sky_islands') if args.natural else 'minecraft:flat')
@@ -205,7 +226,7 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
     (run / 'server.properties').write_text('\n'.join([
         'server-ip=127.0.0.1', 'server-port=0', 'online-mode=false',
         'level-name=probe-world', f'level-type={preset}', f'level-seed={args.seed}',
-        f'generate-structures={str(args.natural or args.chunk_futures or args.structures or args.surface_structures or args.dh_pregen).lower()}', 'view-distance=2',
+        f'generate-structures={str(args.natural or args.chunk_futures or args.structures or args.surface_structures or args.dh_pregen or args.benchmark).lower()}', 'view-distance=2',
         'max-tick-time=0', '',
     ]))
     if args.fixed_biome:
@@ -223,6 +244,10 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
         metadata['pack']['description'] = 'Isolated native biome fixture'
         target.write_text(json.dumps(data, indent=2) + '\n')
         (fixture_pack / 'pack.mcmeta').write_text(json.dumps(metadata) + '\n')
+        if args.empty_village_start:
+            pool = fixture_pack / 'data/minecraft/worldgen/template_pool/village/plains/town_centers.json'
+            pool.parent.mkdir(parents=True, exist_ok=True)
+            pool.write_text(json.dumps({'name': 'minecraft:village/plains/town_centers', 'fallback': 'minecraft:empty', 'elements': []}) + '\n')
     if args.structure_debug:
         debug = run / 'probe-world/serverconfig/sky_archipelago-server.toml'
         debug.parent.mkdir(parents=True,exist_ok=True)
@@ -232,6 +257,8 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
                f'-Dneighbors.probe.structureId={args.structure_id or ""}',
                f'-Dneighbors.probe.previousStructures={run / "structure-witnesses.json"}',
                f'-Dneighbors.probe.layoutsOnly={str(args.layouts_only).lower()}',
+               f'-Dneighbors.probe.reverseStructures={str(args.reverse_structure_order).lower()}',
+               f'-Dneighbors.probe.farStructures={str(args.far_structure_fixture).lower()}',
                f'-Dskyarchipelago.structureBenchmark={str(args.structures or args.surface_structures or args.coverage).lower()}',
                f'-Dneighbors.probe.audio={str(bool(args.audio)).lower()}',
                f'-Dneighbors.probe.dhStopAfter={args.dh_stop_after}',
@@ -258,6 +285,7 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
                f'-Dneighbors.probe.fluidTicks={args.fluid_ticks}',
                f'-Dneighbors.probe.expectedMaximumGap={args.maximum_gap}',
                f'-Dneighbors.probe.natural={str(args.natural).lower()}',
+               f'-Dneighbors.probe.structureClusters={args.structure_clusters}',
                f'-Dneighbors.probe.samples={args.samples}', f'-Dneighbors.probe.output={report}',
                '@' + str(launch_args), 'nogui']
     began = time.monotonic()
@@ -283,7 +311,11 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
             (run / 'structure-witnesses.json').write_text(json.dumps(first))
         report.unlink()
         launch(output / (name + '-reopen.log'))
-        if report.exists():
+        if not report.exists():
+            # Keep the first observations when the reopened runtime aborts before writing its report.
+            first.update(complete=False, reopenFailure='Reopened runtime did not produce a report; inspect the reopen log')
+            report.write_text(json.dumps(first, indent=2) + '\n')
+        else:
             second = json.loads(report.read_text())
             def observed(data):
                 if args.water or args.oceans:
@@ -317,10 +349,13 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
         data['carverAdapterDisabled'] = args.disable_carver_adapter
         data['fixedBiomeFixture'] = args.fixed_biome
         data['structureDebugFixture'] = args.structure_debug
+        data['reverseStructureOrder'] = args.reverse_structure_order
+        data['farStructureFixture'] = args.far_structure_fixture
+        data['emptyVillageStartFixture'] = args.empty_village_start
         data['configuration'] = {path.name: json.loads(path.read_text()) for path in (run / 'config').glob('skyweave_compat-*.json')
                                  if path.name in {'skyweave_compat-generation.json', 'skyweave_compat-interiors.json',
                                                   'skyweave_compat-rivers.json', 'skyweave_compat-oceans.json',
-                                                  'skyweave_compat-ancient-cities.json'}}
+                                                  'skyweave_compat-ancient-cities.json', 'skyweave_compat-structures.json'}}
         artifacts = list((run / 'mods').glob('*.jar')) if args.audio else [mod, fixture]
         data['artifacts'] = {path.name: hashlib.sha256((run / 'mods' / path.name).read_bytes()).hexdigest() for path in artifacts}
         report.write_text(json.dumps(data, indent=2) + '\n')

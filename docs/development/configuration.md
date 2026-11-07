@@ -88,7 +88,7 @@ pretty-printed on save; comments and unknown fields are not supported by their
 runtime schema. Missing or malformed files are distinct from defaults. Opening a
 screen never manufactures configuration.
 
-Generation, interior and ocean startup readers use `ProfileJson.object`, which
+Generation, interior, ocean and structure-policy startup readers use `ProfileJson.object`, which
 delegates to that same strict reader before validating their profile fields.
 Do not replace it with Gson's permissive object parsing: duplicate keys would
 then have different meanings at startup and in the editor.

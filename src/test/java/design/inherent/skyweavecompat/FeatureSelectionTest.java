@@ -12,6 +12,17 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class FeatureSelectionTest {
+    @Test void structureDistributionNeedsOnlyTheOwnedTerrainAndSkyArchipelago() {
+        var feature = Feature.STRUCTURE_DISTRIBUTION;
+        assertTrue(feature.defaultEnabled);
+        var enabled = FeatureSelection.select(only(Feature.TERRAIN, feature), Map.of("sky_archipelago", "1.4"), false);
+        assertTrue(enabled.enabled(feature));
+        assertTrue(enabled.mixins(false).contains("StructurePolicyPortalHeightMixin"));
+        assertTrue(FeatureSelection.select(only(Feature.TERRAIN, feature), Map.of(), false).active().isEmpty());
+        assertFalse(FeatureSelection.select(only(feature), Map.of("sky_archipelago", "1.4"), false).enabled(feature));
+        assertTrue(FeatureSelection.select(only(), Map.of("sky_archipelago", "future"), false).mixins(false).isEmpty());
+    }
+
     @Test void uiShadowPoliciesNeedOnlyIrisAndCanBeSelectedIndependently() {
         for (Feature feature : java.util.List.of(Feature.TEXT_DISPLAY_SHADOW, Feature.NAMETAG_SHADOW)) {
             assertTrue(feature.defaultEnabled);

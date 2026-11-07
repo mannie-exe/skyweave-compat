@@ -31,6 +31,7 @@ inactive selections.
 | `terrain.ancient_cities` | Interior city placement, burial and support | Active preset |
 | `terrain.spawn_landing` | Generated-surface spawn landing | Active preset |
 | `terrain.structure_location` | Relocated structure lookup | Active preset |
+| `terrain.structure_distribution` | Cluster structure allowances and fitted destinations | Active preset; city allowances additionally need `terrain.ancient_cities` |
 | `terrain.water_animal_spawns` | Local-water spawn height | Active preset |
 | `terrain.climate` | Surface temperature, snow, weather, and portal height | Active preset |
 | `villages.clearance` | Village footprint clearance/proximity | Sky Archipelago 1.4, Sky Villages 1.0.6, Architectury 13.x |
@@ -223,17 +224,78 @@ This does not enable the global ocean or change sea level. Configured frequency 
 
 ## Ocean habitats
 
-`config/skyweave_compat-oceans.json` defaults to `enabled: false`. Enabling it admits native floating ocean archetypes in eligible ocean-biome locations, independently of the disabled global ocean layer. Native settings own archetype selection, weights, materials, biomes and underbellies. Water-archetype anchors have no land companions.
+`config/skyweave_compat-oceans.json` defaults to `enabled: true`. It admits native floating ocean archetypes in eligible ocean-biome locations, independently of the disabled global ocean layer. Explicit saved opt-outs remain authoritative. Native settings own archetype selection, weights, materials, biomes and underbellies. Water-archetype anchors have no land companions.
 
 | Fields | Defaults | Purpose |
 | --- | --- | --- |
-| `enabled` | false | Admit floating ocean habitats |
+| `enabled` | true | Admit floating ocean habitats |
 | `coastalChance`, `perimeterChance` | 0.04, 0.01 | Deterministic edge-treatment choices on eligible Lagoon/Reef Ring descriptors |
 | `perimeterMinRadius`, `perimeterMaxRadius` | 40, 64 | Descriptor radii for falling-perimeter hosts |
 | `outletWidth`, `outletDepth` | 2, 2 | Coastal corridor width and depth below fluid surface |
 | `sealThickness` | 4 | Minimum retaining-bed thickness |
 
 Coastal mode lowers a selected native rim corridor; perimeter mode lowers the rim around the wet footprint. Unselected native profiles remain unchanged. There is no separate enclosed basin or underside-outlet backend. All fields are required and included in generation identity. Use a fresh world when changing them. These policies do not certify aquatic progression, natural populations or resource availability; [verification](development/verification.md) records actual tested coverage.
+
+## Structure distribution
+
+`config/skyweave_compat-structures.json` controls discoveries in the Skyweave preset.
+Each family shares an allowance across the main island and its companions. Void
+around the cluster contributes no area. Variants share the allowance: five village
+biome IDs do not supply five separate village budgets, and ordinary/beached
+shipwrecks count together.
+
+`targetStartsPer1024Chunks` is an expected allowance per 1,024 eligible terrain
+chunks, estimated with a bounded physical-terrain/biome sample. It is not a final
+spawn chance. Fractional allowances use a stable seeded draw; caps, native biome
+rules, fitting and finite fallback can reduce actual starts. A portal rate of
+0.32 with 1,024 eligible chunks gives a 32% allowance for one portal before fitting.
+Larger eligible areas increase the allowance up to `maximumPerCluster`.
+
+| Family | Rate (rounded) | Maximum per cluster |
+| --- | ---: | ---: |
+| Ruined portals | 0.32 | 1 |
+| Ordinary villages | 0.443 | 3 |
+| Pillager outposts | 0.1 | 1 |
+| Shipwrecks | 0.889 | 1 |
+| Desert temples, jungle temples, swamp huts, igloos | 0.5 each | 1 each |
+| Woodland mansions | 0.08 | 1 |
+| Ancient Cities | 0.889 | 1 |
+| Mineshafts | 2.048 | 3 |
+| Trial chambers, trail ruins | 0.443 each | 1 each |
+
+These starting rates use half the nominal vanilla source-opportunity density,
+with separate biome and fit checks. They do not promise vanilla encounter rates.
+`frequencyMultiplier` defaults to `1`, accepts `0..8`, and scales managed allowances
+once. Family rates accept `0..16`; maximum counts accept integers `0..16`. A zero
+rate, cap or multiplier disables the corresponding managed opportunities in a new
+world. Stronghold rings, Sky Villages, ocean monuments/ruins, local placed features
+and unknown/mixed modded sets keep their existing controls. City allowances are
+inactive when the separate interior-city adaptation is disabled. Disabling native
+custom structure rules, explicitly whitelisting a member or changing a family to
+an unsupported native category leaves that entire registered set under native
+placement. Its family rate/cap then does not apply. Supported category changes
+continue through the corresponding native planner; denylisted variants stay denied.
+
+`outpostVillageSeparationChunks` defaults to `10` (`0..64`). It excludes outposts
+within that square distance of fitted ordinary-village anchors, rather than void
+source positions or failed villages. Zero disables this exclusion. Multiple
+ordinary villages may share a cluster; ordinary villages and Sky Villages are not
+made mutually exclusive.
+
+The policy preserves native layouts and loot. Selected destinations are fitted
+before commitments, with three ranked alternatives per village slot and eight
+per other slot. Owned igloos use an island-relative surface anchor for their top,
+ladder and optional basement; their anchor persists through saving. Existing
+city burial and cavern rules remain independently authoritative. Owned desert
+pyramids retain their accepted island height instead of reanchoring to a void
+column during block placement. Water structure
+placement remains native.
+
+All fields are required, validated at startup and editable through the existing
+typed configuration page. Changes require a restart and a new world. The saved
+generation identity includes the effective policy; incompatible worlds fail
+clearly rather than changing generation silently. See [placement ownership and
+update checks](development/terrain.md#cluster-structure-policy).
 
 ## Biome materials
 
@@ -393,7 +455,7 @@ stay inactive when its dependencies are absent.
 | Adaptation switches | Staged switches and Details | Full game/server restart |
 | Journal preferences | Shared immediate controls | Immediate |
 | Village distances | Embedded staged fields | Next local server start |
-| Island geometry, interiors, water, oceans | Typed numeric/boolean forms | Game/server restart and a new world |
+| Island geometry, interiors, water, oceans, structures | Typed numeric/boolean forms | Game/server restart and a new world |
 | BlueMap adaptation | Typed fields and map-ID list | Owning server's BlueMap reload |
 | Redstone Link GUI client/common | Embedded staged enum/range fields | Native timing, after Save |
 

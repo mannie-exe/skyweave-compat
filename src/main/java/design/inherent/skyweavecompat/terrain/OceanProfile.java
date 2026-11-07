@@ -4,7 +4,7 @@ package design.inherent.skyweavecompat.terrain;
 public record OceanProfile(boolean enabled, double coastalChance, double perimeterChance,
         int perimeterMinRadius, int perimeterMaxRadius, int outletWidth, int outletDepth, int sealThickness) {
     public enum Mode { NATIVE, COASTAL, PERIMETER }
-    public static final OceanProfile INITIAL = new OceanProfile(false, 0.04, 0.01, 40, 64, 2, 2, 4);
+    public static final OceanProfile INITIAL = new OceanProfile(true, 0.04, 0.01, 40, 64, 2, 2, 4);
     public OceanProfile {
         if (!Double.isFinite(coastalChance) || !Double.isFinite(perimeterChance)
                 || coastalChance < 0 || perimeterChance < 0 || coastalChance + perimeterChance > 1

@@ -19,7 +19,7 @@ See [all switches and supported combinations](docs/configuration.md#adaptation-s
 
 | Optional integration | Supported version | Behavior |
 | --- | --- | --- |
-| Sky Archipelago | 1.4 | Expanded island preset and separately selectable placement/climate adaptations |
+| Sky Archipelago | 1.4 | Expanded island preset, cluster discovery policy and separately selectable placement/climate adaptations |
 | Create | 6.0.10 | Client window-face culling correction; preserves native connected textures |
 | Glass backfaces | Create 6.0.10 or Fusion 1.3.16 | Independent default-on two-sided glass retaining native connected textures |
 | Rechiseled | 1.2.6 | Client rotated-glass culling correction, including Rechiseled Create windows |

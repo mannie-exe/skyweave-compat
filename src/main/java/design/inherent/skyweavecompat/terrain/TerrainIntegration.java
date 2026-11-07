@@ -14,6 +14,10 @@ public final class TerrainIntegration {
         InteriorConfiguration.load(directory);
         RiverConfiguration.load(directory);
         OceanConfiguration.load(directory);
+        if (design.inherent.skyweavecompat.OptionalIntegrations.enabled(design.inherent.skyweavecompat.Feature.STRUCTURE_DISTRIBUTION)) {
+            design.inherent.skyweavecompat.terrain.structure.StructureConfiguration.load(directory);
+            design.inherent.skyweavecompat.terrain.structure.StructureLevelIntegration.register();
+        }
         design.inherent.skyweavecompat.terrain.city.CityConfiguration.load(directory);
         NeoForge.EVENT_BUS.addListener((ServerAboutToStartEvent event) -> GenerationGuard.verify(event.getServer()));
     }

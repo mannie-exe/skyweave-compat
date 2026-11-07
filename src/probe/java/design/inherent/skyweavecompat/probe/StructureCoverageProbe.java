@@ -34,7 +34,8 @@ final class StructureCoverageProbe {
         var registry = server.registryAccess().registryOrThrow(Registries.STRUCTURE);
         var anchors = field.collectIslandPreviewsInRadius(0, 0, 16000, settings).stream()
                 .filter(p -> p.family() == IslandFamily.ANCHOR_PLATEAU)
-                .sorted(Comparator.comparingDouble(p -> Math.hypot(p.x(), p.z()))).limit(16).toList();
+                .sorted(Comparator.comparingDouble(p -> Math.hypot(p.x(), p.z())))
+                .limit(Math.clamp(Integer.getInteger("neighbors.probe.structureClusters", 16), 1, 64)).toList();
         var report = new JsonObject(); report.addProperty("seed", level.getSeed());
         var rows = new JsonArray();
         var names = Boolean.getBoolean("neighbors.probe.surfaceStructures")
@@ -46,7 +47,9 @@ final class StructureCoverageProbe {
         String selectedId = System.getProperty("neighbors.probe.structureId", "");
         if (!selectedId.isEmpty()) {
             if (!names.contains(selectedId)) throw new IllegalArgumentException("Structure is outside this fixture: " + selectedId);
-            names = List.of(selectedId);
+            var family = design.inherent.skyweavecompat.terrain.structure.StructureFamily.forId("minecraft:" + selectedId);
+            names = family == null ? List.of(selectedId) : family.ids().stream().sorted()
+                    .map(id -> id.substring("minecraft:".length())).toList();
         }
         report.addProperty("layoutsOnly", Boolean.getBoolean("neighbors.probe.layoutsOnly"));
         for (String name : names) {
@@ -74,7 +77,26 @@ final class StructureCoverageProbe {
             // than let those newly observed starts displace the tested sample.
             candidates.addAll(replay.isEmpty() ? observedStarts : replay);
             for (var placement : replay.isEmpty() ? state.getPlacementsForStructure(holder) : List.<StructurePlacement>of()) {
-                if (placement instanceof ConcentricRingsStructurePlacement ring) {
+                if (placement instanceof design.inherent.skyweavecompat.terrain.structure.ArchipelagoStructurePlacement adapted) {
+                    var planning = new JsonArray();
+                    for (var anchor : anchors) {
+                        // A crater/crescent may have no terrain at its center, but still has an accepted cluster owner.
+                        var owner = anchor.terrainPlan() == null ? adapted.distribution().owner(anchor.x(), anchor.z())
+                                : adapted.distribution().owner(anchor.terrainPlan().descriptor());
+                        if (owner == null) continue;
+                        var plan = adapted.distribution().plan(owner);
+                        var row = new JsonObject(); row.add("owner", new Gson().toJsonTree(owner));
+                        row.add("eligibleChunks", new Gson().toJsonTree(plan.eligibleChunks()));
+                        row.add("sites", new Gson().toJsonTree(plan.sites()));
+                        planning.add(row);
+                        for (var site : plan.sites(adapted.family())) {
+                            if (!adapted.isStructureChunk(state, site.chunkX(), site.chunkZ()))
+                                throw new AssertionError("Selected family destination is not a placement candidate");
+                            candidates.add(new ChunkPos(site.chunkX(), site.chunkZ()));
+                        }
+                    }
+                    report.add("distributionPlans", planning);
+                } else if (placement instanceof ConcentricRingsStructurePlacement ring) {
                     var positions = state.getRingPositionsFor(ring);
                     if (positions != null) positions.stream()
                             .sorted(Comparator.comparingDouble(p -> Math.hypot(p.x, p.z)))
@@ -121,12 +143,50 @@ final class StructureCoverageProbe {
                     == org.sathrek.sky_archipelago.worldgen.structure.StructurePlacementCategory.WATER)
                 row.addProperty("candidateSelection","Wet-center neighboring natural placement regions; not a frequency estimate");
             var samples = new JsonArray(); int accepted = 0, realized = 0;
-            for (var candidate : candidates.stream().limit(Math.clamp(Integer.getInteger("neighbors.probe.samples", 12),1,16)).toList()) {
+            var spawn = level.getSharedSpawnPos();
+            var selectedCandidates = new ArrayList<>(candidates.stream().filter(candidate ->
+                    !Boolean.getBoolean("neighbors.probe.farStructures") || Math.hypot(candidate.getMiddleBlockX() - spawn.getX(),
+                            candidate.getMiddleBlockZ() - spawn.getZ()) >= 4096)
+                    .limit(Math.clamp(Integer.getInteger("neighbors.probe.samples", 12),1,16)).toList());
+            boolean managed = placementManaged(state, holder);
+            if (Boolean.getBoolean("neighbors.probe.reverseStructures")) Collections.reverse(selectedCandidates);
+            for (var candidate : selectedCandidates) {
                 var chunk = level.getChunk(candidate.x, candidate.z, ChunkStatus.STRUCTURE_STARTS);
                 var start = chunk.getStartForStructure(holder.value());
                 var sample = new JsonObject(); sample.addProperty("chunkX", candidate.x); sample.addProperty("chunkZ", candidate.z);
+                sample.addProperty("initialChunkStatus", chunk.getPersistedStatus().toString());
+                if (managed) {
+                    var column = field.sampleColumn(candidate.getMiddleBlockX(), candidate.getMiddleBlockZ(), settings);
+                    sample.addProperty("destinationSurfaceY", column.topY());
+                }
                 boolean valid = start != null && start.isValid(); sample.addProperty("valid", valid);
                 sample.addProperty("source", observedStarts.contains(candidate) ? "startup-native-start" : "natural-candidate");
+                if (valid && managed && !report.has("physicalClaimIsolation"))
+                    report.add("physicalClaimIsolation", physicalClaimIsolation(level, chunk, candidate, id));
+                if (managed && design.inherent.skyweavecompat.terrain.structure.StructureDistribution.hasLayoutPlan(
+                        design.inherent.skyweavecompat.terrain.structure.StructureFamily.forId(id.toString()))) {
+                    var policy = ((design.inherent.skyweavecompat.terrain.structure.StructurePlacementState)state).skyweave$structureDistribution();
+                    var owner = policy.owner(candidate.getMiddleBlockX(), candidate.getMiddleBlockZ());
+                    var site = new design.inherent.skyweavecompat.terrain.structure.StructureSelection.Site(candidate.x, candidate.z);
+                    var fitted = policy.plan(owner);
+                    var layout = fitted.layout(design.inherent.skyweavecompat.terrain.structure.StructureFamily.forId(id.toString()), site);
+                    var expectedId = layout == null ? null : layout.id();
+                    if (id.equals(expectedId) != valid)
+                        throw new AssertionError("Structure fit/materialization mismatch at " + candidate + " for " + id);
+                    if (valid && !chunk.getPersistedStatus().isOrAfter(ChunkStatus.FULL)) {
+                        var expected = layout.pieces();
+                        var actual = start.getPieces().stream().map(piece -> {
+                            var b = piece.getBoundingBox();
+                            return new design.inherent.skyweavecompat.terrain.structure.StructureVolume.Box(b.minX(),b.minY(),b.minZ(),b.maxX(),b.maxY(),b.maxZ());
+                        }).toList();
+                        if (expected == null || !new HashSet<>(expected).equals(new HashSet<>(actual)))
+                            throw new AssertionError("Committed structure geometry differs from its fitted plan at " + candidate);
+                        sample.addProperty("fittedPiecesMatch", true);
+                    } else if (valid) {
+                        sample.addProperty("fittedVariantMatch", true);
+                        sample.addProperty("geometryPhase", "native postprocessing complete; compare saved outcome on reopen");
+                    }
+                }
                 if (valid) {
                     accepted++;
                     var bounds = start.getBoundingBox();
@@ -161,12 +221,25 @@ final class StructureCoverageProbe {
                     if (!Boolean.getBoolean("neighbors.probe.layoutsOnly") && realized == 0 && footprintChunks <= 400) {
                         var blocks = new TreeMap<String, Integer>();
                         var pos = new BlockPos.MutableBlockPos();
+                        // Complete placement before inspecting it: later chunks may finish shared pieces.
+                        for (int cx = bounds.minX() >> 4; cx <= bounds.maxX() >> 4; cx++)
+                            for (int cz = bounds.minZ() >> 4; cz <= bounds.maxZ() >> 4; cz++) level.getChunk(cx, cz);
+                        var placedBounds = holder.value().adjustBoundingBox(
+                                net.minecraft.world.level.levelgen.structure.BoundingBox.encapsulatingBoxes(
+                                        start.getPieces().stream().map(piece -> piece.getBoundingBox()).toList()).orElseThrow());
+                        // Scattered pieces place foundations/traps below their nominal box (pyramid TNT is at local Y=-13).
+                        int verticalMargin = start.getPieces().stream().anyMatch(piece -> piece instanceof
+                                net.minecraft.world.level.levelgen.structure.ScatteredFeaturePiece) ? 16 : 0;
+                        var contentBounds = new net.minecraft.world.level.levelgen.structure.BoundingBox(bounds.minX(),
+                                Math.max(level.getMinBuildHeight(), Math.min(bounds.minY(), placedBounds.minY()) - verticalMargin), bounds.minZ(),
+                                bounds.maxX(), Math.min(level.getMaxBuildHeight() - 1, Math.max(bounds.maxY(), placedBounds.maxY()) + verticalMargin), bounds.maxZ());
+                        sample.addProperty("contentBounds", contentBounds.toString());
                         for (int cx = bounds.minX() >> 4; cx <= bounds.maxX() >> 4; cx++)
                             for (int cz = bounds.minZ() >> 4; cz <= bounds.maxZ() >> 4; cz++) {
                                 var full = level.getChunk(cx, cz);
                                 for (int x = Math.max(cx * 16, bounds.minX()); x <= Math.min(cx * 16 + 15, bounds.maxX()); x++)
                                     for (int z = Math.max(cz * 16, bounds.minZ()); z <= Math.min(cz * 16 + 15, bounds.maxZ()); z++)
-                                        for (int y = Math.max(level.getMinBuildHeight(), bounds.minY()); y <= Math.min(level.getMaxBuildHeight() - 1, bounds.maxY()); y++) {
+                                        for (int y = contentBounds.minY(); y <= contentBounds.maxY(); y++) {
                                             var block = full.getBlockState(pos.set(x, y, z)).getBlock();
                                             if (block != net.minecraft.world.level.block.Blocks.AIR
                                                     && block != net.minecraft.world.level.block.Blocks.CAVE_AIR)
@@ -175,9 +248,28 @@ final class StructureCoverageProbe {
                             }
                         sample.add("blocks", new Gson().toJsonTree(blocks));
                         if (!name.startsWith("mineshaft")) {
-                            var containers = VillageContentProbe.inspect(level, bounds,
+                            var containers = VillageContentProbe.inspect(level, contentBounds,
                                     !Boolean.getBoolean("neighbors.probe.surfaceStructures"));
                             sample.add("containers", containers);
+                            if (name.equals("desert_pyramid")) {
+                                long chests = java.util.stream.StreamSupport.stream(containers.spliterator(), false)
+                                        .filter(container -> container.getAsJsonObject().get("lootTable").getAsString()
+                                                .equals("minecraft:chests/desert_pyramid")).count();
+                                sample.addProperty("desertPyramidLootChests", chests);
+                                if (chests != 4 || blocks.getOrDefault("minecraft:tnt", 0) < 9
+                                        || blocks.getOrDefault("minecraft:stone_pressure_plate", 0) == 0)
+                                    {
+                                    var heights = new java.util.IntSummaryStatistics();
+                                    for (int x=bounds.minX();x<=bounds.maxX();x++) for(int z=bounds.minZ();z<=bounds.maxZ();z++)
+                                        heights.accept(level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,x,z));
+                                    throw new AssertionError("Desert pyramid content mismatch: chests=" + chests
+                                            + " tnt=" + blocks.getOrDefault("minecraft:tnt",0)
+                                            + " plate=" + blocks.getOrDefault("minecraft:stone_pressure_plate",0)
+                                            + " before=" + bounds + " after=" + placedBounds + " heights=" + heights
+                                            + " pieces=" + start.getPieces().stream().map(piece -> piece.createTag(
+                                                    net.minecraft.world.level.levelgen.structure.pieces.StructurePieceSerializationContext.fromLevel(level))).toList());
+                                }
+                            }
                             if (lootPosition == null) for (var container : containers) {
                                 var first = container.getAsJsonObject();
                                 // Dispensers and trial vaults retain native loot;
@@ -235,6 +327,13 @@ final class StructureCoverageProbe {
                             throw new AssertionError("Accepted stronghold has no complete portal frame: " + bounds);
                         if (name.equals("trial_chambers") && blocks.getOrDefault("minecraft:trial_spawner", 0) == 0)
                             throw new AssertionError("Accepted trial chamber has no realized trial spawner: " + bounds);
+                        if (name.equals("igloo")) {
+                            if (blocks.getOrDefault("minecraft:furnace", 0) == 0 || blocks.getOrDefault("minecraft:crafting_table", 0) == 0)
+                                throw new AssertionError("Igloo top did not materialize inside its recorded bounds: " + bounds);
+                            if (start.getPieces().size() > 1 && (blocks.getOrDefault("minecraft:ladder", 0) == 0
+                                    || blocks.getOrDefault("minecraft:brewing_stand", 0) == 0))
+                                throw new AssertionError("Igloo basement or ladder did not materialize inside its recorded bounds: " + bounds);
+                        }
                         if (name.equals("ancient_city")) {
                             if (blocks.getOrDefault("minecraft:reinforced_deepslate", 0) == 0)
                                 throw new AssertionError("Accepted ancient city has no realized center: " + bounds);
@@ -286,11 +385,27 @@ final class StructureCoverageProbe {
                     // Vanilla pieces persist placement flags for chests and spawners.
                     // Compare the finished state across save/reopen, not a pre-placement
                     // start against a post-placement save. Keep the earlier digest as evidence.
+                    sample.addProperty("boundsBeforeRealization", bounds.toString());
+                    // StructureStart caches its initial box. Scattered pieces can move during native placement,
+                    // so calculate the completed box from the current pieces before comparing a saved reload.
+                    var completedBounds = holder.value().adjustBoundingBox(
+                            net.minecraft.world.level.levelgen.structure.BoundingBox.encapsulatingBoxes(
+                                    start.getPieces().stream().map(piece -> piece.getBoundingBox()).toList()).orElseThrow());
+                    sample.addProperty("bounds", completedBounds.toString());
                     sample.addProperty("piecesDigest", piecesDigest(start, serialization));
                 }
                 samples.add(sample);
                 System.out.println("COVERAGE_STRUCTURE " + name + " " + candidate + " valid=" + valid);
-                if (accepted >= 2) break;
+                if (accepted >= 2 && !managed) break;
+            }
+            // Later native pending takeovers must not invalidate a start already counted as accepted.
+            for (int index = 0; index < selectedCandidates.size(); index++) {
+                var source = selectedCandidates.get(index);
+                var finalStart = level.getChunk(source.x, source.z, ChunkStatus.STRUCTURE_STARTS).getStartForStructure(holder.value());
+                boolean retained = finalStart != null && finalStart.isValid()
+                        && !org.sathrek.sky_archipelago.worldgen.generator.structure.v2.common.placement.PendingStructurePlacement.isRevoked(finalStart);
+                if (retained != samples.get(index).getAsJsonObject().get("valid").getAsBoolean())
+                    throw new AssertionError("Later native placement changed an observed start at " + source + " for " + id);
             }
             row.add("candidates", samples); row.addProperty("accepted", accepted); row.addProperty("realized", realized); rows.add(row);
             report.add("structures", rows); report.addProperty("complete", false);
@@ -309,6 +424,97 @@ final class StructureCoverageProbe {
         }
         report.addProperty("complete", pendingOutput == null);
         Files.writeString(output, new GsonBuilder().setPrettyPrinting().create().toJson(report));
+    }
+
+    /** Exercise the real private native guard in an isolated registry, without claiming a world slot. */
+    private static JsonObject physicalClaimIsolation(net.minecraft.server.level.ServerLevel level,
+            net.minecraft.world.level.chunk.ChunkAccess chunk, ChunkPos source, ResourceLocation id) throws Exception {
+        var registryType = Class.forName("org.sathrek.sky_archipelago.worldgen.generator.structure.v2.common.placement.PlacementCommitCoordinator$PhysicalStructureClaimRegistry");
+        var keyType = Class.forName("org.sathrek.sky_archipelago.worldgen.generator.structure.v2.common.placement.PlacementCommitCoordinator$PhysicalStructureClaimKey");
+        var constructor = registryType.getDeclaredConstructor(); constructor.setAccessible(true);
+        var registry = constructor.newInstance();
+        var keyConstructor = keyType.getDeclaredConstructor(long.class, ResourceLocation.class, net.minecraft.resources.ResourceKey.class,
+                int.class, int.class, int.class, int.class, int.class, int.class, int.class, int.class);
+        keyConstructor.setAccessible(true);
+        var key = keyConstructor.newInstance(level.getSeed(), id, level.dimension(), source.x, source.z, 0, 0, 0, 1, 1, 1);
+        var claim = registryType.getDeclaredMethod("tryClaim", keyType); claim.setAccessible(true);
+        var release = registryType.getDeclaredMethod("release", keyType); release.setAccessible(true);
+        if (claim.invoke(registry, key) != null || claim.invoke(registry, key) == null)
+            throw new AssertionError("Native unscoped physical duplicate control failed");
+        var state = level.getChunkSource().getGeneratorState();
+        var generator = (SkyIslandChunkGenerator)level.getChunkSource().getGenerator();
+        var random = level.getChunkSource().randomState();
+        var field = ((GeologicalGenerator)(Object)generator).skyweave$field(random);
+        var policy = design.inherent.skyweavecompat.terrain.structure.StructureConfiguration.policy();
+        var first = new design.inherent.skyweavecompat.terrain.structure.StructureDistribution(generator, field,
+                generator.resolvedSkyIslandSettings(), generator.getBiomeSource(), random, level.getSeed(), state.possibleStructureSets(), policy);
+        var second = new design.inherent.skyweavecompat.terrain.structure.StructureDistribution(generator, field,
+                generator.resolvedSkyIslandSettings(), generator.getBiomeSource(), random, level.getSeed(), state.possibleStructureSets(), policy);
+        java.util.function.Supplier<Boolean> duplicate = () -> {
+            try { return claim.invoke(registry, key) != null; }
+            catch (ReflectiveOperationException failed) { throw new IllegalStateException(failed); }
+        };
+        for (var owner : java.util.List.of(first, second)) {
+            boolean isolated = design.inherent.skyweavecompat.terrain.structure.StructureWorldScope.run(owner,
+                    () -> !duplicate.get() && duplicate.get());
+            if (!isolated) throw new AssertionError("World-owned native physical duplicate guard failed");
+        }
+        var deferred = design.inherent.skyweavecompat.terrain.structure.StructureWorldScope.run(first, () ->
+                design.inherent.skyweavecompat.terrain.structure.StructureWorldScope.bind(() -> {
+                    try { release.invoke(registry, key); }
+                    catch (ReflectiveOperationException failed) { throw new IllegalStateException(failed); }
+                }));
+        design.inherent.skyweavecompat.terrain.structure.StructureWorldScope.run(second, () -> { deferred.run(); return null; });
+        if (!design.inherent.skyweavecompat.terrain.structure.StructureWorldScope.run(second, duplicate)
+                || design.inherent.skyweavecompat.terrain.structure.StructureWorldScope.run(first, duplicate)
+                || !duplicate.get())
+            throw new AssertionError("Deferred release crossed world ownership or erased an unscoped claim");
+        var unownedDeferred = design.inherent.skyweavecompat.terrain.structure.StructureWorldScope.run(null, () ->
+                design.inherent.skyweavecompat.terrain.structure.StructureWorldScope.bind(() -> {
+                    try { release.invoke(registry, key); }
+                    catch (ReflectiveOperationException failed) { throw new IllegalStateException(failed); }
+                }));
+        design.inherent.skyweavecompat.terrain.structure.StructureWorldScope.run(second, () -> { unownedDeferred.run(); return null; });
+        if (!design.inherent.skyweavecompat.terrain.structure.StructureWorldScope.run(second, duplicate) || duplicate.get())
+            throw new AssertionError("Unowned deferred release borrowed the active world");
+        var context = new org.sathrek.sky_archipelago.worldgen.generator.structure.v2.common.placement.ReservationContext(
+                level.getSeed(), id, source, level.dimension());
+        var bounds = new net.minecraft.world.level.levelgen.structure.BoundingBox(10000000, 100, 10000000, 10000008, 108, 10000008);
+        java.util.function.Supplier<Boolean> reserve = () ->
+                org.sathrek.sky_archipelago.worldgen.generator.structure.v2.common.placement.StructurePlacementReservationRegistry
+                    .tryReserve(bounds, org.sathrek.sky_archipelago.worldgen.structure.StructurePlacementCategory.DEFAULT, context).accepted();
+        for (var owner : java.util.List.of(first, second)) {
+            if (!design.inherent.skyweavecompat.terrain.structure.StructureWorldScope.run(owner, () -> reserve.get() && !reserve.get()))
+                throw new AssertionError("Native reservation store crossed world ownership or lost duplicate rejection");
+        }
+        var owner = first.owner(source.getMiddleBlockX(), source.getMiddleBlockZ());
+        for (var world : java.util.List.of(first, second)) world.bind(level.registryAccess(), level.getServer().getStructureManager(),
+                net.minecraft.world.level.LevelHeightAccessor.create(level.getMinBuildHeight(), level.getHeight()), state);
+        var planned = java.util.concurrent.CompletableFuture.supplyAsync(() -> first.plan(owner));
+        var independent = java.util.concurrent.CompletableFuture.supplyAsync(() -> second.plan(owner));
+        var expected = ((design.inherent.skyweavecompat.terrain.structure.StructurePlacementState)state)
+                .skyweave$structureDistribution().plan(owner);
+        if (!expected.equals(planned.join()) || !expected.equals(independent.join()))
+            throw new AssertionError("Concurrent independent-world fitted plans differ");
+        var cacheField = first.getClass().getDeclaredField("fittedPlans"); cacheField.setAccessible(true);
+        ((com.google.common.cache.Cache<?, ?>)cacheField.get(first)).invalidateAll();
+        if (!expected.equals(first.plan(owner))) throw new AssertionError("Eviction changed fitted ownership or geometry");
+        var result = new JsonObject();
+        result.addProperty("concurrentWorldPlansMatch", true);
+        result.addProperty("evictionPlanMatches", true);
+        result.addProperty("unscopedDuplicateRejected", true);
+        result.addProperty("worldsIndependent", true);
+        result.addProperty("deferredReleaseOwned", true);
+        result.addProperty("nativeReservationsIndependent", true);
+        result.addProperty("foreignClaimPreserved", true);
+        result.addProperty("unownedDeferredReleaseIsolated", true);
+        return result;
+    }
+
+    private static boolean placementManaged(net.minecraft.world.level.chunk.ChunkGeneratorStructureState state,
+            net.minecraft.core.Holder<net.minecraft.world.level.levelgen.structure.Structure> holder) {
+        return state.getPlacementsForStructure(holder).stream().anyMatch(placement ->
+                placement instanceof design.inherent.skyweavecompat.terrain.structure.ArchipelagoStructurePlacement);
     }
 
     private static String piecesDigest(net.minecraft.world.level.levelgen.structure.StructureStart start,

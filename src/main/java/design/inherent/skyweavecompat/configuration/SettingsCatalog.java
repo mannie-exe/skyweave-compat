@@ -84,7 +84,7 @@ public final class SettingsCatalog {
             return switch (help) {
                 case "journal" -> Timing.IMMEDIATE;
                 case "villages" -> Timing.SERVER_START;
-                case "generation", "interiors", "rivers", "oceans", "ancient_cities" -> Timing.NEW_WORLD;
+                case "generation", "interiors", "rivers", "oceans", "ancient_cities", "structures" -> Timing.NEW_WORLD;
                 case "bluemap", "link_gui_client", "link_gui_common" -> Timing.RELOAD;
                 default -> Timing.GAME_RESTART;
             };
@@ -125,7 +125,7 @@ public final class SettingsCatalog {
             case BLUEMAP -> Group.BLUEMAP;
             case SURVEYOR_STRUCTURES -> Group.SURVEYOR;
             case TERRAIN, ORE_PLACEMENT, CARVERS, CAVE_BIOMES, ANCIENT_CITIES, SPAWN,
-                    STRUCTURE_LOCATION, WATER_SPAWNS, CLIMATE -> Group.TERRAIN;
+                    STRUCTURE_LOCATION, STRUCTURE_DISTRIBUTION, WATER_SPAWNS, CLIMATE -> Group.TERRAIN;
             case VILLAGE_CLEARANCE, VILLAGE_PLACEMENT -> Group.VILLAGES;
             case PRESSURE -> Group.PRESSURE;
         };
@@ -146,6 +146,7 @@ public final class SettingsCatalog {
             new FileEntry("skyweave_compat-interiors.json", Group.TERRAIN, "interiors", List.of(Feature.TERRAIN), SectionKind.TUNING),
             new FileEntry("skyweave_compat-rivers.json", Group.TERRAIN, "rivers", List.of(Feature.TERRAIN), SectionKind.TUNING),
             new FileEntry("skyweave_compat-oceans.json", Group.TERRAIN, "oceans", List.of(Feature.TERRAIN), SectionKind.TUNING),
+            new FileEntry("skyweave_compat-structures.json", Group.TERRAIN, "structures", List.of(Feature.STRUCTURE_DISTRIBUTION), SectionKind.TUNING),
             new FileEntry("skyweave_compat-ancient-cities.json", Group.TERRAIN, "ancient_cities", List.of(Feature.ANCIENT_CITIES), SectionKind.TUNING),
             new FileEntry("skyweave_compat-bluemap.json", Group.BLUEMAP, "bluemap", List.of(Feature.BLUEMAP), SectionKind.TUNING));
     private SettingsCatalog() {}
