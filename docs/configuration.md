@@ -222,19 +222,45 @@ This file uses the shared optimistic JSON editor under terrain tuning. Values ap
 
 This does not enable the global ocean or change sea level. Configured frequency is not realized river coverage. The generator owns support checks, plans, materials, flow and river-biome projection; Compat does not run a second basin generator. Native fluid ticks and later features can change initial fluid states. See [terrain stages and ownership](development/terrain.md#local-water).
 
+## Island outlines and fractured terrain
+
+`config/skyweave_compat-shapes.json` controls seeded horizontal variation in the Skyweave preset. The native vertical body remains unchanged. Settings apply at startup, enter saved generation identity, and require a new world when changed. Use the typed editor under **World → Sky Archipelago → Tuning**; nested groups share the same validation as startup.
+
+| Field/group | Defaults | Meaning |
+| --- | --- | --- |
+| `enabled` | true | Enable horizontal shape modifiers |
+| `strengthVariation` | 0.15 | Seeded variation of up to ±15% around outline displacement, edge displacement and disturbed perimeter coverage; 0 keeps fixed strengths |
+| `outline.aspectChance`, `maximumAspectRatio` | 0.65, 1.96 | Chance and maximum length-to-width ratio for approximately area-preserving elongation |
+| `outline.warpAmplitude`, `warpWavelength` | 26, 102 | Broad outline displacement and wavelength, in blocks; small bodies cap displacement |
+| `edges.chance`, `affectedFraction` | 0.45, 0.625 | Island selection chance and approximate disturbed share of its perimeter |
+| `edges.bandWidth`, `amplitude`, `wavelength` | 57, 24, 26 | Edge-band width, displacement, and local scale in blocks |
+| `fractures.chance` | 0.35 | Fractured selection among eligible land-biome anchors |
+| `fractures.biomes` | Mushroom Fields, Badlands, Eroded Badlands, Wooded Badlands | Exact namespaced biome IDs; other biomes retain ordinary exteriors |
+| `fractures.cellSize`, `gapWidth`, `verticalRange` | 72, 6, 32 | Remnant scale, separating gaps, and maximum vertical shift, in blocks |
+| `fractures.removalChance` | 0.28 | Missing-remnant selection outside the protected core |
+| `fractures.deepDarkChance` | 0.01 | Separate selection at native Deep Dark climate hosts; also requires `terrain.cave_biomes` |
+| `fractures.sculkPatchChance` | 0.25 | Per-chunk native sculk-patch chance on fractured Deep Dark surfaces |
+
+These are selection settings, not measured worldwide frequencies. Deep Dark selection samples native underground climate eligibility; it does not turn every existing cave patch into a surface island or guarantee an Ancient City. Fractured geometry and biome ecology remain independent of NOISE/HOLLOW interiors. Thin remnants retain rock when the configured cavity shell cannot fit. Set `enabled` false to disable the new horizontal modifiers; this does not disable existing interiors or change the native taper. See [sampling and ownership](development/terrain-variation.md).
+
 ## Ocean habitats
 
-`config/skyweave_compat-oceans.json` defaults to `enabled: true`. It admits native floating ocean archetypes in eligible ocean-biome locations, independently of the disabled global ocean layer. Explicit saved opt-outs remain authoritative. Native settings own archetype selection, weights, materials, biomes and underbellies. Water-archetype anchors have no land companions.
+`config/skyweave_compat-oceans.json` controls native floating ocean habitats independently of the disabled global ocean layer. Only locations admitted by `sky_archipelago:spawn_ocean_islands` qualify. Rejected locations remain void; ordinary land is not substituted. The resolved marked preset owns these settings; foreign Sky Archipelago presets retain upstream behavior.
 
 | Fields | Defaults | Purpose |
 | --- | --- | --- |
-| `enabled` | true | Admit floating ocean habitats |
-| `coastalChance`, `perimeterChance` | 0.04, 0.01 | Deterministic edge-treatment choices on eligible Lagoon/Reef Ring descriptors |
+| `enabled`, `admissionChance` | true, 0.20 | Enable habitats and admit one fifth of activated ocean-biome opportunities before clearance |
+| `lagoonWeight`, `brokenReefWeight` | 1, 1 | Relative weights among admitted ocean candidates |
+| `reefRingWeight`, `deadOceanShelfWeight` | 0, 0 | Disabled by default; positive weights retain explicit native alternatives |
+| `coastalChance`, `perimeterChance` | 0.25, 0.15 | Mutually exclusive Lagoon-only edge treatments; remaining 0.60 retains the native rim |
 | `perimeterMinRadius`, `perimeterMaxRadius` | 40, 64 | Descriptor radii for falling-perimeter hosts |
 | `outletWidth`, `outletDepth` | 2, 2 | Coastal corridor width and depth below fluid surface |
 | `sealThickness` | 4 | Minimum retaining-bed thickness |
+| `spireCompanions`, `spireClearance` | true, 16 | Separate solid needles around ocean hosts and horizontal clearance from their footprints |
 
-Coastal mode lowers a selected native rim corridor; perimeter mode lowers the rim around the wet footprint. Unselected native profiles remain unchanged. There is no separate enclosed basin or underside-outlet backend. All fields are required and included in generation identity. Use a fresh world when changing them. These policies do not certify aquatic progression, natural populations or resource availability; [verification](development/verification.md) records actual tested coverage.
+Coastal mode lowers a selected native rim corridor; perimeter mode lowers the rim around the wet footprint. Broken Reef and other native water types retain their own edges. Ocean clusters receive solid spires rather than ordinary land satellites. There is no separate enclosed-basin or underside-outlet generator. Actual fluid ticks and feature generation remain authoritative over realized waterfalls.
+
+All fields enter generation identity and need a fresh world when changed. The exact previous eight-field ocean schema remains readable: existing values are preserved, and new fields receive defaults. Startup and opening the editor do not rewrite it. Saving an edited profile writes the complete validated schema through the existing conflict checks. Unknown fields and incomplete or malformed profiles still fail; accepting an old configuration does not convert an incompatible world. Explicit false values remain authoritative. [Verification](development/verification.md) records tested material, flow, persistence, and consumer coverage separately from aquatic progression.
 
 ## Structure distribution
 

@@ -28,6 +28,7 @@ public abstract class ClusterPlacementMixin implements ClusterField {
     @Shadow private ClusterDescriptor sampleCluster(int x, int z, SkyIslandSettings settings) { throw new AssertionError(); }
     @Shadow private List<IslandTerrainPlan> buildClusterTerrainPlans(ClusterDescriptor cluster, SkyIslandSettings settings) { throw new AssertionError(); }
     @Shadow @Final private IslandDescriptorFactory descriptorFactory;
+    @Shadow @Final private org.sathrek.sky_archipelago.worldgen.generator.field.internal.IslandShapeSampler shapeSampler;
     @Shadow private IslandTerrainPlan terrainPlanForDescriptor(IslandDescriptor island, SkyIslandSettings settings) { throw new AssertionError(); }
 
     @Unique private List<IslandDescriptor> skyweave$descriptors(ClusterDescriptor cluster, SkyIslandSettings settings) {
@@ -37,12 +38,29 @@ public abstract class ClusterPlacementMixin implements ClusterField {
     @Inject(method = "createClusterTerrainPlans", at = @At("RETURN"), cancellable = true)
     private void spires(ClusterDescriptor cluster, SkyIslandSettings settings,
             CallbackInfoReturnable<List<IslandTerrainPlan>> result) {
-        if (skyweave$layoutProfile() == null || cluster.archetype().waterBased()
+        if (skyweave$layoutProfile() == null || cluster.archetype().waterBased() && !OceanConfiguration.profile().spireCompanions()
                 || !settings.advanced().clusterCompanionIslandsEnabled() || cluster.spireCount() == 0) return;
         var plans = new ArrayList<>(result.getReturnValue());
-        for (int i = 0; i < cluster.spireCount(); i++)
-            plans.add(terrainPlanForDescriptor(descriptorFactory.createSpireDescriptor(cluster, settings, i), settings));
+        for (int i = 0; i < cluster.spireCount(); i++) {
+            var spire = terrainPlanForDescriptor(descriptorFactory.createSpireDescriptor(cluster, settings, i), settings);
+            if (!cluster.archetype().waterBased() || skyweave$clearOceanSpire(plans.getFirst(), spire)) plans.add(spire);
+        }
         result.setReturnValue(List.copyOf(plans));
+    }
+
+    @Unique private boolean skyweave$clearOceanSpire(IslandTerrainPlan ocean, IslandTerrainPlan spire) {
+        int gap = OceanConfiguration.profile().spireClearance();
+        var a = ocean.bounds(); var b = spire.bounds();
+        int minX = Math.max(a.minX(), b.minX() - gap), maxX = Math.min(a.maxX(), b.maxX() + gap);
+        int minZ = Math.max(a.minZ(), b.minZ() - gap), maxZ = Math.min(a.maxZ(), b.maxZ() + gap);
+        // Integer footprint exhaustion is bounded by the small spire's support envelope.
+        // Sampling a coarse grid could miss narrow native reef/rim remnants.
+        for (int x = minX; x <= maxX; x++) for (int z = minZ; z <= maxZ; z++) {
+            var horizontal = shapeSampler.sampleHorizontal(ocean, x, z);
+            if (horizontal.inInfluence() && shapeSampler.sampleWaterArchetypeColumnProfile(ocean.descriptor(), horizontal).exists())
+                return false;
+        }
+        return true;
     }
 
     @Unique private final Cache<ClusterCacheKey, Optional<ClusterDescriptor>> skyweave$candidates = CacheBuilder.newBuilder().maximumSize(8192).build();
@@ -61,7 +79,7 @@ public abstract class ClusterPlacementMixin implements ClusterField {
             // Admission follows the displaced anchor and its surface datum, not the old cell center.
             var biome = biomeTerrainSampler.sample(sampled.centerX(), sampled.centerY() + profile.anchorPlateau(), sampled.centerZ());
             if (biome.oceanIslandsEligible()) {
-                if (OceanConfiguration.profile().enabled()) {
+                if (OceanConfiguration.profile().admits(sampled.seed())) {
                     var archetype = clusterSampler.selectAnchorArchetype(x, z, settings, true);
                     if (archetype != null) candidate = sampled.withArchetype(archetype);
                 }

@@ -19,7 +19,8 @@ public final class CaveProjection {
             var settings = generator.resolvedSkyIslandSettings();
             var field = ((GeologicalGenerator)(Object)generator).skyweave$field(random);
             var exterior = exterior(field,settings,qx,qz);
-            var result = original;
+            var result = fracturedBiome(field, source, exterior, original, qy);
+            if (result.is(Biomes.DEEP_DARK) && result != original) return result;
             int y = qy * 4 + 2;
             if (DeepDarkProjectorAccess.skyweave$eligible(exterior.profile(),y)) {
                 var deepDark = source.possibleBiomes().stream().filter(b -> b.is(Biomes.DEEP_DARK)).findFirst().orElse(null);
@@ -38,8 +39,20 @@ public final class CaveProjection {
         try (var ignored = SkyIslandDeepDarkBiomeProjector.suppressProjection()) {
             var settings = generator.resolvedSkyIslandSettings();
             var field = ((GeologicalGenerator)(Object)generator).skyweave$field(random);
-            return relative(field,settings,exterior(field,settings,qx,qz),resolver,original,qx,qy,qz,sampler);
+            var exterior = exterior(field,settings,qx,qz);
+            var ecological = fracturedBiome(field, generator.getBiomeSource(), exterior, original, qy);
+            return ecological != original ? ecological : relative(field,settings,exterior,resolver,original,qx,qy,qz,sampler);
         }
+    }
+
+    private static Holder<Biome> fracturedBiome(IslandField field, BiomeSource source, ColumnData exterior,
+            Holder<Biome> original, int qy) {
+        var owner = exterior.dominantDescriptor();
+        var styles = ((StyledTerrain)(Object)field).skyweave$styles();
+        if (owner == null || styles == null || styles.style(owner).kind() != IslandStyles.Kind.DEEP_DARK) return original;
+        int y = qy * 4 + 2;
+        if (exterior.segments().stream().noneMatch(column -> y >= column.bottomY() - 4 && y <= column.topY() + 20)) return original;
+        return source.possibleBiomes().stream().filter(biome -> biome.is(Biomes.DEEP_DARK)).findFirst().orElse(original);
     }
 
     private static ColumnData exterior(IslandField field, SkyIslandSettings settings, int qx, int qz) {

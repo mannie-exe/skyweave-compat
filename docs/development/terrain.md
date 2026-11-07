@@ -32,11 +32,11 @@ on X and Z. Companions retain explicit source-cell ownership even when they cros
 a cell boundary. Terrain fills, height queries, structure support and previews
 consume the same accepted descriptors.
 
-Main-island radii are 270 to 370 blocks; companions use radii 40 to 110 and orbits 470 to 680. Land spires retain their smaller native dimensions; water-archetype anchors have no companions. Each cluster selects an integer nominal height from 250 to 400. `GenerationProfile.cliffDepth` inverts native 1.4's full-coverage body-depth approximation; it does not replace the native sampler. Parameter rounding and native relief mean the target is not the height of every column or a guarantee of exact island extrema.
+Base main-island radii are 270 to 370 blocks before area-preserving horizontal elongation; ordinary companions use radii 40 to 110 and orbits 470 to 680. Separate solid spires retain their smaller dimensions and can accompany land or ocean anchors. Ocean clusters do not receive ordinary land satellites. [Horizontal variation](terrain-variation.md) defines outlines, disturbed edges, and fractured ecology without replacing the native vertical body. Each cluster selects an integer nominal height from 250 to 400. `GenerationProfile.cliffDepth` inverts native 1.4's full-coverage body-depth approximation; it does not replace the native sampler. Parameter rounding and native relief mean the target is not the height of every column or a guarantee of exact island extrema.
 
 Requested centers remain Y=200 to 490. Placement fits the selected native body rather than clipping it: a 400-block target currently needs Y>=338 at the default clearances, while a 250-block target can begin at Y=200. The lower bound accounts for native shoulder expansion, bounded relief and wet-profile underbelly budgets. Companion elevations are fitted independently. The shape reserves 32 blocks above the dimension floor and 200 above terrain. Terrain and geology are not compressed to fit.
 
-Sky Archipelago 1.4 owns land-body intervals, rims, erosion and exterior archetypes. Compat does not supply a separate taper or per-voxel exterior algorithm. Pure interval and proven-empty paths remain available. Native four-corner interpolation remains available for baseline columns; columns involving authored interiors require exact resolution because four exterior heights cannot prove the absence of a passage between them.
+Sky Archipelago 1.4 owns land-body intervals, rims, erosion and exterior archetypes. Compat retains the native taper; horizontal masks and bounded remnant translations compose with its body intervals. Pure interval and proven-empty paths remain available. Native four-corner interpolation remains available for baseline columns; columns involving authored interiors require exact resolution because four exterior heights cannot prove the absence of a passage between them.
 
 Conservative lookup bounds enclose native rotated/warped plans and water archetypes. They do not modify the shape and are not realized shoreline measurements. Whole-cluster clearance compares native plan support rectangles, including companions. Trees, structures and player construction are outside this terrain-support guarantee. Missing clusters can create longer journeys.
 
@@ -51,7 +51,7 @@ motion-blocking height, solid support, clear feet/head and fluids, then searches
 bounded four-block offsets up to 16 blocks if necessary. It fails explicitly when
 no landing exists. Chunk loads occur only during startup, never in the terrain
 query path. Review the upstream fallback's event and saved-world guard when
-updating; this hook must not relocate existing worlds.
+updating; this hook must not relocate existing worlds. When the local 16-block check fails on water or an opening, Compat considers up to 24 nearby accepted descriptors within 8192 blocks, inspecting at most 216 planned positions and explicitly requesting at most 32 chunks across the whole validation. It skips planned underwater caps, then checks generated support, collision-free feet/head space, fluid, and the world border. This startup-only fallback can use a solid companion; metadata lookup itself never requests chunks. Failure remains explicit when the finite search finds no safe landing.
 
 
 Embedded settings retain biome eligibility, archetypes and structure policy.
@@ -84,8 +84,7 @@ candidates back toward cell centers.
 
 The conflict neighborhood is bounded by
 `ceil((2*jitter + 2*clusterReach + minimumClusterGap) / spacing)` cells. Point and
-area lookups use `ceil((jitter + reach + ceil(spacing/2)) / spacing)`. Both are two
-cells at defaults. Profile validation limits conflict searches to eight cells.
+area lookups use `ceil((jitter + reach + ceil(spacing/2)) / spacing)`. With the default maximum elongation, conflict search covers three cells and point/area lookup two. Profile validation limits conflict searches to eight cells.
 Village lookup includes its maximum supported placement reach and retry allowance.
 Native density, column resolution, chunk snapshots, previews and geological lookup
 use the derived bounds; none loads neighboring chunks to decide terrain. Candidate
@@ -140,7 +139,7 @@ The selected native exterior remains independent of the interior mode.
 
 Surface painting follows the exterior cap and skips cavity air/fluid instead of
 refilling openings. Lush/dripstone projection tests the exterior envelope, including
-interior air and retained lower bodies. Deep Dark retains native 1.4's fixed Y=-48 biome proxy and lower 45% of the uncarved native exterior. Both stored biome creation and structure eligibility use that same body; a surviving roof cannot replace its depth band. Ancient Cities query their actual proposed/final interior height, without a separate eligibility-only height substitution. `CaveProjection` also serves the generator's physical-biome boundary, using its existing sampler-to-world association. Native land-host resolution otherwise drops cave ownership before final structure validation and outside generation scopes. The adapter reuses native Deep Dark eligibility/projection methods and shares the relative lush/dripstone resolver with biome filling; it does not fabricate a structure scope. Ordinary presets, suppressed projection and samplers not yet associated with a world retain native behavior. Dependency updates must recheck both projector overloads, the generator's physical-source return boundary, native projection methods, sampler association, host-biome suppression, and stored/physical-query agreement. Native biome discovery also has its own candidate search; matching queried cells does not prove that search finds every projected cave biome. Native classic carving is separately configurable and
+interior air and retained lower bodies. Ordinary cave Deep Dark retains native 1.4's fixed Y=-48 biome proxy and lower 45% of the uncarved native exterior. The separately selected [fractured Deep Dark ecology](terrain-variation.md#biomes-and-water) also owns its surface biome without guaranteeing a city. Both stored biome creation and structure eligibility use that same body; a surviving roof cannot replace its depth band. Ancient Cities query their actual proposed/final interior height, without a separate eligibility-only height substitution. `CaveProjection` also serves the generator's physical-biome boundary, using its existing sampler-to-world association. Native land-host resolution otherwise drops cave ownership before final structure validation and outside generation scopes. The adapter reuses native Deep Dark eligibility/projection methods and shares the relative lush/dripstone resolver with biome filling; it does not fabricate a structure scope. Ordinary presets, suppressed projection and samplers not yet associated with a world retain native behavior. Dependency updates must recheck both projector overloads, the generator's physical-source return boundary, native projection methods, sampler association, host-biome suppression, and stored/physical-query agreement. Native biome discovery also has its own candidate search; matching queried cells does not prove that search finds every projected cave biome. Native classic carving is separately configurable and
 can alter the baseline after these queries. Queries never load neighboring chunks.
 
 ## Local water
@@ -155,9 +154,9 @@ Completed point queries and chunk filling consume the same cached native snapsho
 
 ## Ocean habitats
 
-The global ocean layer stays disabled. `OceanProfile.enabled` separately admits native floating water archetypes in eligible ocean-biome locations; its default is true. Existing explicit false values remain authoritative and settings remain part of saved generation identity. Native settings own archetype weights, land/water materials, biome projections, seals and underbellies. Wet anchors do not receive land companions.
+The global ocean layer stays disabled. `OceanProfile.enabled` separately admits native floating water archetypes in eligible ocean-biome locations; its default is true. Existing explicit false values remain authoritative and settings remain part of saved generation identity. The owned ocean profile resolves marked-preset admission and relative weights; native material, biome, seal, and underbelly code retains its responsibilities. Wet anchors can receive separate solid spires, but no ordinary land satellites.
 
-`OceanIslands` extends native Lagoon and Reef Ring profiles only. Coastal mode lowers a selected rim corridor to provide an intentional outlet; perimeter mode lowers the rim around the native footprint to provide falling edges. Other native profiles remain unchanged. There is no independent enclosed basin, ocean-biome projector or underside-outlet generator. Selection and extension parameters are deterministic and configurable; configured chances are not measured realized frequencies.
+`OceanIslands` extends native Lagoon profiles only. Coastal mode lowers a selected rim corridor to provide an intentional outlet; perimeter mode lowers the rim around the native footprint to provide falling edges. Other native profiles remain unchanged. There is no independent enclosed basin, ocean-biome projector or underside-outlet generator. Selection and extension parameters are deterministic and configurable; configured chances are not measured realized frequencies.
 
 When updating Sky Archipelago, review water-profile provenance through all column reconstruction and snapshot stages, native rim sealing, river/aquifer ownership, flow-frontier scheduling, projected biomes, and native structure support. Selected fixtures cannot establish world-wide frequency, aquatic spawn populations or complete ocean progression.
 

@@ -31,13 +31,26 @@ public abstract class ColumnResolverMixin implements ProfiledTerrain, InteriorRe
     private void interiors(int x, int z, SkyIslandSettings settings, int top, int bottom, long started,
             List<ResolvedContributor> contributors, int checks, boolean snapshot,
             CallbackInfoReturnable<ColumnData> result) {
-        result.setReturnValue(skyweave$carve(x, z, settings, contributors, result.getReturnValue()));
+        result.setReturnValue(skyweave$shaped(checks, skyweave$carve(x, z, settings, contributors, result.getReturnValue())));
     }
 
     @Inject(method = "resolveTopColumnDataFromContributors", at = @At("RETURN"), cancellable = true)
     private void topInteriors(int x, int z, SkyIslandSettings settings, int top, int bottom, long started,
             List<ResolvedContributor> contributors, int checks, CallbackInfoReturnable<ColumnData> result) {
-        result.setReturnValue(skyweave$carve(x, z, settings, contributors, result.getReturnValue()));
+        result.setReturnValue(skyweave$shaped(checks, skyweave$carve(x, z, settings, contributors, result.getReturnValue())));
+    }
+
+    @Unique private ColumnData skyweave$shaped(int checks, ColumnData column) {
+        var shape = design.inherent.skyweavecompat.terrain.ShapeConfiguration.profile();
+        if (skyweave$profile == null || !shape.enabled() || checks == 0
+                || shape.edges().chance() == 0 && shape.fractures().chance() == 0 && shape.fractures().deepDarkChance() == 0)
+            return column;
+        // A gap can occupy all four lattice corners while a remnant survives between them.
+        // Keep candidate-index proven-empty cells fast, but never interpolate possible fractured terrain.
+        if (column == ColumnData.EMPTY) column = new ColumnData(column.segments(), column.profile(), column.dominantDescriptor(),
+                column.waterArchetype(), column.river(), column.overlayExposedSegments());
+        ((LayeredColumn)(Object)column).skyweave$requireExactSampling();
+        return column;
     }
 
     @Unique private ColumnData skyweave$carve(int x, int z, SkyIslandSettings settings,

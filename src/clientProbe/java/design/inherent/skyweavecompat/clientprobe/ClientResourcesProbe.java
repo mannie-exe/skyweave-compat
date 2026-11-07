@@ -46,6 +46,12 @@ final class ClientResourcesProbe {
         worldText = Files.isRegularFile(root.resolve("world-text-review.json")) && net.neoforged.fml.ModList.get().isLoaded("iris")
                 ? new ClientWorldTextProbe() : null;
         NeoForge.EVENT_BUS.addListener(this::tick);
+        if (Boolean.getBoolean("skyweave_compat.probe.terrain_capture")) {
+            NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.ViewportEvent.RenderFog event) -> {
+                // Inspection photography only; never installed in the shipping mod.
+                event.setNearPlaneDistance(8192); event.setFarPlaneDistance(8193); event.setCanceled(true);
+            });
+        }
     }
     private void tick(ClientTickEvent.Post event) {
         var mc = Minecraft.getInstance();
@@ -144,6 +150,7 @@ final class ClientResourcesProbe {
                             modelReport = worldText.snapshot(command.has("remember") && command.get("remember").getAsBoolean());
                         }
                         case "snapshot" -> {}
+                        case "terrain_ready" -> modelReport = terrainReadiness(command);
                         case "structure_records" -> modelReport = ClientStructureRecordsProbe.observe(mc,
                                 command.get("chunkX").getAsInt(), command.get("chunkZ").getAsInt(),
                                 command.get("structure").getAsString());
@@ -285,5 +292,53 @@ final class ClientResourcesProbe {
             if (error != null) report.addProperty("error",error);
             Files.writeString(root.resolve("resource-review-state.json"),new GsonBuilder().setPrettyPrinting().create().toJson(report));
         } catch (java.io.IOException failure) { throw new IllegalStateException(failure); }
+    }
+    private static com.google.gson.JsonObject terrainReadiness(com.google.gson.JsonObject command) throws ReflectiveOperationException {
+        if (!Boolean.getBoolean("skyweave_compat.probe.terrain_capture"))
+            throw new IllegalStateException("Enable the isolated terrain-capture fixture");
+        var mc = Minecraft.getInstance();
+        if (mc.level == null || mc.getSingleplayerServer() == null)
+            throw new IllegalStateException("Expected an isolated integrated world");
+        int x = command.get("chunkX").getAsInt(), z = command.get("chunkZ").getAsInt();
+        int radius = command.get("radius").getAsInt();
+        if (radius < 1 || radius > 30) throw new IllegalArgumentException("Capture radius must be 1..30 chunks");
+        var rendererType = Class.forName("net.caffeinemc.mods.sodium.client.render.SodiumWorldRenderer");
+        var renderer = rendererType.getMethod("instance").invoke(null);
+        var sectionReady = rendererType.getMethod("isSectionReady", int.class, int.class, int.class);
+        int expected = 0, loaded = 0, occupied = 0, visibleTops = 0, topsReady = 0;
+        var missing = new com.google.gson.JsonArray();
+        for (int dx = -radius; dx <= radius; dx++) for (int dz = -radius; dz <= radius; dz++) {
+            if (dx * dx + dz * dz > radius * radius) continue;
+            expected++;
+            var chunk = mc.level.getChunkSource().getChunk(x + dx, z + dz,
+                    net.minecraft.world.level.chunk.status.ChunkStatus.FULL, false);
+            if (chunk == null) {
+                if (missing.size() < 8) missing.add((x + dx) + "," + (z + dz));
+                continue;
+            }
+            loaded++;
+            var sections = chunk.getSections();
+            for (int index = sections.length - 1; index >= 0; index--) {
+                if (sections[index].hasOnlyAir()) continue;
+                occupied++;
+                int sectionY = chunk.getMinSection() + index;
+                var box = new net.minecraft.world.phys.AABB((x + dx) * 16, sectionY * 16, (z + dz) * 16,
+                        (x + dx + 1) * 16, (sectionY + 1) * 16, (z + dz + 1) * 16);
+                if (mc.levelRenderer.getFrustum().isVisible(box)) {
+                    visibleTops++;
+                    if ((boolean)sectionReady.invoke(renderer, x + dx, sectionY, z + dz)) topsReady++;
+                }
+                break;
+            }
+        }
+        var result = new com.google.gson.JsonObject();
+        result.addProperty("expectedChunks", expected); result.addProperty("loadedChunks", loaded);
+        boolean queueEmpty = (boolean)rendererType.getMethod("isTerrainRenderComplete").invoke(renderer);
+        result.addProperty("occupiedChunks", occupied); result.addProperty("visibleTopSections", visibleTops);
+        result.addProperty("topMeshesReady", topsReady); result.addProperty("meshQueueEmpty", queueEmpty);
+        result.addProperty("nativeDistance", mc.options.renderDistance().get());
+        result.addProperty("ready", loaded == expected && topsReady == visibleTops && queueEmpty);
+        result.add("missingSample", missing); result.addProperty("renderer", rendererType.getMethod("getChunksDebugString").invoke(renderer).toString());
+        return result;
     }
 }

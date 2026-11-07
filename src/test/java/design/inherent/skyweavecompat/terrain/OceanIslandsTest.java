@@ -19,7 +19,7 @@ class OceanIslandsTest {
     private HorizontalSample point(double x, double z) { return new HorizontalSample(x, z, .5, .5, 1, true); }
 
     @Test void coastalOpeningIsDirectionalAndPreservesNativeFluidAndRockProvenance() {
-        var profile = new OceanProfile(true, 1, 0, 40, 64, 4, 2, 4);
+        var profile = new OceanProfile(true, 1, 1, 0, 0, 1, 1, 0, 40, 64, 4, 2, 4, true, 16);
         double angle = OceanProfile.unit(SEED ^ 0x179d5b396a1cb874L) * Math.PI * 2;
         var source = shore();
         var changed = OceanIslands.adapt(island(IslandShapeArchetype.LAGOON),
@@ -33,15 +33,34 @@ class OceanIslandsTest {
                 point(-50 * Math.cos(angle), -50 * Math.sin(angle)), source, profile));
     }
 
-    @Test void perimeterReusesNativeFootprintWhileDisabledAndDryArchetypesStayUnchanged() {
-        var profile = new OceanProfile(true, 0, 1, 40, 64, 2, 2, 4);
+    @Test void perimeterReusesLagoonFootprintAndOtherArchetypesStayUnchanged() {
+        var profile = new OceanProfile(true, 1, 1, 0, 0, 1, 0, 1, 40, 64, 2, 2, 4, true, 16);
+        var disabled = new OceanProfile(false, 1, 1, 0, 0, 1, 0, 1, 40, 64, 2, 2, 4, true, 16);
         var source = shore();
-        for (var type : new IslandShapeArchetype[]{IslandShapeArchetype.LAGOON, IslandShapeArchetype.REEF_RING}) {
-            assertTrue(OceanIslands.adapt(island(type), point(-60, 20), source, profile).water());
-            assertSame(source, OceanIslands.adapt(island(type), point(0, 0), source, OceanProfile.INITIAL));
-            assertSame(WaterArchetypeColumnProfile.OUTSIDE, OceanIslands.adapt(island(type), point(1000, 0),
-                    WaterArchetypeColumnProfile.OUTSIDE, profile));
+        assertTrue(OceanIslands.adapt(island(IslandShapeArchetype.LAGOON), point(-60, 20), source, profile).water());
+        assertSame(source, OceanIslands.adapt(island(IslandShapeArchetype.LAGOON), point(0, 0), source, disabled));
+        assertSame(WaterArchetypeColumnProfile.OUTSIDE, OceanIslands.adapt(island(IslandShapeArchetype.LAGOON), point(1000, 0),
+                WaterArchetypeColumnProfile.OUTSIDE, profile));
+        for (var type : new IslandShapeArchetype[]{IslandShapeArchetype.REEF_RING, IslandShapeArchetype.DEAD_OCEAN_SHELF,
+                IslandShapeArchetype.BROKEN_OCEAN_REEF, IslandShapeArchetype.CLASSIC}) {
+            assertSame(source, OceanIslands.adapt(island(type), point(-60, 20), source, profile));
         }
-        assertSame(source, OceanIslands.adapt(island(IslandShapeArchetype.DEAD_OCEAN_SHELF), point(0, 0), source, profile));
+    }
+
+    @Test void admissionAndLagoonModesUseIndependentStableDraws() {
+        var profile = OceanProfile.INITIAL;
+        int admitted = 0, coastal = 0, perimeter = 0;
+        for (long seed = 0; seed < 40000; seed++) if (profile.admits(seed)) {
+            admitted++;
+            if (profile.mode(seed) == OceanProfile.Mode.COASTAL) coastal++;
+            if (profile.mode(seed) == OceanProfile.Mode.PERIMETER) perimeter++;
+        }
+        assertEquals(.20, admitted / 40000.0, .01);
+        assertEquals(.25, coastal / (double)admitted, .02);
+        assertEquals(.15, perimeter / (double)admitted, .02);
+        var json = new com.google.gson.Gson().toJson(profile);
+        assertEquals(profile, OceanConfiguration.parse(json));
+        assertThrows(RuntimeException.class, () -> OceanConfiguration.parse(json.replace("\"admissionChance\":0.2", "\"admissionChance\":2")));
+        assertThrows(RuntimeException.class, () -> OceanConfiguration.parse(json.replace("\"lagoonWeight\":1.0", "\"lagoonWeight\":-1")));
     }
 }

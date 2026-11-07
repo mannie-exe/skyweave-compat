@@ -49,6 +49,7 @@ final class WaterProbe {
         int horizontalSamples = 0;
         int radius = Integer.getInteger("neighbors.probe.waterRadius", 8192);
         boolean oceans = Boolean.getBoolean("neighbors.probe.oceans");
+        if (oceans) report.add("oceanSpires", oceanSpires(field, settings));
         var samplerField = IslandField.class.getDeclaredField("shapeSampler");
         samplerField.setAccessible(true);
         var shapes = (org.sathrek.sky_archipelago.worldgen.generator.field.internal.IslandShapeSampler)samplerField.get(field);
@@ -73,6 +74,7 @@ final class WaterProbe {
             if (!selected.containsAll(EnumSet.of(Kind.RIVER,Kind.LAKE)))
                 throw new IllegalStateException("Native river/lake witnesses missing in bounded plan search: " + selected);
         }
+        var oceanDiagnostics = new JsonArray(); report.add("oceanDiagnostics", oceanDiagnostics);
         if (oceans)
         for (var preview : field.collectIslandPreviewsInRadius(0, 0, radius, settings)) {
             if (SITES.size() >= 3) break;
@@ -83,7 +85,7 @@ final class WaterProbe {
             var mode = Kind.valueOf(OceanConfiguration.profile().mode(island.seed()).name());
             if (selected.contains(mode)) continue;
             int reach = GenerationProfile.supportRadius(island.maxRadius());
-            Site choice = null;
+            Site choice = null; int wetSamples = 0, openNeighbors = 0;
             // Dense enough to find narrow cuts, with an explicit total query budget.
             int step = mode == Kind.COASTAL ? 2 : Math.max(2, island.maxRadius() / 20);
             search: for (int dx = -reach; dx <= reach; dx += step)
@@ -101,17 +103,24 @@ final class WaterProbe {
                     }
                     var water = field.sampleWaterArchetypeColumnProfile(x, z, settings);
                     if (!water.water()) continue;
+                    wetSamples++;
                     var source = new BlockPos(x, water.fluidSurfaceY(), z);
                     if (mode == Kind.NATIVE) { choice = new Site(source, null, water.solidSurfaceY(), mode); break search; }
                     for (var direction : Direction.Plane.HORIZONTAL) {
                         var edge = source.relative(direction);
-                        if (columns(field, edge.getX(), edge.getZ(), settings).stream().noneMatch(c -> c.contains(edge.getY()))
-                                && field.sampleSolidSegments(edge.getX(), edge.getZ(), settings).stream()
+                        if (columns(field, edge.getX(), edge.getZ(), settings).stream().anyMatch(c -> c.contains(edge.getY()))) continue;
+                        openNeighbors++;
+                        if (field.sampleSolidSegments(edge.getX(), edge.getZ(), settings).stream()
                                 .noneMatch(c -> c.intersectsInclusive(edge.getY()-16,edge.getY()))) {
                             choice = new Site(source, edge, water.solidSurfaceY(), mode); break search;
                         }
                     }
                 }
+            var diagnostic = new JsonObject(); diagnostic.addProperty("x", island.centerX()); diagnostic.addProperty("z", island.centerZ());
+            diagnostic.addProperty("mode", mode.name()); diagnostic.addProperty("wetSamples", wetSamples);
+            diagnostic.addProperty("openNeighbors", openNeighbors); diagnostic.addProperty("planningQueries", probes);
+            diagnostic.addProperty("horizontalSamples", horizontalSamples); diagnostic.addProperty("found", choice != null);
+            oceanDiagnostics.add(diagnostic);
             if (choice != null) { SITES.add(choice); selected.add(mode); }
             if (probes > 100000) break;
         }
@@ -123,7 +132,11 @@ final class WaterProbe {
             if (profile.coastalChance() + profile.perimeterChance() < 1) required.add(Kind.NATIVE);
             if (profile.coastalChance() > 0) required.add(Kind.COASTAL);
             if (profile.perimeterChance() > 0) required.add(Kind.PERIMETER);
-            if (!selected.containsAll(required)) throw new IllegalStateException("Missing native wet-mode witnesses: " + required + "; found " + selected);
+            if (!selected.containsAll(required)) {
+                report.addProperty("complete", false);
+                Files.writeString(destination, new GsonBuilder().setPrettyPrinting().create().toJson(report) + "\n");
+                throw new IllegalStateException("Missing native wet-mode witnesses: " + required + "; found " + selected);
+            }
         }
         if (SITES.isEmpty()) throw new IllegalStateException("No wet native fixture site within bounded search; select an ocean-biome fixture");
         var observations = new JsonArray(); report.add("observations", observations);
@@ -140,6 +153,37 @@ final class WaterProbe {
         remaining = Math.max(0, ticks);
         if (remaining == 0) { finish(); return false; }
         return true;
+    }
+
+    private static JsonArray oceanSpires(IslandField field, SkyIslandSettings settings) {
+        var rows = new JsonArray();
+        var membership = (ClusterField)(Object)field;
+        for (int cx = -4; cx <= 4; cx++) for (int cz = -4; cz <= 4; cz++) {
+            var members = membership.skyweave$members(cx, cz, settings);
+            if (members.isEmpty() || !members.getFirst().archetype().waterBased()) continue;
+            for (var member : members) {
+                if (member.family() == org.sathrek.sky_archipelago.worldgen.generator.field.model.IslandFamily.SATELLITE)
+                    throw new AssertionError("Ocean cluster acquired an ordinary land satellite");
+                if (member.family() != org.sathrek.sky_archipelago.worldgen.generator.field.model.IslandFamily.SPIRE) continue;
+                if (member.archetype().waterBased()) throw new AssertionError("Ocean needle kept a wet archetype");
+                var point = new BlockPos(member.centerX(), member.centerY(), member.centerZ());
+                var solid = field.sampleSolidSegments(point.getX(), point.getZ(), settings);
+                if (solid.isEmpty()) continue; // A native narrow shape need not cover its nominal center.
+                if (!columns(field, point.getX(), point.getZ(), settings).isEmpty())
+                    throw new AssertionError("Ocean spire center contains planned fluid");
+                var frame = ((GeologicalField)(Object)field).skyweave$frameAt(point.getX(), point.getZ(), settings);
+                if (!IslandGeometry.geologicalFrame(members.getFirst()).equals(frame))
+                    throw new AssertionError("Ocean spire received an independent geological frame");
+                var row = new JsonObject(); row.addProperty("anchorType", members.getFirst().archetype().name());
+                row.add("anchor", new Gson().toJsonTree(members.getFirst()));
+                row.add("spire", new Gson().toJsonTree(member)); row.add("solid", new Gson().toJsonTree(solid)); rows.add(row);
+            }
+        }
+        if (OceanConfiguration.profile().spireCompanions() && rows.isEmpty())
+            throw new AssertionError("No solid ocean spire in the bounded explicit ocean fixture");
+        if (!OceanConfiguration.profile().spireCompanions() && !rows.isEmpty())
+            throw new AssertionError("Disabled ocean spire companions remained present");
+        return rows;
     }
 
     static void tick(MinecraftServer server) {

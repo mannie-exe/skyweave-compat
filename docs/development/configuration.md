@@ -182,3 +182,9 @@ preferences through both entrances. Keep startup selection immutable and generat
 identity checks authoritative; this UI is local configuration, not remote admin.
 
 Native river codecs own values and validation; `RiverConfiguration` supplies an explicit presentation order for the file and shared form. Recheck that ordered field set when upstream adds or removes codec fields, including anchor/companion groups and optional defaults.
+
+## Owned profile schema evolution
+
+`JsonSettings.Definition` may normalize an explicitly supported old schema into the editor's in-memory saved view. `JsonEdits` retains the exact original bytes for conflict detection; opening or validating never writes a normalization. The ocean reader accepts only the exact released eight-field schema or the complete current schema, preserving old values and supplying new defaults. An actual edit saves the full validated candidate through `ConfigFile`; conflicts and failed writes retain the draft and original file. Other strict profiles retain exact-field parsing. This seam is not permission to merge arbitrary missing keys or silently discard unknown values.
+
+Terrain schema acceptance and saved generation identity are independent. A readable older configuration can still produce an incompatible world identity; retain the new-world confirmation and guard rather than rewriting its saved marker.

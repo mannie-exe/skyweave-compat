@@ -53,3 +53,13 @@ Shader assembly keeps its file-only engine in `shader/`, the Iris coordinator in
 `client/`, and optional version-qualified scanner hooks in `mixin/client/`. Keep
 recipe-specific Euphoria selection outside the global Iris dependency gate.
 [Rendering](rendering.md#shader-assembly) owns the schema and update boundaries.
+
+## Terrain variation maintenance
+
+[Horizontal variation](terrain-variation.md) owns the geometry/metadata boundary. Recheck native descriptor and plan bounds, `sampleHorizontal`, `prepareDensity`, completed-snapshot cleanup/interpolation, and column ownership when updating Sky Archipelago. All terrain stages and BlueMap/DH consumers must agree on surviving spans. Keep native river beds and ocean retaining seals distinct from exterior fragments and interior cavities.
+
+Structure discovery additionally depends on Minecraft's random-spread lookup order and `StructureCheck`: loaded and saved starts must remain authoritative before the owned selected-candidate rejection. Recheck canonical relocated starts, references, unknown structures, and disabled/native routes after Minecraft or NeoForge updates. Ranked lookup rejection and fitting share `StructureSelection.attemptLimit`; any change to retry order or admission must preserve that conservative relationship.
+
+The island locator captures its field, immutable settings, and origin on the server thread, then uses the same metadata-only planning path as native concurrent worldgen. Native caches use concurrent maps or thread-local entries; Compat descriptor/style caches are bounded. Revalidate the host-biome cache, sampler thread-safety, cache keys, and admission determinism before keeping this worker boundary across dependency updates. It must never acquire chunks or mutate reservations. Replies and lifecycle cancellation return to the server thread.
+
+Owned profile schema changes need startup/editor parity, a deliberate prior-schema policy, conflict-preserving saves, and a separate saved-world identity decision. Never infer world compatibility from a configuration file parsing successfully.

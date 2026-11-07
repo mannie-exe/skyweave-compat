@@ -1,30 +1,29 @@
-# Skyweave: Compatibility Patches 0.24.0
+# Skyweave: Compatibility Patches 0.25.0
 
-The Skyweave preset distributes vanilla structure families across island clusters
-instead of collecting every nearby source opportunity. Variants share an allowance;
-eligible terrain and biome area contribute to it, while surrounding void does not.
-Family rates, cluster limits, a global multiplier and final village/outpost distance
-are editable in the existing configuration screen.
+Skyweave islands gain area-preserving elliptical outlines, broad warping and
+selectively broken edges. Strength varies deterministically between islands.
+Native vertical bodies, sparse cluster spacing, geological depth and independent
+NOISE/HOLLOW interiors retain their existing roles.
 
-Multiple ordinary villages can share a cluster. Sky Villages keeps its separate
-allowance. Portals and ordinary/beached wrecks each share a one-per-cluster limit.
-Temples, huts, igloos, mansions and underground families retain native layouts,
-loot and fitting. Unknown sets, strongholds, local placed features and ocean
-monuments/ruins retain their existing controls.
+Mushroom Fields and Badlands can use fractured exteriors. A separate rare,
+climate-eligible Deep Dark profile adds vanilla sculk ecology without guaranteeing
+an Ancient City. Ordinary city burial, support and cavernization checks remain.
 
-Owned portals use island-relative height bounds. Igloos retain their top, ladder
-and optional basement at the accepted island anchor. Desert pyramids retain their
-accepted height, traps and archaeology, with complete body support beneath their
-footprint. Native reservation and duplicate guards follow the generator's lifetime;
-parallel layout planning initializes vanilla's lazy rotation tables before use.
+Eligible ocean-biome opportunities now have a 20% admission chance; rejected
+opportunities remain void. Lagoon and Broken Reef share the enabled weights.
+Lagoon edges select coastal outlets, falling perimeters or native retention;
+separate solid spires can accompany ocean anchors. Reef Ring and Dead Ocean Shelf
+remain configurable but default off. The continuous global ocean stays disabled.
 
-Floating ocean habitats now default on. Existing explicit ocean opt-outs are
-preserved; the continuous global ocean layer remains disabled.
+Operators can use `/skyweavecompat islands search` to inspect bounded island
+metadata without generating chunks. Native structure discovery rejects impossible
+owned candidates before requesting starts or fitting unrelated families. A bounded
+spawn fallback finds actual supported dry ground around fully wet hosts.
 
-This changes generation identity and requires a fresh world. Existing saves are
-not silently converted. See [configuration](docs/configuration.md#structure-distribution)
-for units and exceptions, and [verification](docs/development/verification.md) for
-native coverage and limitations. Numeric rates describe allowances before fitting,
-not guaranteed encounter probabilities.
+All new controls use the existing localized configuration editor. Released Ocean
+profiles are accepted without rewriting their original values; startup and editor
+validation remain strict. These terrain changes require a fresh world. Existing
+worlds are protected by their saved generation identity and are not converted.
 
-Previous release: [0.23.1](docs/releases/0.23.1.md).
+See [configuration](docs/configuration.md), [terrain variation](docs/development/terrain-variation.md)
+and [verification](docs/development/verification.md) for controls and tested scope.

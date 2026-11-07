@@ -3,9 +3,7 @@ package design.inherent.skyweavecompat.terrain;
 import com.google.gson.*;
 import java.io.IOException;
 import java.nio.file.*;
-import java.util.Arrays;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 public final class OceanConfiguration {
     public static final String FILE = "skyweave_compat-oceans.json";
@@ -13,21 +11,22 @@ public final class OceanConfiguration {
     private static volatile OceanProfile profile = OceanProfile.INITIAL;
     private OceanConfiguration() {}
     public static OceanProfile profile() { return profile; }
-    public static OceanProfile parse(String text) {
+    private static final Set<String> LEGACY_FIELDS = Set.of("enabled", "coastalChance", "perimeterChance",
+            "perimeterMinRadius", "perimeterMaxRadius", "outletWidth", "outletDepth", "sealThickness");
+
+    /** Only the exact released schema may acquire new defaults; malformed partial profiles still fail. */
+    public static String normalize(String text) {
         var object = design.inherent.skyweavecompat.configuration.ProfileJson.object(text);
-        var fields = Arrays.stream(OceanProfile.class.getRecordComponents()).map(c -> c.getName()).collect(Collectors.toSet());
-        if (!object.keySet().equals(fields)) throw new IllegalArgumentException("Ocean profile requires exactly: " + fields);
-        for (var entry : object.entrySet()) {
-            if (!entry.getValue().isJsonPrimitive()) throw new IllegalArgumentException("Expected scalar for " + entry.getKey());
-            var value = entry.getValue().getAsJsonPrimitive();
-            if (entry.getKey().equals("enabled")) {
-                if (!value.isBoolean()) throw new IllegalArgumentException("Expected boolean for enabled");
-            } else {
-                if (!value.isNumber()) throw new IllegalArgumentException("Expected number for " + entry.getKey());
-                if (!Set.of("coastalChance", "perimeterChance").contains(entry.getKey())) value.getAsBigDecimal().intValueExact();
-            }
+        if (object.keySet().equals(LEGACY_FIELDS)) {
+            var resolved = JSON.toJsonTree(OceanProfile.INITIAL).getAsJsonObject();
+            object.entrySet().forEach(entry -> resolved.add(entry.getKey(), entry.getValue()));
+            text = JSON.toJson(resolved) + "\n";
         }
-        return JSON.fromJson(object, OceanProfile.class);
+        design.inherent.skyweavecompat.configuration.ProfileJson.record(text, OceanProfile.class);
+        return text;
+    }
+    public static OceanProfile parse(String text) {
+        return design.inherent.skyweavecompat.configuration.ProfileJson.record(normalize(text), OceanProfile.class);
     }
     public static void load(Path directory) {
         var path = directory.resolve(FILE);

@@ -20,6 +20,9 @@ public final class BiomeMaterials {
     private BiomeMaterials() {}
 
     public static BlockState surface(BlockState selected, Holder<Biome> biome, int depth) {
+        if (depth >= 0 && depth <= 4 && biome.is(net.minecraft.world.level.biome.Biomes.DEEP_DARK)
+                && (selected.is(Blocks.GRASS_BLOCK) || selected.is(Blocks.DIRT) || selected.is(Blocks.STONE)))
+            return Blocks.DEEPSLATE.defaultBlockState();
         if (depth >= 0 && depth <= 2 && biome.is(MUD)
                 && UPSTREAM_OVERRIDES.stream().noneMatch(biome::is)
                 && (selected.is(Blocks.GRASS_BLOCK) || selected.is(Blocks.DIRT)))

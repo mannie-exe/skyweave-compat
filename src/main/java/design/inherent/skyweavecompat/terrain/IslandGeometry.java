@@ -26,6 +26,8 @@ public final class IslandGeometry {
         var noise = new IslandNoise(source.seed());
         boolean anchor = source.family() == IslandFamily.ANCHOR_PLATEAU;
         boolean spire = source.family() == IslandFamily.SPIRE;
+        var archetype = spire && source.archetype().waterBased()
+                ? org.sathrek.sky_archipelago.worldgen.generator.field.IslandShapeArchetype.CLASSIC : source.archetype();
         int minRadius = anchor ? profile.anchorMinRadius() : spire ? 12 : profile.companionMinRadius();
         int maxRadius = anchor ? profile.anchorMaxRadius() : spire ? 28 : profile.companionMaxRadius();
         var oceans = OceanConfiguration.profile();
@@ -36,6 +38,14 @@ public final class IslandGeometry {
         }
         int rx = noise.sampleInt(source.seed(), 11, minRadius, maxRadius);
         int rz = noise.sampleInt(source.seed(), 13, minRadius, maxRadius);
+        if (!archetype.waterBased()) {
+            double aspect = IslandStyles.aspect(source.seed(), ShapeConfiguration.profile());
+            if (aspect > 1) {
+                double equivalent = Math.sqrt((double)rx * rz);
+                rx = Math.max(1, (int)Math.round(equivalent * Math.sqrt(aspect)));
+                rz = Math.max(1, (int)Math.round(equivalent / Math.sqrt(aspect)));
+            }
+        }
         int plateau = anchor ? profile.anchorPlateau() : spire ? 6 : 14;
         int cliff = anchor ? profile.cliffDepth(targetHeight(cluster.seed(), profile)) : spire ? 95 : noise.sampleInt(source.seed(), 31, 40, 90);
         int x = cluster.centerX(), z = cluster.centerZ(), y = cluster.centerY();
@@ -51,7 +61,7 @@ public final class IslandGeometry {
             y = noise.sampleInt(source.seed(), 17, lower, upper);
         }
         var result = new IslandDescriptor(source.family(), x, y, z, rx, rz, Math.max(rx, rz),
-                source.rotation(), source.archetype(), plateau, cliff, anchor ? 48 : 28,
+                source.rotation(), archetype, plateau, cliff, anchor ? 48 : 28,
                 scale(source.hangOffsetX(), rx, source.radiusX()), scale(source.hangOffsetZ(), rz, source.radiusZ()),
                 scale(source.tailRadiusX(), rx, source.radiusX()), scale(source.tailRadiusZ(), rz, source.radiusZ()),
                 source.erosionStrength(), source.seed());

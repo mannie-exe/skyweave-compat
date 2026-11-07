@@ -19,6 +19,12 @@ public final class GenerationConfiguration {
     public static SkyIslandSettings resolve(SkyIslandSettings embedded) {
         var p = profile();
         var t = embedded.terrain();
+        var a = t.archetypes(); var ocean = OceanConfiguration.profile();
+        var archetypes = new org.sathrek.sky_archipelago.config.settings.ArchetypeSettings(
+                a.classicArchetypeEnabled(), a.classicArchetypeWeight(), a.bowlCraterArchetypeEnabled(), a.bowlCraterArchetypeWeight(),
+                a.crescentArchetypeEnabled(), a.crescentArchetypeWeight(), a.terraceArchetypeEnabled(), a.terraceArchetypeWeight(),
+                ocean.lagoonWeight() > 0, ocean.lagoonWeight(), ocean.reefRingWeight() > 0, ocean.reefRingWeight(),
+                ocean.deadOceanShelfWeight() > 0, ocean.deadOceanShelfWeight(), ocean.brokenReefWeight() > 0, ocean.brokenReefWeight());
         if (t.terrainReliefScale() < 0 || t.terrainReliefScale() > 1) {
             throw new IllegalArgumentException("Skyweave's verified terrain envelope requires terrain_relief_scale between 0 and 1");
         }
@@ -27,7 +33,7 @@ public final class GenerationConfiguration {
                 t.lowBandWeight(), t.midHighBandWeight(), t.veryHighBandWeight(), t.lowBandCenterOffset(), t.veryHighBandCenterOffset(),
                 // Upstream's serialized spacing is capped at 2000. IslandFieldMixin owns the actual grid.
                 t.spacing(),
-                t.terrainReliefScale(), t.archetypes(), t.ocean());
+                t.terrainReliefScale(), archetypes, t.ocean());
         return new SkyIslandSettings(terrain, embedded.structureSupport(), embedded.mediumGround(), embedded.smallGround(),
                 embedded.defaultSurface(), embedded.advanced(), RiverConfiguration.settings());
     }

@@ -10,6 +10,12 @@ public final class StructureSelection {
     public record Site(int chunkX, int chunkZ) {}
     private StructureSelection() {}
 
+    /** One budget owner for native fitting and conservative lookup rejection. */
+    public static long attemptLimit(StructureFamily family, int allowance) {
+        if (allowance < 0) throw new IllegalArgumentException("Negative structure allowance");
+        return allowance * (family == StructureFamily.VILLAGES ? 3L : 8L);
+    }
+
     public static int allowance(long worldSeed, Owner owner, StructureFamily family,
             double eligibleChunks, StructurePolicy policy) {
         if (!Double.isFinite(eligibleChunks) || eligibleChunks < 0)

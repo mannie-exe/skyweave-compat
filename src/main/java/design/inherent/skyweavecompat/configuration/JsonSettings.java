@@ -8,12 +8,18 @@ import java.util.function.Consumer;
 
 /** Only these owned files are editable. Validators are shared with runtime loaders. */
 public final class JsonSettings {
-    public record Definition(String filename, String help, String defaults, Consumer<String> validate) {}
+    public record Definition(String filename, String help, String defaults, Consumer<String> validate,
+            java.util.function.UnaryOperator<String> normalize) {
+        public Definition(String filename, String help, String defaults, Consumer<String> validate) {
+            this(filename, help, defaults, validate, java.util.function.UnaryOperator.identity());
+        }
+    }
     private static String json(Object value) { return new GsonBuilder().setPrettyPrinting().create().toJson(value) + "\n"; }
     private static final List<Definition> DEFINITIONS = new java.util.concurrent.CopyOnWriteArrayList<>(List.of(
             new Definition("skyweave_compat-generation.json", "generation", json(GenerationProfile.INITIAL), ProfileJson::generation),
+            new Definition(ShapeConfiguration.FILE, "shapes", json(ShapeProfile.INITIAL), ShapeConfiguration::parse),
             new Definition("skyweave_compat-interiors.json", "interiors", json(InteriorProfile.INITIAL), InteriorConfiguration::parse),
-            new Definition("skyweave_compat-oceans.json", "oceans", json(OceanProfile.INITIAL), OceanConfiguration::parse),
+            new Definition("skyweave_compat-oceans.json", "oceans", json(OceanProfile.INITIAL), OceanConfiguration::parse, OceanConfiguration::normalize),
             new Definition(design.inherent.skyweavecompat.terrain.structure.StructureConfiguration.FILE, "structures",
                     json(design.inherent.skyweavecompat.terrain.structure.StructurePolicy.DEFAULT),
                     design.inherent.skyweavecompat.terrain.structure.StructureConfiguration::parse),

@@ -13,12 +13,13 @@ public abstract class ColumnDataMixin implements LayeredColumn {
     @Shadow public abstract List<TerrainColumn> segments();
     @Override public boolean skyweave$hasExterior() { return skyweave$exterior != null; }
     @Override public boolean skyweave$requiresExactInterior() { return skyweave$exactInterior; }
+    @Override public void skyweave$requireExactSampling() { skyweave$exactInterior = true; }
     @Override public List<TerrainColumn> skyweave$exterior() {
         return skyweave$exterior == null ? segments() : skyweave$exterior;
     }
     @Override public void skyweave$exterior(List<TerrainColumn> exterior, boolean exactInterior) {
         if (skyweave$exterior != null) throw new IllegalStateException("Column exterior already bound");
         skyweave$exterior = List.copyOf(exterior);
-        skyweave$exactInterior = exactInterior;
+        skyweave$exactInterior |= exactInterior;
     }
 }

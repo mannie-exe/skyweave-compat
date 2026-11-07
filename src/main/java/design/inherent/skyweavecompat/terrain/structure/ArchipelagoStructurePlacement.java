@@ -25,6 +25,11 @@ public final class ArchipelagoStructurePlacement extends RandomSpreadStructurePl
     @Override protected boolean isPlacementChunk(ChunkGeneratorStructureState state, int x, int z) {
         return super.isPlacementChunk(state, x, z) && distribution.selected(family, x, z);
     }
+    @Override public boolean applyAdditionalChunkRestrictions(int x, int z, long seed) {
+        // Native locate enumerates potential lattice chunks without calling isPlacementChunk.
+        // StructureCheck reaches this gate only after checking loaded and saved starts.
+        return super.applyAdditionalChunkRestrictions(x, z, seed) && distribution.selectedForLookup(family, x, z);
+    }
     @Override public BlockPos getLocatePos(ChunkPos chunk) { return original.getLocatePos(chunk); }
     // Original frequency/exclusion are deliberately not applied a second time:
     // the owned distribution accounts for source density and final village anchors.

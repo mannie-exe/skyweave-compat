@@ -41,7 +41,9 @@ public record GenerationProfile(int spacing, int jitter, int centerMinY, int cen
 
     // Bounds enclose native 1.4 plans; include one block for rounded companion offsets.
     private static int clusterReach(int anchorRadius, int orbit, int companionRadius) {
-        return Math.max(supportRadius(anchorRadius), orbit + supportRadius(Math.max(companionRadius, 28)) + 1);
+        double scale = ShapeConfiguration.profile().maximumAxisScale();
+        return Math.max(supportRadius((int)Math.ceil(anchorRadius * scale)),
+                orbit + supportRadius((int)Math.ceil(Math.max(companionRadius, 28) * scale)) + 1);
     }
     public static int supportRadius(int radius) {
         // Rotated, warped native land plans and broken-reef margins bound both axes.

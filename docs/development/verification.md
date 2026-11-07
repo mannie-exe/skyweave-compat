@@ -1,5 +1,39 @@
 # Verification
 
+## Horizontal variation and discovery
+
+Verified on 2026-11-07 with Minecraft 1.21.1, NeoForge 21.1.265, Temurin 21.0.13,
+Sky Archipelago 1.4 and DH 3.3.3. The configuration/lookup candidate JAR is
+`3e75581153e90cf2e1a12fee598bf6cf1dfcf835c429c79cd96a05e5e29a90f3` (0.25.0).
+`./gradlew --no-daemon check build probeJar clientProbeJar` passes 208 Java tests
+with no failures or skips, plus the tooling, resource and package checks.
+
+| Boundary | Native observations |
+| --- | --- |
+| Geometry and order | Seed 42 covers 12 adapted and 12 native layouts, 225 reverse/concurrent cells and 19 cross-cell companions/geological frames. Sampled bounds and gaps pass. Zero/disabled modifier and envelope checks also have targeted unit coverage. |
+| Actual generation | Full-pack seed 1, including C2ME, compares 6,193,152 noise/base-column states and completes 27 FULL chunks with ores, veins and features. Minimal seed 8675309 generates and reopens. Explicit baseline and strong profiles have separate successful full-pack reports. These are finite correctness workloads, not pregen throughput estimates. |
+| Fractured ecology | Forced Mushroom Fields, Badlands and Deep Dark fixtures compare direct/snapshot/query order and stored/physical biomes against generated blocks. Observed features include mycelium/mushroom stems, terracotta/dead bushes, and deepslate/sculk/catalysts/sensors. Forced selection does not establish natural frequency or survival balance. |
+| Water and spires | Explicit Lagoon native/coastal/perimeter fixtures survive 120 fluid ticks and reopening. A mixed Lagoon/Broken Reef fixture observes solid, dry spires of both parent types with shared geological frames; no ordinary satellites are admitted. These checks do not establish complete aquatic progression. |
+| Spawn | A fully wet perimeter fixture reproduced startup failure in the previous 16-block landing search. The bounded metadata fallback selects actual dry, sturdy, unobstructed ground and passes startup/reopening; native/coastal Lagoon controls also pass. It creates no platform. |
+| Native lookup | Eight provably unselected void candidates change from CHUNK_LOAD_NEEDED to START_NOT_PRESENT without loading their chunks. A retained 90-piece seed-42 city preserves canonical lookup/reopening. A separate new-shape seed-42 search finds a city at 6448, 0, -4176 in 1.05 seconds cold and 0.132 warm. |
+| Lookup cost | The seed-1, 100-ring missing-city search initially takes 121.3 seconds cold while fitting unrelated surface families. Shared ranked-prefix rejection reduces that fixture to 11.9 seconds cold and 0.81 warm with the same absent result. This is one bounded observation, not a guarantee for every seed, origin or concurrent workload. The watchdog and rarity policy are unchanged. |
+| Metadata locator | Actual registered commands cover permission denial, filters, partial continuation, paging, cancellation and completed no-match. Loaded-chunk counts remain unchanged. The command observes plans rather than saved blocks and never promises a safe landing. |
+| Configuration | Native wide/narrow and GUI-scale checks show localized nested groups in authored order. An external 20-block warp conflicts with the editor's 19-block draft without overwriting either; restoring the original baseline permits save/readback, then native editing restores 18. Legacy Ocean schema loading is read-only until an explicit validated edit. |
+| Consumers and optionality | BlueMap's adapted, ordinary and foreign-world selection/bounds/reload/shutdown checks pass. An isolated DH job is active when interrupted after two seconds, exits normally and retains its per-save identity. A later tuned 0.25.0 job completes its 32-chunk radius in 59.5 seconds, increasing saved chunks from 170 to 8406. This finite result is not an ETA for the personal 1024-chunk job. Standalone, terrain-disabled and unsupported-disabled dedicated startup controls pass. |
+
+Explicit profiles receive separate native reports and world identities. Shape-review
+captures use native terrain with DH rendering disabled in the disposable fixture.
+The capture gate checks receipt of all expected FULL client chunks, Sodium's visible
+top-section meshes and its build queue, across four consecutive observations.
+Elapsed time alone is not a readiness check. Camera, profile, artifact, readiness
+counts and the fixture-only distance-fog override are recorded beside each image.
+The owner reviewed the complete baseline/default/strong native captures and selected an intermediate base: 70% toward strong edge settings and 80% toward strong shaping, with seeded strength variation. Natural selection rates remain conditional settings rather than playtested balance. The [variation guide](terrain-variation.md)
+owns behavior, limits, and the deferred Gargantuan idea.
+
+The tuned candidate repeats full-pack seed-1 generation/reopen, minimum seed-8675309 generation/reopen, full-pack Mushroom/Deep Dark native positive fixtures, and the full configuration screen. The minimum client (Minecraft, NeoForge, Compat only) opens configuration with no active foreign adaptations. Strength variation is localized, typed and visible at 0.15. The final-version archive differs from the tuned full-generation candidate only in version metadata; terrain classes and resources are byte-identical.
+
+Reproduce the retained seed-42 city control with `tools/probe.py --lookup --seed 42 --city-witness --shape-config tools/fixtures/terrain/lookup-shapes.json --ocean-config tools/fixtures/terrain/lookup-oceans.json --minimal --reopen` and the required read-only server/Java arguments. These frozen fixture inputs are not shipping defaults.
+
 ## Cluster structure distribution
 
 Verified on 2026-11-07 with Minecraft 1.21.1, NeoForge 21.1.265, Temurin

@@ -30,5 +30,37 @@ public final class ProfileJson {
         }
         return JSON.fromJson(object, GenerationProfile.class);
     }
+
+    /** Strict nested owned records: Gson's string-to-number coercion must not bypass editor validation. */
+    public static <T extends Record> T record(String text, Class<T> type) {
+        var value = object(text);
+        recordFields(value, type, "");
+        return JSON.fromJson(value, type);
+    }
+    private static void recordFields(JsonObject object, Class<?> type, String path) {
+        var fields = Arrays.stream(type.getRecordComponents()).map(c -> c.getName()).collect(Collectors.toSet());
+        if (!object.keySet().equals(fields)) throw new IllegalArgumentException(path + " requires exactly " + fields);
+        for (var component : type.getRecordComponents()) {
+            String key = path + component.getName(); var value = object.get(component.getName()); var field = component.getType();
+            if (field.isRecord()) {
+                if (!value.isJsonObject()) throw new IllegalArgumentException("Expected group for " + key);
+                recordFields(value.getAsJsonObject(), field, key + ".");
+            } else if (field == java.util.List.class) {
+                if (!value.isJsonArray() || value.getAsJsonArray().asList().stream()
+                        .anyMatch(v -> !v.isJsonPrimitive() || !v.getAsJsonPrimitive().isString()))
+                    throw new IllegalArgumentException("Expected a text list for " + key);
+            } else {
+                if (!value.isJsonPrimitive()) throw new IllegalArgumentException("Expected scalar for " + key);
+                var scalar = value.getAsJsonPrimitive();
+                if (field == boolean.class ? !scalar.isBoolean() : !scalar.isNumber())
+                    throw new IllegalArgumentException("Wrong value type for " + key);
+                if (field == int.class) try { scalar.getAsBigDecimal().intValueExact(); }
+                catch (ArithmeticException error) {
+                    var invalid = new ArithmeticException("Expected integer for " + key);
+                    invalid.initCause(error); throw invalid;
+                }
+            }
+        }
+    }
     private ProfileJson() {}
 }

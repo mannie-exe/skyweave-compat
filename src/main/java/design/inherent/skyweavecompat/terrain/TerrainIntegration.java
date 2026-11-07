@@ -10,6 +10,7 @@ public final class TerrainIntegration {
 
     public static void register() {
         var directory = FMLPaths.CONFIGDIR.get();
+        ShapeConfiguration.load(directory);
         GenerationConfiguration.load(directory);
         InteriorConfiguration.load(directory);
         RiverConfiguration.load(directory);
@@ -19,6 +20,7 @@ public final class TerrainIntegration {
             design.inherent.skyweavecompat.terrain.structure.StructureLevelIntegration.register();
         }
         design.inherent.skyweavecompat.terrain.city.CityConfiguration.load(directory);
+        IslandLocator.register();
         NeoForge.EVENT_BUS.addListener((ServerAboutToStartEvent event) -> GenerationGuard.verify(event.getServer()));
     }
 }

@@ -16,6 +16,25 @@ class JsonEditsTest {
         Files.writeString(directory.resolve(definition.filename()), definition.defaults());
         return new JsonEdits(directory, definition);
     }
+    @Test void releasedOceanSchemaGainsEditableFieldsWithoutAnImplicitWrite() throws IOException {
+        var definition = JsonSettings.find("skyweave_compat-oceans.json");
+        var original = """
+                {"enabled":false,"coastalChance":0.04,"perimeterChance":0.01,
+                 "perimeterMinRadius":40,"perimeterMaxRadius":64,"outletWidth":2,"outletDepth":2,"sealThickness":4}
+                """;
+        var path = directory.resolve(definition.filename()); Files.writeString(path, original);
+        var edits = new JsonEdits(directory, definition);
+        assertEquals(original, Files.readString(path)); assertFalse(edits.dirty());
+        assertEquals("0.2", edits.value("admissionChance")); assertEquals("false", edits.value("enabled"));
+        edits.set("spireClearance", "24");
+        Files.writeString(path, original + " ");
+        assertThrows(ConfigFile.ChangedOnDisk.class, edits::save); assertTrue(edits.dirty());
+        Files.writeString(path, original); edits.save();
+        var saved = design.inherent.skyweavecompat.terrain.OceanConfiguration.parse(Files.readString(path));
+        assertFalse(saved.enabled()); assertEquals(.04, saved.coastalChance()); assertEquals(24, saved.spireClearance());
+        assertEquals(.20, saved.admissionChance());
+        assertThrows(IllegalArgumentException.class, () -> definition.validate().accept(original.replace("\"enabled\":false,", "")));
+    }
     @Test void structureFamiliesUseTheSharedTypedEditorAndRetainOtherRules() throws IOException {
         var edits = create("structures");
         var path = directory.resolve(edits.definition().filename());
@@ -92,6 +111,17 @@ class JsonEditsTest {
         Files.writeString(directory.resolve(definition.filename()), reversed.toString());
         var edits = new JsonEdits(directory, definition); assertEquals(keys, edits.keys());
         assertEquals("2400", edits.value("spacing"));
+    }
+    @Test void nestedGroupsRetainTheAuthoredOrderAcrossReadbackAndReformatting() throws Exception {
+        var edits = create("shapes");
+        var defaults = JsonParser.parseString(edits.definition().defaults()).getAsJsonObject();
+        var expectedGroups = new java.util.ArrayList<>(defaults.keySet());
+        assertEquals(expectedGroups, edits.keys().stream().map(key -> key.split("\\.")[0]).distinct().toList());
+        var reversed = new com.google.gson.JsonObject();
+        for (String group : expectedGroups.reversed()) reversed.add(group, defaults.get(group));
+        Files.writeString(directory.resolve(edits.definition().filename()), reversed.toString());
+        edits.reload();
+        assertEquals(expectedGroups, edits.keys().stream().map(key -> key.split("\\.")[0]).distinct().toList());
     }
     @Test void installationParsersRejectTheSameAmbiguousKeysAsTheEditor() {
         assertAll(JsonSettings.FILES.stream()

@@ -100,6 +100,8 @@ and [Mixin configuration plugins](https://javadoc.io/static/net.fabricmc/sponge-
 frame, saved-world compatibility and native terrain survey. The following describes
 the retained village-neighbor predicate.
 
+[Terrain variation](terrain-variation.md) describes horizontal sampling, fractured ecology, ocean admission, bounded metadata discovery, and the structure-lookup boundary. Configuration defaults and verification remain in their owning guides. Gargantuan islands remain deferred.
+
 `placement/NeighborRule` owns the loader-independent geometry. `IslandTerrain`
 adapts Sky Archipelago's resolved column field; it never requests world chunks.
 `StructureSupportMixin` filters accepted SKY reports for exactly

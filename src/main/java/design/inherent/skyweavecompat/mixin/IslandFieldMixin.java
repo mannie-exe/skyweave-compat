@@ -25,7 +25,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(value = IslandField.class, remap = false)
-public abstract class IslandFieldMixin implements ProfiledTerrain, GeologicalField, VillageAnchors, VeinField, InteriorField {
+public abstract class IslandFieldMixin implements ProfiledTerrain, GeologicalField, VillageAnchors, VeinField, InteriorField, StyledTerrain {
     @Shadow @Final private IslandClusterSampler clusterSampler;
     @Shadow @Final private IslandDescriptorFactory descriptorFactory;
     @Shadow @Final private org.sathrek.sky_archipelago.worldgen.generator.field.internal.IslandShapeSampler shapeSampler;
@@ -34,6 +34,9 @@ public abstract class IslandFieldMixin implements ProfiledTerrain, GeologicalFie
     @Shadow @Final private org.sathrek.sky_archipelago.worldgen.generator.field.model.BiomeTerrainSampler biomeTerrainSampler;
     @Shadow private IslandTerrainPlan terrainPlanForDescriptor(IslandDescriptor host, SkyIslandSettings settings) { throw new AssertionError(); }
     @Unique private volatile GenerationProfile skyweave$profile;
+    @Unique private IslandStyles skyweave$styles;
+    @Override public IslandStyles skyweave$styles() { return skyweave$styles; }
+    @Override public void skyweave$styles(IslandStyles styles) { skyweave$styles = styles; }
     @Unique private volatile IslandVeins skyweave$veins;
     @Unique private boolean skyweave$veinsConfigured;
     @Unique private boolean skyweave$interiorsConfigured;
@@ -48,7 +51,7 @@ public abstract class IslandFieldMixin implements ProfiledTerrain, GeologicalFie
     @Override public synchronized void skyweave$configureInteriors(net.minecraft.world.level.levelgen.RandomState random,
             InteriorProfile profile) {
         if (skyweave$interiorsConfigured) return;
-        ((InteriorResolver)(Object)columnResolver).skyweave$interiors(new IslandInteriors(random, profile));
+        ((InteriorResolver)(Object)columnResolver).skyweave$interiors(new IslandInteriors(random, profile, skyweave$styles));
         skyweave$interiorsConfigured = true;
     }
     @Override public List<org.sathrek.sky_archipelago.worldgen.generator.field.TerrainColumn> skyweave$exteriorAt(
@@ -108,6 +111,8 @@ public abstract class IslandFieldMixin implements ProfiledTerrain, GeologicalFie
         ((ProfiledTerrain)(Object)clusterSampler).skyweave$configure(profile);
         ((ProfiledTerrain)(Object)descriptorFactory).skyweave$configure(profile);
         ((ProfiledTerrain)(Object)shapeSampler).skyweave$configure(profile);
+        skyweave$styles = new IslandStyles(ShapeConfiguration.profile(), biomeTerrainSampler);
+        ((StyledTerrain)(Object)shapeSampler).skyweave$styles(skyweave$styles);
         ((ProfiledTerrain)(Object)columnResolver).skyweave$configure(profile);
         skyweave$profile = profile;
     }

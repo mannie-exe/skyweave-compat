@@ -153,7 +153,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             result.addAll(switch (feature) {
                 case TERRAIN -> List.of("GeneratorProfileMixin", "IslandFieldMixin", "ColumnResolverMixin",
                         "ColumnDataMixin", "InteriorSurfaceMixin", "SurfaceRulesMixin", "ClusterPlacementMixin", "ClusterSamplerMixin",
-                        "DescriptorFactoryMixin", "OceanShapeMixin", "TerrainMaterialMixin", "InteriorInterpolationMixin",
+                        "DescriptorFactoryMixin", "OceanShapeMixin", "ShapeDensityMixin", "ShapeDecorationMixin", "TerrainMaterialMixin", "InteriorInterpolationMixin",
                         "GeologicalMaterialMixin", "OreVeinifierAccessor");
                 case ORE_PLACEMENT -> List.of("OreHeightMixin");
                 case CARVERS -> List.of("TerrainCarverPolicyMixin", "CarvingContextMixin", "CarverHeightMixin", "CarverLavaMixin", "WaterCarverMixin");

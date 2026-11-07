@@ -84,7 +84,7 @@ public final class SettingsCatalog {
             return switch (help) {
                 case "journal" -> Timing.IMMEDIATE;
                 case "villages" -> Timing.SERVER_START;
-                case "generation", "interiors", "rivers", "oceans", "ancient_cities", "structures" -> Timing.NEW_WORLD;
+                case "generation", "shapes", "interiors", "rivers", "oceans", "ancient_cities", "structures" -> Timing.NEW_WORLD;
                 case "bluemap", "link_gui_client", "link_gui_common" -> Timing.RELOAD;
                 default -> Timing.GAME_RESTART;
             };
@@ -143,6 +143,7 @@ public final class SettingsCatalog {
             new FileEntry("skyweave_compat-journal-client.toml", Group.JOURNAL, "journal", List.of(Feature.QUESTLOG_INTERFACE, Feature.QUESTLOG_NOTIFICATIONS), SectionKind.PREFERENCES),
             new FileEntry("skyweave_compat-common.toml", Group.VILLAGES, "villages", List.of(Feature.VILLAGE_CLEARANCE, Feature.VILLAGE_PLACEMENT), SectionKind.TUNING),
             new FileEntry("skyweave_compat-generation.json", Group.TERRAIN, "generation", List.of(Feature.TERRAIN), SectionKind.TUNING),
+            new FileEntry("skyweave_compat-shapes.json", Group.TERRAIN, "shapes", List.of(Feature.TERRAIN), SectionKind.TUNING),
             new FileEntry("skyweave_compat-interiors.json", Group.TERRAIN, "interiors", List.of(Feature.TERRAIN), SectionKind.TUNING),
             new FileEntry("skyweave_compat-rivers.json", Group.TERRAIN, "rivers", List.of(Feature.TERRAIN), SectionKind.TUNING),
             new FileEntry("skyweave_compat-oceans.json", Group.TERRAIN, "oceans", List.of(Feature.TERRAIN), SectionKind.TUNING),

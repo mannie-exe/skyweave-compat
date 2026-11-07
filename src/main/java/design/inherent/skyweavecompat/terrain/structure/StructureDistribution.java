@@ -52,6 +52,10 @@ public final class StructureDistribution {
     private final Set<StructureSet.StructureSelectionEntry> managedEntries;
     private final Cache<StructureSelection.Owner, Plan> plans = CacheBuilder.newBuilder().maximumSize(512).build();
     private final Cache<StructureSelection.Owner, Plan> fittedPlans = CacheBuilder.newBuilder().maximumSize(512).build();
+    private final Cache<StructureSelection.Owner, Map<StructureSelection.Site, Sample>> sampledSites = CacheBuilder.newBuilder().maximumSize(512).build();
+    private record ChoiceKey(StructureSelection.Owner owner, StructureFamily family) {}
+    private record Choice(double area, int count, List<StructureSelection.Site> ranked) {}
+    private final Cache<ChoiceKey, Choice> choices = CacheBuilder.newBuilder().maximumSize(4096).build();
     private volatile StructurePlacementPassContext environment;
     private final ReservationStore reservationStore = new ReservationStore();
     private final FcfsArbiter reservations = new FcfsArbiter(reservationStore, reservationStore, new OverlapPolicy3D());
@@ -190,23 +194,49 @@ public final class StructureDistribution {
         return owner != null && plan(owner).sites(family).contains(new StructureSelection.Site(chunkX, chunkZ));
     }
 
+    /** Never turn a provisional, pre-binding fit into a cached absence during native lookup. */
+    public boolean selectedForLookup(StructureFamily family, int chunkX, int chunkZ) {
+        var owner = owner(chunkX * 16 + 8, chunkZ * 16 + 8);
+        if (owner == null) return false;
+        if (environment == null) return true;
+        var site = new StructureSelection.Site(chunkX, chunkZ);
+        var choice = choice(owner, family);
+        // Fitting cannot select beyond this same ranked prefix. Reject impossible family/site
+        // pairs before fitting every earlier family merely to answer an absent-city lookup.
+        int index = choice.ranked().indexOf(site);
+        return index >= 0 && index < StructureSelection.attemptLimit(family, choice.count()) && plan(owner).sites(family).contains(site);
+    }
+
+    private Choice choice(StructureSelection.Owner owner, StructureFamily family) {
+        try { return choices.get(new ChoiceKey(owner, family), () -> {
+            var samples = sampledSites.get(owner, () -> {
+                var collected = new LinkedHashMap<StructureSelection.Site, Sample>();
+                for (var member : ((ClusterField)(Object)field).skyweave$members(owner.cellX(), owner.cellZ(), settings))
+                    sample(member, collected);
+                return Map.copyOf(collected);
+            });
+            var candidates = samples.entrySet().stream().filter(entry -> eligible(family, entry.getKey(), entry.getValue()))
+                    .map(Map.Entry::getKey).toList();
+            double area = (double)candidates.size() * SAMPLE_SPACING * SAMPLE_SPACING;
+            return new Choice(area, StructureSelection.allowance(seed, owner, family, area, policy),
+                    StructureSelection.ranked(seed, owner, family, candidates));
+        }); } catch (java.util.concurrent.ExecutionException failed) {
+            throw new IllegalStateException("Cannot select cluster structure candidates", failed.getCause());
+        }
+    }
+
     private Plan compute(StructureSelection.Owner owner, StructurePlacementPassContext context) {
-        var members = ((ClusterField)(Object)field).skyweave$members(owner.cellX(), owner.cellZ(), settings);
-        var samples = new LinkedHashMap<StructureSelection.Site, Sample>();
-        for (var member : members) sample(member, samples);
         var areas = new EnumMap<StructureFamily, Double>(StructureFamily.class);
         var selected = new EnumMap<StructureFamily, List<StructureSelection.Site>>(StructureFamily.class);
         var fitted = new EnumMap<StructureFamily, List<StructureLayout>>(StructureFamily.class);
         for (var family : StructureFamily.values()) {
-            var candidates = samples.entrySet().stream().filter(entry -> eligible(family, entry.getKey(), entry.getValue()))
-                    .map(Map.Entry::getKey).toList();
-            double area = (double)candidates.size() * SAMPLE_SPACING * SAMPLE_SPACING;
-            areas.put(family, area);
-            int count = StructureSelection.allowance(seed, owner, family, area, policy);
-            var ranked = StructureSelection.ranked(seed, owner, family, candidates);
+            var choice = choice(owner, family);
+            areas.put(family, choice.area());
+            int count = choice.count();
+            var ranked = choice.ranked();
             if (family == StructureFamily.VILLAGES && context != null) {
                 var layouts = new ArrayList<StructureLayout>();
-                for (var site : ranked.stream().limit(count * 3L).toList()) {
+                for (var site : ranked.stream().limit(StructureSelection.attemptLimit(family, count)).toList()) {
                     if (layouts.size() == count) break;
                     var layout = VillageLayoutPlanning.fit(this, context, site, familyEntries.getOrDefault(family, List.of()));
                     if (layout == null || conflicts(layout, layouts, fitted)) continue;
@@ -217,7 +247,7 @@ public final class StructureDistribution {
             } else if (hasLayoutPlan(family) && context != null) {
                 var layouts = new ArrayList<StructureLayout>();
                 var villages = selected.getOrDefault(StructureFamily.VILLAGES, List.of());
-                for (var site : ranked.stream().limit(count * 8L).toList()) {
+                for (var site : ranked.stream().limit(StructureSelection.attemptLimit(family, count)).toList()) {
                     if (layouts.size() == count) break;
                     if (family == StructureFamily.OUTPOSTS && StructureSelection.outpostExcluded(site, villages, policy.outpostVillageSeparationChunks())) continue;
                     var layout = underground(family) || family == StructureFamily.TRAIL_RUINS

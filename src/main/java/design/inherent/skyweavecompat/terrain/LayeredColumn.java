@@ -7,6 +7,7 @@ import java.util.List;
 public interface LayeredColumn {
     boolean skyweave$hasExterior();
     boolean skyweave$requiresExactInterior();
+    void skyweave$requireExactSampling();
     List<TerrainColumn> skyweave$exterior();
     void skyweave$exterior(List<TerrainColumn> exterior, boolean exactInterior);
 }

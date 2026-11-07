@@ -8,7 +8,7 @@ import org.sathrek.sky_archipelago.worldgen.generator.field.model.IslandDescript
 /** Adjusts native water columns without replacing their footprint, underbelly, or materials. */
 public final class OceanIslands {
     public static boolean wetArchetype(IslandShapeArchetype type) {
-        return type == IslandShapeArchetype.LAGOON || type == IslandShapeArchetype.REEF_RING;
+        return type == IslandShapeArchetype.LAGOON;
     }
     public static WaterArchetypeColumnProfile adapt(IslandDescriptor island, HorizontalSample horizontal,
             WaterArchetypeColumnProfile nativeColumn, OceanProfile profile) {

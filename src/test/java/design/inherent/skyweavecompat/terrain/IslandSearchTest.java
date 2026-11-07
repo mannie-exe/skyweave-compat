@@ -1,0 +1,48 @@
+package design.inherent.skyweavecompat.terrain;
+
+import java.util.*;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
+
+class IslandSearchTest {
+    @Test void traversalResumesWithoutOmittingOrRepeatingNegativeCells() {
+        var search = new IslandSearch<Integer>(-2400, -1, 100, 2400, 1, Comparator.naturalOrder());
+        var visited = new LinkedHashSet<ClusterLayout.Cell>();
+        while (!search.complete()) assertTrue(visited.add(search.next()));
+        assertEquals(search.total(), visited.size());
+        assertTrue(visited.contains(new ClusterLayout.Cell(-3, -2)));
+        assertTrue(visited.contains(new ClusterLayout.Cell(0, 1)));
+        assertThrows(NoSuchElementException.class, search::next);
+        assertEquals(new ArrayList<>(visited), traverse(-2400, -1));
+    }
+    private List<ClusterLayout.Cell> traverse(int x, int z) {
+        var cursor = new IslandSearch<Integer>(x, z, 100, 2400, 1, Comparator.naturalOrder());
+        var result = new ArrayList<ClusterLayout.Cell>();
+        while (!cursor.complete()) result.add(cursor.next());
+        return result;
+    }
+    @Test void nearestRetentionIsBoundedAndIndependentOfArrivalOrder() {
+        var forward = new IslandSearch<Integer>(0, 0, 10, 2400, 0, Comparator.naturalOrder());
+        var reverse = new IslandSearch<Integer>(0, 0, 10, 2400, 0, Comparator.naturalOrder());
+        var values = java.util.stream.IntStream.range(0, 200).boxed().toList();
+        forward.accept(values, value -> value % 2 == 0);
+        reverse.accept(values.reversed(), value -> value % 2 == 0);
+        assertEquals(100, forward.matches()); assertEquals(64, forward.results().size());
+        assertEquals(126, forward.results().getLast()); assertEquals(forward.results(), reverse.results());
+        assertThrows(UnsupportedOperationException.class, () -> forward.results().clear());
+    }
+    @Test void invalidAndExcessiveSearchesFailBeforeAllocatingAnArea() {
+        assertThrows(IllegalArgumentException.class, () -> new IslandSearch<Integer>(0, 0, 131073, 2400, 1, Comparator.naturalOrder()));
+        assertThrows(IllegalArgumentException.class, () -> new IslandSearch<Integer>(0, 0, 131072, 1, 0, Comparator.naturalOrder()));
+        var edge = new IslandSearch<Integer>(Integer.MIN_VALUE, Integer.MAX_VALUE, 1, 2400, 0, Comparator.naturalOrder());
+        assertTrue(edge.total() <= 4);
+    }
+    @Test void filtersRejectContradictionsAndRetainCombinedCriteria() {
+        assertEquals(Map.of("family", "anchor_plateau", "archetype", "lagoon", "edge", "perimeter"),
+                IslandLocator.filters("archetype=lagoon edge=perimeter"));
+        assertEquals(Map.of("exterior", "fractured"), IslandLocator.filters("family=any exterior=fractured"));
+        assertThrows(IllegalArgumentException.class, () -> IslandLocator.filters("archetype=classic edge=coastal"));
+        assertThrows(IllegalArgumentException.class, () -> IslandLocator.filters("interior=hollow interior=noise"));
+        assertThrows(IllegalArgumentException.class, () -> IslandLocator.filters("unknown=value"));
+    }
+}

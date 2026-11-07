@@ -23,6 +23,16 @@ class SettingsCatalogTest {
             for(var group:SettingsCatalog.Group.values())assertTrue(text.has("skyweave_compat.settings.mod."+group.label),group.name());
             for(var file:SettingsCatalog.FILES){assertTrue(text.has(file.labelKey()),file.filename());assertTrue(text.has(file.summaryKey()),file.filename());}
             for(var feature:Feature.values())assertTrue(text.has("skyweave_compat.settings.summary."+feature.key),feature.key);
+            var shapes = JsonSettings.find("skyweave_compat-shapes.json");
+            translatedFields(text, JsonParser.parseString(shapes.defaults()).getAsJsonObject(), "skyweave_compat.settings.field.shapes");
+        }
+    }
+    private static void translatedFields(com.google.gson.JsonObject text, com.google.gson.JsonObject fields, String prefix) {
+        for (var entry : fields.entrySet()) {
+            String key = prefix + "." + entry.getKey();
+            assertTrue(text.has(key), key);
+            if (entry.getValue().isJsonObject()) translatedFields(text, entry.getValue().getAsJsonObject(), key);
+            else assertTrue(text.has(key + ".help"), key + ".help");
         }
     }
 }

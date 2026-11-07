@@ -59,8 +59,9 @@ public final class JsonEdits {
     public void discard() { edits.clear(); }
     public void reload() throws IOException {
         String current = file.read();
-        JsonObject parsed = object(current);
+        object(current); // Preserve the file reader's checked syntax errors and the previous draft on failure.
         definition.validate().accept(current);
+        JsonObject parsed = object(definition.normalize().apply(current));
         baseline = current; saved = parsed; edits.clear();
     }
     public String candidate() {
@@ -103,7 +104,6 @@ public final class JsonEdits {
     private static List<String> leafKeys(JsonObject object) {
         var keys = new ArrayList<String>();
         leaves(object, "", keys);
-        keys.sort(java.util.Comparator.comparing(key -> key.contains(".") ? key.substring(0, key.indexOf('.')) : ""));
         return List.copyOf(keys);
     }
     private static void leaves(JsonObject object, String prefix, List<String> keys) {

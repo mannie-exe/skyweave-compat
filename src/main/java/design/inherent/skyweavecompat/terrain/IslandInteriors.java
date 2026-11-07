@@ -14,10 +14,15 @@ import java.util.*;
 public final class IslandInteriors {
     public enum Kind { BASELINE, NOISE, HOLLOW }
     private final InteriorProfile profile;
+    private final IslandStyles styles;
     private final NormalNoise passageA, passageB, chamber;
 
     public IslandInteriors(RandomState random, InteriorProfile profile) {
+        this(random, profile, null);
+    }
+    public IslandInteriors(RandomState random, InteriorProfile profile, IslandStyles styles) {
         this.profile = profile;
+        this.styles = styles;
         // Opaque legacy random salt: changing it changes terrain for the same seed.
         var factory = random.getOrCreateRandomFactory(ResourceLocation.parse("create_sky_compat:interiors"));
         passageA = NormalNoise.create(factory.fromHashOf("passage_a"), new NormalNoise.NoiseParameters(-3, 1.0, 0.5));
@@ -49,6 +54,17 @@ public final class IslandInteriors {
             int bottom = Math.max(GenerationProfile.MIN_Y, Math.max(contributor.minY(), body.bottomY()));
             int top = Math.min(GenerationProfile.MAX_Y - 1, Math.min(contributor.maxY(), body.topY()));
             if (top < bottom) continue;
+            if (styles != null) {
+                var style = styles.style(descriptor);
+                var horizontal = contributor.horizontal();
+                boolean fragmented = style.kind() != IslandStyles.Kind.NATIVE || style.disturbed()
+                        && horizontal.coverage() * Math.min(descriptor.radiusX(), descriptor.radiusZ()) * .5 < styles.profile().edges().bandWidth();
+                if (fragmented) {
+                    var remnant = FragmentedExterior.sample(descriptor.seed(), horizontal.localX(), horizontal.localZ(), styles.profile().fractures());
+                    if (top - bottom + 1 < profile.shellThickness() * 4
+                            || remnant.conservativeClearance() < profile.shellThickness()) kind = Kind.BASELINE;
+                }
+            }
             if (kind == Kind.BASELINE) {
                 var solid = new BitSet(allowed.length());
                 solid.set(bottom - GenerationProfile.MIN_Y, top + 1 - GenerationProfile.MIN_Y);
