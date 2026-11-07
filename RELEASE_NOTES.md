@@ -25,5 +25,5 @@ profiles are accepted without rewriting their original values; startup and edito
 validation remain strict. These terrain changes require a fresh world. Existing
 worlds are protected by their saved generation identity and are not converted.
 
-See [configuration](docs/configuration.md), [terrain variation](docs/development/terrain-variation.md)
-and [verification](docs/development/verification.md) for controls and tested scope.
+See [configuration](https://github.com/mannie-exe/skyweave-compat/blob/v0.25.0/docs/configuration.md), [terrain variation](https://github.com/mannie-exe/skyweave-compat/blob/v0.25.0/docs/development/terrain-variation.md)
+and [verification](https://github.com/mannie-exe/skyweave-compat/blob/v0.25.0/docs/development/verification.md) for controls and tested scope.

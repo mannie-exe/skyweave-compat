@@ -2,6 +2,12 @@
 
 Generated from Git history. Player-facing release summaries are in [release notes](RELEASE_NOTES.md).
 
+## v0.25.0 · 2026-11-07
+
+### Features
+
+- **terrain:** Vary island outlines and ecology ([463caf6](https://github.com/mannie-exe/skyweave-compat/commit/463caf63c901dd0fd6c242c1241a5eaec4e98e92))
+
 ## v0.24.0 · 2026-11-07
 
 ### Features
