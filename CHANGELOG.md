@@ -2,6 +2,12 @@
 
 Generated from Git history. Player-facing release summaries are in [release notes](RELEASE_NOTES.md).
 
+## v0.28.0 · 2026-11-08
+
+### Features
+
+- **terrain:** Preserve river beds and bound discovery ([53e05f2](https://github.com/mannie-exe/skyweave-compat/commit/53e05f204220bbad61da625b0e9ba3d96090c930))
+
 ## v0.27.0 · 2026-11-08
 
 ### Features
