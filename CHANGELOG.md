@@ -2,6 +2,12 @@
 
 Generated from Git history. Player-facing release summaries are in [release notes](RELEASE_NOTES.md).
 
+## v0.27.0 · 2026-11-08
+
+### Features
+
+- **worldgen:** Integrate structures and repair island water ([452af67](https://github.com/mannie-exe/skyweave-compat/commit/452af673dc511376f305508778236eafabddb425))
+
 ## v0.26.0 · 2026-11-08
 
 ### Features

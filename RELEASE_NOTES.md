@@ -1,45 +1,39 @@
-# Skyweave: Compatibility Patches 0.26.0
+# Skyweave: Compatibility Patches 0.27.0
 
-Skyweave islands gain mixed granular perimeters and an intact-core Disintegrating
-profile. Fragment sizes and local reach vary; outer fragments shrink and become sparser.
-Detached fragments have their own tapered depth; the existing main
-bodies, sparse placement and geological frame retain their roles. Deep Dark
-selection rises to 10% of eligible native underground hosts, without guaranteeing
-an Ancient City.
+Repair island water continuity, support composed villages and selected YUNG
+structures, and keep ocean variants on the normal island sizing/shaping system.
+Minecraft remains 1.21.1, with Sky Archipelago 1.4 and Dynamic Waters 13.1.0.
 
-Optional Dynamic Waters 13.1.0 supplies island-aware mountain rivers, basin lakes
-and edge waterfalls. The bridge preserves supported island rock, excludes empty
-sky and native ocean habitats from carving, and keeps post-carver repair from
-building foundations across outlets. A separate optional Sable adapter repairs
-the dedicated-server current bridge. Sky Archipelago's native rivers and lakes
-default off; Dynamic Waters requires VANILLA lowland mode and mountain tunnels off.
+- Rejected river cuts no longer create source shelves in void. Inclusive cave-roof
+  support and shallower lake beds prevent the reported dry lake holes. Generated
+  channels exclude additive fragments and terminate at physical void sinks.
+- Lagoon treatments retain normal host sizes and native floors. Coastal mode
+  opens a broad seeded cove with supported shoulders; perimeter falls and native
+  Lagoon/Broken Reef habitats remain available. Ocean outlines share the normal
+  seeded shaping and external fragment authority.
+- Optional Lithostitched integration keeps native assembly for the pack's composed
+  CTOV/Better Villages/Towns and Towers profiles, with explicit family membership
+  and shared island discovery allowances.
+- Optional YUNG integration preserves configured vanilla replacements, projected
+  temple water/exclusion rules and supported buried rooms. Mineshaft entrances
+  move with their layouts; mineshaft and hut supports stop at the island underside.
+  All new adapters default on when their exact dependencies qualify.
+- Owned configuration now lives under `config/skyweave/`; shader recipes live in
+  `config/skyweave/shaders/recipes/`. Move existing owned files while stopped,
+  preserving custom values and resolving conflicting copies before starting.
+  Foreign mods retain their native paths. Startup refuses unmigrated settings.
 
-Climate-sensitive island queries use reference Y64, including native weather and
-Iris precipitation. Native clouds move to Y469.3333. Marked worlds omit native
-height-triggered void fog and the black underside sky. Matching versioned shader
-recipes correct supported Complementary/Euphoria and BSL/Colorwheel environment
-heuristics while retaining real cave, underwater and status effects.
+**Terrain changes require a fresh world.** Existing marked saves are not silently
+converted. Configuration relocation alone does not invalidate terrain or caches.
 
-The island locator now continues automatically within its finite search budget,
-with concise progress, cancellation and clickable pages. Coordinates suggest a
-teleport command for review rather than executing it. Configuration exposes the
-new settings through existing grouped editors, supports validated TOML string
-lists, and preserves generation drafts instead of saving them beneath a running
-singleplayer world.
+Verification covers native water stages, fluid ticks/reopening, composed layouts,
+local door/bed support, retained loot, optional loading, registered configuration,
+bounded DH generation and BlueMap lifecycle. Finite samples do not certify every
+layout, villager pathfinding or survival balance. YUNG monuments retain habitat
+checks; no suitable island monument was demonstrated in the bounded sample.
+Geophilic's sampled ecology works through existing surface/feature owners.
 
-**Terrain changes require a fresh world.** Saved identity checks prevent silent
-conversion; existing LOD databases are not a migration path. Rendering adaptations
-remain independently configurable and physically client-sided.
-
-Verification includes 219 Java tests, native generation/fluid ticks/reopening,
-minimum and full-pack loading, climate/environment controls, a bounded DH job,
-BlueMap selection/lifecycle and configuration save protection. Sable checks cover
-current submission, not every vessel's sailing behavior. Unknown shaders, Photon
-on Apple hardware and all Create-machine/fluid-rendering combinations are not
-certified. The full-pack all-disabled control retains an upstream Sky Archipelago/
-ZFastNoise conflict; default full-pack and standalone loading pass.
-
-See [configuration](https://github.com/mannie-exe/skyweave-compat/blob/v0.26.0/docs/configuration.md),
-[terrain](https://github.com/mannie-exe/skyweave-compat/blob/v0.26.0/docs/development/terrain.md)
-and [verification](https://github.com/mannie-exe/skyweave-compat/blob/v0.26.0/docs/development/verification.md)
-for controls, exact tested boundaries and dependency-update considerations.
+See [configuration](https://github.com/mannie-exe/skyweave-compat/blob/v0.27.0/docs/configuration.md),
+[terrain](https://github.com/mannie-exe/skyweave-compat/blob/v0.27.0/docs/development/terrain.md)
+and [verification](https://github.com/mannie-exe/skyweave-compat/blob/v0.27.0/docs/development/verification.md)
+for controls, tested boundaries and dependency-update checks.
