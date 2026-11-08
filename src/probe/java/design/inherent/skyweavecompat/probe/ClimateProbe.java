@@ -28,6 +28,11 @@ final class ClimateProbe {
         check(!temperate.shouldSnow(level, snow), "Temperate island accumulated snow");
         check(frozen.shouldFreeze(level, water, false), "Native cold biome lost freezing");
         check(frozen.shouldSnow(level, snow), "Native cold biome lost snow");
+        for (var key : java.util.List.of(Biomes.BADLANDS, Biomes.STONY_SHORE)) {
+            var biome = biomes.getOrThrow(key);
+            check(!biome.shouldFreeze(level, water, false), "Warm biome froze at inhabited altitude: " + key);
+            check(!biome.shouldSnow(level, snow), "Warm biome accumulated snow: " + key);
+        }
         check(!IslandClimate.applies(level.getServer().getLevel(net.minecraft.world.level.Level.NETHER)), "Climate leaked into the Nether");
         var result = new JsonObject();
         result.addProperty("fixtureY", water.getY());
@@ -35,6 +40,7 @@ final class ClimateProbe {
         result.addProperty("nativeAltitudeCoolingReproduced", true);
         result.addProperty("temperateDoesNotFreezeOrSnow", true);
         result.addProperty("coldBiomeStillFreezesAndSnows", true);
+        result.addProperty("badlandsAndStonyShoreStayWarm", true);
         return result;
     }
 }

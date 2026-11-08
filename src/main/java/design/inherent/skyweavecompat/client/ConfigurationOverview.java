@@ -428,10 +428,14 @@ public final class ConfigurationOverview extends Screen {
         String translation = field.spec().getTranslationKey();
         if (translation == null) {
             var config = registered(filename);
-            if (config == null) return Component.literal(field.key());
+            if (config == null) return Component.literal(registeredFallback(field.binding().getPath().getLast()));
             translation = config.getModId() + ".configuration." + field.key();
         }
-        return Component.translatableWithFallback(translation, field.key());
+        return Component.translatableWithFallback(translation, registeredFallback(field.binding().getPath().getLast()));
+    }
+    private static String registeredFallback(String key) {
+        String words = key.replaceAll("([a-z0-9])([A-Z])", "$1 $2").replace('_', ' ');
+        return words.isEmpty() ? key : Character.toUpperCase(words.charAt(0)) + words.substring(1);
     }
     private Component registeredValue(RegisteredEdits.Field field, String value) {
         if (field.defaultValue() instanceof Boolean) return on(Boolean.parseBoolean(value));
@@ -444,7 +448,14 @@ public final class ConfigurationOverview extends Screen {
     private void buildRegistered(RegisteredEdits edits) {
         String file = edits.filename();
         content.row("validation/" + file, Component.empty(), validation(edits));
+        String lastGroup = "";
         for (var field : edits.fields()) {
+            var path = field.binding().getPath();
+            String group = String.join(" / ", path.subList(0, path.size() - 1));
+            if (!group.isEmpty() && !group.equals(lastGroup)) {
+                content.heading(Component.translatableWithFallback("skyweave_compat.settings.registered_group." + group, group));
+                lastGroup = group;
+            }
             String key = field.key(), id = "field/" + file + "/" + key;
             Component label = registeredName(file, field);
             String description = field.spec().getComment();
@@ -453,13 +464,16 @@ public final class ConfigurationOverview extends Screen {
                 case WORLD -> SettingsCatalog.Timing.SERVER_START;
                 case GAME -> SettingsCatalog.Timing.GAME_RESTART;
             };
+            if (SettingsCatalog.timing(file, key) == SettingsCatalog.Timing.NEW_WORLD) timing = SettingsCatalog.Timing.NEW_WORLD;
             Component help = Component.literal(description == null ? "" : description.lines().findFirst().orElse(""))
                     .append("\n").append(text("after_save." + timing.name().toLowerCase(Locale.ROOT)));
             if (field.spec().getRange() != null) help = help.copy().append("\n").append(text("bounds", field.spec().getRange().toString()));
             var reset = valueButton(text("reset"), label, 42, () -> { remember(); edits.reset(key); rebuildWidgets(); });
             reset.setTooltip(Tooltip.create(text("default", edits.defaultValue(key))));
             if (field.choices().isEmpty()) {
-                var input = new EditBox(font, 0, 0, 100, 20, label); input.setMaxLength(field.defaultValue() instanceof String ? 256 : 64); input.setValue(edits.value(key));
+                var input = new EditBox(font, 0, 0, 100, 20, label);
+                input.setMaxLength(field.defaultValue() instanceof List<?> ? 4096 : field.defaultValue() instanceof String ? 256 : 64);
+                input.setValue(edits.value(key));
                 if (description != null) input.setTooltip(Tooltip.create(Component.literal(description)));
                 input.setResponder(value -> {
                     if (edits.value(key).equals(value)) return;
@@ -548,7 +562,18 @@ public final class ConfigurationOverview extends Screen {
     private void saveDraft() {
         if (!dirty()) return;
         boolean generation = draft != null && draft.changes().keySet().stream().anyMatch(feature -> SettingsCatalog.group(feature).category == Category.WORLD)
-                || json.values().stream().anyMatch(edits -> edits.dirty() && !edits.definition().help().equals("bluemap"));
+                || json.values().stream().anyMatch(edits -> edits.dirty() && !edits.definition().help().equals("bluemap"))
+                || toml.values().stream().anyMatch(edits -> edits.changedKeys().stream()
+                        .anyMatch(key -> SettingsCatalog.timing(edits.filename(), key) == SettingsCatalog.Timing.NEW_WORLD));
+        // Registered COMMON values update their owner immediately. Do not change
+        // authoritative generation beneath a running integrated server.
+        if (minecraft.getSingleplayerServer() != null && toml.values().stream()
+                .anyMatch(edits -> edits.changedKeys().stream()
+                        .anyMatch(key -> SettingsCatalog.timing(edits.filename(), key) == SettingsCatalog.Timing.NEW_WORLD))) {
+            feedback = text("generation_leave_world");
+            rebuildWidgets();
+            return;
+        }
         if (generation) {
             remember(); minecraft.setScreen(new ConfirmScreen(answer -> { minecraft.setScreen(this); if (answer) writeDraft(); }, text("generation_title"), text("generation_message")));
         } else writeDraft();

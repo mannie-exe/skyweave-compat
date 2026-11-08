@@ -16,6 +16,8 @@ public final class RiverConfiguration {
     private static JsonElement defaults() {
         var nativeDefaults = RiverSettings.newWorldDefaults();
         var encoded = RiverSettings.CODEC.encodeStart(JsonOps.INSTANCE, nativeDefaults).getOrThrow().getAsJsonObject();
+        encoded.addProperty("enabled", false);
+        encoded.addProperty("lakes_enabled", false);
         // The native codec elides these defaults; the editor must still expose them.
         encoded.addProperty("standalone_lake_chance", nativeDefaults.standaloneLakeChance());
         var exclusions = new JsonArray();

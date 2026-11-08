@@ -2,12 +2,12 @@ package design.inherent.skyweavecompat.terrain;
 
 import java.util.List;
 
-/** Horizontal exterior choices; the native vertical body and independent interiors retain authority. */
+/** Exterior choices around the protected native body and independent interiors. */
 public record ShapeProfile(boolean enabled, double strengthVariation, Outline outline, Edges edges, Fractures fractures) {
     public static final ShapeProfile INITIAL = new ShapeProfile(true, .15,
-            new Outline(.65, 1.96, 26, 102), new Edges(.45, .625, 57, 24, 26),
+            new Outline(.65, 1.96, 26, 102), new Edges(true, .3, .7, 64, .15, 1.6, 28, .6, .55, 1.2, 6),
             new Fractures(.35, List.of("minecraft:mushroom_fields", "minecraft:badlands",
-                    "minecraft:eroded_badlands", "minecraft:wooded_badlands"), 72, 6, 32, .28, .01, .25));
+                    "minecraft:eroded_badlands", "minecraft:wooded_badlands"), 72, 6, 32, .28, .10, .25));
 
     public ShapeProfile {
         if (!Double.isFinite(strengthVariation) || strengthVariation < 0 || strengthVariation > .5)
@@ -21,11 +21,22 @@ public record ShapeProfile(boolean enabled, double strengthVariation, Outline ou
                 throw new IllegalArgumentException("Invalid outline; aspect ratio 1–2.5, warp 0–48 blocks, wavelength 32–512");
         }
     }
-    public record Edges(double chance, double affectedFraction, int bandWidth, int amplitude, int wavelength) {
+    public record Edges(boolean enabled, double minimumSmoothFraction, double maximumSmoothFraction,
+            int falloffDistance, double disintegratingChance, double disintegratingScale, int fragmentScale,
+            double fragmentDepthRatio, double density, double falloffExponent, int undersideAccent) {
         public Edges {
-            if (!ShapeProfile.chance(chance) || !ShapeProfile.chance(affectedFraction) || bandWidth < 8 || bandWidth > 96
-                    || amplitude < 0 || amplitude > 48 || amplitude > bandWidth || wavelength < 8 || wavelength > 128)
-                throw new IllegalArgumentException("Invalid perimeter; amplitude must fit the 8–96 block edge band");
+            if (!chance(minimumSmoothFraction) || !chance(maximumSmoothFraction)
+                    || minimumSmoothFraction > maximumSmoothFraction || !chance(disintegratingChance)
+                    || falloffDistance < 0 || falloffDistance > 256 || fragmentScale < 8 || fragmentScale > 128
+                    || !Double.isFinite(disintegratingScale) || disintegratingScale < 1 || disintegratingScale > 3
+                    || !Double.isFinite(fragmentDepthRatio) || fragmentDepthRatio < 0 || fragmentDepthRatio > .8
+                    || !chance(density) || !Double.isFinite(falloffExponent) || falloffExponent < .5 || falloffExponent > 4
+                    || undersideAccent < 0 || undersideAccent > 12)
+                throw new IllegalArgumentException("Invalid granular perimeter bounds, density, or depth");
+        }
+        /** All possible widths, including the rare disintegrating case. */
+        public int maximumReach(int radius) {
+            return enabled ? (int)Math.ceil(Math.min(falloffDistance * disintegratingScale, radius * .8)) : 0;
         }
     }
     public record Fractures(double chance, List<String> biomes, int cellSize, int gapWidth,

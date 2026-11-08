@@ -29,6 +29,7 @@ public abstract class IslandFieldMixin implements ProfiledTerrain, GeologicalFie
     @Shadow @Final private IslandClusterSampler clusterSampler;
     @Shadow @Final private IslandDescriptorFactory descriptorFactory;
     @Shadow @Final private org.sathrek.sky_archipelago.worldgen.generator.field.internal.IslandShapeSampler shapeSampler;
+    @Shadow @Final private org.sathrek.sky_archipelago.worldgen.generator.field.internal.IslandTerrainPlanFactory terrainPlanFactory;
     @Shadow @Final private org.sathrek.sky_archipelago.worldgen.generator.field.internal.IslandColumnResolver columnResolver;
     @Shadow @Final private org.sathrek.sky_archipelago.worldgen.generator.field.internal.IslandDensityEvaluator densityEvaluator;
     @Shadow @Final private org.sathrek.sky_archipelago.worldgen.generator.field.model.BiomeTerrainSampler biomeTerrainSampler;
@@ -110,6 +111,7 @@ public abstract class IslandFieldMixin implements ProfiledTerrain, GeologicalFie
         }
         ((ProfiledTerrain)(Object)clusterSampler).skyweave$configure(profile);
         ((ProfiledTerrain)(Object)descriptorFactory).skyweave$configure(profile);
+        ((ProfiledTerrain)(Object)terrainPlanFactory).skyweave$configure(profile);
         ((ProfiledTerrain)(Object)shapeSampler).skyweave$configure(profile);
         skyweave$styles = new IslandStyles(ShapeConfiguration.profile(), biomeTerrainSampler);
         ((StyledTerrain)(Object)shapeSampler).skyweave$styles(skyweave$styles);

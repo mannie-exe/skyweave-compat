@@ -25,7 +25,10 @@ parser.add_argument('--world-output', type=Path, help='Keep a successful disposa
 parser.add_argument('--minimal', action='store_true', help='Generate with only Sky Archipelago and Skyweave: Compatibility Patches, plus the read-only probe')
 parser.add_argument('--dh-stop-after', type=int, default=0, metavar='SECONDS', help='With --dh-pregen, stop the disposable server during generation (1 to 30 seconds)')
 parser.add_argument('--dh-world-key', action='store_true', help='With --dh-pregen, verify opt-in per-save cache identity in the disposable world')
+parser.add_argument('--dynamic-waters', type=Path, help='Exact Dynamic Waters 13.1.0 artifact for the disposable integration fixture')
 mode = parser.add_mutually_exclusive_group()
+mode.add_argument('--perimeter', action='store_true', help='Check granular remnant bounds and native fill')
+mode.add_argument('--hydrology', action='store_true', help='Check native Dynamic Waters planning on actual island terrain')
 mode.add_argument('--variation', choices=['fractured', 'deep_dark'], help='Verify an explicit fractured geometry/ecology fixture through native fill and features')
 mode.add_argument('--locator', action='store_true', help='Exercise the bounded metadata command without generating chunks')
 mode.add_argument('--lookup', action='store_true', help='Check native presence rejection for unselected structure candidates without chunk generation')
@@ -99,9 +102,9 @@ if args.fluid_ticks < 0 or args.fluid_ticks > 3600:
     parser.error('--fluid-ticks must be between 0 and 3600')
 if args.oceans and not args.ocean_config:
     parser.error('--oceans requires --ocean-config')
-if args.minimal and args.generation != 'adapted' and not any((args.variation, args.locator, args.lookup, args.coverage, args.structures, args.surface_structures, args.overlap, args.interiors, args.veins, args.water, args.materials, args.oceans, args.biomes, args.surface_climate, args.terrain, args.benchmark)):
+if args.minimal and args.generation != 'adapted' and not any((args.perimeter, args.hydrology, args.variation, args.locator, args.lookup, args.coverage, args.structures, args.surface_structures, args.overlap, args.interiors, args.veins, args.water, args.materials, args.oceans, args.biomes, args.surface_climate, args.terrain, args.benchmark)):
     parser.error('--minimal requires a terrain, coverage, structure, interior, vein, water or material check')
-if args.reopen and not (args.lookup or args.generation or args.natural or args.structures or args.surface_structures or args.water or args.oceans):
+if args.reopen and not (args.hydrology or args.lookup or args.generation or args.natural or args.structures or args.surface_structures or args.water or args.oceans):
     parser.error('--reopen requires generation, natural villages, structures or water')
 if args.natural_profile != 'current' and not args.natural:
     parser.error('--natural-profile requires --natural')
@@ -141,6 +144,8 @@ if args.coverage: name = f'coverage-{args.seed}'
 if args.benchmark: name = f'benchmark-{args.seed}'
 if args.lookup: name = f'lookup-{args.seed}'
 if args.locator: name = f'locator-{args.seed}'
+if args.perimeter: name = f'perimeter-{args.seed}'
+if args.hydrology: name = f'hydrology-{args.seed}'
 if args.variation: name = f'variation-{args.variation}-{args.seed}'
 if args.overlap: name = 'overlap'
 if args.interiors: name = f'interiors-{args.seed}'
@@ -196,12 +201,24 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
         expected = {'minimal': 1, 'create': 2, 'analog': 2, 'pair': 3}[args.audio]
         if len(list((run / 'mods').glob('*.jar'))) != expected:
             raise SystemExit('Audio fixture dependencies missing from installed server')
+    if args.hydrology and not args.dynamic_waters:
+        parser.error('--hydrology requires --dynamic-waters')
+    if args.dynamic_waters:
+        candidate = args.dynamic_waters.expanduser().resolve()
+        expected = '8a1eed3810e1e7a375e6ed50e21e7950d08d0b115903877c44fc1645c8f237e0cd3cac0ae325aa4988677b161317ce5ce0e22e8f2695109a286fee374c956e51'
+        if hashlib.sha512(candidate.read_bytes()).hexdigest() != expected:
+            raise SystemExit('Dynamic Waters fixture requires the pinned 13.1.0 NeoForge artifact')
+        shutil.copy2(candidate, run / 'mods' / candidate.name)
     shutil.copy2(mod, run / 'mods' / mod.name)
     shutil.copy2(fixture, run / 'mods' / fixture.name)
     for folder in ['config', 'defaultconfigs']:
         if not args.minimal and args.audio in (None, 'full') and (server / folder).exists():
             shutil.copytree(server / folder, run / folder)
     (run / 'config').mkdir(exist_ok=True)
+    if args.dynamic_waters:
+        # VANILLA disables Dynamic Waters' continental network and ridge rewriting;
+        # NONE also rewrites ridges, changing the climate underneath the island preset.
+        (run / 'config/dynamicwaters-common.toml').write_text('[Generation]\nnormalRiverMode = "VANILLA"\n')
     feature_file = run / 'config/skyweave_compat-features.properties'
     feature_settings = {}
     if feature_file.exists():
@@ -241,7 +258,7 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
     # Reuse the owner's existing EULA acceptance; never create acceptance implicitly.
     shutil.copy2(server / 'eula.txt', run / 'eula.txt')
     preset = {'current': 'sky_archipelago:sky_islands', 'adapted': 'skyweave_compat:islands_v1', 'vanilla': 'minecraft:normal'}.get(args.generation, ('skyweave_compat:islands_v1' if args.natural_profile == 'adapted' else 'sky_archipelago:sky_islands') if args.natural else 'minecraft:flat')
-    if args.variation or args.locator or args.lookup or args.structures or args.surface_structures or args.coverage or args.benchmark or args.biomes or args.surface_climate or args.mechanics or args.islands or args.chunk_futures or args.dh_pregen: preset = 'skyweave_compat:islands_v1'
+    if args.perimeter or args.hydrology or args.variation or args.locator or args.lookup or args.structures or args.surface_structures or args.coverage or args.benchmark or args.biomes or args.surface_climate or args.mechanics or args.islands or args.chunk_futures or args.dh_pregen: preset = 'skyweave_compat:islands_v1'
     if args.interiors or args.veins or args.water or args.materials or args.oceans: preset = 'skyweave_compat:islands_v1'
     (run / 'server.properties').write_text('\n'.join([
         'server-ip=127.0.0.1', 'server-port=0', 'online-mode=false',
@@ -290,6 +307,8 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
                f'-Dneighbors.probe.variation={str(bool(args.variation)).lower()}',
                f'-Dneighbors.probe.variationKind={(args.variation or 'fractured').upper()}',
                f'-Dneighbors.probe.locator={str(args.locator).lower()}',
+               f'-Dneighbors.probe.perimeter={str(args.perimeter).lower()}',
+               f'-Dneighbors.probe.hydrology={str(args.hydrology).lower()}',
                f'-Dneighbors.probe.cityWitness={str(args.city_witness).lower()}',
                f'-Dneighbors.probe.lookupRadius={args.lookup_radius}',
                f'-Dneighbors.probe.lookup={str(args.lookup).lower()}',
@@ -345,6 +364,8 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
         else:
             second = json.loads(report.read_text())
             def observed(data):
+                if args.hydrology:
+                    return data['generated'], data['generatedLakes']
                 if args.lookup:
                     witness = data.get('cityWitness', {})
                     return (data['candidates'], {key: value for key, value in witness.items() if key != 'presenceAfterPartialStart'})
@@ -359,7 +380,7 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
                     return {key: data[key] for key in ['samples', 'villagePlan']} if 'villagePlan' in data else data['samples']
                 return [(sample['x'], sample['z'], {key: value for key, value in sample['blocks'].items()
                         if key.endswith('_ore')}) for sample in data['samples']]
-            match_key = ('reopenLookupMatch' if args.lookup else
+            match_key = ('reopenHydrologyMatch' if args.hydrology else 'reopenLookupMatch' if args.lookup else
                          'reopenWaterOwnershipMatch' if args.water or args.oceans else
                          'reopenStructuresMatch' if args.structures or args.surface_structures else
                          'reopenVillagesMatch' if args.natural else 'reopenOreCountsMatch')
@@ -378,6 +399,8 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
         data['peakResidentBytes'] = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss * (1 if sys.platform == 'darwin' else 1024)
         data['modSelection'] = args.audio or ('minimal' if args.minimal else 'full')
         data['installedJars'] = sorted(path.name for path in (run / 'mods').glob('*.jar'))
+        if args.dynamic_waters:
+            data['dynamicWatersConfig'] = (run / 'config/dynamicwaters-common.toml').read_text()
         data['carverAdapterDisabled'] = args.disable_carver_adapter
         data['fixedBiomeFixture'] = args.fixed_biome
         data['structureDebugFixture'] = args.structure_debug
@@ -458,6 +481,12 @@ if args.veins:
     raise SystemExit(0)
 if args.water or args.oceans:
     print('Native water check:', report, 'seconds:', data['elapsedSeconds'])
+    raise SystemExit(0)
+if args.perimeter:
+    print('Native granular perimeter check:', report)
+    raise SystemExit(0)
+if args.hydrology:
+    print('Native watershed check:', report, 'seconds:', data['elapsedSeconds'])
     raise SystemExit(0)
 if args.materials:
     print('Native material check:', report)

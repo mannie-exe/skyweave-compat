@@ -174,7 +174,7 @@ final class ClientConfigurationProbe {
                 }
             }
             var active = new JsonArray(); for (Feature feature : OptionalIntegrations.selection().active()) active.add(feature.key); report.add("active", active);
-            Files.writeString(root.resolve("config-review-state.json"), new GsonBuilder().setPrettyPrinting().create().toJson(report));
+            ProbeStateFiles.write(root.resolve("config-review-state.json"), new GsonBuilder().setPrettyPrinting().create().toJson(report));
         } catch (Exception failure) { throw new IllegalStateException(failure); }
     }
 }

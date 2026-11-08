@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.Objects;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
-/** Staged scalar edits; the registered spec retains serialization, reload events and restart caches. */
+/** Staged scalars and string lists; the registered spec owns validation and persistence. */
 public final class RegisteredEdits {
     public record Field(ModConfigSpec.ConfigValue<?> binding) {
         public String key() { return String.join(".", binding.getPath()); }
@@ -45,7 +45,8 @@ public final class RegisteredEdits {
             if (value instanceof ModConfigSpec.ConfigValue<?> binding) {
                 Object initial = binding.getDefault();
                 if (!(initial instanceof Integer || initial instanceof Long || initial instanceof Double || initial instanceof Float
-                        || initial instanceof Boolean || initial instanceof Enum<?> || initial instanceof String))
+                        || initial instanceof Boolean || initial instanceof Enum<?> || initial instanceof String
+                        || initial instanceof List<?> list && list.stream().allMatch(String.class::isInstance)))
                     throw new IOException("Unsupported registered value: " + String.join(".", binding.getPath()));
                 fields.add(new Field(binding));
             } else if (value instanceof UnmodifiableConfig nested) collect(nested);
@@ -54,12 +55,16 @@ public final class RegisteredEdits {
     public String filename() { return filename; }
     public List<Field> fields() { return List.copyOf(fields); }
     private Field field(String key) { return fields.stream().filter(field -> field.key().equals(key)).findFirst().orElseThrow(); }
-    private static String display(Object value) { return value instanceof Enum<?> choice ? choice.name() : String.valueOf(value); }
+    private static String display(Object value) {
+        return value instanceof Enum<?> choice ? choice.name()
+                : value instanceof List<?> ? new com.google.gson.Gson().toJson(value) : String.valueOf(value);
+    }
     public String value(String key) { field(key); return edits.getOrDefault(key, display(saved.get(key))); }
     public String defaultValue(String key) { return display(field(key).defaultValue()); }
     public void set(String key, String value) { field(key); if (value.equals(display(saved.get(key)))) edits.remove(key); else edits.put(key, value); }
     public void reset(String key) { set(key, defaultValue(key)); }
     public boolean dirty() { return !edits.isEmpty(); }
+    public java.util.Set<String> changedKeys() { return java.util.Set.copyOf(edits.keySet()); }
     public void discard() { edits.clear(); }
     public String warning() { return warning; }
 
@@ -103,6 +108,14 @@ public final class RegisteredEdits {
             if (initial instanceof Double) { double value = Double.parseDouble(input.strip()); if (!Double.isFinite(value)) throw new IllegalArgumentException("Expected a finite number"); return value; }
             if (initial instanceof Float) { float value = Float.parseFloat(input.strip()); if (!Float.isFinite(value)) throw new IllegalArgumentException("Expected a finite number"); return value; }
             if (initial instanceof String) return input;
+            if (initial instanceof List<?>) {
+                var parsed = new TomlParser().parse("values = " + input);
+                Object value = parsed.get("values");
+                if (parsed.valueMap().size() != 1 || !(value instanceof List<?> list)
+                        || !list.stream().allMatch(String.class::isInstance))
+                    throw new IllegalArgumentException("Expected a string list");
+                return List.copyOf(list);
+            }
             throw new IllegalArgumentException("Unsupported registered number");
         } catch (RuntimeException invalid) { throw new IllegalArgumentException(field.key() + ": invalid value", invalid); }
     }

@@ -15,6 +15,7 @@ import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 public final class ClientConfiguration {
     public ClientConfiguration(ModContainer container, IEventBus modBus) {
         modBus.addListener(ClientResourceRevision::register);
+        if (OptionalIntegrations.enabled(Feature.ISLAND_CLOUDS)) modBus.addListener(IslandSky::register);
         if (OptionalIntegrations.enabled(Feature.CONSTRUCT_OCCLUSION))
             modBus.addListener((net.neoforged.fml.event.lifecycle.FMLClientSetupEvent event) ->
                     event.enqueueWork(ConstructOcclusion::register));

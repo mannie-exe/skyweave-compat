@@ -57,8 +57,9 @@ public final class IslandInteriors {
             if (styles != null) {
                 var style = styles.style(descriptor);
                 var horizontal = contributor.horizontal();
-                boolean fragmented = style.kind() != IslandStyles.Kind.NATIVE || style.disturbed()
-                        && horizontal.coverage() * Math.min(descriptor.radiusX(), descriptor.radiusZ()) * .5 < styles.profile().edges().bandWidth();
+                boolean apron = ((PerimeterColumn)(Object)horizontal).skyweave$fragment() != null;
+                if (apron) kind = Kind.BASELINE;
+                boolean fragmented = !apron && style.kind() != IslandStyles.Kind.NATIVE;
                 if (fragmented) {
                     var remnant = FragmentedExterior.sample(descriptor.seed(), horizontal.localX(), horizontal.localZ(), styles.profile().fractures());
                     if (top - bottom + 1 < profile.shellThickness() * 4

@@ -1,5 +1,38 @@
 # Verification
 
+## Granular edges and island watersheds
+
+Candidate checks use Minecraft 1.21.1, NeoForge 21.1.265, Sky Archipelago 1.4,
+Dynamic Waters 13.1.0 and Java 21.0.13. These observations qualify the changed
+boundaries; they do not replace the earlier release-specific evidence below.
+
+| Boundary | Observed result |
+| --- | --- |
+| Perimeter geometry | Seed 42 covers Mixed/Disintegrating plans and all four land archetypes (Classic, Crescent, Terrace and Bowl Crater), including an ellipse. Seed 8675309 adds independent Classic witnesses. Checks cover conservative bounds, exact columns, density and native NOISE filling. Pure geometry regressions verify periodic uneven reach and smaller, more widely spaced outer fragments. Metadata sampling requests no chunks. The small plan sample does not establish population frequencies. |
+| Water ownership | A failing native fixture isolated sandstone appearing at CARVERS across an outlet that was air at NOISE and SURFACE. Shared pre-water support checks remove that foundation while preserving upstream bed decoration and lake containment. |
+| Rivers and falls | Full pack with C2ME, seed 42: generated river sources at Y406 and a lake at Y509 agree with native base-column/height queries. After 200 ordinary fluid ticks, water falls below the supported outlet at (-1216, -1073). No source was hand-placed or manually scheduled. Reopening preserves the hydrology witnesses. Twelve route nodes enter void sinks; they do not create terrain there. |
+| DH persistence | The actual DH 3.3.3 generator completes a 32-chunk-radius full-pack job in 88.32 seconds, increasing saved chunks from 144 to 8202. The closed SQLite database passes quick-check, contains 412 FullData records and 28 palettes with Minecraft water. This checks persistence, not distant fluid color or visual coverage. |
+| Sable boundary | A real assembled body records zero dry and one wet current impulse; a 90-degree yaw preserves the world-space vector. Plot-to-world fluid coordinates agree. The synchronous test recorder is restored before physics ticks; this is not a vessel sailing playtest or full voxel-immersion proof. |
+| Climate and environment | High temperate shore and hot Badlands controls do not freeze; a genuinely cold biome retains freezing. Native cloud height is 469.3333. Low open-sky fog remains clear across the floor band while blindness remains black. Generated Complementary/Euphoria and BSL/Colorwheel corrections compile/reload and preserve an enclosed dark room. Native rain and Iris agree at high river altitude; underwater fog survives, Nether effects remain native, and returning restores the marked provider. Explicitly disabling cloud/void corrections restores Y192 clouds and black below-floor fog. Shader captures are separate from photography fixtures with fog overridden. |
+| Locator | Automatic completion visits 625 cells and retains nearest results, provisional paging, cancellation, stale-connection rejection and permission checks. Coordinate clicks suggest rather than execute teleportation. Maximum loaded chunks do not exceed the initial 1930; normal startup unloading reduces the final count. |
+| Configuration | Dynamic Waters COMMON entries use the existing typed editor, including validated string lists. The editor shows readable generation timing. A native generation edit is blocked while the integrated server runs; its draft survives and discarding leaves the file unchanged. Main-menu generation saves retain the fresh-world confirmation. |
+| Optional loading | Standalone dedicated startup and a Minecraft/NeoForge/Compat-only native client/config screen have no active foreign adapters. A terrain-only native client without Iris or Dynamic Waters activates the cloud/void hooks and opens configuration successfully. Default full-pack startup succeeds. An all-disabled full-pack control fails an existing upstream Sky Archipelago/ZFastNoise redirect conflict; it does not establish that this combination is supported. |
+
+Reproduce the watershed check with `tools/probe.py --hydrology --dynamic-waters
+/path/to/dynamicwaters.jar --seed 42 --fluid-ticks 200 --reopen`, the authored
+shape/river inputs, and read-only server/Java arguments. The report records exact
+artifact digests, settings and native results. The full-pack reopened run takes
+142.72 seconds including startup with a 6 GiB heap and peak resident memory
+3,601,350,656 bytes; this single fixture is not a pregen throughput estimate.
+
+Current limitations include untested arbitrary boats/ships, unknown shaderpacks
+and Photon on Apple hardware. The source-level use of ordinary Minecraft water
+does not establish every Create machine, DH material or BlueMap view. Native
+hydrology must remain disabled and Dynamic Waters must use VANILLA lowland mode
+with mountain tunnels off for this bridge. Artistically tuned apron defaults
+still require owner review before publishing.
+
+
 ## Horizontal variation and discovery
 
 Verified on 2026-11-07 with Minecraft 1.21.1, NeoForge 21.1.265, Temurin 21.0.13,
@@ -1376,409 +1409,31 @@ Chrome confirmed the adapter active. The same DH pregen command was accepted onc
 no completion poll followed. Both stopped local instances received the artifact,
 but no Minecraft client was launched for this pass.
 
-## Ocean prototypes and biome materials
-
-The ocean/material candidate has SHA-256
-`58377f93469acc17d5fa4831bdd8ea479fdc7f43d8e3df5550f8dd75f94271ab`.
-`./gradlew check build probeJar` passed with 40 JUnit and five release-tool tests.
-Ocean variants remain disabled by default. The native fixtures enabled them with
-basin/coastal/perimeter selection chances of 0.2 each to find examples efficiently;
-those probabilities are not proposed pack defaults.
-
-`tools/probe.py --oceans --ocean-config PATH --fluid-ticks 600 --heap 6G`
-passed on minimal seed 42 and full-pack seed 8675309. The full run also supplied
-the candidate generation configuration explicitly. Each compared 1,835,008
-native fill/query blocks and inspected three distinct water forms after fluid
-ticks. The closed and coastal examples had no sampled floor/rim holes or gaps
-in planned sources. Perimeter islands deliberately lack a retaining rim; their
-unsupported edge columns became falling water, rather than failed containment.
-
-The full run stored cold-ocean, ocean and warm-ocean habitats, with native aquatic
-vegetation and applicable aquatic spawn entries. Its coastal sample contained
-1,893 beach columns, including 1,806 exposed sand columns. That outlet flowed
-onto a nearby ledge; a coastal spill need not immediately become a deep waterfall.
-The perimeter sample reached Y=159 after 600 ticks. Vegetation persisted inside
-the basins while some edge plants were lost as perimeter water began flowing.
-No coral blocks were observed; this does not establish their absence elsewhere
-or certify coral acquisition. Natural spawning populations remain unmeasured.
-
-Native work took 61.6 seconds / 3.07 GB peak RSS for the minimal run and
-55.4 seconds / 4.40 GB for the full run. These are different generated examples,
-with conservatively forced regions, not a comparative performance benchmark.
-The full search stopped after finding all three forms; its counts are not an
-occurrence survey.
-
-A second minimum-installation seed-42 run used 3,200 fluid ticks on the same
-production artifact. Perimeter water reached Y=-128; planned sources remained
-intact, and the enclosed/coastal samples retained their floor and rim. Native
-work took 201.6 seconds with 3.24 GB peak RSS. This bounded observation does not
-establish long-term loaded-world cost or ecological balance.
-
-A full-pack seed-42 material probe on this candidate found 654 mud blocks within
-the top three layers of 256 mangrove columns. The earlier minimal check found 655
-on `61ddfbc6…`, before the surface-override precedence guard. These establish native
-mud placement in both installations, not all override combinations. The adapter
-changes actual surface writes because upstream's fixed surface-material enum
-cannot retain mud. Reports retain exact hashes and generation settings.
-
-The same artifact completed a full-pack seed-42 native generation/reopen run:
-27 chunks, including a cross-cell companion, retained matching generated/query
-blocks and reopened ore counts. This used default-off ocean variants and explicit
-candidate geometry; it does not certify every optional ocean layout.
-
-The full seed-42 resource survey sampled three anchors with 49 strata each.
-It records ore in 16-level reference-depth bands and counts sampled ore adjacent
-to air or fluid, excluding chunk-edge columns to avoid neighbor loading. All
-three samples contained exposed zinc and iron. Two contained raw copper blocks.
-These are witnesses of generated resources, not guaranteed access or per-island
-budgets. Native work took 41.9 seconds with 7.42 GB peak RSS under a 6G Java heap;
-process RSS includes memory outside that heap. Reports and Atlas retain the counts
-and exact probe hash separately from area-weighted estimates.
-
-### Dedicated background generation
-
-`tools/probe.py --dh-pregen --seed 42 --heap 6G` with explicit candidate geometry
-completed on the full installation and the same production artifact. DH's native
-pregeneration future completed for a 32-chunk-radius job centered at (1282, -673).
-Saved region-header entries increased from 133 to 8,122; padding and unfinished
-generation stages can contribute to that count. The native job took 37.3 seconds
-(60.9 seconds including startup), with 3.77 GB peak RSS. This disposable test
-exercises the dedicated DH path; it does not predict 1024-radius completion time.
-
-### Client review
-
-An independently installed empack reference snapshot loaded the full client set
-and created seed 8675309 with the recorded OVERLAP policy and boosted ocean fixture
-settings. Shader-off spectator review used night vision for interior inspection;
-it does not represent ordinary cave lighting or a survival traversal test.
-
-The hollow at (-725, 262, 933) contains a substantial chamber with rock pillars,
-exposed ores and native sculk. Its surrounding terrain has openings and narrow
-outer branches. The noise-cave sample at (-997, 139, -1632) contains native lush
-decoration and exposed deepslate. Classic carvers remained enabled in both.
-These views support retaining the current composition for playtesting; they do
-not prove every chamber has a safe or connected entrance.
-The client save reopened successfully with its recorded generation identity.
-
-![Hollow interior with native decoration](hollow-interior.png)
-
-The coastal example near (-22443, 453, 792) has a sand shore and aquatic plants.
-The perimeter example near (-20214, 294, 4050) retains a submerged rock body and
-develops a broad falling-water curtain. Its visual footprint is substantial;
-keep this experimental variant disabled by default rather than treating it as
-an inexpensive substitute for an ordinary companion island.
-
-![Experimental water island after fluid flow](ocean-perimeter.png)
-
-## Local water
-
-The source-water/lining candidate has SHA-256
-`fe7912fb9b656c34e20e21fd9c53475499732cfceb57b9c88ad4d0413bfd7e21`.
-`./gradlew check build probeJar` passed with 38 JUnit and five release-tool tests.
-The boundary tests include deep, narrow bowls whose stepped floors need vertical
-lining as well as a horizontal bed. Native water probes use the installed server
-as read-only input and delete their isolated worlds afterward.
-
-| Check | Observed scope |
-| --- | --- |
-| `--water --seed 42 --fluid-ticks 600 --heap 6G` with explicit candidate geometry | Full mod set: 1,835,008 fill/base-column block comparisons, water-surface/solid-floor height agreement, no sampled floor/rim holes or air gaps inside planned basin sources, flowing overflow and underside outlets |
-| `--water --minimal --seed 8675309 --fluid-ticks 3200 --heap 6G` | Same checks over a second seed; underside water reached Y=-128 while its basin remained intact; cold surface ice persisted |
-| Native carvers disabled, full seed 42 | Control removed the unexpected air beneath basin sources, identifying classic carving as the cause; source-water protection fixed it with carving enabled |
-
-The full 600-tick run used `6f55d160…`. The candidate above adds the saved
-`waterPolicy` identity field without changing terrain composition and was used
-for the 3,200-tick run. Reports retain complete production/probe hashes and installed
-mod lists. The full run took 47.2 seconds for admission, generation and 600 ticks,
-with 3.57 GB peak RSS. The longer minimum-installation run took 178.6 seconds with
-2.38 GB peak RSS. These bounded observations are not a throughput benchmark.
-
-The 21-by-21-cell admission surveys found 16 basins among 232 anchors in seed 42
-and nine among 207 in seed 8675309. Terrain support rejects some candidates after
-the configured probability draw. Three selected regions per seed provide the
-material/fluid witnesses; this does not establish global occurrence rates.
-
-The water-animal height predicate passed at positions with real water clearance;
-out-of-region and foreign-generator controls retained their original sea level.
-This verifies height eligibility, not natural spawn populations, ocean vegetation
-or complete habitat. Native springs can flow below a sealed basin independently;
-low water blocks alone are not a containment test. Visual appearance, long-term
-ecology and optional ocean variants remain separate checks.
-
-## Interiors and large veins
-
-The `islands_v1-prototype-10` material/interior candidate has SHA-256
-`948586b2a28f9030d959fe022b81dd24cf0f3cf5ea7cb0da59e22e8a54b8dee9`.
-`./gradlew check build probeJar` passed, including 36 JUnit and five release-tool
-tests. Native commands below used `tools/probe.py`, an installed server as read-only
-input, Java 21 and `--heap 6G`. Full-pack runs used the explicit candidate geometry
-JSON rather than inheriting the installed server's older tuning.
-
-| Native check | Observed scope |
-| --- | --- |
-| `--overlap --minimal` | Six clusters across seeds 1, 42 and 8675309; upper exterior intervals unchanged, sampled retained rock increased 0.6–1.2% |
-| `--interiors --minimal --seed 42` | Baseline/noise/hollow sections; 86 independent direct/snapshot comparisons |
-| `--interiors --minimal --seed 8675309` | 108 independent comparisons, including uncached exterior/interior planning stages |
-| `--veins --minimal --seed 42` | Raw copper and iron agree between native noise fill and base-column queries; both survive in completed chunks |
-| `--coverage --minimal --seed 42` | City eligibility, query-scope restoration, ordinary-generator and locate-preview controls pass with interiors enabled |
-| `--generation adapted --seed 1 --reopen` | Full mod set including C2ME; 6,193,152 fill/query block comparisons and unchanged reopened ore counts |
-| `--islands --seed 1` | Full-set generated samples across three anchors; supported spawn and spatial resource samples |
-
-The overlap comparison used the pre-interior exterior baseline. The seed-42
-interior sections precede the planning-stage additions. Full-pack generation and
-the island survey used material/interior artifact `d556837e…`; the later candidate
-adds scoped planning queries without changing complete terrain composition. Reports
-retain exact hashes; these checks do not certify later untested changes.
-
-The two noise-interior examples removed 6.5% and 7.3% of sampled exterior rock.
-Hollow examples removed 21.5% and 23.1%, with largest sampled vertical gaps of
-127 and 125 blocks. These are selected sections before native classic carving,
-decoration or fluid updates, not global frequency estimates or proof of connected,
-walkable caves. A baseline anchor can overlap a differently selected companion;
-its footprint is not an assertion that every contributor has baseline interiors.
-
-Raw copper was observed at (−959,292,−1237), reference Y=34; raw iron at
-(3682,182,−1788), reference Y=−32, in seed 42. The sparse witness search missed
-raw iron, despite finding iron ore and tuff. Inspecting one complete noise-filled
-chunk around a witnessed iron vein found it. This targeted search establishes
-material generation, not scarcity or mining accessibility. The broader island
-survey also remains a sample, not a complete ore inventory.
-
-The full generation/reopen run took 43.6 seconds including startup and shutdown,
-with 3.20 GB peak process RSS. The three-island resource survey took 64.9 seconds
-with 7.10 GB peak RSS at a 6 GB maximum Java heap; RSS includes native allocations.
-These single observations are not a throughput benchmark. Cavern appearance,
-entrance usability, support after native carving, and fluid behavior require
-separate visual and runtime checks.
-
-## Generation coverage
-
-The coverage candidate has SHA-256
-`d0416871fbb09c9d8d04d8efe6c2d1028bb78aeac559efc2d81b4fb670015977`.
-It adds ancient-city eligibility and locate-preview corrections, plus a saved
-structure-policy identity field. Existing terrain classes/resources are unchanged
-from the terrain baseline except that guard and the new registered hooks.
-
-`./gradlew check build probeJar` passed. Native commands used Java 21, `--heap 6G`
-and the installed server directory as read-only dependency input:
-
-| Command arguments to `tools/probe.py` | Evidence |
-| --- | --- |
-| `--coverage --minimal --seed 42` | 19 biome controls, ordinary-preset exclusion and locate-preview controls |
-| `--coverage --seed 1` | Full mod set; 16 biome controls and the same exclusions |
-| `--structures --seed 42` | Full mod set; realized underground layouts, locate and Lootr conversion |
-| `--surface-structures --seed 42` | Full mod set; surface/water-family survey and Lootr conversion |
-| `--surface-structures --minimal --seed 1` | Second seed and minimum-install surface/water survey |
-| `--generation adapted --minimal --seed 42 --reopen` | Saved-world identity, terrain/query agreement and reopened ore counts |
-
-Reports under ignored `build/verification` identify production/probe hashes,
-installed JAR names and runtime selection. The archive inventory additionally
-hashed 389 archives including nested JARs; its definition filter did not include
-every tag, preset or noise-settings resource. Runtime resolution, not filenames,
-established 53 possible Overworld biomes, 157 top-level features, 240 registered
-placed features, 203 configured features, 35 structures and 21 structure sets.
-The latter registries include other dimensions. Resource stacks captured 1,118
-worldgen, biome-modifier and worldgen-tag paths with pack priority.
-
-Typed traversal from Overworld biome features reached 182 registered placed and
-149 configured features. There were 61 height-range paths and no nested
-height-range path; blue ice was the only untagged root using one. Six modded roots
-were Create zinc/striated Overworld and four Propulsion platinum entries. The only
-non-vanilla registered structure was `skyvillages:skyvillage`. Effective resources
-confirmed that the pack's Sky Villages processors/pools override their upstream
-counterparts. This excludes neither arbitrary runtime callbacks nor future mods;
-rerun the inventory after dependency/config updates.
-
-### Corrected eligibility and lookup
-
-Eight sampled Deep Dark footprints failed the baseline city midpoint precheck.
-The correction made all eight eligible; the 19 seed-42 controls included 14
-non-Deep-Dark columns. All 16 seed-1 controls also matched the expected projected
-biome. Trial-chamber queries and ordinary Sky Archipelago eligibility were unchanged;
-query scopes were restored. Native support checks still rejected some layouts.
-Ancient cities were not universally absent before this correction.
-
-A matched seed-42 control JAR omitted only `StructureLocateCheckMixin`. The city
-and mineshaft had valid starts and realized blocks, but locate reported absence
-even after their source chunks reached FULL. With the hook, both resolved; the
-stronghold and trial chamber remained discoverable. Separate controls retained
-known-empty chunks, rejected ocean-disabled WATER structures, and compared five
-ordinary-preset preview results with direct native calls.
-
-| Structure | Accepted / queried, seed 42 | First realized layout |
-| --- | ---: | --- |
-| Stronghold | 2 / 8 | Eight pieces, 12 portal frames, one spawner, one chest |
-| Trial chambers | 2 / 4 | 254 pieces, 13 trial spawners, 13 vaults, 18 chests |
-| Ancient city | 1 / 16 | 56 reinforced deepslate, 20 chests and sculk/shriekers |
-| Mineshaft | 2 / 4 | 174 rails, three spawners, one chest minecart |
-| Badlands mineshaft | 0 / 16 | No accepted candidate; realization unverified |
-
-All four realized types were locatable in the full set. The matched minimal
-control/correction runs took about 46 seconds including startup, generation and
-shutdown; they do not isolate lookup overhead. In the final full run, the first
-stronghold lookup took 2.33 seconds; the other three were below one millisecond
-with candidates already generated. This is not a bound on a cold, wide-radius
-search. Upstream locator Y=0 is not a safe landing position.
-
-### Surface structures and containers
-
-Seed 42's full-set survey realized plains, desert, savanna and snowy villages,
-an outpost, both temples, a witch hut, trail ruins, ordinary/mountain ruined
-portals and both shipwreck variants. Seed 1's minimum run also realized plains
-villages, an outpost, jungle temples, trail ruins, portals and both wreck variants.
-Every realized sample's locate check succeeded. Counts are from at most 16 selected
-candidates per type, stopping after two acceptances; these are not occurrence rates.
-
-Neither survey accepted a taiga village, mansion, igloo or buried treasure in its
-selected candidates. Their upstream routes exist, but usable realization remains
-unverified here. Ocean monuments and both ocean-ruin families had zero starts,
-consistent with the explicit ocean-disabled WATER policy. These failures should
-not all be described as missing generation.
-
-Full-set runs loaded a 5×5 neighborhood around one generated chest, then allowed
-100 server ticks. Both the stronghold and plains-village samples converted to
-`lootr:lootr_chest` with their original loot-table IDs preserved. Earlier immediate
-captures showing `minecraft:chest` were before this lifecycle. Native table rolls
-also contained Camping's injected enderbag. Per-player Lootr entitlements, all
-container types and completed survival encounters were not exercised.
-
-### Remaining limits
-
-The [terrain document](terrain.md) owns the source-backed differences: custom
-surface palettes, separately composed interiors and vein materials, ocean-dependent
-acquisition, native carver aquifer coordinates and column-overlap handling.
-These require separate design or focused realization checks, not blanket parity
-patches. No additional installed ore/structure registration was missed by the
-resolved inventory. That conclusion does not cover every arbitrary code callback.
-
-Surface access to caves, rare-biome structures, natural fluid behavior and
-long-distance progression remain playtest concerns. No new visual
-flight or survival session was performed for these two structure fixes; native
-block/loot/query checks are the evidence above. Prior silhouette, weather and
-terrain surveys below remain attributable to their original artifact.
-
-The first full coverage capture encountered a DH shutdown exception and was not
-counted as passing. Later captures allow settling ticks and exited cleanly; this
-is harness lifecycle evidence, not a DH production fix. Disposable worlds were
-removed. The playing server, world and DH task were not changed or polled.
-
-## Horizontal arrangement
-
-Compare the original 90-block jitter with the 750-block candidate at the same
-2400-block indexing grid. Both reports contain five seeds, native biome admission
-and descriptor previews to 16,000 blocks. For anchors within 10,000 blocks, find
-the nearest captured anchor and fold its direction modulo 90 degrees. Directions
-within 10 degrees of a cardinal axis fell from **149/155 (96.1%) to 52/136 (38.2%)**.
-The accepted anchor count fell by 12.3%. Changes include clearance and displaced
-biome admission as well as jitter; this is not an isolated jitter benchmark.
-
-| Seed | Anchors | Mean / largest nearest-center distance | Minimum support gap | Sampled shore gaps |
-| --- | ---: | --- | ---: | --- |
-| 1 | 30 | 2507 / 3490 | 588 | 1058–1405 |
-| 42 | 26 | 2497 / 3737 | 461 | 1005–1404 |
-| 8675309 | 25 | 2510 / 3103 | 421 | 1378–2015 |
-| 424242 | 25 | 2348 / 3366 | 425 | 873–1268 |
-| -3095298318114116683 | 30 | 2395 / 3427 | 385 | 1027–2637 |
-
-Distances are blocks, rounded. The lowest sampled support gap remains above the
-350-block policy. Three nearest-center pairs per seed supply the shore estimates;
-these are not global nearest-shore proofs or navigated journeys. The retained
-2400 grid indexes candidates, not equally spaced accepted clusters.
-
-![Equal-scale baseline and candidate descriptor layouts](cluster-layout.svg)
-
-The plot shows descriptor radii, not actual coastlines. Seed 42's bounded query
-check exercised 225 cells: 137 eligible candidates, 114 accepted and 23 rejected
-by clearance. Reverse and parallel query order matched. All 29 companions crossing
-cell boundaries retained the correct geological owner. Unit tests additionally
-exercise exact clearance boundaries, priority ties, negative coordinates and the
-derived neighbor search against exhaustive candidates.
-
-## Terrain and resources
-
-Full and minimum seed-42 runs each compared **6,193,152 generated/base-column
-blocks** across 27 chunks, including a companion across a cell boundary. Both
-reopened with matching ore counts. The minimum installation contains only Sky
-Archipelago, Compat and the disposable probe alongside Minecraft/NeoForge.
-An isolated physical client also reached the title screen with Sky Archipelago
-and Compat and no BlueMap; that check establishes loading, not survival gameplay.
-
-Six anchor surveys used 49 spatial strata each. Counts combine ordinary and
-deepslate ores in sampled anchor-owned columns, not complete island inventories.
-
-| Seed / center Y | Observed block Y | Headroom | Zinc | Diamond |
-| --- | --- | ---: | ---: | ---: |
-| 42 / 269 | 63–315 | 452 | 368 | 54 |
-| 42 / 337 | 51–399 | 368 | 415 | 79 |
-| 42 / 321 | 118–370 | 397 | 515 | 137 |
-| 8675309 / 354 | 105–405 | 362 | 372 | 65 |
-| 8675309 / 281 | −32–343 | 424 | 295 | 33 |
-| 8675309 / 292 | 85–331 | 436 | 199 | 30 |
-
-All six contained zinc and diamonds. This does not guarantee mining access,
-quantities per trip or scarcity for every spawn. No sampled column had the
-probe's eight-block-deep surface opening; absence in these strata does not prove
-there are no cave entrances. Surface access remains a playtest concern.
-Sampled straight center lines had longest void intervals of 1494–2300 blocks.
-They are neither altitude-safe flight routes nor movement-time measurements.
-
-Shader-off client review inspected the current seed-42 body and underside,
-plus a contiguous cold/temperate boundary. Initially incomplete distant terrain
-was excluded from the visual evidence. The retained body view shows continuous
-taper rather than a broad bottom slice; it is not a proof for every archetype.
-
-![Generated island body](island-profile.png)
-
-## Snow, biomes and integrations
-
-Contiguous 48×48 areas on seeds 1 and 42 covered temperate, cold and transition
-regions. The probe compared stored quart biomes, smoothed/player-facing queries,
-reference-height temperatures, tags, surface materials and exposed snow. It then
-removed snow layers and applied an explicit native precipitation sweep. No warm
-stored-biome snow blocks or warm-weather snow columns were found. This is a
-controlled weather invocation, not hours of observed natural weather.
-
-Boundary disagreement between stored and smoothed biomes was observed: 83 of
-2301 sampled columns in seed 42's transition area. Cold-biome surface rules can
-select snow independently of altitude cooling. These are plausible explanations
-for a grainy edge, not a reproduction of the friend's unidentified location.
-The cause of that particular observation remains unresolved. No global biome
-smoothing or additional temperature fix was justified.
-
-![Cold/temperate transition](snow-transition-detail.png)
-
-Seed 42's cave/feature check found lush caves, dripstone caves and deep dark with
-matching stored biomes and unchanged surface projections. Deep dark retains
-upstream's fixed −48 proxy and lower-column restriction; it does not use exactly
-the same frame as the other two targets. A direct geode placement and warm/cold
-portal material fixtures passed. A seed-1 high-portal search found no suitable
-fixture; that run does not establish a production defect.
-
-Seed 42's village plan retained the zero-to-three allowance, with target counts
-`[26,7,3,1]`. Eleven starts were accepted and two fully generated; reopening and
-order checks matched. Native delivery endpoint checks passed. These establish
-placement and endpoint handling, not completed deliveries or route budgets.
-Pressure, client climate scope, classic carvers and geological feature mappings
-remain in their owning terrain adapters. No new noise caves or aquifers were added.
-
-## Cost and limits
-
-A shared benchmark queried 122,412 columns and requested 18 chunks against the
-original installed 0.4.0 and the candidate. Column time was 2.97 → 2.82 seconds;
-chunk time was 1.42 → 2.28 seconds; peak process RSS was 3.03 → 3.11 GiB. The
-terrain differs and this is one workload, so the chunk difference is not a causal
-estimate of clearance overhead. The larger island surveys peaked near 6.6 GiB RSS
-with a 6 GiB Java heap; process RSS includes non-heap allocation.
-
-Local-priority rejection is bounded and order-independent, but not maximal: a
-candidate may lose to an eligible neighbor that itself loses elsewhere. The
-measured density reduction was accepted without changing island size or weakening
-clearance. Longer empty crossings remain possible outside the sampled seeds.
-
-Existing markers reject incompatible generation. Do not delete a marker to adopt
-this layout in an old world. Nether/End and ordinary-generator scope were retained;
-this pass did not survey every foreign structure, complete cave connectivity or
-repeat the earlier release's cargo flight. The previous bounded DH pregen check
-is historical evidence, not proof that a new overnight pregen has finished.
+## Earlier terrain regression evidence
+
+The [pre-1.4 verification record](https://github.com/mannie-exe/skyweave-compat/blob/v0.22.1/docs/development/verification.md)
+preserves prototype geometry, water, materials and cost observations with their
+original artifact hashes. Those measurements do not qualify the current native
+1.4 bodies or Dynamic Waters bridge. Retired enclosed-basin and underside-outlet
+implementations are not supported modes of the current generator.
+
+The maintained regression boundaries are:
+
+- Fill, density, height and base-column queries must agree, including cross-cell
+  companions, sparse-cluster clearance and saved-world identity.
+- Interiors and classic carving must preserve supported rock shells. Large-vein
+  and ore consumers must use the owning island's geological frame; an added
+  remnant does not receive an independent resource or structure budget.
+- Water support, lining, fluid ticks, mapped climate and aquatic spawn-height
+  eligibility need separate checks. A low water block is not proof of a leak;
+  an aquatic spawn predicate is not proof of a viable ecosystem.
+- Metadata, optional map adapters and read-only climate queries must not load
+  chunks or activate gameplay. A bounded disposable DH job is not an ETA or a
+  completion report for a personal pregen task.
+
+Current observations are recorded in the sections above and the owning
+[terrain contract](terrain.md). Earlier [interior](hollow-interior.png) and
+[waterfall](ocean-perimeter.png) images remain historical visual references.
 
 ## Audio and construct recovery, 0.12.0
 

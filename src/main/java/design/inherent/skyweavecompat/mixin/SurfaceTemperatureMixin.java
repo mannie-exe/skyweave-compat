@@ -12,8 +12,8 @@ import org.spongepowered.asm.mixin.injection.At;
 
 @Mixin(value = SurfaceBlockSelector.class, remap = false)
 public abstract class SurfaceTemperatureMixin {
-    @WrapOperation(method = "resolveProfile", at = @At(value = "INVOKE",
-            target = "Lnet/minecraft/world/level/biome/Biome;coldEnoughToSnow(Lnet/minecraft/core/BlockPos;)Z"))
+    @WrapOperation(method = {"resolveProfile", "forRiverBiome"}, at = @At(value = "INVOKE",
+            target = "Lnet/minecraft/world/level/biome/Biome;coldEnoughToSnow(Lnet/minecraft/core/BlockPos;)Z"), require = 2)
     private static boolean snow(Biome biome, BlockPos position, Operation<Boolean> original) {
         return original.call(biome, SurfaceClimateScope.active() ? IslandClimate.temperaturePosition(position) : position);
     }

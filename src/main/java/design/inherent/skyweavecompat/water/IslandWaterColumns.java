@@ -1,0 +1,70 @@
+package design.inherent.skyweavecompat.water;
+
+import com.AdamNew.dynamicwaters.HydrologyManager;
+import design.inherent.skyweavecompat.terrain.TerrainStage;
+import java.util.ArrayList;
+import java.util.List;
+import net.minecraft.world.level.LevelHeightAccessor;
+import net.minecraft.world.level.levelgen.RandomState;
+import org.sathrek.sky_archipelago.worldgen.generator.core.SkyIslandChunkGenerator;
+import org.sathrek.sky_archipelago.worldgen.generator.field.TerrainColumn;
+import org.sathrek.sky_archipelago.worldgen.generator.field.model.ColumnData;
+import org.sathrek.sky_archipelago.worldgen.generator.field.model.ColumnProfile;
+import org.sathrek.sky_archipelago.worldgen.generator.river.RiverColumnPlan;
+
+/** Translates upstream watershed cuts into the existing solid/fluid column contract. */
+public final class IslandWaterColumns {
+    private final SkyIslandChunkGenerator generator;
+    private final RandomState random;
+    private final LevelHeightAccessor envelope;
+
+    public IslandWaterColumns(SkyIslandChunkGenerator generator, RandomState random) {
+        var rivers = generator.resolvedSkyIslandSettings().rivers();
+        if (rivers.enabled() || rivers.lakesEnabled())
+            throw new IllegalStateException("Disable native rivers and lakes in skyweave_compat-rivers.json before enabling Dynamic Waters island hydrology");
+        if (!com.AdamNew.dynamicwaters.Config.vanillaNormalRivers())
+            throw new IllegalStateException("Skyweave island hydrology requires Generation.normalRiverMode=VANILLA in dynamicwaters-common.toml; NONE also rewrites climate ridges");
+        if (com.AdamNew.dynamicwaters.Config.MOUNTAIN_RIVER_TUNNELS.get())
+            throw new IllegalStateException("Skyweave island hydrology does not support mountainRiverTunnels; disable that option or this adaptation");
+        this.generator = generator;
+        this.random = random;
+        envelope = LevelHeightAccessor.create(generator.getMinY(), generator.getGenDepth());
+    }
+
+    public ColumnData apply(int x, int z, ColumnData raw) {
+        if (TerrainStage.current() != TerrainStage.COMPLETE || raw == null || raw.segments().isEmpty()
+                || raw.dominantDescriptor() == null || raw.dominantDescriptor().archetype().waterBased()) return raw;
+        var top = raw.segments().getFirst();
+        var cut = HydrologyManager.calculateRiverCarving(x, z, top.topY(), generator.getSeaLevel(), generator, envelope, random);
+        if (!supported(cut, top, envelope.getMaxBuildHeight())) return raw;
+        // Preserve the shell above a cavity and reject unsupported routes instead of
+        // constructing a foundation down through empty sky. The watershed owns the cut.
+        RiverColumnPlan river;
+        if (cut.waterLevel > cut.targetY && (cut.isLake || cut.waterLevel <= top.topY() + 2)) {
+            river = cut.isLake
+                    ? RiverColumnPlan.lake(top.topY(), cut.targetY, cut.waterLevel,
+                            cut.distanceFromCenter, cut.channelSlope, 0, 0)
+                    : RiverColumnPlan.channel(top.topY(), cut.targetY, cut.waterLevel,
+                            // DW owns channel banks/discharge. The native sealer
+                            // would otherwise replace exposed channels with dams.
+                            cut.distanceFromCenter, cut.channelSlope, 0, 0, true);
+        } else {
+            river = RiverColumnPlan.bank(top.topY(), cut.targetY, true, 0,
+                    cut.distanceFromCenter, cut.channelSlope, 0, 0);
+        }
+        var segments = new ArrayList<>(raw.segments());
+        segments.set(0, new TerrainColumn(top.bottomY(), river.solidSurfaceY()));
+        var p = raw.profile();
+        var profile = new ColumnProfile(p.bottomY(), river.solidSurfaceY(), p.topCap(), p.cliffBand(),
+                p.undersideFringe(), p.vegetationHangZone(), p.family());
+        return new ColumnData(List.copyOf(segments), profile, raw.dominantDescriptor(), raw.waterArchetype(),
+                river, raw.overlayExposedSegments());
+    }
+
+    public static boolean supported(HydrologyManager.RiverCarving cut, TerrainColumn top, int maximumY) {
+        return cut.modifies && (cut.isMountainRiver || cut.isLake) && !cut.isPillar
+                && (cut.cavernRoofY == -999 || cut.cavernRoofY == maximumY)
+                && cut.targetY >= top.bottomY() + design.inherent.skyweavecompat.terrain.InteriorConfiguration.profile().shellThickness()
+                && cut.targetY <= top.topY() && cut.waterLevel < maximumY;
+    }
+}

@@ -150,7 +150,50 @@ final class ClientResourcesProbe {
                             modelReport = worldText.snapshot(command.has("remember") && command.get("remember").getAsBoolean());
                         }
                         case "snapshot" -> {}
+                        case "environment" -> {
+                            if (mc.level == null || mc.player == null) throw new IllegalStateException("No environment fixture world");
+                            var position = mc.gameRenderer.getMainCamera().getBlockPosition();
+                            modelReport = new com.google.gson.JsonObject();
+                            modelReport.addProperty("dimensionType", mc.level.dimensionTypeRegistration().getRegisteredName());
+                            modelReport.addProperty("cloudHeight", mc.level.effects().getCloudHeight());
+                            modelReport.addProperty("openSky", design.inherent.skyweavecompat.client.IslandSkyExposure.openSky());
+                            modelReport.addProperty("skyLight", mc.level.getBrightness(net.minecraft.world.level.LightLayer.SKY, position));
+                            modelReport.addProperty("biome", mc.level.getBiome(position).getRegisteredName());
+                            modelReport.addProperty("rawAltitudePrecipitation", mc.level.getBiome(position).value().getPrecipitationAt(position).name());
+                            modelReport.addProperty("nativeRainAt", mc.level.isRainingAt(position));
+                            modelReport.add("fogColor", new com.google.gson.Gson().toJsonTree(com.mojang.blaze3d.systems.RenderSystem.getShaderFogColor()));
+                            if (net.neoforged.fml.ModList.get().isLoaded("iris")) {
+                                var query = Class.forName("net.irisshaders.iris.uniforms.BiomeUniforms")
+                                        .getDeclaredMethod("lambda$addBiomeUniforms$2", net.minecraft.client.player.LocalPlayer.class);
+                                query.setAccessible(true);
+                                modelReport.addProperty("irisPrecipitation", (int)query.invoke(null, mc.player));
+                            }
+                        }
                         case "terrain_ready" -> modelReport = terrainReadiness(command);
+                        case "view_distance" -> {
+                            int distance = command.get("value").getAsInt();
+                            if (distance < 2 || distance > 32) throw new IllegalArgumentException("Fixture view distance must be 2..32");
+                            mc.options.renderDistance().set(distance);
+                            mc.options.broadcastOptions();
+                            mc.levelRenderer.allChanged();
+                        }
+                        case "water_snapshot" -> {
+                            var pos = new BlockPos(command.get("x").getAsInt(), command.get("y").getAsInt(), command.get("z").getAsInt());
+                            var fluid = mc.level.getFluidState(pos);
+                            if (!fluid.is(net.minecraft.tags.FluidTags.WATER)) throw new IllegalStateException("Water fixture is not delivered: " + pos);
+                            net.minecraft.world.level.BlockGetter region = new net.minecraft.world.level.BlockGetter() {
+                                public net.minecraft.world.level.block.entity.BlockEntity getBlockEntity(BlockPos p) { return mc.level.getBlockEntity(p); }
+                                public net.minecraft.world.level.block.state.BlockState getBlockState(BlockPos p) { return mc.level.getBlockState(p); }
+                                public net.minecraft.world.level.material.FluidState getFluidState(BlockPos p) { return mc.level.getFluidState(p); }
+                                public int getHeight() { return mc.level.getHeight(); }
+                                public int getMinBuildHeight() { return mc.level.getMinBuildHeight(); }
+                            };
+                            modelReport = new com.google.gson.JsonObject();
+                            modelReport.addProperty("state", mc.level.getBlockState(pos).toString());
+                            modelReport.addProperty("biome", mc.level.getBiome(pos).getRegisteredName());
+                            modelReport.addProperty("levelFlow", fluid.getFlow(mc.level, pos).toString());
+                            modelReport.addProperty("regionFlow", fluid.getFlow(region, pos).toString());
+                        }
                         case "structure_records" -> modelReport = ClientStructureRecordsProbe.observe(mc,
                                 command.get("chunkX").getAsInt(), command.get("chunkZ").getAsInt(),
                                 command.get("structure").getAsString());
@@ -290,7 +333,7 @@ final class ClientResourcesProbe {
                 report.addProperty("menu",mc.player.containerMenu.getClass().getName());report.addProperty("slots",mc.player.containerMenu.slots.size());
             }
             if (error != null) report.addProperty("error",error);
-            Files.writeString(root.resolve("resource-review-state.json"),new GsonBuilder().setPrettyPrinting().create().toJson(report));
+            ProbeStateFiles.write(root.resolve("resource-review-state.json"),new GsonBuilder().setPrettyPrinting().create().toJson(report));
         } catch (java.io.IOException failure) { throw new IllegalStateException(failure); }
     }
     private static com.google.gson.JsonObject terrainReadiness(com.google.gson.JsonObject command) throws ReflectiveOperationException {
@@ -307,6 +350,7 @@ final class ClientResourcesProbe {
         var sectionReady = rendererType.getMethod("isSectionReady", int.class, int.class, int.class);
         int expected = 0, loaded = 0, occupied = 0, visibleTops = 0, topsReady = 0;
         var missing = new com.google.gson.JsonArray();
+        var unready = new com.google.gson.JsonArray();
         for (int dx = -radius; dx <= radius; dx++) for (int dz = -radius; dz <= radius; dz++) {
             if (dx * dx + dz * dz > radius * radius) continue;
             expected++;
@@ -327,6 +371,18 @@ final class ClientResourcesProbe {
                 if (mc.levelRenderer.getFrustum().isVisible(box)) {
                     visibleTops++;
                     if ((boolean)sectionReady.invoke(renderer, x + dx, sectionY, z + dz)) topsReady++;
+                    else if (unready.size() < 8) {
+                        var sample = new com.google.gson.JsonObject();
+                        sample.addProperty("chunkX", x + dx); sample.addProperty("sectionY", sectionY); sample.addProperty("chunkZ", z + dz);
+                        var blocks = new java.util.LinkedHashSet<String>();
+                        for (int sx = 0; sx < 16 && blocks.size() < 3; sx++)
+                            for (int sy = 0; sy < 16 && blocks.size() < 3; sy++)
+                                for (int sz = 0; sz < 16 && blocks.size() < 3; sz++) {
+                                    var state = sections[index].getBlockState(sx, sy, sz);
+                                    if (!state.isAir()) blocks.add(state.toString());
+                                }
+                        sample.add("blocks", new com.google.gson.Gson().toJsonTree(blocks)); unready.add(sample);
+                    }
                 }
                 break;
             }
@@ -339,6 +395,7 @@ final class ClientResourcesProbe {
         result.addProperty("nativeDistance", mc.options.renderDistance().get());
         result.addProperty("ready", loaded == expected && topsReady == visibleTops && queueEmpty);
         result.add("missingSample", missing); result.addProperty("renderer", rendererType.getMethod("getChunksDebugString").invoke(renderer).toString());
+        result.add("unreadyTopSample", unready);
         return result;
     }
 }

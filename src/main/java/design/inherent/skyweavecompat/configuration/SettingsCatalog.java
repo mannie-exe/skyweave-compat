@@ -24,8 +24,8 @@ public final class SettingsCatalog {
         GRAVES(Category.INVENTORY, "yigd"), AUDIO(Category.AUDIO, "analog_audio"),
         DELIVERY(Category.SHIPS, "delivery"), QUESTLOG_SERVER(Category.INTERFACE, "questlog"),
         DH(Category.MAPS, "distant_horizons"), BLUEMAP(Category.MAPS, "bluemap"), SURVEYOR(Category.MAPS, "surveyor"),
-        TERRAIN(Category.WORLD, "sky_archipelago"), VILLAGES(Category.WORLD, "sky_villages"),
-        PRESSURE(Category.SHIPS, "sable");
+        TERRAIN(Category.WORLD, "sky_archipelago"), WATERSHEDS(Category.WORLD, "dynamic_waters"), ISLAND_SKY(Category.RENDERING, "sky_archipelago"), VILLAGES(Category.WORLD, "sky_villages"),
+        PRESSURE(Category.SHIPS, "sable"), WATER_SHIPS(Category.SHIPS, "dynamic_waters");
         public final Category category;
         public final String label;
         Group(Category category, String label) { this.category = category; this.label = label; }
@@ -84,14 +84,25 @@ public final class SettingsCatalog {
             return switch (help) {
                 case "journal" -> Timing.IMMEDIATE;
                 case "villages" -> Timing.SERVER_START;
-                case "generation", "shapes", "interiors", "rivers", "oceans", "ancient_cities", "structures" -> Timing.NEW_WORLD;
+                case "generation", "shapes", "interiors", "rivers", "oceans", "ancient_cities", "structures", "watersheds" -> Timing.NEW_WORLD;
                 case "bluemap", "link_gui_client", "link_gui_common" -> Timing.RELOAD;
                 default -> Timing.GAME_RESTART;
             };
         }
+        public Timing timing(String field) {
+            return help.equals("watersheds") && !field.startsWith("Generation.") ? Timing.IMMEDIATE : timing();
+        }
+    }
+    public static Timing timing(String filename, String field) {
+        return FILES.stream().filter(entry -> entry.filename().equals(filename))
+                .findFirst().map(entry -> entry.timing(field)).orElse(Timing.GAME_RESTART);
     }
     public static Group group(Feature feature) {
         return switch (feature) {
+            case ISLAND_CLOUDS, ISLAND_VOID -> Group.ISLAND_SKY;
+            case ISLAND_SHADER_ENVIRONMENT -> Group.IRIS;
+            case DYNAMIC_WATERS -> Group.WATERSHEDS;
+            case DYNAMIC_WATERS_SABLE -> Group.WATER_SHIPS;
             case MACAW_LANTERN -> Group.MACAW;
             case MACAW_GLASS -> Group.MACAW_GLASS;
             case CONFECTIONERY_BACKFACES -> Group.CONFECTIONERY;
@@ -146,6 +157,7 @@ public final class SettingsCatalog {
             new FileEntry("skyweave_compat-shapes.json", Group.TERRAIN, "shapes", List.of(Feature.TERRAIN), SectionKind.TUNING),
             new FileEntry("skyweave_compat-interiors.json", Group.TERRAIN, "interiors", List.of(Feature.TERRAIN), SectionKind.TUNING),
             new FileEntry("skyweave_compat-rivers.json", Group.TERRAIN, "rivers", List.of(Feature.TERRAIN), SectionKind.TUNING),
+            new FileEntry("dynamicwaters-common.toml", Group.WATERSHEDS, "watersheds", List.of(Feature.DYNAMIC_WATERS), SectionKind.TUNING),
             new FileEntry("skyweave_compat-oceans.json", Group.TERRAIN, "oceans", List.of(Feature.TERRAIN), SectionKind.TUNING),
             new FileEntry("skyweave_compat-structures.json", Group.TERRAIN, "structures", List.of(Feature.STRUCTURE_DISTRIBUTION), SectionKind.TUNING),
             new FileEntry("skyweave_compat-ancient-cities.json", Group.TERRAIN, "ancient_cities", List.of(Feature.ANCIENT_CITIES), SectionKind.TUNING),

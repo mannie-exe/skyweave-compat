@@ -5,6 +5,9 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.ClickEvent;
+import net.minecraft.network.chat.HoverEvent;
+import net.minecraft.ChatFormatting;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.Level;
@@ -12,6 +15,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.level.LevelEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.sathrek.sky_archipelago.config.SkyIslandSettings;
 import org.sathrek.sky_archipelago.worldgen.generator.core.SkyIslandChunkGenerator;
 import org.sathrek.sky_archipelago.worldgen.generator.field.IslandShapeArchetype;
@@ -33,6 +37,9 @@ public final class IslandLocator {
     }
     private record Match(String id, int x, int y, int z, long distanceSquared, String archetype,
             String exterior, String interior, String biome, String edge, String family) {}
+    private record Snapshot(int visited, int total, long matches, List<Match> results) {
+        boolean complete() { return visited == total; }
+    }
     private static final class Job {
         final CommandSourceStack source;
         final ResourceKey<Level> dimension;
@@ -44,7 +51,9 @@ public final class IslandLocator {
         final IslandSearch<Match> search;
         volatile boolean cancelled;
         Future<?> task;
-        boolean running;
+        boolean running = true, inFlight;
+        long nextProgress;
+        Snapshot snapshot;
         Job(CommandSourceStack source, ClusterField field, IslandStyles styles, SkyIslandSettings settings,
                 int radius, Map<String, String> filters, GenerationProfile profile) {
             this.source = source; dimension = source.getLevel().dimension(); this.field = field;
@@ -52,12 +61,15 @@ public final class IslandLocator {
             x = net.minecraft.util.Mth.floor(source.getPosition().x); z = net.minecraft.util.Mth.floor(source.getPosition().z);
             search = new IslandSearch<>(x, z, radius, profile.spacing(), profile.lookupCells(),
                     Comparator.comparingLong(Match::distanceSquared).thenComparing(Match::id));
+            snapshot = new Snapshot(0, search.total(), 0, List.of());
+            nextProgress = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
         }
     }
 
     public static void register() {
         var locator = new IslandLocator();
         NeoForge.EVENT_BUS.addListener(locator::commands);
+        NeoForge.EVENT_BUS.addListener(locator::tick);
         NeoForge.EVENT_BUS.addListener((LevelEvent.Unload event) -> {
             if (!(event.getLevel() instanceof net.minecraft.server.level.ServerLevel level)) return;
             var state = locator.servers.get(level.getServer());
@@ -87,7 +99,9 @@ public final class IslandLocator {
                                 })
                                 .executes(ctx -> start(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "radius"),
                                         StringArgumentType.getString(ctx, "filters"))))))
-                    .then(Commands.literal("more").executes(ctx -> more(ctx.getSource())))
+                    .then(Commands.literal("status").executes(ctx -> status(ctx.getSource())))
+                    // Older command history remains usable, without submitting duplicate slices.
+                    .then(Commands.literal("more").executes(ctx -> status(ctx.getSource())))
                     .then(Commands.literal("page").then(Commands.argument("number", IntegerArgumentType.integer(1, 7))
                             .executes(ctx -> page(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "number")))))
                     .then(Commands.literal("cancel").executes(ctx -> cancel(ctx.getSource())))));
@@ -105,23 +119,28 @@ public final class IslandLocator {
             var job = new Job(source, (ClusterField)(Object)field, ((StyledTerrain)(Object)field).skyweave$styles(),
                     generator.resolvedSkyIslandSettings(), radius, filters, profile);
             if (state.job != null) state.job.cancelled = true;
-            state.job = job; launch(source.getServer(), state, job);
-            source.sendSuccess(() -> text("started", radius), false); return 1;
+            state.job = job;
+            source.sendSuccess(() -> text("started", radius).copy().append(" ")
+                    .append(action("cancel_action", "cancel")), false);
+            launch(source.getServer(), state, job); return 1;
         } catch (IllegalArgumentException error) {
             source.sendFailure(text("invalid", error.getMessage())); return 0;
         }
     }
     private Job owned(CommandSourceStack source) {
         var state = servers.get(source.getServer()); var job = state == null ? null : state.job;
-        return job != null && job.source.getTextName().equals(source.getTextName())
+        return job != null && (job.source.getEntity() instanceof net.minecraft.server.level.ServerPlayer
+                ? job.source.getEntity() == source.getEntity() : job.source.getTextName().equals(source.getTextName()))
                 && job.dimension.equals(source.getLevel().dimension()) ? job : null;
     }
-    private int more(CommandSourceStack source) {
+    private int status(CommandSourceStack source) {
         var job = owned(source);
         if (job == null) return fail(source, "missing");
-        if (job.running) return fail(source, "busy");
-        if (job.search.complete()) return page(source, 1);
-        launch(source.getServer(), servers.get(source.getServer()), job); return 1;
+        var snapshot = job.snapshot;
+        source.sendSuccess(() -> text(job.running ? "progress" : "status_complete",
+                snapshot.visited(), snapshot.total(), snapshot.matches()).copy()
+                .append(job.running ? Component.literal(" ").append(action("cancel_action", "cancel")) : Component.empty()), false);
+        return 1;
     }
     private int cancel(CommandSourceStack source) {
         var job = owned(source);
@@ -137,8 +156,32 @@ public final class IslandLocator {
         if (job.task != null) job.task.cancel(false);
         state.worker.purge(); state.job = null;
     }
+    private void tick(ServerTickEvent.Post event) {
+        var server = event.getServer();
+        var state = servers.get(server);
+        var job = state == null ? null : state.job;
+        if (job == null) return;
+        if (!validOwner(server, job)) {
+            cancel(state); return;
+        }
+        if (!job.running) return;
+        if (!job.inFlight) launch(server, state, job);
+        if (System.nanoTime() >= job.nextProgress) {
+            boolean player = job.source.getEntity() instanceof net.minecraft.server.level.ServerPlayer;
+            job.nextProgress = System.nanoTime() + TimeUnit.SECONDS.toNanos(player ? 2 : 10);
+            var snapshot = job.snapshot;
+            var message = text("progress", snapshot.visited(), snapshot.total(), snapshot.matches());
+            if (player) ((net.minecraft.server.level.ServerPlayer)job.source.getEntity()).displayClientMessage(message, true);
+            else job.source.sendSuccess(() -> message, false);
+        }
+    }
+    private static boolean validOwner(MinecraftServer server, Job job) {
+        return !(job.source.getEntity() instanceof net.minecraft.server.level.ServerPlayer player)
+                || server.getPlayerList().getPlayer(player.getUUID()) == player
+                    && player.serverLevel().dimension().equals(job.dimension) && player.hasPermissions(2);
+    }
     private void launch(MinecraftServer server, State state, Job job) {
-        job.running = true;
+        job.inFlight = true;
         try { job.task = state.worker.submit(() -> {
             Throwable failure = null;
             long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
@@ -154,12 +197,20 @@ public final class IslandLocator {
                 }
             } catch (RuntimeException error) { failure = error; }
             Throwable result = failure;
+            var snapshot = new Snapshot(job.search.visited(), job.search.total(), job.search.matches(), job.search.results());
             server.execute(() -> {
-                job.running = false;
                 if (job.cancelled || state.job != job || servers.get(server) != state) return;
+                if (!validOwner(server, job)) { cancel(state); return; }
+                job.inFlight = false;
+                job.snapshot = snapshot;
                 if (result != null) {
                     job.source.sendFailure(text("failed", result.toString())); state.job = null;
-                } else page(job.source, 1);
+                } else if (snapshot.complete()) {
+                    job.running = false;
+                    job.source.sendSuccess(() -> text("complete", snapshot.visited(), snapshot.total(), snapshot.matches()), false);
+                    page(job.source, 1);
+                }
+                // The next server tick schedules the next bounded worker slice.
             });
         }); } catch (RejectedExecutionException error) {
             job.running = false; state.job = null; job.source.sendFailure(text("busy"));
@@ -168,7 +219,8 @@ public final class IslandLocator {
     private Match match(Job job, ClusterLayout.Cell cell, IslandDescriptor island) {
         var style = job.styles.style(island);
         String edge = OceanIslands.wetArchetype(island.archetype())
-                ? name(OceanConfiguration.profile().mode(island.seed())) : "none";
+                ? name(OceanConfiguration.profile().mode(island.seed())) : style.disturbed()
+                        ? GranularEdges.disintegrating(island.seed(), job.styles.profile().edges()) ? "disintegrating" : "mixed" : "none";
         long dx = (long)island.centerX() - job.x, dz = (long)island.centerZ() - job.z;
         return new Match(cell.x() + "," + cell.z() + "/" + Long.toUnsignedString(island.seed(), 16),
                 island.centerX(), island.centerY(), island.centerZ(), dx * dx + dz * dz, name(island.archetype()),
@@ -178,20 +230,35 @@ public final class IslandLocator {
     private int page(CommandSourceStack source, int page) {
         var job = owned(source);
         if (job == null) return fail(source, "missing");
-        if (job.running) return fail(source, "busy");
-        var results = job.search.results(); int first = (page - 1) * PAGE_SIZE;
+        var snapshot = job.snapshot;
+        var results = snapshot.results(); int first = (page - 1) * PAGE_SIZE;
         if (first >= results.size() && page != 1) return fail(source, "page_missing");
-        source.sendSuccess(() -> text(job.search.complete() ? "complete" : "partial",
-                job.search.visited(), job.search.total(), job.search.matches(), results.size()), false);
+        int pages = Math.max(1, (results.size() + PAGE_SIZE - 1) / PAGE_SIZE);
+        source.sendSuccess(() -> text(job.running ? "page_provisional" : "page", page, pages, results.size()), false);
         for (var match : results.subList(Math.min(first, results.size()), Math.min(first + PAGE_SIZE, results.size()))) {
             double dx = match.x() - (double)job.x, dz = match.z() - (double)job.z;
             String direction = (dz < 0 ? "N" : dz > 0 ? "S" : "") + (dx < 0 ? "W" : dx > 0 ? "E" : "");
-            source.sendSuccess(() -> text("result", match.x(), match.y(), match.z(),
-                    Math.round(Math.sqrt(match.distanceSquared())), direction, match.archetype(), match.exterior(),
-                    match.interior(), match.biome(), match.edge(), match.id()), false);
+            var coordinates = Component.literal("[" + match.x() + ", " + match.y() + ", " + match.z() + "]")
+                    .withStyle(style -> style.withColor(ChatFormatting.AQUA)
+                        .withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+                            "/tp @s " + match.x() + " " + match.y() + " " + match.z())));
+            var details = text("result_details", match.archetype(), match.exterior(), match.interior(),
+                    match.biome(), match.edge(), match.family(), match.id());
+            source.sendSuccess(() -> text("result", coordinates, Math.round(Math.sqrt(match.distanceSquared())),
+                    direction, match.exterior().equals("native") ? match.archetype() : match.archetype() + " / " + match.exterior())
+                    .copy().withStyle(style -> style.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, details))), false);
         }
-        if (results.isEmpty()) source.sendSuccess(() -> text(job.search.complete() ? "no_match" : "no_match_yet"), false);
+        if (results.isEmpty()) source.sendSuccess(() -> text(job.running ? "no_match_yet" : "no_match"), false);
+        var navigation = Component.empty();
+        if (page > 1) navigation.append(action("previous_action", "page " + (page - 1))).append(" ");
+        if (page < pages) navigation.append(action("next_action", "page " + (page + 1))).append(" ");
+        if (job.running) navigation.append(action("cancel_action", "cancel"));
+        if (!navigation.getSiblings().isEmpty()) source.sendSuccess(() -> navigation, false);
         return results.size();
+    }
+    private static Component action(String label, String suffix) {
+        return text(label).copy().withStyle(style -> style.withColor(ChatFormatting.YELLOW)
+                .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/skyweavecompat islands " + suffix)));
     }
     static Map<String, String> filters(String raw) {
         var filters = new LinkedHashMap<String, String>(); filters.put("family", "anchor_plateau");
@@ -205,15 +272,18 @@ public final class IslandLocator {
                 case "exterior" -> Arrays.stream(IslandStyles.Kind.values()).anyMatch(v -> name(v).equals(value));
                 case "interior" -> Arrays.stream(IslandInteriors.Kind.values()).anyMatch(v -> name(v).equals(value));
                 case "family" -> value.equals("any") || Arrays.stream(IslandFamily.values()).anyMatch(v -> name(v).equals(value));
-                case "edge" -> Set.of("none", "native", "coastal", "perimeter").contains(value);
+                case "edge" -> Set.of("none", "native", "coastal", "perimeter", "mixed", "disintegrating").contains(value);
                 case "biome" -> net.minecraft.resources.ResourceLocation.tryParse(value) != null && value.contains(":");
                 default -> false;
             };
             if (!valid) throw new IllegalArgumentException("Unsupported filter: " + token);
             if (key.equals("family") && value.equals("any")) filters.remove(key); else filters.put(key, value);
         }
-        if (filters.containsKey("edge") && !filters.get("edge").equals("none") && filters.containsKey("archetype")
+        if (Set.of("native", "coastal", "perimeter").contains(filters.getOrDefault("edge", "none")) && filters.containsKey("archetype")
                 && !filters.get("archetype").equals("lagoon")) throw new IllegalArgumentException("Ocean edge filters require lagoon");
+        if (Set.of("mixed", "disintegrating").contains(filters.getOrDefault("edge", "none")) && filters.containsKey("archetype")
+                && IslandShapeArchetype.valueOf(filters.get("archetype").toUpperCase(Locale.ROOT)).waterBased())
+            throw new IllegalArgumentException("Granular edges require a land archetype");
         return Map.copyOf(filters);
     }
     private static String value(Match match, String key) {
@@ -229,11 +299,26 @@ public final class IslandLocator {
         for (var value : IslandStyles.Kind.values()) values.add("exterior=" + name(value));
         for (var value : IslandInteriors.Kind.values()) values.add("interior=" + name(value));
         for (var value : IslandFamily.values()) values.add("family=" + name(value));
-        values.addAll(List.of("edge=native", "edge=coastal", "edge=perimeter", "edge=none", "family=any", "biome=minecraft:"));
+        values.addAll(List.of("edge=native", "edge=coastal", "edge=perimeter", "edge=mixed", "edge=disintegrating", "edge=none", "family=any", "biome=minecraft:"));
         return values;
     }
     private static String name(Enum<?> value) { return value.name().toLowerCase(Locale.ROOT); }
-    private static Component text(String key, Object... args) { return Component.translatable("skyweave_compat.islands." + key, args); }
+    private static final Map<String, String> ENGLISH = english();
+    private static Map<String, String> english() {
+        try (var stream = IslandLocator.class.getResourceAsStream("/assets/skyweave_compat/lang/en_us.json")) {
+            if (stream == null) throw new IllegalStateException("Island command language is missing");
+            var asset = com.google.gson.JsonParser.parseReader(new java.io.InputStreamReader(stream,
+                    java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+            var messages = new HashMap<String, String>();
+            asset.entrySet().stream().filter(entry -> entry.getKey().startsWith("skyweave_compat.islands."))
+                    .forEach(entry -> messages.put(entry.getKey(), entry.getValue().getAsString()));
+            return Map.copyOf(messages);
+        } catch (java.io.IOException invalid) { throw new IllegalStateException("Cannot load island command language", invalid); }
+    }
+    private static Component text(String key, Object... args) {
+        String full = "skyweave_compat.islands." + key;
+        return Component.translatableWithFallback(full, Objects.requireNonNull(ENGLISH.get(full), full), args);
+    }
     private static int fail(CommandSourceStack source, String key) { source.sendFailure(text(key)); return 0; }
     private IslandLocator() {}
 }

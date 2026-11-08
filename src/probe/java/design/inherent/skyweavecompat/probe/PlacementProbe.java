@@ -30,6 +30,8 @@ public final class PlacementProbe {
     }
     private void settle(net.neoforged.neoforge.event.tick.ServerTickEvent.Post event) {
         WaterProbe.tick(event.getServer());
+        LocatorProbe.tick(event.getServer());
+        HydrologyProbe.tick(event.getServer());
         // Sky Archipelago chooses its fallback spawn in another ServerStarted listener.
         // The first completed tick observes all startup handlers, regardless of registration order.
         if (pendingServer != null) {
@@ -195,6 +197,15 @@ public final class PlacementProbe {
 
     private void run(net.minecraft.server.MinecraftServer server) {
         try {
+            if (Boolean.getBoolean("neighbors.probe.perimeter")) {
+                PerimeterProbe.run(server, Path.of(System.getProperty("neighbors.probe.output")));
+                return;
+            }
+            if (Boolean.getBoolean("neighbors.probe.hydrology")) {
+                HydrologyProbe.start(server, Path.of(System.getProperty("neighbors.probe.output")), Integer.getInteger("neighbors.probe.fluidTicks", 200));
+                asynchronous = true;
+                return;
+            }
             if (Boolean.getBoolean("neighbors.probe.audio")) {
                 AnalogAudioProbe.run(server, Path.of(System.getProperty("neighbors.probe.output")));
                 return;
@@ -205,7 +216,8 @@ public final class PlacementProbe {
                 return;
             }
             if (Boolean.getBoolean("neighbors.probe.locator")) {
-                LocatorProbe.run(server, Path.of(System.getProperty("neighbors.probe.output")));
+                LocatorProbe.start(server, Path.of(System.getProperty("neighbors.probe.output")));
+                asynchronous = true;
                 return;
             }
             if (Boolean.getBoolean("neighbors.probe.lookup")) {

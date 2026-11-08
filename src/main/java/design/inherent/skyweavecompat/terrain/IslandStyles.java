@@ -28,9 +28,10 @@ public final class IslandStyles {
                     kind = Kind.DEEP_DARK;
                 else if (f.biomes().contains(id) && unit(island.seed(), 0x39a280b3L) < f.chance()) kind = Kind.FRACTURED;
             }
-            return new Style(kind, profile.enabled() && anchor && profile.edges().amplitude() > 0
-                    && profile.edges().affectedFraction() > 0
-                    && unit(island.seed(), 0x1e2d4e83L) < profile.edges().chance(), id);
+            return new Style(kind, profile.enabled() && !island.archetype().waterBased()
+                    && island.family() != IslandFamily.SPIRE && profile.edges().enabled()
+                    && profile.edges().falloffDistance() > 0 && profile.edges().fragmentDepthRatio() > 0
+                    && profile.edges().density() > 0, id);
         }); } catch (java.util.concurrent.ExecutionException error) { throw new IllegalStateException("Cannot resolve island style", error.getCause()); }
     }
     public static double aspect(long seed, ShapeProfile profile) {

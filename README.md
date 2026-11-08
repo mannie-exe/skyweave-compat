@@ -59,6 +59,10 @@ Sky Archipelago and create a new world with **Skyweave Islands**, or set
 `level-type=skyweave_compat:islands_v1` before creating a dedicated-server world.
 Do not change an existing save's generator or recorded generation configuration.
 Ordinary Sky Archipelago worlds receive only applicable enabled adaptations.
+With Dynamic Waters installed, set `Generation.normalRiverMode=VANILLA` and
+`mountainRiverTunnels=false` before creating a Skyweave world; keep both native
+river/lake flags off. The [configuration guide](docs/configuration.md) owns these
+settings. Ordinary worlds keep their upstream policy.
 
 The rendering adapters have background checks and native macOS shader, Ponder,
 balloon, and single-block glass comparisons. The original flickering/gapped airship
@@ -140,7 +144,9 @@ building headroom. Ore placement, large iron/copper veins and classic cave carve
 use island-relative heights rather than vanilla world altitude. The preset retains
 stacked exterior terrain and offers baseline, noise-cave and hollow interiors with
 separate controls for openings and native carving. Sky Archipelago 1.4 supplies
-the exterior shapes, rivers and lakes. Optional floating-ocean settings add coastal
+the exterior shapes. An optional Dynamic Waters adapter supplies island-local
+rivers and lakes while the native planner stays off. Granular aprons add detached
+outer terrain without consuming the main body. Optional floating-ocean settings add coastal
 outlets and falling perimeters to native wet profiles; the global ocean stays off.
 Ancient Cities fit inside Deep Dark hosts, including suitable hollow interiors.
 Normal and noise-cave hosts permit limited peripheral exposure while protecting
@@ -186,7 +192,8 @@ Feature switches remain in `config/skyweave_compat-features.properties`.
 Village tuning uses `config/skyweave_compat-common.toml`. Island geometry lives in
 `config/skyweave_compat-generation.json`; cavity and native-carver controls live in
 `config/skyweave_compat-interiors.json`. Native hydrology uses
-`config/skyweave_compat-rivers.json`, optional ocean edges use
+`config/skyweave_compat-rivers.json`; adapted watersheds use upstream
+`config/dynamicwaters-common.toml`. Optional ocean edges use
 `config/skyweave_compat-oceans.json`, and city burial uses
 `config/skyweave_compat-ancient-cities.json`. Restart the game/server after changes;
 changed generation settings require a fresh world.

@@ -21,8 +21,26 @@ public abstract class ShapeDensityMixin {
             CallbackInfoReturnable<IslandDensityEvaluator.PreparedDensity> result) {
         var styles = ((StyledTerrain)(Object)shapeSampler).skyweave$styles();
         var prepared = result.getReturnValue();
-        if (styles == null || styles.style(island).kind() == IslandStyles.Kind.NATIVE
-                || prepared.waterArchetype().exists() || !prepared.landBody().exists()) return;
+        if (styles == null || prepared.waterArchetype().exists()) return;
+        var apron = ((PerimeterColumn)(Object)horizontal).skyweave$fragment();
+        if (apron != null) {
+            int top = island.centerY() + island.plateauHeight() + apron.topOffset();
+            result.setReturnValue(new IslandDensityEvaluator.PreparedDensity(prepared.waterArchetype(),
+                    new TerrainColumn(top - apron.depth() + 1, top)));
+            return;
+        }
+        if (!prepared.landBody().exists()) return;
+        if (styles.profile().enabled() && styles.profile().edges().enabled()
+                && horizontal.coverage() > .15 && horizontal.coverage() < .7) {
+            double point = IslandStyles.noise(island.seed() ^ 0x83baL,
+                    horizontal.localX() / 18, horizontal.localZ() / 18);
+            int accent = (int)Math.round(Math.max(0, point - .3) / .7 * styles.profile().edges().undersideAccent());
+            var body = prepared.landBody();
+            prepared = new IslandDensityEvaluator.PreparedDensity(prepared.waterArchetype(),
+                    new TerrainColumn(body.bottomY() - accent, body.topY()));
+            result.setReturnValue(prepared);
+        }
+        if (styles.style(island).kind() == IslandStyles.Kind.NATIVE) return;
         var profile = styles.profile().fractures();
         var fragment = FragmentedExterior.sample(island.seed(), horizontal.localX(), horizontal.localZ(), profile);
         if (!fragment.exists()) {

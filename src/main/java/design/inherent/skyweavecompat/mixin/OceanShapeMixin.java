@@ -38,19 +38,32 @@ public abstract class OceanShapeMixin implements ProfiledTerrain, StyledTerrain 
         int wx = x + (int)Math.round(IslandStyles.noise(island.seed() ^ 0x391ac7L, px, pz) * amplitude);
         int wz = z + (int)Math.round(IslandStyles.noise(island.seed() ^ 0x618f49L, px, pz) * amplitude);
         var horizontal = original.call(plan, wx, wz);
-        if (!horizontal.inInfluence()) return horizontal;
+        if (!plan.mightInfluence(wx, wz)) return horizontal;
         var style = skyweave$styles.style(island);
-        var edges = profile.edges();
-        double angle = Math.atan2(horizontal.localZ() / island.radiusZ(), horizontal.localX() / island.radiusX());
-        double edgeScale = IslandStyles.strengthScale(island.seed(), 0x3ab97fL, profile);
-        double mask = IslandStyles.perimeterMask(island.seed(), angle, Math.min(1, edges.affectedFraction() * edgeScale));
-        double band = 1 - IslandStyles.smooth(Math.max(0, horizontal.coverage()) * radius / (2 * edges.bandWidth()));
-        double wear = IslandStyles.noise(island.seed() ^ 0x75fb29L,
-                horizontal.localX() / edges.wavelength(), horizontal.localZ() / edges.wavelength());
         double coverage = horizontal.coverage();
-        if (style.disturbed()) coverage += wear * Math.min(edges.amplitude() * edgeScale,
-                Math.min(edges.bandWidth(), radius * .1)) * 2 / radius * mask * band;
-        if (style.kind() != IslandStyles.Kind.NATIVE || style.disturbed() && mask * band > .6) {
+        if (coverage <= .1 && style.disturbed()) {
+            double outside = (.1 - coverage) * radius * .5;
+            if (outside >= GranularEdges.width(island.seed(), radius, profile.edges())) return horizontal;
+            // Inner Crescent lips point toward increasing radius: keep their opening clear.
+            double gx = original.call(plan, wx + 2, wz).coverage() - original.call(plan, wx - 2, wz).coverage();
+            double gz = original.call(plan, wx, wz + 2).coverage() - original.call(plan, wx, wz - 2).coverage();
+            if (gx * (wx - island.centerX()) + gz * (wz - island.centerZ()) >= 0) return horizontal;
+            double angle = Math.atan2(horizontal.localZ() / island.radiusZ(), horizontal.localX() / island.radiusX());
+            int nominal = (int)Math.round(1.18 * (island.plateauHeight() + .97 * island.cliffDepth()) + 3.2);
+            double gradient = Math.hypot(gx, gz);
+            if (gradient < 1e-9) return horizontal;
+            var boundary = new GranularEdges.Boundary(angle, outside,
+                    -(gx * plan.cosRotation() + gz * plan.sinRotation()) / gradient,
+                    -(gz * plan.cosRotation() - gx * plan.sinRotation()) / gradient);
+            var fragment = GranularEdges.sample(island.seed(), horizontal.localX(), horizontal.localZ(), boundary,
+                    radius, nominal, profile.edges());
+            if (fragment == null) return horizontal;
+            var remnant = new HorizontalSample(horizontal.localX(), horizontal.localZ(), .2, horizontal.branchCoverage(),
+                    horizontal.edgeDistance(), horizontal.attachmentStrength(), true);
+            ((PerimeterColumn)(Object)remnant).skyweave$fragment(fragment);
+            return remnant;
+        }
+        if (style.kind() != IslandStyles.Kind.NATIVE) {
             if (!FragmentedExterior.sample(island.seed(), horizontal.localX(), horizontal.localZ(), profile.fractures()).exists())
                 coverage = -1;
         }

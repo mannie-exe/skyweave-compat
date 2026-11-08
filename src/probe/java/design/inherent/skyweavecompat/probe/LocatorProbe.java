@@ -2,95 +2,132 @@ package design.inherent.skyweavecompat.probe;
 
 import com.google.gson.*;
 import net.minecraft.commands.CommandSource;
+import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.phys.Vec3;
 import java.nio.file.*;
 import java.util.*;
 
-/** Actual command registration, worker continuation, permissions and observational chunk contract. */
+/** Actual command execution across normal ticks; never pumps or waits on the server event loop. */
 final class LocatorProbe {
-    static void run(MinecraftServer server, Path output) throws Exception {
-        var messages = new ArrayList<Component>();
+    private static final List<Component> messages = new ArrayList<>();
+    private static CommandSourceStack source;
+    private static Path destination;
+    private static int before, maximumLoaded, phase, ticks;
+    private static long began;
+    private static boolean active;
+    private static final JsonObject report = new JsonObject();
+
+    static void start(MinecraftServer server, Path output) throws Exception {
+        destination = output; messages.clear(); phase = 0; ticks = 0;
         CommandSource sink = new CommandSource() {
             public void sendSystemMessage(Component message) { messages.add(message); }
             public boolean acceptsSuccess() { return true; }
             public boolean acceptsFailure() { return true; }
             public boolean shouldInformAdmins() { return false; }
         };
-        var source = server.createCommandSourceStack().withSource(sink).withPosition(new Vec3(.5, 200, .5));
-        var dispatcher = server.getCommands().getDispatcher();
-        int before = server.overworld().getChunkSource().getLoadedChunksCount();
-        long began = System.nanoTime();
+        source = server.createCommandSourceStack().withSource(sink).withPosition(new Vec3(.5, 200, .5));
+        maximumLoaded = before = server.overworld().getChunkSource().getLoadedChunksCount(); began = System.nanoTime();
         try {
-            dispatcher.execute("skyweavecompat islands search 8000", source.withPermission(0));
+            command(server, "search 8000", source.withPermission(0));
             throw new AssertionError("Unauthorized search accepted");
         } catch (com.mojang.brigadier.exceptions.CommandSyntaxException expected) { }
-        dispatcher.execute("skyweavecompat islands search 8000 family=any", source);
-        boolean complete = false;
-        int batches = 0;
-        while (!complete && batches++ < 32) {
-            long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(10);
-            server.managedBlock(() -> messages.stream().anyMatch(message -> key(message).equals("complete")
-                    || key(message).equals("partial") || key(message).equals("failed")) || System.nanoTime() > deadline);
-            if (messages.stream().anyMatch(message -> key(message).equals("failed"))) throw new AssertionError(messages.toString());
-            var status = messages.stream().filter(message -> Set.of("complete", "partial").contains(key(message))).findFirst()
-                    .orElseThrow(() -> new AssertionError("Metadata command did not finish a batch"));
-            complete = key(status).equals("complete");
-            if (!complete) {
-                messages.clear(); dispatcher.execute("skyweavecompat islands more", source);
+        // More than one worker slice, including any slow cold-cache slice.
+        command(server, "search 24000 family=any");
+        active = true;
+    }
+
+    static void tick(MinecraftServer server) {
+        if (!active) return;
+        try {
+            if (++ticks > 2400) throw new AssertionError("Metadata command exceeded 120 seconds");
+            maximumLoaded = Math.max(maximumLoaded, server.overworld().getChunkSource().getLoadedChunksCount());
+            if (has("failed")) throw new AssertionError(messages.toString());
+            if (phase == 0) {
+                if (!has("complete")) return;
+                var completion = messages.stream().filter(m -> key(m).equals("complete")).findFirst().orElseThrow();
+                Object[] args = ((TranslatableContents)completion.getContents()).getArgs();
+                if ((int)args[0] <= 256) throw new AssertionError("Continuation case fit in one slice");
+                if (!args[0].equals(args[1])) throw new AssertionError("Search did not visit its full bounds");
+                if (messages.stream().filter(m -> key(m).equals("complete")).count() != 1)
+                    throw new AssertionError("Repeated completion notice");
+                long results = messages.stream().filter(m -> key(m).equals("result")).count();
+                if (results < 1 || results > 10) throw new AssertionError("Missing results or unsolicited repeated pages");
+                var first = messages.stream().filter(m -> key(m).equals("result")).findFirst().orElseThrow();
+                var coordinate = (Component)((TranslatableContents)first.getContents()).getArgs()[0];
+                if (coordinate.getStyle().getClickEvent() == null
+                        || coordinate.getStyle().getClickEvent().getAction() != ClickEvent.Action.SUGGEST_COMMAND
+                        || first.getStyle().getHoverEvent() == null) throw new AssertionError("Result click/hover contract missing");
+                if (completion.getString().contains("skyweave_compat.islands.")) throw new AssertionError("Unreadable language fallback");
+                if (!hasAction(ClickEvent.Action.RUN_COMMAND, "page 2")) throw new AssertionError("Next page action missing");
+                messages.clear(); command(server, "page 2");
+                if (!hasAction(ClickEvent.Action.RUN_COMMAND, "page 1")) throw new AssertionError("Previous page action missing");
+                command(server, "page 7");
+                if (has("page_missing")) throw new AssertionError("Retained final page unavailable");
+                command(server, "search 1000 archetype=classic edge=coastal");
+                if (!has("invalid")) throw new AssertionError("Conflicting filters accepted");
+                report.addProperty("firstPageMatches", results);
+                report.addProperty("automaticCells", (int)args[0]);
+                messages.clear(); command(server, "search 48000 biome=minecraft:the_void");
+                command(server, "page 1");
+                if (!has("page_provisional")) throw new AssertionError("Running cursor cannot be paged");
+                command(server, "more");
+                if (!has("progress")) throw new AssertionError("Legacy more alias is not an observational status");
+                phase = 1;
+            } else if (phase == 1) {
+                messages.clear(); command(server, "status");
+                var progress = messages.stream().filter(m -> key(m).equals("progress")).findFirst().orElseThrow();
+                int visited = (int)((TranslatableContents)progress.getContents()).getArgs()[0];
+                if (visited == 0) return;
+                if (visited >= (int)((TranslatableContents)progress.getContents()).getArgs()[1])
+                    throw new AssertionError("Cancellation case already complete");
+                command(server, "cancel");
+                if (!has("cancelled")) throw new AssertionError("Cancellation not acknowledged");
+                messages.clear(); command(server, "more");
+                if (!has("missing")) throw new AssertionError("Cancelled cursor remained active");
+                messages.clear(); command(server, "search 1 biome=minecraft:the_void"); phase = 2;
+            } else if (phase == 2) {
+                if (!has("complete")) return;
+                if (!has("no_match")) throw new AssertionError("Completed absence not reported");
+                if (messages.stream().filter(m -> key(m).equals("complete")).count() != 1)
+                    throw new AssertionError("Cancelled stale callback published a completion");
+                // Ordinary ticks may unload startup chunks. The observer must not add any.
+                if (maximumLoaded > before)
+                    throw new AssertionError("Metadata search added loaded chunks: " + before + " -> " + maximumLoaded);
+                command(server, "cancel");
+                report.addProperty("complete", true);
+                report.addProperty("loadedChunksBefore", before);
+                report.addProperty("maximumLoadedChunks", maximumLoaded);
+                report.addProperty("loadedChunksAfter", server.overworld().getChunkSource().getLoadedChunksCount());
+                report.addProperty("permissionDenied", true); report.addProperty("cancelledCursorRejected", true);
+                report.addProperty("automaticContinuation", true); report.addProperty("completedNoMatch", true);
+                report.addProperty("clickableResultsAndPages", true); report.addProperty("provisionalPaging", true);
+                report.addProperty("elapsedSeconds", (System.nanoTime() - began) / 1e9);
+                Files.writeString(destination, new GsonBuilder().setPrettyPrinting().create().toJson(report) + "\n");
+                active = false; server.halt(false);
             }
+        } catch (Throwable error) {
+            error.printStackTrace(); active = false; server.halt(false);
         }
-        if (!complete) throw new AssertionError("Small metadata search never completed");
-        long matches = messages.stream().filter(message -> key(message).equals("result")).count();
-        if (matches == 0) throw new AssertionError("No positive locator result");
-        dispatcher.execute("skyweavecompat islands page 2", source);
-        dispatcher.execute("skyweavecompat islands search 1000 archetype=classic edge=coastal", source);
-        if (messages.stream().noneMatch(message -> key(message).equals("invalid"))) throw new AssertionError("Conflicting filters accepted");
-        messages.clear();
-        dispatcher.execute("skyweavecompat islands search 48000 biome=minecraft:the_void", source);
-        waitForBatch(server, messages);
-        int visited = progress(messages);
-        if (messages.stream().noneMatch(message -> key(message).equals("partial"))) throw new AssertionError("Large search did not pause");
-        messages.clear(); dispatcher.execute("skyweavecompat islands more", source);
-        waitForBatch(server, messages);
-        if (progress(messages) <= visited) throw new AssertionError("Continuation did not advance the same cursor");
-        messages.clear(); dispatcher.execute("skyweavecompat islands more", source);
-        // Cancel while the next batch is queued/running, not only after completion.
-        dispatcher.execute("skyweavecompat islands cancel", source);
-        messages.clear();
-        dispatcher.execute("skyweavecompat islands more", source);
-        if (messages.stream().noneMatch(message -> key(message).equals("missing"))) throw new AssertionError("Cancelled cursor remained active");
-        messages.clear(); dispatcher.execute("skyweavecompat islands search 1 biome=minecraft:the_void", source);
-        waitForBatch(server, messages);
-        if (messages.stream().noneMatch(message -> key(message).equals("no_match"))) throw new AssertionError("Completed absence was not reported");
-        dispatcher.execute("skyweavecompat islands cancel", source);
-        int after = server.overworld().getChunkSource().getLoadedChunksCount();
-        if (before != after) throw new AssertionError("Metadata search changed loaded chunks: " + before + " -> " + after);
-        var report = new JsonObject(); report.addProperty("complete", true);
-        report.addProperty("batches", batches); report.addProperty("firstPageMatches", matches);
-        report.addProperty("loadedChunksBefore", before); report.addProperty("loadedChunksAfter", after);
-        report.addProperty("permissionDenied", true); report.addProperty("cancelledCursorRejected", true);
-        report.addProperty("continuationAdvanced", true); report.addProperty("completedNoMatch", true);
-        report.addProperty("elapsedSeconds", (System.nanoTime() - began) / 1e9);
-        Files.writeString(output, new GsonBuilder().setPrettyPrinting().create().toJson(report) + "\n");
     }
-    private static void waitForBatch(MinecraftServer server, List<Component> messages) {
-        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(10);
-        server.managedBlock(() -> messages.stream().anyMatch(message -> Set.of("complete", "partial", "failed").contains(key(message)))
-                || System.nanoTime() > deadline);
-        if (messages.stream().anyMatch(message -> key(message).equals("failed"))) throw new AssertionError(messages.toString());
-        progress(messages);
+    private static boolean has(String key) { return messages.stream().anyMatch(m -> key(m).equals(key)); }
+    private static boolean hasAction(ClickEvent.Action action, String suffix) {
+        return messages.stream().flatMap(m -> m.toFlatList().stream()).anyMatch(m -> {
+            var click = m.getStyle().getClickEvent();
+            return click != null && click.getAction() == action && click.getValue().endsWith(suffix);
+        });
     }
-    private static int progress(List<Component> messages) {
-        var status = messages.stream().filter(message -> Set.of("complete", "partial").contains(key(message))).findFirst()
-                .orElseThrow(() -> new AssertionError("Metadata batch did not reply"));
-        return (Integer)((TranslatableContents)status.getContents()).getArgs()[0];
+    private static void command(MinecraftServer server, String text) throws Exception { command(server, text, source); }
+    private static void command(MinecraftServer server, String text, CommandSourceStack origin) throws Exception {
+        server.getCommands().getDispatcher().execute("skyweavecompat islands " + text, origin);
     }
     private static String key(Component message) {
         if (message.getContents() instanceof TranslatableContents contents)
             return contents.getKey().replace("skyweave_compat.islands.", "");
+        // CommandSourceStack wraps failure messages in its red-styled parent.
         return message.getSiblings().stream().map(LocatorProbe::key).filter(key -> !key.isEmpty()).findFirst().orElse("");
     }
     private LocatorProbe() {}

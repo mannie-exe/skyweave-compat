@@ -17,7 +17,7 @@ public final class JsonSettings {
     private static String json(Object value) { return new GsonBuilder().setPrettyPrinting().create().toJson(value) + "\n"; }
     private static final List<Definition> DEFINITIONS = new java.util.concurrent.CopyOnWriteArrayList<>(List.of(
             new Definition("skyweave_compat-generation.json", "generation", json(GenerationProfile.INITIAL), ProfileJson::generation),
-            new Definition(ShapeConfiguration.FILE, "shapes", json(ShapeProfile.INITIAL), ShapeConfiguration::parse),
+            new Definition(ShapeConfiguration.FILE, "shapes", json(ShapeProfile.INITIAL), ShapeConfiguration::parse, ShapeConfiguration::normalize),
             new Definition("skyweave_compat-interiors.json", "interiors", json(InteriorProfile.INITIAL), InteriorConfiguration::parse),
             new Definition("skyweave_compat-oceans.json", "oceans", json(OceanProfile.INITIAL), OceanConfiguration::parse, OceanConfiguration::normalize),
             new Definition(design.inherent.skyweavecompat.terrain.structure.StructureConfiguration.FILE, "structures",

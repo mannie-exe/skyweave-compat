@@ -76,9 +76,10 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
     public static Feature prerequisite(Feature feature) {
         return switch (feature) {
             case ORE_PLACEMENT, CARVERS, CAVE_BIOMES, ANCIENT_CITIES, SPAWN, STRUCTURE_LOCATION, STRUCTURE_DISTRIBUTION,
-                    WATER_SPAWNS, CLIMATE, VILLAGE_PLACEMENT, PRESSURE, DELIVERY_DISTANCE,
+                    WATER_SPAWNS, CLIMATE, DYNAMIC_WATERS, ISLAND_CLOUDS, ISLAND_VOID, ISLAND_SHADER_ENVIRONMENT, VILLAGE_PLACEMENT, PRESSURE, DELIVERY_DISTANCE,
                     DELIVERY_CHUNKS, DELIVERY_LANDING -> Feature.TERRAIN;
             case COLORWHEEL_MATERIALS -> Feature.MATERIAL_IDS;
+            case DYNAMIC_WATERS_SABLE -> Feature.DYNAMIC_WATERS;
             case LINEAR_PONDER, LINEAR_JADE -> Feature.LINEAR_CARRIAGE;
             case LINKAGE_JADE -> Feature.LINKAGE_INTERACTIONS;
             case LINK_GUI_SABLE -> Feature.LINK_GUI_INTERACTIONS;
@@ -88,7 +89,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
 
     public static boolean clientOnly(Feature feature) {
         return switch (feature) {
-            case CONFECTIONERY_BACKFACES, BUBBLE_GUM_BACKFACES, ORNATE_GRATE_BACKFACES, INDUSTRIAL_GRATING_BACKFACES, MACAW_GLASS, CONSTRUCT_DISTANCE, CONSTRUCT_OCCLUSION, SHADER_PATCHES, TEXT_DISPLAY_LIGHTING, NAMETAG_LIGHTING, TEXT_DISPLAY_SHADOW, NAMETAG_SHADOW, CREATE_BACKFACES, FUSION_BACKFACES, CREATE_WINDOWS, RECHISELED_GLASS, REDSTONE_RENDERING, AUDIO_TIMELINE, LINEAR_PONDER, COLORWHEEL_SAMPLERS, COLORWHEEL_MATERIALS, LIGHTING_LIFECYCLE, SODIUM_LIGHTING, DH_HANDOFF, FRAMEBUFFER, BALLOON, MATERIAL_IDS, MODEL_DATA, SINGLE_BLOCK_PASSES,
+            case ISLAND_CLOUDS, ISLAND_VOID, ISLAND_SHADER_ENVIRONMENT, CONFECTIONERY_BACKFACES, BUBBLE_GUM_BACKFACES, ORNATE_GRATE_BACKFACES, INDUSTRIAL_GRATING_BACKFACES, MACAW_GLASS, CONSTRUCT_DISTANCE, CONSTRUCT_OCCLUSION, SHADER_PATCHES, TEXT_DISPLAY_LIGHTING, NAMETAG_LIGHTING, TEXT_DISPLAY_SHADOW, NAMETAG_SHADOW, CREATE_BACKFACES, FUSION_BACKFACES, CREATE_WINDOWS, RECHISELED_GLASS, REDSTONE_RENDERING, AUDIO_TIMELINE, LINEAR_PONDER, COLORWHEEL_SAMPLERS, COLORWHEEL_MATERIALS, LIGHTING_LIFECYCLE, SODIUM_LIGHTING, DH_HANDOFF, FRAMEBUFFER, BALLOON, MATERIAL_IDS, MODEL_DATA, SINGLE_BLOCK_PASSES,
                     QUESTLOG_INTERFACE, QUESTLOG_NOTIFICATIONS -> true;
             default -> false;
         };
@@ -96,6 +97,9 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
 
     public static Map<String, String> dependencies(Feature feature) {
         return switch (feature) {
+            case ISLAND_SHADER_ENVIRONMENT -> Map.of("sky_archipelago", "1.4", "iris", "1.8.14-beta.1+mc1.21.1");
+            case DYNAMIC_WATERS -> Map.of("dynamicwaters", "13.1.0", "sky_archipelago", "1.4");
+            case DYNAMIC_WATERS_SABLE -> Map.of("dynamicwaters", "13.1.0", "sky_archipelago", "1.4", "sable", "2.0.6");
             case CONSTRUCT_DISTANCE -> Map.of("ssrd", "1.8.8", "sable", "2.0.6", "iris", "1.8.14-beta.1+mc1.21.1");
             case CONSTRUCT_OCCLUSION -> Map.of("ssrd", "1.8.8", "sable", "2.0.6", "iris", "1.8.14-beta.1+mc1.21.1", "distanthorizons", "3.3.3");
             case MACAW_LANTERN -> Map.of("mcwbridges", "3.1.2");
@@ -111,7 +115,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             case RECHISELED_GLASS -> Map.of("rechiseled", "1.2.6");
             case QUESTLOG_INTERFACE, QUESTLOG_NOTIFICATIONS, QUESTLOG_REWARD_VALIDATION -> Map.of("questlog", "3.5.0");
             case TERRAIN, ORE_PLACEMENT, CARVERS, CAVE_BIOMES, ANCIENT_CITIES, SPAWN,
-                    STRUCTURE_LOCATION, STRUCTURE_DISTRIBUTION, WATER_SPAWNS, CLIMATE -> Map.of("sky_archipelago", "1.4");
+                    STRUCTURE_LOCATION, STRUCTURE_DISTRIBUTION, WATER_SPAWNS, CLIMATE, ISLAND_CLOUDS, ISLAND_VOID -> Map.of("sky_archipelago", "1.4");
             case VILLAGE_CLEARANCE, VILLAGE_PLACEMENT -> Map.of("sky_archipelago", "1.4", "skyvillages", "1.0.6", "architectury", "13.");
             case PRESSURE -> Map.of("sable", "2.0.6");
             case DELIVERY_DISTANCE, DELIVERY_CHUNKS -> Map.of("aeronautics_delivery_quests", "1.1.1");
@@ -153,7 +157,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             result.addAll(switch (feature) {
                 case TERRAIN -> List.of("GeneratorProfileMixin", "IslandFieldMixin", "ColumnResolverMixin",
                         "ColumnDataMixin", "InteriorSurfaceMixin", "SurfaceRulesMixin", "ClusterPlacementMixin", "ClusterSamplerMixin",
-                        "DescriptorFactoryMixin", "OceanShapeMixin", "ShapeDensityMixin", "ShapeDecorationMixin", "TerrainMaterialMixin", "InteriorInterpolationMixin",
+                        "DescriptorFactoryMixin", "OceanShapeMixin", "PerimeterPlanMixin", "PerimeterColumnMixin", "ShapeDensityMixin", "ShapeDecorationMixin", "TerrainMaterialMixin", "InteriorInterpolationMixin",
                         "GeologicalMaterialMixin", "OreVeinifierAccessor");
                 case ORE_PLACEMENT -> List.of("OreHeightMixin");
                 case CARVERS -> List.of("TerrainCarverPolicyMixin", "CarvingContextMixin", "CarverHeightMixin", "CarverLavaMixin", "WaterCarverMixin");
@@ -172,7 +176,15 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                 case SURVEYOR_STRUCTURES -> List.of("SurveyorStructureMixin");
                 case WATER_SPAWNS -> List.of("WaterAnimalMixin");
                 case CLIMATE -> List.of("SurfaceClimateMixin", "SurfaceTemperatureMixin", "FreezeClimateMixin",
-                        "LevelClimateMixin", "ServerClimateMixin", "PortalClimateMixin");
+                        "LevelClimateMixin", "ServerClimateMixin", "PortalClimateMixin", "ProjectionClimateContext",
+                        "ShoreProjectionClimateMixin", "RiverProjectionClimateMixin", "ShoreLocatorClimateMixin");
+                case DYNAMIC_WATERS -> List.of("water.WaterTerrainMixin", "water.WaterSinksMixin", "water.WaterSchedulerMixin",
+                        "water.WaterGeneratorMixin", "water.WaterFieldMixin", "water.WaterEnvelopeMixin",
+                        "water.WaterBiomeMixin", "water.WaterFlowMixin", "water.WaterOceanFlowMixin", "water.WaterProjectionMixin", "water.WaterStoreMixin", "water.WaterColumnQueryMixin", "water.WaterCutOwnershipMixin");
+                case DYNAMIC_WATERS_SABLE -> List.of("water.WaterSableMixin");
+                case ISLAND_SHADER_ENVIRONMENT -> List.of("client.IslandShaderEnvironmentMixin", "client.ShaderClimateMixin");
+                case ISLAND_CLOUDS -> List.of();
+                case ISLAND_VOID -> List.of("client.IslandVoidFogMixin", "client.IslandVoidSkyMixin");
                 case VILLAGE_CLEARANCE -> List.of("StructureSupportMixin");
                 case VILLAGE_PLACEMENT -> List.of("VillageHeightMixin", "PlacementSaltAccessor", "VillageStructureStateMixin", "GeneratorStructureStateMixin");
                 case PRESSURE -> List.of("DimensionPhysicsMixin");

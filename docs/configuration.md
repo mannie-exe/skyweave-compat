@@ -33,7 +33,12 @@ inactive selections.
 | `terrain.structure_location` | Relocated structure lookup | Active preset |
 | `terrain.structure_distribution` | Cluster structure allowances and fitted destinations | Active preset; city allowances additionally need `terrain.ancient_cities` |
 | `terrain.water_animal_spawns` | Local-water spawn height | Active preset |
-| `terrain.climate` | Surface temperature, snow, weather, and portal height | Active preset |
+| `terrain.climate` | Surface temperature, snow, weather, shoreline/river selection and portal height | Active preset |
+| `dynamic_waters.island_hydrology` | Island-local upstream watershed generation and flow | Active preset, Dynamic Waters 13.1.0 |
+| `dynamic_waters.sable_currents` | Loaded-water contact and world-space ship currents | Island hydrology, Sable 2.0.6 |
+| `rendering.island_cloud_height` | Expanded-envelope cloud provider | Client, active preset |
+| `rendering.island_void_visuals` | Remove native height fog/black underside sky | Client, active preset |
+| `iris.island_environment` | Native precipitation uniform and scoped shader environment inputs | Client, active preset, Iris 1.8.14-beta.1+mc1.21.1 |
 | `villages.clearance` | Village footprint clearance/proximity | Sky Archipelago 1.4, Sky Villages 1.0.6, Architectury 13.x |
 | `villages.placement` | Village altitude and cluster allowance | Active preset, Sky Villages 1.0.6, Architectury 13.x |
 | `sable.island_pressure` | Island-altitude pressure | Active preset, Sable 2.0.6 |
@@ -200,11 +205,17 @@ This file uses the shared optimistic JSON editor under terrain tuning. Values ap
 
 ## Rivers and lakes
 
-`config/skyweave_compat-rivers.json` controls native Sky Archipelago 1.4 hydrology in Skyweave Islands. It uses the upstream codec and explicit new-world defaults; missing, unknown or incorrectly typed fields fail instead of restoring legacy disabled defaults. Values apply at startup, belong to saved generation identity and require a fresh world when changed. The shared editor groups the native anchor and satellite settings.
+Dynamic Waters' registered generation values update their owner when saved. The
+editor keeps these drafts unsaved while an integrated server is running; leave
+the local world before saving them, then create a fresh world. This prevents a
+native TOML edit from changing terrain underneath the active world. Other local
+settings retain their registered application timing.
+
+`config/skyweave_compat-rivers.json` controls native Sky Archipelago 1.4 hydrology in Skyweave Islands. It uses the upstream codec and explicit new-world defaults; missing, unknown or incorrectly typed fields fail instead of silently restoring defaults. Values apply at startup, belong to saved generation identity and require a fresh world when changed. The shared editor groups the native anchor and satellite settings.
 
 | Fields | Defaults | Purpose |
 | --- | --- | --- |
-| `enabled`, `lakes_enabled` | true, true | Native rivers and lakes |
+| `enabled`, `lakes_enabled` | false, false | Native rivers and lakes; leave both off when Dynamic Waters owns hydrology |
 | `anchors.frequency`, `satellites.frequency` | 0.60, 0.25 | Candidate frequencies, before terrain admission |
 | `anchors.minimum_radius`, `satellites.minimum_radius` | 52, 32 | Minimum host descriptor radius |
 | `anchors.minimum_width`, `anchors.maximum_width` | 6, 12 | Anchor river widths |
@@ -220,28 +231,52 @@ This file uses the shared optimistic JSON editor under terrain tuning. Values ap
 | `ecological_bank_width` | 4 | Bank projection width |
 | `excluded_biomes` | `[]` | Biomes excluded from native hydrology |
 
-This does not enable the global ocean or change sea level. Configured frequency is not realized river coverage. The generator owns support checks, plans, materials, flow and river-biome projection; Compat does not run a second basin generator. Native fluid ticks and later features can change initial fluid states. See [terrain stages and ownership](development/terrain.md#local-water).
+These native controls remain available when the optional Dynamic Waters adaptation is disabled. They do not enable the global ocean or change sea level. Configured frequency is not realized river coverage. Native fluid ticks and later features remain authoritative. When Dynamic Waters owns hydrology, its watershed plans feed the same solid/fluid columns; the two planners must not run together. Native fluid ticks and later features can change initial fluid states. See [terrain stages and ownership](development/terrain.md#local-water).
+
+## Dynamic Waters
+
+The optional adaptation uses Dynamic Waters 13.1.0's mountain watershed planner against the accepted island surface. In **World → Dynamic Waters**, the registered TOML editor exposes `config/dynamicwaters-common.toml`, including quoted string lists. Validation, serialization and reloads remain owned by the upstream NeoForge specification. Edits preserve external changes and drafts through the shared optimistic editor. `Generation` changes trigger the fresh-world confirmation and enter the saved generator identity; force, visual and audio controls do not change terrain identity.
+
+For island hydrology, set `Generation.normalRiverMode` to `VANILLA`, leave `mountainRiverTunnels` false and both native Sky Archipelago river/lake flags false. `NONE` also rewrites the climate ridge input and is not equivalent to leaving the native lowland planner alone. Mountain rivers, natural basin lakes, supported edge falls, river-biome painting, materials and flow remain upstream-owned. Wet ocean habitats keep their own beds/seals and are excluded from watershed carving. Unsupported combinations fail with an actionable startup error.
+
+Ship currents appear under **Ships → Dynamic Waters**. They use actual loaded water touching the craft's world bounding envelope, submit one world-space impulse and preserve dry/airborne craft. Contact queries never request chunks and stop after 4096 candidate blocks per craft. This envelope policy is deliberately bounded: sparse or very large bounding boxes can miss contact, and it is not a voxel-accurate hull immersion calculation. Dynamic Waters' flow multipliers remain authoritative. Ordinary block/entity positions on a ship are projected through pinned Sable APIs, avoiding the upstream dedicated-server reflection failure.
+
+See [terrain stages](development/terrain.md#local-water) for placement ownership and [adapter maintenance](development/adapters.md) for dependency update seams.
+
+## Island environment
+
+The cloud and void switches apply only to the marked Skyweave dimension type. Cloud height maps vanilla `192` from the `[-64,320)` envelope into `[-128,768)`, yielding approximately `469.33`. The native/Iris cloud provider consumes this value; shader-owned volumetric cloud layers can keep their own artistic heights.
+
+Void visuals remove native altitude darkening and the black underside-sky draw. They preserve fluid fog, genuine cave lighting, mob effects, normal weather and gameplay void damage. This is separate from glyph drop shadows, entity blob shadows and shader shadow maps.
+
+The Iris adaptation supplies precipitation at the same Y64 climate reference and narrow world/void/exposure uniforms. Versioned shader-lab recipes consume them in supported Complementary/Euphoria and BSL/Colorwheel outputs. Those patches keep low open sky from being classified as a cave solely by vanilla altitude. The exposure heuristic uses available loaded light/blocks, is cached for two ticks and does not request chunks; a very large floorless cave can resemble exposed sky within its finite query range. Unknown shader packs keep their own logic. Photon remains source/config reviewed on unsupported Apple hardware.
 
 ## Island outlines and fractured terrain
 
-`config/skyweave_compat-shapes.json` controls seeded horizontal variation in the Skyweave preset. The native vertical body remains unchanged. Settings apply at startup, enter saved generation identity, and require a new world when changed. Use the typed editor under **World → Sky Archipelago → Tuning**; nested groups share the same validation as startup.
+`config/skyweave_compat-shapes.json` controls seeded horizontal variation in the Skyweave preset. The native main body retains its taper; added outer fragments have independent depth and a small configurable underside accent. Settings apply at startup, enter saved generation identity, and require a new world when changed. Use the typed editor under **World → Sky Archipelago → Tuning**; nested groups share the same validation as startup.
 
 | Field/group | Defaults | Meaning |
 | --- | --- | --- |
 | `enabled` | true | Enable horizontal shape modifiers |
-| `strengthVariation` | 0.15 | Seeded variation of up to ±15% around outline displacement, edge displacement and disturbed perimeter coverage; 0 keeps fixed strengths |
+| `strengthVariation` | 0.15 | Seeded variation around broad outline displacement; 0 keeps that strength fixed |
 | `outline.aspectChance`, `maximumAspectRatio` | 0.65, 1.96 | Chance and maximum length-to-width ratio for approximately area-preserving elongation |
 | `outline.warpAmplitude`, `warpWavelength` | 26, 102 | Broad outline displacement and wavelength, in blocks; small bodies cap displacement |
-| `edges.chance`, `affectedFraction` | 0.45, 0.625 | Island selection chance and approximate disturbed share of its perimeter |
-| `edges.bandWidth`, `amplitude`, `wavelength` | 57, 24, 26 | Edge-band width, displacement, and local scale in blocks |
+| `edges.enabled` | true | Add a granular apron outside ordinary land bodies |
+| `edges.minimumSmoothFraction`, `maximumSmoothFraction` | 0.30, 0.70 | Seeded smooth-perimeter share for Mixed islands |
+| `edges.falloffDistance` | 64 | Maximum apron reach in blocks; coherent local variation shortens individual sectors |
+| `edges.disintegratingChance`, `disintegratingScale` | 0.15, 1.6 | Chance and reach multiplier for the intact-core Disintegrating profile |
+| `edges.fragmentScale` | 28 | Typical horizontal density-lobe scale in blocks |
+| `edges.fragmentDepthRatio` | 0.60 | Near-edge fragment depth relative to parent nominal height, before outward/density taper |
+| `edges.density`, `falloffExponent` | 0.55, 1.2 | Surviving outer density and outward decay |
+| `edges.undersideAccent` | 6 | Maximum small points below the native body underside, in blocks |
 | `fractures.chance` | 0.35 | Fractured selection among eligible land-biome anchors |
 | `fractures.biomes` | Mushroom Fields, Badlands, Eroded Badlands, Wooded Badlands | Exact namespaced biome IDs; other biomes retain ordinary exteriors |
 | `fractures.cellSize`, `gapWidth`, `verticalRange` | 72, 6, 32 | Remnant scale, separating gaps, and maximum vertical shift, in blocks |
 | `fractures.removalChance` | 0.28 | Missing-remnant selection outside the protected core |
-| `fractures.deepDarkChance` | 0.01 | Separate selection at native Deep Dark climate hosts; also requires `terrain.cave_biomes` |
+| `fractures.deepDarkChance` | 0.10 | Separate selection at native Deep Dark climate hosts; also requires `terrain.cave_biomes` |
 | `fractures.sculkPatchChance` | 0.25 | Per-chunk native sculk-patch chance on fractured Deep Dark surfaces |
 
-These are selection settings, not measured worldwide frequencies. Deep Dark selection samples native underground climate eligibility; it does not turn every existing cave patch into a surface island or guarantee an Ancient City. Fractured geometry and biome ecology remain independent of NOISE/HOLLOW interiors. Thin remnants retain rock when the configured cavity shell cannot fit. Set `enabled` false to disable the new horizontal modifiers; this does not disable existing interiors or change the native taper. See [sampling and ownership](development/terrain-variation.md).
+These are selection settings, not measured worldwide frequencies. Deep Dark selection samples native underground climate eligibility; it does not turn every existing cave patch into a surface island or guarantee an Ancient City. Fractured geometry and biome ecology remain independent of NOISE/HOLLOW interiors. Thin remnants retain rock when the configured cavity shell cannot fit. Set `enabled` false to disable outline/exterior modifiers, or `edges.enabled` false to keep outlines without the apron. Neither disables existing interiors. Every admitted ordinary non-spire land host receives Mixed or Disintegrating treatment by default; the latter adds broader, more extensive breakup with quiet sectors, without consuming its core. Fragment radii vary by cell and diminish outward; deterministic thinning increases their average separation. See [sampling and ownership](development/terrain-variation.md).
 
 ## Ocean habitats
 

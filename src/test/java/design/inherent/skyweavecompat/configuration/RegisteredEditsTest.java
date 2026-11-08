@@ -28,6 +28,25 @@ class RegisteredEditsTest {
     }
 
     enum Mode { FIRST, SECOND }
+    @Test void stringListsUseQuotedSyntaxAndKeepSpecValidation() throws Exception {
+        var builder = new ModConfigSpec.Builder();
+        builder.defineListAllowEmpty(java.util.List.of("biomes"), java.util.List.of("minecraft:badlands"),
+                () -> "minecraft:plains", value -> value instanceof String text && text.startsWith("minecraft:"));
+        var spec = builder.build(); var file = write("dynamicwaters-common.toml", spec);
+        var edits = new RegisteredEdits(directory, file.getFileName().toString(), spec);
+        String original = Files.readString(file);
+        assertEquals("[\"minecraft:badlands\"]", edits.value("biomes"));
+        edits.set("biomes", "[\"minecraft:plains\", \"minecraft:river\"]");
+        assertEquals(java.util.List.of("minecraft:plains", "minecraft:river"), edits.candidate().get("biomes"));
+        edits.set("biomes", "[]"); assertEquals(java.util.List.of(), edits.candidate().get("biomes"));
+        for (String invalid : java.util.List.of("[1]", "[[\"minecraft:river\"]]", "[\"bad\"]", "[\"minecraft:river\"]\nextra = 1")) {
+            edits.set("biomes", invalid); assertThrows(Exception.class, edits::candidate);
+            assertTrue(edits.dirty()); assertEquals(original, Files.readString(file));
+        }
+        edits.reset("biomes"); assertFalse(edits.dirty());
+        assertEquals(SettingsCatalog.Timing.NEW_WORLD, SettingsCatalog.timing(file.getFileName().toString(), "Generation.mountainRiverDensity"));
+        assertEquals(SettingsCatalog.Timing.IMMEDIATE, SettingsCatalog.timing(file.getFileName().toString(), "Visuals.enableRiverParticles"));
+    }
     @Test void enumChoicesAndExternalFileConflictsRetainTheDraft() throws Exception {
         var builder = new ModConfigSpec.Builder(); builder.defineEnum("mode", Mode.FIRST); var spec = builder.build();
         Path file = write("createredstonelinkgui-client.toml", spec);

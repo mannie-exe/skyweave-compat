@@ -7,16 +7,26 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ShapeProfileTest {
     private final Gson json = new Gson();
+    @Test void releasedPerimeterControlsNormalizeWithoutKeepingCompetingAuthorities() {
+        var old = json.toJsonTree(ShapeProfile.INITIAL).getAsJsonObject();
+        old.add("edges", JsonParser.parseString("{\"chance\":0,\"affectedFraction\":0.625,\"bandWidth\":57,\"amplitude\":24,\"wavelength\":26}"));
+        assertFalse(ShapeConfiguration.parse(old.toString()).edges().enabled());
+        var normalized = JsonParser.parseString(ShapeConfiguration.normalize(old.toString())).getAsJsonObject();
+        assertFalse(normalized.getAsJsonObject("edges").has("chance"));
+        assertEquals(57, normalized.getAsJsonObject("edges").get("falloffDistance").getAsInt());
+        old.getAsJsonObject("edges").remove("amplitude");
+        assertThrows(RuntimeException.class, () -> ShapeConfiguration.parse(old.toString()));
+    }
     @Test void strictNestedProfilesRejectCoercionMissingFieldsAndInvalidLinkedBounds() {
         var original = json.toJsonTree(ShapeProfile.INITIAL).getAsJsonObject();
         assertEquals(ShapeProfile.INITIAL, ShapeConfiguration.parse(original.toString()));
         var string = original.deepCopy(); string.getAsJsonObject("outline").addProperty("warpAmplitude", "18");
         assertThrows(RuntimeException.class, () -> ShapeConfiguration.parse(string.toString()));
-        var missing = original.deepCopy(); missing.getAsJsonObject("edges").remove("bandWidth");
+        var missing = original.deepCopy(); missing.getAsJsonObject("edges").remove("falloffDistance");
         assertThrows(RuntimeException.class, () -> ShapeConfiguration.parse(missing.toString()));
         var fractional = original.deepCopy(); fractional.getAsJsonObject("fractures").addProperty("cellSize", 72.5);
         assertThrows(RuntimeException.class, () -> ShapeConfiguration.parse(fractional.toString()));
-        var linked = original.deepCopy(); linked.getAsJsonObject("edges").addProperty("amplitude", 58);
+        var linked = original.deepCopy(); linked.getAsJsonObject("edges").addProperty("maximumSmoothFraction", .2);
         assertThrows(RuntimeException.class, () -> ShapeConfiguration.parse(linked.toString()));
         var duplicate = original.deepCopy(); duplicate.getAsJsonObject("fractures").add("biomes", json.toJsonTree(List.of("minecraft:badlands", "minecraft:badlands")));
         assertThrows(RuntimeException.class, () -> ShapeConfiguration.parse(duplicate.toString()));
