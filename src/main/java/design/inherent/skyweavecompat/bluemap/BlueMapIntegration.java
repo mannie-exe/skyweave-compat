@@ -91,7 +91,7 @@ public final class BlueMapIntegration {
 
     private void publish() throws IOException {
         if (api == null || webRoot == null) return;
-        var settings = BlueMapSettings.load(FMLPaths.CONFIGDIR.get());
+        var settings = BlueMapSettings.load(design.inherent.skyweavecompat.configuration.ConfigLocations.ownedDirectory(FMLPaths.CONFIGDIR.get()));
         var selected = new TreeSet<String>();
         var bounds = new JsonObject();
         if (verifiedWorld != null) for (var map : api.getMaps()) {

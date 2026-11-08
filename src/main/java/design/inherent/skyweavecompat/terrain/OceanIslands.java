@@ -14,21 +14,31 @@ public final class OceanIslands {
             WaterArchetypeColumnProfile nativeColumn, OceanProfile profile) {
         if (!nativeColumn.exists() || !wetArchetype(island.archetype())) return nativeColumn;
         var mode = profile.mode(island.seed());
-        if (mode == OceanProfile.Mode.NATIVE || mode == OceanProfile.Mode.COASTAL && nativeColumn.water())
+        if (mode == OceanProfile.Mode.NATIVE || mode == OceanProfile.Mode.COASTAL && !nativeColumn.shore())
             return nativeColumn;
+        double opening = 1;
         if (mode == OceanProfile.Mode.COASTAL) {
-            double angle = OceanProfile.unit(island.seed() ^ 0x179d5b396a1cb874L) * Math.PI * 2;
-            double along = horizontal.localX() * Math.cos(angle) + horizontal.localZ() * Math.sin(angle);
-            double across = horizontal.localZ() * Math.cos(angle) - horizontal.localX() * Math.sin(angle);
-            if (along <= 0 || Math.abs(across) > profile.outletWidth() * 0.5) return nativeColumn;
+            opening = coveOpening(island, horizontal.localX(), horizontal.localZ(), profile);
+            if (opening == 0) return nativeColumn;
         }
-        int top = Math.min(nativeColumn.solidSurfaceY(), nativeColumn.fluidSurfaceY() - profile.outletDepth());
+        int lowered = Math.min(nativeColumn.solidSurfaceY(), nativeColumn.fluidSurfaceY() - profile.outletDepth());
+        int top = (int)Math.round(nativeColumn.solidSurfaceY() + opening * (lowered - nativeColumn.solidSurfaceY()));
+        if (top == nativeColumn.solidSurfaceY()) return nativeColumn;
         int seal = Math.max(profile.sealThickness(), nativeColumn.solidSurfaceY() - nativeColumn.sealBottomY() + 1);
         int sealBottom = top - seal + 1;
-        return new WaterArchetypeColumnProfile(WaterArchetypeColumnProfile.Region.WATER,
-                WaterArchetypeColumnProfile.SurfaceRole.UNDERWATER_FLOOR,
-                WaterArchetypeColumnProfile.BiomeProjection.SOURCE, top, nativeColumn.fluidSurfaceY(),
+        boolean submerged = top < nativeColumn.fluidSurfaceY();
+        return new WaterArchetypeColumnProfile(submerged ? WaterArchetypeColumnProfile.Region.WATER : nativeColumn.region(),
+                submerged ? WaterArchetypeColumnProfile.SurfaceRole.UNDERWATER_FLOOR : nativeColumn.surfaceRole(),
+                submerged ? WaterArchetypeColumnProfile.BiomeProjection.SOURCE : nativeColumn.biomeProjection(), top, nativeColumn.fluidSurfaceY(),
                 sealBottom, Math.min(nativeColumn.underbellyBottomY(), sealBottom), nativeColumn.configuredOceanFluid());
+    }
+    /** Angular mouth in the same elliptical local frame as the native basin, with rounded shoulders. */
+    public static double coveOpening(IslandDescriptor island, double x, double z, OceanProfile profile) {
+        double direction = OceanProfile.unit(island.seed() ^ 0x179d5b396a1cb874L) * Math.PI * 2;
+        double angle = Math.atan2(z / island.radiusZ(), x / island.radiusX());
+        double distance = Math.abs(Math.atan2(Math.sin(angle - direction), Math.cos(angle - direction)));
+        return IslandStyles.smooth((Math.toRadians(profile.coveOpeningDegrees() * .5) - distance)
+                / Math.toRadians(profile.coveShoulderDegrees()));
     }
     private OceanIslands() {}
 }

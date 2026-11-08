@@ -50,6 +50,11 @@ public final class StructureDistribution {
     private final Map<StructureFamily, Set<Holder<Biome>>> allowedBiomes;
     private final Map<StructureFamily, List<StructureSet.StructureSelectionEntry>> familyEntries;
     private final Set<StructureSet.StructureSelectionEntry> managedEntries;
+    private final Map<ResourceLocation, StructureFamily> families;
+    private final Map<ResourceLocation, StructurePlacementCategory> categories;
+    private final Map<String, Boolean> yungReplacements;
+    private final Map<ResourceLocation, net.minecraft.world.level.levelgen.structure.placement.StructurePlacement> yungTemplePlacements;
+    private YungTempleRules yungTempleRules;
     private final Cache<StructureSelection.Owner, Plan> plans = CacheBuilder.newBuilder().maximumSize(512).build();
     private final Cache<StructureSelection.Owner, Plan> fittedPlans = CacheBuilder.newBuilder().maximumSize(512).build();
     private final Cache<StructureSelection.Owner, Map<StructureSelection.Site, Sample>> sampledSites = CacheBuilder.newBuilder().maximumSize(512).build();
@@ -83,13 +88,26 @@ public final class StructureDistribution {
             BiomeSource biomes, RandomState random, long seed, Collection<Holder<StructureSet>> sets, StructurePolicy policy) {
         this.generator = generator; this.field = field; this.settings = settings;
         this.biomes = biomes; this.random = random; this.seed = seed; this.policy = policy;
+        yungReplacements = OptionalIntegrations.enabled(Feature.YUNG_STRUCTURES)
+                ? ((YungWorldPolicy)(Object)generator).skyweave$yungReplacements() : Map.of();
         var allowed = new EnumMap<StructureFamily, Set<Holder<Biome>>>(StructureFamily.class);
         var entries = new EnumMap<StructureFamily, List<StructureSet.StructureSelectionEntry>>(StructureFamily.class);
         var managed = Collections.newSetFromMap(new IdentityHashMap<StructureSet.StructureSelectionEntry, Boolean>());
+        var resolvedFamilies = new HashMap<ResourceLocation, StructureFamily>();
+        var resolvedCategories = new HashMap<ResourceLocation, StructurePlacementCategory>();
+        var templePlacements = new HashMap<ResourceLocation, net.minecraft.world.level.levelgen.structure.placement.StructurePlacement>();
         for (var holder : sets) {
             var family = managedFamily(holder.value(), settings);
             if (family == null) continue;
             managed.addAll(holder.value().structures());
+            for (var entry : holder.value().structures()) {
+                var id = entry.structure().unwrapKey().orElseThrow().location();
+                if (StructureMembership.family(entry.structure()) == null) continue; // Nether-only portal companion.
+                resolvedFamilies.put(id, family);
+                resolvedCategories.put(id, StructureMembership.category(entry.structure(), family, settings.advanced().structurePlacementPolicy()));
+                if (OptionalIntegrations.enabled(Feature.YUNG_STRUCTURES) && YungTempleRules.supported(holder.value().placement()))
+                    templePlacements.put(id, holder.value().placement());
+            }
             entries.computeIfAbsent(family, ignored -> new ArrayList<>()).addAll(holder.value().structures());
             for (var entry : holder.value().structures()) entry.structure().value().biomes().forEach(biome ->
                     allowed.computeIfAbsent(family, ignored -> new HashSet<>()).add(biome));
@@ -100,21 +118,31 @@ public final class StructureDistribution {
         entries.replaceAll((family, values) -> List.copyOf(values));
         familyEntries = Map.copyOf(entries);
         managedEntries = Collections.unmodifiableSet(managed);
+        families = Map.copyOf(resolvedFamilies);
+        categories = Map.copyOf(resolvedCategories);
+        yungTemplePlacements = Map.copyOf(templePlacements);
+    }
+
+    public Map<String, Boolean> yungReplacements() { return yungReplacements; }
+    public boolean suppresses(net.minecraft.world.level.levelgen.structure.Structure structure) {
+        return YungReplacements.suppresses(yungReplacements, structure);
     }
 
     /** The runtime wrapper and attempt ownership must agree, including explicit city opt-outs and ring placements. */
     public static StructureFamily managedFamily(StructureSet set, SkyIslandSettings settings) {
         if (!settings.advanced().customStructureRulesEnabled()) return null;
         if (!(set.placement() instanceof RandomSpreadStructurePlacement)) return null;
-        var family = StructureFamily.forSet(set.structures().stream().map(entry -> entry.structure().unwrapKey()
-                .map(key -> key.location().toString()).orElse("unregistered")).toList());
+        var memberships = new HashMap<String, StructureFamily>();
+        for (var entry : set.structures()) memberships.put(entry.structure().unwrapKey()
+                .map(key -> key.location().toString()).orElse("unregistered"), StructureMembership.family(entry.structure()));
+        var family = StructureFamily.forSet(memberships.keySet(), memberships::get);
         if (family == null || family == StructureFamily.ANCIENT_CITIES && !OptionalIntegrations.enabled(Feature.ANCIENT_CITIES)) return null;
         for (var entry : set.structures()) {
             var id = entry.structure().unwrapKey().orElseThrow().location();
             // Keep explicit native bypasses and unsupported category changes under their original owner.
             if (settings.advanced().structureWhitelist().isWhitelisted(id)) return null;
-            if (StructureFamily.forId(id.toString()) != null
-                    && !supportsRoute(family, settings.advanced().structurePlacementPolicy().categoryFor(id))) return null;
+            if (memberships.get(id.toString()) != null
+                    && !supportsRoute(family, StructureMembership.category(entry.structure(), family, settings.advanced().structurePlacementPolicy()))) return null;
         }
         return family;
     }
@@ -137,6 +165,7 @@ public final class StructureDistribution {
     /** Capture read-only generation inputs before native opportunity tests; never retain the live chunk. */
     public synchronized void bind(StructurePlacementPassContext context) {
         if (environment != null) return;
+        yungTempleRules = YungTempleRules.capture(yungTemplePlacements, context.registryAccess());
         var height = LevelHeightAccessor.create(context.chunk().getMinBuildHeight(), context.chunk().getHeight());
         var empty = new ProtoChunk(new ChunkPos(0, 0), UpgradeData.EMPTY, height,
                 context.registryAccess().registryOrThrow(Registries.BIOME), null);
@@ -173,13 +202,17 @@ public final class StructureDistribution {
     }
 
     public boolean manages(StructureSet.StructureSelectionEntry entry) { return managedEntries.contains(entry); }
+    public StructureFamily family(ResourceLocation id) { return families.get(id); }
+    public StructurePlacementCategory category(ResourceLocation id, Object policyOwner) {
+        return settings.advanced().structurePlacementPolicy() == policyOwner ? categories.get(id) : null;
+    }
 
     public static boolean hasLayoutPlan(StructureFamily family) {
         return family != null;
     }
 
     public boolean permitsVariant(ResourceLocation id, int chunkX, int chunkZ) {
-        var family = StructureFamily.forId(id.toString());
+        var family = families.get(id);
         // The shared vanilla portal set also contains the Nether entry; it is not an Overworld candidate.
         if (family == null) return false;
         if (environment == null || !hasLayoutPlan(family)) return true;
@@ -253,7 +286,8 @@ public final class StructureDistribution {
                     var layout = underground(family) || family == StructureFamily.TRAIL_RUINS
                             ? UndergroundLayoutPlanning.fit(this, context, family, site, familyEntries.getOrDefault(family, List.of()))
                             : GroundLayoutPlanning.fit(this, context, family, site, familyEntries.getOrDefault(family, List.of()));
-                    if (layout == null || conflicts(layout, layouts, fitted)) continue;
+                    if (layout == null || !yungTempleRules.allows(layout, layouts, fitted, context)
+                            || conflicts(layout, layouts, fitted)) continue;
                     layouts.add(layout);
                 }
                 selected.put(family, layouts.stream().map(StructureLayout::site).toList());

@@ -5,3 +5,5 @@ license="MIT"
 modId="skyweave_compat_probe"
 version="1.0.0"
 displayName="Skyweave: Compatibility Patches test fixture"
+[[mixins]]
+config="skyweave_water_stage_probe.mixins.json"

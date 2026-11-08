@@ -12,6 +12,57 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class FeatureSelectionTest {
+    @Test void hutSupportHookRequiresTheQualifiedOptionalMod() {
+        var settings = only(Feature.TERRAIN, Feature.STRUCTURE_DISTRIBUTION, Feature.YUNG_STRUCTURES, Feature.YUNG_WITCH_HUTS);
+        var base = Map.of("sky_archipelago", "1.4", "yungsapi", "1.21.1-NeoForge-5.1.9");
+        assertFalse(FeatureSelection.select(settings, base, false).mixins(false).contains("YungHutSupportMixin"));
+        var mods = new HashMap<>(base); mods.put("betterwitchhuts", "1.21.1-NeoForge-4.1.1");
+        assertTrue(FeatureSelection.select(settings, mods, false).mixins(false).contains("YungHutSupportMixin"));
+        assertTrue(FeatureSelection.select(settings, mods, true).mixins(true).contains("YungHutSupportMixin"));
+        assertFalse(FeatureSelection.select(only(Feature.TERRAIN, Feature.STRUCTURE_DISTRIBUTION, Feature.YUNG_STRUCTURES), mods, false)
+                .mixins(false).contains("YungHutSupportMixin"));
+    }
+    @Test void mineshaftBridgeRequiresItsNativeOwnerAndGeneralYungPolicy() {
+        var mods = Map.of("sky_archipelago", "1.4", "yungsapi", "1.21.1-NeoForge-5.1.9", "bettermineshafts", "1.21.1-NeoForge-5.1.1");
+        var enabled = only(Feature.TERRAIN, Feature.STRUCTURE_DISTRIBUTION, Feature.YUNG_STRUCTURES, Feature.YUNG_MINESHAFTS);
+        assertTrue(FeatureSelection.select(enabled, mods, false).mixins(false).contains("YungMineshaftEntranceMixin"));
+        assertFalse(FeatureSelection.select(only(Feature.TERRAIN, Feature.STRUCTURE_DISTRIBUTION, Feature.YUNG_MINESHAFTS), mods, false)
+                .enabled(Feature.YUNG_MINESHAFTS));
+        assertFalse(FeatureSelection.select(enabled, Map.of("sky_archipelago", "1.4", "yungsapi", "1.21.1-NeoForge-5.1.9"), false)
+                .mixins(false).contains("YungMineshaftEntranceMixin"));
+    }
+    @Test void yungBridgeUsesOnlyQualifiedOptionalTargets() {
+        var enabled = only(Feature.TERRAIN, Feature.STRUCTURE_DISTRIBUTION, Feature.YUNG_STRUCTURES);
+        assertFalse(FeatureSelection.select(enabled, Map.of("sky_archipelago", "1.4"), false).enabled(Feature.YUNG_STRUCTURES));
+        var mods = Map.of("sky_archipelago", "1.4", "yungsapi", "1.21.1-NeoForge-5.1.9");
+        assertTrue(FeatureSelection.select(enabled, mods, false).mixins(false).contains("YungStructureMixin"));
+        assertTrue(FeatureSelection.select(enabled, mods, false).mixins(false).contains("StructureLocateCheckMixin"));
+        assertEquals(1, FeatureSelection.select(only(Feature.TERRAIN, Feature.STRUCTURE_DISTRIBUTION, Feature.YUNG_STRUCTURES,
+                Feature.STRUCTURE_LOCATION), mods, false).mixins(false).stream().filter("StructureLocateCheckMixin"::equals).count());
+        assertFalse(FeatureSelection.select(only(Feature.TERRAIN, Feature.YUNG_STRUCTURES), mods, false).enabled(Feature.YUNG_STRUCTURES));
+        var future = Map.of("sky_archipelago", "1.4", "yungsapi", "1.21.1-NeoForge-5.2.0");
+        assertThrows(IllegalStateException.class, () -> FeatureSelection.select(enabled, future, false));
+        assertFalse(FeatureSelection.select(only(Feature.TERRAIN, Feature.STRUCTURE_DISTRIBUTION), future, false)
+                .mixins(false).contains("YungStructureMixin"));
+        var optionalFuture = new HashMap<>(mods); optionalFuture.put("betterdeserttemples", "1.21.1-NeoForge-4.2.0");
+        assertThrows(IllegalStateException.class, () -> FeatureSelection.select(enabled, optionalFuture, false));
+        assertFalse(FeatureSelection.select(only(Feature.TERRAIN, Feature.STRUCTURE_DISTRIBUTION), optionalFuture, false)
+                .mixins(false).contains("YungReplacementMixin"));
+    }
+    @Test void lithostitchedBridgeRequiresTheOwnedPolicyAndExactOptionalLibrary() {
+        var settings = only(Feature.TERRAIN, Feature.STRUCTURE_DISTRIBUTION, Feature.LITHOSTITCHED_STRUCTURES);
+        assertFalse(FeatureSelection.select(settings, Map.of("sky_archipelago", "1.4"), false).enabled(Feature.LITHOSTITCHED_STRUCTURES));
+        var selected = FeatureSelection.select(settings, Map.of("sky_archipelago", "1.4", "lithostitched", "1.8.1"), false);
+        assertTrue(selected.enabled(Feature.LITHOSTITCHED_STRUCTURES));
+        assertTrue(selected.mixins(false).contains("LithostitchedStructureMixin"));
+        assertThrows(IllegalStateException.class, () -> FeatureSelection.select(settings,
+                Map.of("sky_archipelago", "1.4", "lithostitched", "1.8.2"), false));
+        var disabled = only(Feature.TERRAIN, Feature.STRUCTURE_DISTRIBUTION);
+        assertFalse(FeatureSelection.select(disabled, Map.of("sky_archipelago", "1.4", "lithostitched", "1.8.2"), false)
+                .mixins(false).contains("LithostitchedStructureMixin"));
+        assertFalse(FeatureSelection.select(only(Feature.TERRAIN, Feature.LITHOSTITCHED_STRUCTURES),
+                Map.of("sky_archipelago", "1.4", "lithostitched", "1.8.1"), false).enabled(Feature.LITHOSTITCHED_STRUCTURES));
+    }
     @Test void structureDistributionNeedsOnlyTheOwnedTerrainAndSkyArchipelago() {
         var feature = Feature.STRUCTURE_DISTRIBUTION;
         assertTrue(feature.defaultEnabled);

@@ -48,7 +48,6 @@ public record FeatureSettings(Map<Feature, Boolean> values) {
                 String initial = defaults();
                 // Retain an existing village-filter opt-out when first introducing startup switches.
                 Path village = configDirectory.resolve("skyweave_compat-common.toml");
-                if (!Files.exists(village)) village = configDirectory.resolve("sky_village_neighbors-common.toml");
                 if (Files.isRegularFile(village) && java.util.regex.Pattern.compile("(?m)^\\s*enabled\\s*=\\s*false\\s*(?:#.*)?$")
                         .matcher(Files.readString(village)).find())
                     initial = initial.replace("villages.clearance=true", "villages.clearance=false");

@@ -3,7 +3,6 @@ package design.inherent.skyweavecompat;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
-import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.server.ServerAboutToStartEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
@@ -23,8 +22,8 @@ public final class SkyweaveCompat {
         if (selection.enabled(Feature.SABLE_GRAVES))
             design.inherent.skyweavecompat.recovery.ShipGraves.register();
         if (OptionalIntegrations.skyVillages()) {
-            LegacyConfiguration.migrate(FMLPaths.CONFIGDIR.get());
-            container.registerConfig(ModConfig.Type.COMMON, NeighborConfig.SPEC);
+            container.registerConfig(ModConfig.Type.COMMON, NeighborConfig.SPEC,
+                    design.inherent.skyweavecompat.configuration.ConfigLocations.registeredName("skyweave_compat-common.toml"));
             NeoForge.EVENT_BUS.addListener((ServerAboutToStartEvent event) -> NeighborConfig.beginServer());
         }
         if (selection.enabled(Feature.TERRAIN)) {

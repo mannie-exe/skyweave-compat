@@ -258,6 +258,18 @@ public final class PlacementProbe {
                 MaterialProbe.run(server, Path.of(System.getProperty("neighbors.probe.output")));
                 return;
             }
+            if (Boolean.getBoolean("neighbors.probe.ecology")) {
+                EcologyProbe.run(server, Path.of(System.getProperty("neighbors.probe.output")));
+                return;
+            }
+            if (Boolean.getBoolean("neighbors.probe.villagePools")) {
+                VillagePoolProbe.run(server, Path.of(System.getProperty("neighbors.probe.output")));
+                return;
+            }
+            if (!System.getProperty("neighbors.probe.yung", "").isEmpty()) {
+                YungProbe.run(server, Path.of(System.getProperty("neighbors.probe.output")));
+                return;
+            }
             if (Boolean.getBoolean("neighbors.probe.water")) {
                 asynchronous = WaterProbe.start(server, Path.of(System.getProperty("neighbors.probe.output")),
                         Integer.getInteger("neighbors.probe.fluidTicks", 600));

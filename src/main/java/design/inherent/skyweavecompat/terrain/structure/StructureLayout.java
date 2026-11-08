@@ -5,9 +5,13 @@ import net.minecraft.resources.ResourceLocation;
 
 /** A native fitted choice, retaining geometry rather than mutable native starts or reservations. */
 public record StructureLayout(ResourceLocation id, StructureSelection.Site site, List<StructureVolume.Box> pieces, int padding,
-        StructureVolume.Box nativeBounds, StructureVolume.Box reservationBounds) {
+        StructureVolume.Box nativeBounds, StructureVolume.Box reservationBounds, StructureFamily family) {
     public StructureLayout(ResourceLocation id, StructureSelection.Site site, List<StructureVolume.Box> pieces, int padding) {
         this(id, site, pieces, padding, StructureVolume.bounds(pieces), StructureVolume.bounds(pieces));
+    }
+    public StructureLayout(ResourceLocation id, StructureSelection.Site site, List<StructureVolume.Box> pieces, int padding,
+            StructureVolume.Box nativeBounds, StructureVolume.Box reservationBounds) {
+        this(id, site, pieces, padding, nativeBounds, reservationBounds, StructureFamily.forId(id.toString()));
     }
     public StructureLayout {
         pieces = List.copyOf(pieces);
@@ -15,8 +19,7 @@ public record StructureLayout(ResourceLocation id, StructureSelection.Site site,
     }
     public boolean conflicts(StructureLayout other) {
         // Preserve native occupied bounds except for the deliberate neighboring-village policy.
-        if (StructureFamily.forId(id.toString()) != StructureFamily.VILLAGES
-                || StructureFamily.forId(other.id().toString()) != StructureFamily.VILLAGES)
+        if (family != StructureFamily.VILLAGES || other.family() != StructureFamily.VILLAGES)
             return reservationBounds.intersects(other.reservationBounds(), padding, other.padding());
         return pieces.stream().anyMatch(a -> other.pieces().stream().anyMatch(b -> a.intersects(b, padding, other.padding())));
     }

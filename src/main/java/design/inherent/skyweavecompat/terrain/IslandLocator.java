@@ -36,7 +36,7 @@ public final class IslandLocator {
         Job job;
     }
     private record Match(String id, int x, int y, int z, long distanceSquared, String archetype,
-            String exterior, String interior, String biome, String edge, String family) {}
+            String exterior, String interior, String biome, String edge, String apron, String family) {}
     private record Snapshot(int visited, int total, long matches, List<Match> results) {
         boolean complete() { return visited == total; }
     }
@@ -218,14 +218,15 @@ public final class IslandLocator {
     }
     private Match match(Job job, ClusterLayout.Cell cell, IslandDescriptor island) {
         var style = job.styles.style(island);
+        String apron = style.disturbed()
+                ? GranularEdges.disintegrating(island.seed(), job.styles.profile().edges()) ? "disintegrating" : "mixed" : "none";
         String edge = OceanIslands.wetArchetype(island.archetype())
-                ? name(OceanConfiguration.profile().mode(island.seed())) : style.disturbed()
-                        ? GranularEdges.disintegrating(island.seed(), job.styles.profile().edges()) ? "disintegrating" : "mixed" : "none";
+                ? name(OceanConfiguration.profile().mode(island.seed())) : apron;
         long dx = (long)island.centerX() - job.x, dz = (long)island.centerZ() - job.z;
         return new Match(cell.x() + "," + cell.z() + "/" + Long.toUnsignedString(island.seed(), 16),
                 island.centerX(), island.centerY(), island.centerZ(), dx * dx + dz * dz, name(island.archetype()),
                 name(style.kind()), name(IslandInteriors.kind(island, InteriorConfiguration.profile())),
-                style.kind() == IslandStyles.Kind.DEEP_DARK ? "minecraft:deep_dark" : style.hostBiome(), edge, name(island.family()));
+                style.kind() == IslandStyles.Kind.DEEP_DARK ? "minecraft:deep_dark" : style.hostBiome(), edge, apron, name(island.family()));
     }
     private int page(CommandSourceStack source, int page) {
         var job = owned(source);
@@ -243,7 +244,7 @@ public final class IslandLocator {
                         .withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
                             "/tp @s " + match.x() + " " + match.y() + " " + match.z())));
             var details = text("result_details", match.archetype(), match.exterior(), match.interior(),
-                    match.biome(), match.edge(), match.family(), match.id());
+                    match.biome(), match.edge(), match.apron(), match.family(), match.id());
             source.sendSuccess(() -> text("result", coordinates, Math.round(Math.sqrt(match.distanceSquared())),
                     direction, match.exterior().equals("native") ? match.archetype() : match.archetype() + " / " + match.exterior())
                     .copy().withStyle(style -> style.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, details))), false);
@@ -273,6 +274,7 @@ public final class IslandLocator {
                 case "interior" -> Arrays.stream(IslandInteriors.Kind.values()).anyMatch(v -> name(v).equals(value));
                 case "family" -> value.equals("any") || Arrays.stream(IslandFamily.values()).anyMatch(v -> name(v).equals(value));
                 case "edge" -> Set.of("none", "native", "coastal", "perimeter", "mixed", "disintegrating").contains(value);
+                case "apron" -> Set.of("none", "mixed", "disintegrating").contains(value);
                 case "biome" -> net.minecraft.resources.ResourceLocation.tryParse(value) != null && value.contains(":");
                 default -> false;
             };
@@ -290,7 +292,7 @@ public final class IslandLocator {
         return switch (key) {
             case "archetype" -> match.archetype(); case "exterior" -> match.exterior();
             case "interior" -> match.interior(); case "biome" -> match.biome();
-            case "edge" -> match.edge(); case "family" -> match.family(); default -> throw new AssertionError(key);
+            case "edge" -> match.edge(); case "apron" -> match.apron(); case "family" -> match.family(); default -> throw new AssertionError(key);
         };
     }
     private static List<String> suggestions() {
@@ -300,6 +302,7 @@ public final class IslandLocator {
         for (var value : IslandInteriors.Kind.values()) values.add("interior=" + name(value));
         for (var value : IslandFamily.values()) values.add("family=" + name(value));
         values.addAll(List.of("edge=native", "edge=coastal", "edge=perimeter", "edge=mixed", "edge=disintegrating", "edge=none", "family=any", "biome=minecraft:"));
+        values.addAll(List.of("apron=none", "apron=mixed", "apron=disintegrating"));
         return values;
     }
     private static String name(Enum<?> value) { return value.name().toLowerCase(Locale.ROOT); }

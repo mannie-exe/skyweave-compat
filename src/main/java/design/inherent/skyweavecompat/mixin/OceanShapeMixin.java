@@ -22,11 +22,13 @@ public abstract class OceanShapeMixin implements ProfiledTerrain, StyledTerrain 
     @Unique private IslandStyles skyweave$styles;
     @Override public IslandStyles skyweave$styles() { return skyweave$styles; }
     @Override public void skyweave$styles(IslandStyles styles) { skyweave$styles = styles; }
+    @Unique private final com.google.common.cache.Cache<IslandTerrainPlan, OceanPerimeter> skyweave$oceanPerimeters =
+            com.google.common.cache.CacheBuilder.newBuilder().maximumSize(256).build();
 
     @WrapMethod(method = "sampleHorizontal")
     private HorizontalSample shape(IslandTerrainPlan plan, int x, int z, Operation<HorizontalSample> original) {
         var island = plan.descriptor();
-        if (skyweave$styles == null || !skyweave$styles.profile().enabled() || island.archetype().waterBased())
+        if (skyweave$styles == null || !skyweave$styles.profile().enabled())
             return original.call(plan, x, z);
         var profile = skyweave$styles.profile(); var outline = profile.outline();
         double radius = Math.min(island.radiusX(), island.radiusZ());
@@ -41,6 +43,40 @@ public abstract class OceanShapeMixin implements ProfiledTerrain, StyledTerrain 
         if (!plan.mightInfluence(wx, wz)) return horizontal;
         var style = skyweave$styles.style(island);
         double coverage = horizontal.coverage();
+        if (island.archetype().waterBased()) {
+            // Native water kernels return discontinuous +/-1 outside their footprint.
+            // Reuse their actual occupancy instead of deriving distance from that sentinel.
+            if (!style.disturbed() || coverage > -.5) return horizontal;
+            OceanPerimeter perimeter;
+            try {
+                perimeter = skyweave$oceanPerimeters.get(plan, () -> OceanPerimeter.sample(island.centerX(), island.centerZ(),
+                        island.maxRadius(), (qx, qz) -> original.call(plan, qx, qz).coverage() > -.5));
+            } catch (java.util.concurrent.ExecutionException error) {
+                throw new IllegalStateException("Cannot sample native ocean perimeter", error.getCause());
+            }
+            double dx = wx - island.centerX(), dz = wz - island.centerZ();
+            double outside = perimeter.outsideDistance(dx, dz);
+            if (outside < 0 || outside >= GranularEdges.width(island.seed(), radius, profile.edges())) return horizontal;
+            // Keep the open-cove mouth free of added islands in its discharge direction.
+            if (OceanIslands.wetArchetype(island.archetype())
+                    && OceanConfiguration.profile().mode(island.seed()) == OceanProfile.Mode.COASTAL
+                    && OceanIslands.coveOpening(island, horizontal.localX(), horizontal.localZ(), OceanConfiguration.profile()) > 0)
+                return horizontal;
+            double length = Math.hypot(dx, dz);
+            if (length == 0) return horizontal;
+            double angle = Math.atan2(horizontal.localZ() / island.radiusZ(), horizontal.localX() / island.radiusX());
+            var boundary = new GranularEdges.Boundary(angle, outside,
+                    (dx * plan.cosRotation() + dz * plan.sinRotation()) / length,
+                    (dz * plan.cosRotation() - dx * plan.sinRotation()) / length);
+            int nominal = (int)Math.round(1.18 * (island.plateauHeight() + .97 * island.cliffDepth()) + 3.2);
+            var fragment = GranularEdges.sample(island.seed(), horizontal.localX(), horizontal.localZ(), boundary,
+                    radius, nominal, profile.edges());
+            if (fragment == null) return horizontal;
+            var remnant = new HorizontalSample(horizontal.localX(), horizontal.localZ(), .2, horizontal.branchCoverage(),
+                    horizontal.edgeDistance(), horizontal.attachmentStrength(), true);
+            ((PerimeterColumn)(Object)remnant).skyweave$fragment(fragment);
+            return remnant;
+        }
         if (coverage <= .1 && style.disturbed()) {
             double outside = (.1 - coverage) * radius * .5;
             if (outside >= GranularEdges.width(island.seed(), radius, profile.edges())) return horizontal;

@@ -23,6 +23,12 @@ public abstract class StructureLocateCheckMixin {
     private void islandPlacement(ChunkPos chunk, Structure structure, CallbackInfoReturnable<Boolean> result) {
         if (!(chunkGenerator instanceof SkyIslandChunkGenerator sky)
                 || !((GeologicalGenerator)(Object)sky).skyweave$isEnabled()) return;
+        if ((Object)sky instanceof design.inherent.skyweavecompat.terrain.structure.YungWorldPolicy owner
+                && design.inherent.skyweavecompat.terrain.structure.YungReplacements.suppresses(owner.skyweave$yungReplacements(), structure)) {
+            result.setReturnValue(false);
+            return;
+        }
+        if (!design.inherent.skyweavecompat.OptionalIntegrations.enabled(design.inherent.skyweavecompat.Feature.STRUCTURE_LOCATION)) return;
         var id = registryAccess.registryOrThrow(Registries.STRUCTURE).getKey(structure);
         if (id == null) return;
         var settings = sky.resolvedSkyIslandSettings();

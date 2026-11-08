@@ -66,12 +66,12 @@ class JsonEditsTest {
     @Test void invalidDraftRetainsItsTextAndCannotOverwriteDisk() throws IOException {
         var edits = create("oceans"); Path path = directory.resolve(edits.definition().filename());
         String original = Files.readString(path);
-        edits.set("perimeterMinRadius", "9.5");
-        assertThrows(RuntimeException.class, edits::save); assertEquals("9.5", edits.value("perimeterMinRadius"));
+        edits.set("coveShoulderDegrees", "9.5");
+        assertThrows(RuntimeException.class, edits::save); assertEquals("9.5", edits.value("coveShoulderDegrees"));
         assertEquals(original, Files.readString(path));
-        edits.set("perimeterMinRadius", "95");
+        edits.set("coveShoulderDegrees", "55");
         assertThrows(RuntimeException.class, edits::save); // Individual type is valid, linked maximum is not.
-        edits.set("perimeterMaxRadius", "96"); edits.save(); assertFalse(edits.dirty());
+        edits.set("coveOpeningDegrees", "120"); edits.save(); assertFalse(edits.dirty());
     }
     @Test void conflictRetainsDraftAndExternalBytesWhileFailedReloadKeepsTheBaseline() throws IOException {
         var edits = create("interiors"); Path path = directory.resolve(edits.definition().filename());

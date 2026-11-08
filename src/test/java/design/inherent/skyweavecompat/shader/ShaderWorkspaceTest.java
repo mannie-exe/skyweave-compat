@@ -20,7 +20,7 @@ class ShaderWorkspaceTest {
         recipe.getAsJsonObject("inputs").add("base", input); save(recipe); return recipe;
     }
     private void save(JsonObject value) throws Exception {
-        Path directory = root.resolve("config/skyweave-shaders/recipes"); Files.createDirectories(directory);
+        Path directory = root.resolve("config/skyweave/shaders/recipes"); Files.createDirectories(directory);
         Files.writeString(directory.resolve("test.json"), value.toString());
     }
     private ShaderWorkspace.Status run(boolean force) throws Exception { return ShaderWorkspace.assemble(root, Map.of(), force, false).getFirst(); }

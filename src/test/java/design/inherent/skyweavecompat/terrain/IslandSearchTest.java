@@ -44,6 +44,9 @@ class IslandSearchTest {
         assertEquals(Map.of("family", "anchor_plateau", "archetype", "crescent", "edge", "disintegrating"),
                 IslandLocator.filters("archetype=crescent edge=disintegrating"));
         assertThrows(IllegalArgumentException.class, () -> IslandLocator.filters("archetype=lagoon edge=mixed"));
+        assertEquals(Map.of("family", "anchor_plateau", "archetype", "lagoon", "edge", "coastal", "apron", "disintegrating"),
+                IslandLocator.filters("archetype=lagoon edge=coastal apron=disintegrating"));
+        assertThrows(IllegalArgumentException.class, () -> IslandLocator.filters("apron=coastal"));
         assertThrows(IllegalArgumentException.class, () -> IslandLocator.filters("archetype=classic edge=coastal"));
         assertThrows(IllegalArgumentException.class, () -> IslandLocator.filters("interior=hollow interior=noise"));
         assertThrows(IllegalArgumentException.class, () -> IslandLocator.filters("unknown=value"));

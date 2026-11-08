@@ -36,7 +36,7 @@ public final class ClientConfiguration {
         if (OptionalIntegrations.enabled(Feature.QUESTLOG_INTERFACE)
                 || OptionalIntegrations.enabled(Feature.QUESTLOG_NOTIFICATIONS)) {
             container.registerConfig(ModConfig.Type.CLIENT, JournalPreferences.SPEC,
-                    "skyweave_compat-journal-client.toml");
+                    design.inherent.skyweavecompat.configuration.ConfigLocations.registeredName("skyweave_compat-journal-client.toml"));
         }
     }
 }

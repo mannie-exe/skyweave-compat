@@ -7,11 +7,10 @@
   "brokenReefWeight": 1,
   "coastalChance": 0.04,
   "perimeterChance": 0.01,
-  "perimeterMinRadius": 40,
-  "perimeterMaxRadius": 64,
-  "outletWidth": 2,
   "outletDepth": 2,
   "sealThickness": 4,
   "spireCompanions": false,
-  "spireClearance": 16
+  "spireClearance": 16,
+  "coveOpeningDegrees": 100,
+  "coveShoulderDegrees": 20
 }

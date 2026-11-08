@@ -70,13 +70,13 @@ public final class ConfigurationOverview extends Screen {
     private static Component category(Category category) { return text("category." + category.name().toLowerCase(Locale.ROOT)); }
     private static Component on(boolean value) { return Component.translatable(value ? "options.on" : "options.off"); }
     private void load() {
-        try { if (draft == null) draft = StartupEdits.open(FMLPaths.CONFIGDIR.get()); else draft.reload(); feedback = Component.empty(); }
+        try { if (draft == null) draft = StartupEdits.open(ConfigLocations.ownedDirectory(FMLPaths.CONFIGDIR.get())); else draft.reload(); feedback = Component.empty(); }
         catch (Exception failure) { feedback = text("load_failed").append(" ").append(Component.literal(String.valueOf(failure.getMessage()))); }
     }
     private void loadJson() {
         for (var file : JsonSettings.FILES) try {
             var edits = json.get(file.filename());
-            if (edits == null) json.put(file.filename(), new JsonEdits(FMLPaths.CONFIGDIR.get(), file)); else edits.reload();
+            if (edits == null) json.put(file.filename(), new JsonEdits(ConfigLocations.directory(FMLPaths.CONFIGDIR.get(), file.filename()), file)); else edits.reload();
             unavailable.remove(file.filename());
         } catch (Exception failure) { unavailable.put(file.filename(), String.valueOf(failure.getMessage())); }
     }
@@ -89,7 +89,7 @@ public final class ConfigurationOverview extends Screen {
                 var config = registered(entry.filename());
                 if (config == null) throw new java.io.IOException(text("registered_unavailable").getString());
                 var edits = toml.get(entry.filename());
-                if (edits == null) toml.put(entry.filename(), new RegisteredEdits(FMLPaths.CONFIGDIR.get(), entry.filename(),
+                if (edits == null) toml.put(entry.filename(), new RegisteredEdits(ConfigLocations.directory(FMLPaths.CONFIGDIR.get(), entry.filename()), entry.filename(),
                         (net.neoforged.neoforge.common.ModConfigSpec) config.getSpec()));
                 else edits.reload();
                 unavailable.remove(entry.filename());
@@ -391,12 +391,12 @@ public final class ConfigurationOverview extends Screen {
                 .map(SettingsCatalog.Section::id).findFirst().orElse(owner.id());
     }
     private Button fileButton(SettingsCatalog.FileEntry file) {
-        var path = FMLPaths.CONFIGDIR.get().resolve(file.filename());
+        var path = ConfigLocations.file(FMLPaths.CONFIGDIR.get(), file.filename());
         var open = valueButton(text("open_file"), Component.literal(file.filename()), 70, () -> Util.getPlatform().openFile(path.toFile()));
         open.active = Files.isRegularFile(path); return open;
     }
     private void addFile(SettingsCatalog.FileEntry file) {
-        var path = FMLPaths.CONFIGDIR.get().resolve(file.filename()); boolean exists = Files.isRegularFile(path);
+        var path = ConfigLocations.file(FMLPaths.CONFIGDIR.get(), file.filename()); boolean exists = Files.isRegularFile(path);
         var open = fileButton(file);
         Component help = Component.translatable(file.summaryKey()).copy().append("\n").append(text("timing." + file.timing().name().toLowerCase(Locale.ROOT)));
         if (!exists) help = help.copy().append("\n").append(text("not_created"));
@@ -419,9 +419,9 @@ public final class ConfigurationOverview extends Screen {
     }
     private static ModConfig registered(String filename) {
         return java.util.stream.Stream.of(ModConfig.Type.CLIENT, ModConfig.Type.COMMON).flatMap(type -> ModConfigs.getConfigSet(type).stream())
-                .filter(config -> config.getFileName().equals(filename) && config.getLoadedConfig() != null
+                .filter(config -> config.getFileName().equals(ConfigLocations.registeredName(filename)) && config.getLoadedConfig() != null
                         && config.getSpec() instanceof net.neoforged.neoforge.common.ModConfigSpec
-                        && config.getFullPath().toAbsolutePath().normalize().equals(FMLPaths.CONFIGDIR.get().resolve(filename).toAbsolutePath().normalize()))
+                        && config.getFullPath().toAbsolutePath().normalize().equals(ConfigLocations.file(FMLPaths.CONFIGDIR.get(), filename).toAbsolutePath().normalize()))
                 .findFirst().orElse(null);
     }
     private static Component registeredName(String filename, RegisteredEdits.Field field) {
@@ -557,7 +557,7 @@ public final class ConfigurationOverview extends Screen {
     private static net.minecraft.network.chat.MutableComponent failure(String key, Exception failure) {
         return text(key).append(" ").append(Component.literal(String.valueOf(failure.getMessage())));
     }
-    private void folder() { content.row(Component.empty(), Component.empty(), button(text("open_folder"), 115, () -> Util.getPlatform().openFile(FMLPaths.CONFIGDIR.get().toFile()))); }
+    private void folder() { content.row(Component.empty(), Component.empty(), button(text("open_folder"), 115, () -> Util.getPlatform().openFile(ConfigLocations.ownedDirectory(FMLPaths.CONFIGDIR.get()).toFile()))); }
 
     private void saveDraft() {
         if (!dirty()) return;

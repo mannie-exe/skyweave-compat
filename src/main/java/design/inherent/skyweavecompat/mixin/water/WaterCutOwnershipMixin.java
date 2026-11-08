@@ -28,14 +28,17 @@ public abstract class WaterCutOwnershipMixin {
         var field = ((GeologicalGenerator)(Object)sky).skyweave$field(random);
         var column = ((InteriorField)(Object)field).skyweave$planningColumn(Mth.floor(x), Mth.floor(z),
                 sky.resolvedSkyIslandSettings(), TerrainStage.INTERIOR);
+        int maximumY = generator.getMinY() + generator.getGenDepth();
         if (column.segments().isEmpty() || column.dominantDescriptor() == null
-                || column.dominantDescriptor().archetype().waterBased()) return new HydrologyManager.RiverCarving();
+                || column.dominantDescriptor().archetype().waterBased()
+                || ((InteriorField)(Object)field).skyweave$isApron(column.dominantDescriptor(), Mth.floor(x), Mth.floor(z),
+                        sky.resolvedSkyIslandSettings()))
+            return IslandWaterColumns.unchanged(originalY, maximumY);
         var top = column.segments().getFirst();
         // Post-carver repair otherwise mistakes an already excavated bed for the
         // original surface, and can build a lowland foundation through empty sky.
         var cut = original.call(x, z, top.topY(), sea, generator, level, random);
-        if (cut.isLake) cut.targetY = Math.min(cut.targetY, top.topY());
-        return IslandWaterColumns.supported(cut, top, generator.getMinY() + generator.getGenDepth())
-                ? cut : new HydrologyManager.RiverCarving();
+        return IslandWaterColumns.fitToSupport(cut, top, maximumY)
+                ? cut : IslandWaterColumns.unchanged(originalY, maximumY);
     }
 }

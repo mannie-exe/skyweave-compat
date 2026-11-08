@@ -14,7 +14,7 @@ public final class OptionalIntegrations {
         static final FeatureSelection SELECTION = select();
         private static FeatureSettings load() {
             try {
-                return FeatureSettings.load(FMLPaths.CONFIGDIR.get());
+                return FeatureSettings.load(design.inherent.skyweavecompat.configuration.ConfigLocations.prepare(FMLPaths.CONFIGDIR.get()));
             } catch (java.io.IOException | IllegalArgumentException failure) {
                 throw new IllegalStateException("Cannot load " + FeatureSettings.FILE, failure);
             }

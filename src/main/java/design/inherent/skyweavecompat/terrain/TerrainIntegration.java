@@ -9,7 +9,7 @@ public final class TerrainIntegration {
     private TerrainIntegration() {}
 
     public static void register() {
-        var directory = FMLPaths.CONFIGDIR.get();
+        var directory = design.inherent.skyweavecompat.configuration.ConfigLocations.ownedDirectory(FMLPaths.CONFIGDIR.get());
         ShapeConfiguration.load(directory);
         GenerationConfiguration.load(directory);
         InteriorConfiguration.load(directory);

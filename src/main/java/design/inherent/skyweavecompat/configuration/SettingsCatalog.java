@@ -24,7 +24,7 @@ public final class SettingsCatalog {
         GRAVES(Category.INVENTORY, "yigd"), AUDIO(Category.AUDIO, "analog_audio"),
         DELIVERY(Category.SHIPS, "delivery"), QUESTLOG_SERVER(Category.INTERFACE, "questlog"),
         DH(Category.MAPS, "distant_horizons"), BLUEMAP(Category.MAPS, "bluemap"), SURVEYOR(Category.MAPS, "surveyor"),
-        TERRAIN(Category.WORLD, "sky_archipelago"), WATERSHEDS(Category.WORLD, "dynamic_waters"), ISLAND_SKY(Category.RENDERING, "sky_archipelago"), VILLAGES(Category.WORLD, "sky_villages"),
+        TERRAIN(Category.WORLD, "sky_archipelago"), LITHOSTITCHED(Category.WORLD, "lithostitched"), YUNG(Category.WORLD, "yungsapi"), YUNG_MINESHAFTS(Category.WORLD, "bettermineshafts"), YUNG_WITCH_HUTS(Category.WORLD, "betterwitchhuts"), WATERSHEDS(Category.WORLD, "dynamic_waters"), ISLAND_SKY(Category.RENDERING, "sky_archipelago"), VILLAGES(Category.WORLD, "sky_villages"),
         PRESSURE(Category.SHIPS, "sable"), WATER_SHIPS(Category.SHIPS, "dynamic_waters");
         public final Category category;
         public final String label;
@@ -138,6 +138,10 @@ public final class SettingsCatalog {
             case TERRAIN, ORE_PLACEMENT, CARVERS, CAVE_BIOMES, ANCIENT_CITIES, SPAWN,
                     STRUCTURE_LOCATION, STRUCTURE_DISTRIBUTION, WATER_SPAWNS, CLIMATE -> Group.TERRAIN;
             case VILLAGE_CLEARANCE, VILLAGE_PLACEMENT -> Group.VILLAGES;
+            case LITHOSTITCHED_STRUCTURES -> Group.LITHOSTITCHED;
+            case YUNG_STRUCTURES -> Group.YUNG;
+            case YUNG_MINESHAFTS -> Group.YUNG_MINESHAFTS;
+            case YUNG_WITCH_HUTS -> Group.YUNG_WITCH_HUTS;
             case PRESSURE -> Group.PRESSURE;
         };
     }

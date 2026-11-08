@@ -464,7 +464,7 @@ is not Iris's shadow enable switch and is not changed.
 
 `rendering.shader_patches` is a default-on physical-client adaptation for Iris
 1.8.14-beta.1+mc1.21.1. Without recipes it performs no assembly. Recipes live in
-`config/skyweave-shaders/recipes/`; the file-only engine is also exposed through
+`config/skyweave/shaders/recipes/`; the file-only engine is also exposed through
 `ShaderCli` for authoring builds. It requires Java 21 and Gson already supplied
 by Minecraft. No Python, shell hook, source compiler or launcher integration runs
 on recipients.

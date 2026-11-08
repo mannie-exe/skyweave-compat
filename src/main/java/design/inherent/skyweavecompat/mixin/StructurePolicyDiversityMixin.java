@@ -31,6 +31,6 @@ public abstract class StructurePolicyDiversityMixin {
 
     private static boolean owned(ResourceLocation id) {
         var scope = StructurePlacementScope.current();
-        return scope != null && id != null && StructureFamily.forId(id.toString()) == scope.family();
+        return scope != null && id != null && scope.distribution().family(id) == scope.family();
     }
 }

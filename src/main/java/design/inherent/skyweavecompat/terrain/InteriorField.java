@@ -13,5 +13,8 @@ public interface InteriorField {
     /** Native exterior of one host, excluding cavities and unrelated overlapping islands. */
     TerrainColumn skyweave$exteriorOf(org.sathrek.sky_archipelago.worldgen.generator.field.model.IslandDescriptor host,
             int x, int z, SkyIslandSettings settings);
+    /** Detached additive edge lobes are not a continuation of the host's drainage surface. */
+    boolean skyweave$isApron(org.sathrek.sky_archipelago.worldgen.generator.field.model.IslandDescriptor host,
+            int x, int z, SkyIslandSettings settings);
     ColumnData skyweave$planningColumn(int x, int z, SkyIslandSettings settings, TerrainStage stage);
 }

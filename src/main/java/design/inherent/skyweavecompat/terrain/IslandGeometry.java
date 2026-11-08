@@ -30,21 +30,13 @@ public final class IslandGeometry {
                 ? org.sathrek.sky_archipelago.worldgen.generator.field.IslandShapeArchetype.CLASSIC : source.archetype();
         int minRadius = anchor ? profile.anchorMinRadius() : spire ? 12 : profile.companionMinRadius();
         int maxRadius = anchor ? profile.anchorMaxRadius() : spire ? 28 : profile.companionMaxRadius();
-        var oceans = OceanConfiguration.profile();
-        if (anchor && OceanIslands.wetArchetype(source.archetype())
-                && oceans.mode(source.seed()) == OceanProfile.Mode.PERIMETER) {
-            minRadius = oceans.perimeterMinRadius();
-            maxRadius = oceans.perimeterMaxRadius();
-        }
         int rx = noise.sampleInt(source.seed(), 11, minRadius, maxRadius);
         int rz = noise.sampleInt(source.seed(), 13, minRadius, maxRadius);
-        if (!archetype.waterBased()) {
-            double aspect = IslandStyles.aspect(source.seed(), ShapeConfiguration.profile());
-            if (aspect > 1) {
-                double equivalent = Math.sqrt((double)rx * rz);
-                rx = Math.max(1, (int)Math.round(equivalent * Math.sqrt(aspect)));
-                rz = Math.max(1, (int)Math.round(equivalent / Math.sqrt(aspect)));
-            }
+        double aspect = IslandStyles.aspect(source.seed(), ShapeConfiguration.profile());
+        if (aspect > 1) {
+            double equivalent = Math.sqrt((double)rx * rz);
+            rx = Math.max(1, (int)Math.round(equivalent * Math.sqrt(aspect)));
+            rz = Math.max(1, (int)Math.round(equivalent / Math.sqrt(aspect)));
         }
         int plateau = anchor ? profile.anchorPlateau() : spire ? 6 : 14;
         int cliff = anchor ? profile.cliffDepth(targetHeight(cluster.seed(), profile)) : spire ? 95 : noise.sampleInt(source.seed(), 31, 40, 90);

@@ -38,7 +38,8 @@ final class LayoutPlanning {
     /** The pipeline removes failed alternatives from the same weighted draw. */
     static List<StructureSet.StructureSelectionEntry> variants(StructurePlacementPassContext pass,
             List<StructureSet.StructureSelectionEntry> entries) {
-        var remaining = new ArrayList<>(entries);
+        var owner = StructureWorldScope.current();
+        var remaining = new ArrayList<>(entries.stream().filter(entry -> owner == null || !owner.suppresses(entry.structure().value())).toList());
         var result = new ArrayList<StructureSet.StructureSelectionEntry>();
         var random = new WorldgenRandom(new LegacyRandomSource(0));
         random.setLargeFeatureSeed(pass.levelSeed(), pass.chunkPos().x, pass.chunkPos().z);
@@ -52,7 +53,7 @@ final class LayoutPlanning {
         }
         return result.stream().filter(entry -> {
             var id = entry.structure().unwrapKey().orElseThrow().location();
-            return StructureFamily.forId(id.toString()) != null && !pass.settings().advanced().structurePlacementPolicy().isDenied(id);
+            return StructureMembership.family(entry.structure()) != null && !pass.settings().advanced().structurePlacementPolicy().isDenied(id);
         }).toList();
     }
 
@@ -62,7 +63,9 @@ final class LayoutPlanning {
 
     static StructureLayout layout(ResourceLocation id, StructureSelection.Site site, StructureStart start, int padding) {
         var bounds = start.getBoundingBox();
-        return new StructureLayout(id, site, pieces(start), padding, box(bounds), box(RuinedPortalPlacementPolicy.impactBounds(id, bounds)));
+        var scope = StructurePlacementScope.current();
+        return new StructureLayout(id, site, pieces(start), padding, box(bounds), box(RuinedPortalPlacementPolicy.impactBounds(id, bounds)),
+                scope == null ? StructureFamily.forId(id.toString()) : scope.family());
     }
 
     private static StructureVolume.Box box(BoundingBox bounds) {

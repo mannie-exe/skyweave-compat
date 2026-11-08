@@ -42,6 +42,9 @@ configurations {
 sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
 sourceSets.test.runtimeClasspath += sourceSets.main.runtimeClasspath
 dependencies {
+    compileOnly('maven.modrinth:lithostitched:cZu4cHY3') { transitive = false }
+    compileOnly('maven.modrinth:yungs-api:2prKITKh') { transitive = false }
+    compileOnly('maven.modrinth:yungs-better-mineshafts:Go3nbneL') { transitive = false }
     compileOnly('maven.modrinth:dynamic-waters-realistic-flowing-rivers:At4uOo4s') { transitive = false }
     testRuntimeOnly('maven.modrinth:dynamic-waters-realistic-flowing-rivers:At4uOo4s') { transitive = false }
     compileOnly('maven.modrinth:macaws-bridges:aQ7rY7ng') { transitive = false }

@@ -66,6 +66,11 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             if ((feature == Feature.VILLAGE_CLEARANCE || feature == Feature.VILLAGE_PLACEMENT)
                     && mods.containsKey("sky_village_neighbors"))
                 throw new IllegalStateException("Remove Sky Village Neighbors or disable village adaptations in Skyweave: Compatibility Patches in " + FeatureSettings.FILE);
+            if (feature == Feature.YUNG_STRUCTURES)
+                for (var target : design.inherent.skyweavecompat.configuration.YungReplacementBindings.TARGETS)
+                    if (mods.containsKey(target.mod()) && !mods.get(target.mod()).equals(target.version()))
+                        throw new IllegalStateException("Review " + feature.key + " for " + target.mod() + " " + mods.get(target.mod())
+                                + "; supported version is " + target.version() + ". Disable the adaptation or install the supported version.");
             active.add(feature);
         }
         var inactive = new LinkedHashMap<Feature, String>();
@@ -75,6 +80,8 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
 
     public static Feature prerequisite(Feature feature) {
         return switch (feature) {
+            case LITHOSTITCHED_STRUCTURES, YUNG_STRUCTURES -> Feature.STRUCTURE_DISTRIBUTION;
+            case YUNG_MINESHAFTS, YUNG_WITCH_HUTS -> Feature.YUNG_STRUCTURES;
             case ORE_PLACEMENT, CARVERS, CAVE_BIOMES, ANCIENT_CITIES, SPAWN, STRUCTURE_LOCATION, STRUCTURE_DISTRIBUTION,
                     WATER_SPAWNS, CLIMATE, DYNAMIC_WATERS, ISLAND_CLOUDS, ISLAND_VOID, ISLAND_SHADER_ENVIRONMENT, VILLAGE_PLACEMENT, PRESSURE, DELIVERY_DISTANCE,
                     DELIVERY_CHUNKS, DELIVERY_LANDING -> Feature.TERRAIN;
@@ -97,6 +104,10 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
 
     public static Map<String, String> dependencies(Feature feature) {
         return switch (feature) {
+            case LITHOSTITCHED_STRUCTURES -> Map.of("sky_archipelago", "1.4", "lithostitched", "1.8.1");
+            case YUNG_STRUCTURES -> Map.of("sky_archipelago", "1.4", "yungsapi", "1.21.1-NeoForge-5.1.9");
+            case YUNG_MINESHAFTS -> Map.of("sky_archipelago", "1.4", "yungsapi", "1.21.1-NeoForge-5.1.9", "bettermineshafts", "1.21.1-NeoForge-5.1.1");
+            case YUNG_WITCH_HUTS -> Map.of("sky_archipelago", "1.4", "yungsapi", "1.21.1-NeoForge-5.1.9", "betterwitchhuts", "1.21.1-NeoForge-4.1.1");
             case ISLAND_SHADER_ENVIRONMENT -> Map.of("sky_archipelago", "1.4", "iris", "1.8.14-beta.1+mc1.21.1");
             case DYNAMIC_WATERS -> Map.of("dynamicwaters", "13.1.0", "sky_archipelago", "1.4");
             case DYNAMIC_WATERS_SABLE -> Map.of("dynamicwaters", "13.1.0", "sky_archipelago", "1.4", "sable", "2.0.6");
@@ -164,8 +175,12 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                 case CAVE_BIOMES -> List.of("CaveBiomeMixin", "ProjectedCaveBiomeMixin", "DeepDarkContextAccessor", "DeepDarkProjectorAccess");
                 case ANCIENT_CITIES -> List.of("AncientCityRoutingMixin", "AncientCityPlacementMixin", "AncientCityHeightMixin", "AncientCityTerrainMixin");
                 case SPAWN -> List.of("SpawnFallbackMixin");
-                case STRUCTURE_LOCATION -> List.of("StructureLocateCheckMixin");
-                case STRUCTURE_DISTRIBUTION -> List.of("StructurePolicyStateMixin", "GeneratorStructurePolicyMixin",
+                case STRUCTURE_LOCATION -> List.of(); // Shared with the native replacement policy below.
+                case LITHOSTITCHED_STRUCTURES -> List.of("LithostitchedStructureMixin");
+                case YUNG_STRUCTURES -> List.of("YungStructureMixin", "YungBuriedSupportMixin", "YungReplacementMixin", "YungPolicyStateMixin");
+                case YUNG_MINESHAFTS -> List.of("YungMineshaftStructureMixin", "YungMineshaftEntranceMixin", "YungMineshaftSupportMixin", "YungMineshaftFitMixin");
+                case YUNG_WITCH_HUTS -> List.of("YungHutSupportMixin");
+                case STRUCTURE_DISTRIBUTION -> List.of("StructurePolicyStateMixin", "GeneratorStructurePolicyMixin", "StructurePolicyCategoryMixin", "StructurePolicyJigsawMixin", "StructurePolicySizeMixin",
                         "StructurePolicyAttemptMixin", "StructurePolicyHostsMixin", "StructurePolicySitesMixin",
                         "StructurePolicyVillageMixin", "StructurePolicyUndergroundMixin", "StructurePolicyPortalHeightMixin",
                         "VillageGroundingResultAccess", "StructurePolicyOverlapMixin", "StructurePolicyThrottleMixin",
@@ -242,6 +257,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                 case QUESTLOG_REWARD_VALIDATION -> List.of("questlog.RewardClaimMixin");
             });
         }
+        if (enabled(Feature.STRUCTURE_LOCATION) || enabled(Feature.YUNG_STRUCTURES)) result.add("StructureLocateCheckMixin");
         if (client && (enabled(Feature.CONSTRUCT_DISTANCE) || enabled(Feature.CONSTRUCT_OCCLUSION)))
             result.addAll(List.of("client.ConstructDrawMixin", "client.ConstructBufferMixin", "client.ConstructProgramMixin"));
         if (client && enabled(Feature.CLIMATE)) result.add("client.WeatherClimateMixin");

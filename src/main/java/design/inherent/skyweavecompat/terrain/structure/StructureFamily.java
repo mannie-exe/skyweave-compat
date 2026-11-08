@@ -40,10 +40,13 @@ public enum StructureFamily {
     }
     /** Keep mixed or foreign sets untouched; the Nether portal entry shares vanilla's registered set. */
     public static StructureFamily forSet(Collection<String> ids) {
-        var known = ids.stream().map(StructureFamily::forId).filter(java.util.Objects::nonNull).distinct().toList();
+        return forSet(ids, StructureFamily::forId);
+    }
+    public static StructureFamily forSet(Collection<String> ids, java.util.function.Function<String, StructureFamily> membership) {
+        var known = ids.stream().map(membership).filter(java.util.Objects::nonNull).distinct().toList();
         if (known.size() != 1) return null;
         var family = known.getFirst();
-        return ids.stream().allMatch(id -> forId(id) == family
+        return ids.stream().allMatch(id -> membership.apply(id) == family
                 || family == PORTALS && id.equals("minecraft:ruined_portal_nether")) ? family : null;
     }
 }

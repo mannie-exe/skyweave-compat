@@ -22,8 +22,28 @@ import org.joml.Vector3dc;
 /** Real assembled native body and upstream call, recording rather than applying diagnostic impulses. */
 final class HydrologySableProbe {
     static JsonObject observe(ServerLevel level, BlockPos water) throws Exception {
-        var position = water.above(12);
-        if (!level.getBlockState(position).isAir()) throw new AssertionError("Dry craft fixture is obstructed");
+        BlockPos position = null;
+        var requested = water;
+        // A natural witness can be a quiet bank/lake cell. Find a real current in
+        // its already loaded neighborhood, then a dry positive-flow control above it.
+        // Do not fabricate water or assume a fixed vertical metadata band.
+        search: for (int dx = -12; dx <= 12; dx += 2) for (int dz = -12; dz <= 12; dz += 2) {
+            var chunk = level.getChunkSource().getChunkNow(Math.floorDiv(requested.getX() + dx,16), Math.floorDiv(requested.getZ() + dz,16));
+            if (chunk == null) continue;
+            for (int dy = -8; dy <= 8; dy++) {
+                var source = requested.offset(dx, dy, dz);
+                if (!chunk.getFluidState(source).is(net.minecraft.tags.FluidTags.WATER)
+                        || HydrologyManager.getRiverFlow(source.getX(), source.getY(), source.getZ(), level).lengthSqr() <= .01) continue;
+                for (int height = 1; height <= 12; height++) {
+                    var candidate = source.above(height);
+                    if (chunk.getBlockState(candidate).isAir() && HydrologyManager.getRiverFlow(candidate.getX(),
+                            candidate.getY(), candidate.getZ(), level).lengthSqr() > .01) {
+                        position = candidate; water = source; break search;
+                    }
+                }
+            }
+        }
+        if (position == null) throw new AssertionError("No loaded wet/dry positive-flow controls near " + requested);
         level.setBlockAndUpdate(position, Blocks.OAK_PLANKS.defaultBlockState());
         var ship = SubLevelAssemblyHelper.assembleBlocks(level, position, List.of(position), BoundingBox3i.from(List.of(position)));
         var center = new Vector3d(ship.logicalPose().position());
@@ -32,6 +52,7 @@ final class HydrologySableProbe {
         var dry = impulses(level, ship);
         if (!dry.isEmpty()) throw new AssertionError("Actual air-only craft received a current: " + dry);
         var result = new JsonObject(); result.addProperty("dryY", center.y());
+        result.addProperty("requestedWitness", requested.toShortString()); result.addProperty("selectedWater", water.toShortString());
         result.addProperty("waterY", water.getY()); result.addProperty("flow", flow.toString());
         result.addProperty("dryImpulseCalls", dry.size());
         result.addProperty("assembledInContainer", SubLevelContainer.getContainer(level).getAllSubLevels().contains(ship));

@@ -28,7 +28,7 @@ public final class IslandStyles {
                     kind = Kind.DEEP_DARK;
                 else if (f.biomes().contains(id) && unit(island.seed(), 0x39a280b3L) < f.chance()) kind = Kind.FRACTURED;
             }
-            return new Style(kind, profile.enabled() && !island.archetype().waterBased()
+            return new Style(kind, profile.enabled()
                     && island.family() != IslandFamily.SPIRE && profile.edges().enabled()
                     && profile.edges().falloffDistance() > 0 && profile.edges().fragmentDepthRatio() > 0
                     && profile.edges().density() > 0, id);

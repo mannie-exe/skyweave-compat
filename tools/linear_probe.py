@@ -137,13 +137,13 @@ def main():
             jar.writestr('META-INF/neoforge.mods.toml', 'modLoader="javafml"\nloaderVersion="[4,)"\nlicense="MIT"\n[[mods]]\nmodId="linear_review_probe"\nversion="1.0.0"\ndisplayName="Isolated compatibility checks"\n')
         shutil.copytree(args.pack / 'overrides/common/config', run / 'config')
         if args.linkage_baseline:
-            settings = run / 'config/skyweave_compat-features.properties'
+            settings = run / 'config/skyweave/skyweave_compat-features.properties'
             import re
             text = settings.read_text() if settings.exists() else ''
             text = re.sub(r'(?m)^transmission_linkage\.[^\n]*\n?', '', text)
             settings.write_text(text + '\ntransmission_linkage.interactions=false\ntransmission_linkage.jade=false\n')
         if args.redstone_baseline:
-            settings = run / 'config/skyweave_compat-features.properties'
+            settings = run / 'config/skyweave/skyweave_compat-features.properties'
             import re
             text = re.sub(r'(?m)^(redstone_link_gui|redstone_additions)\.[^\n]*\n?', '', settings.read_text() if settings.exists() else '')
             keys = ['redstone_link_gui.interactions', 'redstone_link_gui.relocation', 'redstone_link_gui.ship_access', 'redstone_additions.logic', 'redstone_additions.scraping', 'redstone_additions.wrench', 'redstone_additions.transparency']

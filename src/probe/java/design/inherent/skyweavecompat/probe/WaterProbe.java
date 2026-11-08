@@ -53,6 +53,7 @@ final class WaterProbe {
         var samplerField = IslandField.class.getDeclaredField("shapeSampler");
         samplerField.setAccessible(true);
         var shapes = (org.sathrek.sky_archipelago.worldgen.generator.field.internal.IslandShapeSampler)samplerField.get(field);
+        if (oceans) report.add("oceanGeometry", OceanGeometryProbe.inspect(level, generator, field, shapes, settings, radius));
         if (!oceans) {
             // Native plans provide bounded witnesses; do not scan every void column.
             riverSearch: for (var preview : field.collectIslandPreviewsInRadius(0,0,radius,settings)) {
@@ -95,11 +96,10 @@ final class WaterProbe {
                     if (mode == Kind.COASTAL && preview.terrainPlan() != null) {
                         if (++horizontalSamples > 2000000) break search;
                         var horizontal = shapes.sampleHorizontal(preview.terrainPlan(),x,z);
-                        double angle = OceanProfile.unit(island.seed() ^ 0x179d5b396a1cb874L) * Math.PI * 2;
-                        double along = horizontal.localX()*Math.cos(angle) + horizontal.localZ()*Math.sin(angle);
-                        double across = horizontal.localZ()*Math.cos(angle) - horizontal.localX()*Math.sin(angle);
-                        if (!horizontal.inInfluence() || along <= 0
-                                || Math.abs(across) > OceanConfiguration.profile().outletWidth()*.5) { probes--; continue; }
+                        if (!horizontal.inInfluence() || OceanIslands.coveOpening(island,
+                                horizontal.localX(), horizontal.localZ(), OceanConfiguration.profile()) < .99) {
+                            probes--; continue;
+                        }
                     }
                     var water = field.sampleWaterArchetypeColumnProfile(x, z, settings);
                     if (!water.water()) continue;
@@ -129,16 +129,20 @@ final class WaterProbe {
         if (oceans) {
             var profile = OceanConfiguration.profile();
             var required = EnumSet.noneOf(Kind.class);
-            if (profile.coastalChance() + profile.perimeterChance() < 1) required.add(Kind.NATIVE);
-            if (profile.coastalChance() > 0) required.add(Kind.COASTAL);
-            if (profile.perimeterChance() > 0) required.add(Kind.PERIMETER);
+            if (profile.lagoonWeight() > 0) {
+                if (profile.coastalChance() + profile.perimeterChance() < 1) required.add(Kind.NATIVE);
+                if (profile.coastalChance() > 0) required.add(Kind.COASTAL);
+                if (profile.perimeterChance() > 0) required.add(Kind.PERIMETER);
+            }
             if (!selected.containsAll(required)) {
                 report.addProperty("complete", false);
                 Files.writeString(destination, new GsonBuilder().setPrettyPrinting().create().toJson(report) + "\n");
                 throw new IllegalStateException("Missing native wet-mode witnesses: " + required + "; found " + selected);
             }
         }
-        if (SITES.isEmpty()) throw new IllegalStateException("No wet native fixture site within bounded search; select an ocean-biome fixture");
+        if (SITES.isEmpty() && (!oceans || OceanConfiguration.profile().lagoonWeight() > 0))
+            throw new IllegalStateException("No wet native fixture site within bounded search; select an ocean-biome fixture");
+        report.addProperty("wetChecksApplicable", !SITES.isEmpty());
         var observations = new JsonArray(); report.add("observations", observations);
         for (var site : SITES) {
             var center = new ChunkPos(site.source());
@@ -230,7 +234,8 @@ final class WaterProbe {
             valid &= site.get("bedSupported").getAsBoolean();
             if (elapsed >= 100 && site.has("edgeFluidBlocks")) valid &= site.get("edgeFluidBlocks").getAsInt() >= 12;
         }
-        report.addProperty("complete", valid); report.addProperty("fluidAndContainmentChecksPassed", valid);
+        report.addProperty("complete", valid);
+        report.addProperty("fluidAndContainmentChecksPassed", valid && !SITES.isEmpty());
         report.addProperty("observedTicks", elapsed); report.addProperty("elapsedSeconds", (System.nanoTime() - began) / 1e9);
         Files.writeString(destination, new GsonBuilder().setPrettyPrinting().create().toJson(report) + "\n");
     }

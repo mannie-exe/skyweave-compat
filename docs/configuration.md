@@ -6,9 +6,15 @@ Skyweave: Compatibility Patches uses `skyweave_compat` resources and configurati
 
 The interior noise salt `create_sky_compat:interiors` remains an opaque deterministic input so the same seed retains its terrain algorithm. DH's `create-sky-lod-world-id` marker and `csky_` cache key format remain persistence contracts, preserving existing cache discovery. They are not public resource aliases. Other serialized owned IDs, including grave recovery metadata, use the new namespace only; this release does not convert existing saved data.
 
+## Configuration directory
+
+Compat-owned settings live in `config/skyweave/`, retaining their existing filenames and formats. Managed shader recipes live in `config/skyweave/shaders/recipes/`; shader caches and generated shaderpacks retain their separate locations. Other mods keep their own native configuration paths, including files exposed by Compat's settings screen.
+
+For an existing installation, stop the client/server and explicitly move its `skyweave_compat-*` settings into this folder without replacing customized values. Move `config/skyweave-shaders/recipes/` to `config/skyweave/shaders/recipes/`. Resolve conflicting copies before starting. Startup reports unmigrated owned files instead of silently replacing them with defaults. The folder change alone does not change terrain settings or saved-world generation identity. Pack updates must move stopped instances explicitly rather than overwrite customized settings with defaults.
+
 ## Adaptation switches
 
-`config/skyweave_compat-features.properties` is the authoritative startup feature
+`config/skyweave/skyweave_compat-features.properties` is the authoritative startup feature
 file. It is created when absent; supplied values are preserved. Use literal `true`
 or `false`. Unknown keys, duplicates, and invalid values fail with an explanation.
 Missing keys use their documented defaults. Restart the entire game/server after
@@ -32,6 +38,10 @@ inactive selections.
 | `terrain.spawn_landing` | Generated-surface spawn landing | Active preset |
 | `terrain.structure_location` | Relocated structure lookup | Active preset |
 | `terrain.structure_distribution` | Cluster structure allowances and fitted destinations | Active preset; city allowances additionally need `terrain.ancient_cities` |
+| `lithostitched.island_structures` | Fit qualified Lithostitched custom jigsaw profiles | Lithostitched 1.8.1, Sky Archipelago 1.4 and structure distribution |
+| `yungsapi.island_structures` | Native jigsaw metadata, buried temple support and configured vanilla replacements | YUNG's API 1.21.1-NeoForge-5.1.9, Sky Archipelago 1.4 and structure distribution |
+| `bettermineshafts.island_placement` | Fit tunnel rooms, align entrances and bound support legs | Better Mineshafts 1.21.1-NeoForge-5.1.1 and the YUNG structure adaptation |
+| `betterwitchhuts.island_support` | Bound native log/fence supports to the island body | Better Witch Huts 1.21.1-NeoForge-4.1.1 and the YUNG structure adaptation |
 | `terrain.water_animal_spawns` | Local-water spawn height | Active preset |
 | `terrain.climate` | Surface temperature, snow, weather, shoreline/river selection and portal height | Active preset |
 | `dynamic_waters.island_hydrology` | Island-local upstream watershed generation and flow | Active preset, Dynamic Waters 13.1.0 |
@@ -117,7 +127,7 @@ providing separate class-loading switches.
 
 ## Village tuning
 
-`config/skyweave_compat-common.toml` is registered only when a village adaptation
+`config/skyweave/skyweave_compat-common.toml` is registered only when a village adaptation
 is active. NeoForge's client config screen edits its distances. The startup feature
 file owns activation, including `villages.clearance`; the tuning file does not
 contain a second enable switch.
@@ -135,7 +145,7 @@ captured at server startup; existing structures are not moved or removed.
 
 ## Island geometry
 
-`config/skyweave_compat-generation.json` is created at startup and applies only
+`config/skyweave/skyweave_compat-generation.json` is created at startup and applies only
 to **Skyweave Islands**. Edit it with the game/server stopped; restart the whole
 process to reload it. It is separate from the NeoForge village settings screen.
 Use matching files on client and server. Geometry changes require a fresh world;
@@ -175,7 +185,7 @@ Ordinary Sky Archipelago worlds continue to use upstream controls.
 
 ## Island interiors
 
-`config/skyweave_compat-interiors.json` controls interior selection in Skyweave
+`config/skyweave/skyweave_compat-interiors.json` controls interior selection in Skyweave
 Islands. It is generated at startup, applies only to the opted-in preset, and is
 part of saved generation identity. Restart with a fresh world after changing it.
 All fields are required; invalid values and unknown fields fail explicitly.
@@ -199,7 +209,7 @@ the preset's native `ore_veins_enabled` setting independently of cavity selectio
 
 ## Ancient Cities
 
-`config/skyweave_compat-ancient-cities.json` contains `minimumBuriedFraction`, default `0.90`. Values from 0 to 1 set the minimum sampled share of a normal/NOISE city inside its host's exterior; use `0.95` for a stricter check. Core and floor support remain required independently. HOLLOW cities must remain inside the host and fit an existing cavity floor and roof; they do not inherit the partial-exposure allowance.
+`config/skyweave/skyweave_compat-ancient-cities.json` contains `minimumBuriedFraction`, default `0.90`. Values from 0 to 1 set the minimum sampled share of a normal/NOISE city inside its host's exterior; use `0.95` for a stricter check. Core and floor support remain required independently. HOLLOW cities must remain inside the host and fit an existing cavity floor and roof; they do not inherit the partial-exposure allowance.
 
 This file uses the shared optimistic JSON editor under terrain tuning. Values apply to new worlds and are recorded in generation identity. The [terrain guide](development/terrain.md#structures) defines the metric, scope and fit limits. The `terrain.ancient_cities` startup switch owns interior placement and bounded room clearance together. Clearance uses the final piece layout, retains the island shell, foundations and authored water beds, and leaves natural terrain between separate pieces. Disabling the switch does not convert saved starts.
 
@@ -211,7 +221,7 @@ the local world before saving them, then create a fresh world. This prevents a
 native TOML edit from changing terrain underneath the active world. Other local
 settings retain their registered application timing.
 
-`config/skyweave_compat-rivers.json` controls native Sky Archipelago 1.4 hydrology in Skyweave Islands. It uses the upstream codec and explicit new-world defaults; missing, unknown or incorrectly typed fields fail instead of silently restoring defaults. Values apply at startup, belong to saved generation identity and require a fresh world when changed. The shared editor groups the native anchor and satellite settings.
+`config/skyweave/skyweave_compat-rivers.json` controls native Sky Archipelago 1.4 hydrology in Skyweave Islands. It uses the upstream codec and explicit new-world defaults; missing, unknown or incorrectly typed fields fail instead of silently restoring defaults. Values apply at startup, belong to saved generation identity and require a fresh world when changed. The shared editor groups the native anchor and satellite settings.
 
 | Fields | Defaults | Purpose |
 | --- | --- | --- |
@@ -253,7 +263,7 @@ The Iris adaptation supplies precipitation at the same Y64 climate reference and
 
 ## Island outlines and fractured terrain
 
-`config/skyweave_compat-shapes.json` controls seeded horizontal variation in the Skyweave preset. The native main body retains its taper; added outer fragments have independent depth and a small configurable underside accent. Settings apply at startup, enter saved generation identity, and require a new world when changed. Use the typed editor under **World → Sky Archipelago → Tuning**; nested groups share the same validation as startup.
+`config/skyweave/skyweave_compat-shapes.json` controls seeded horizontal variation in the Skyweave preset. The native main body retains its taper; added outer fragments have independent depth and a small configurable underside accent. Settings apply at startup, enter saved generation identity, and require a new world when changed. Use the typed editor under **World → Sky Archipelago → Tuning**; nested groups share the same validation as startup.
 
 | Field/group | Defaults | Meaning |
 | --- | --- | --- |
@@ -261,7 +271,7 @@ The Iris adaptation supplies precipitation at the same Y64 climate reference and
 | `strengthVariation` | 0.15 | Seeded variation around broad outline displacement; 0 keeps that strength fixed |
 | `outline.aspectChance`, `maximumAspectRatio` | 0.65, 1.96 | Chance and maximum length-to-width ratio for approximately area-preserving elongation |
 | `outline.warpAmplitude`, `warpWavelength` | 26, 102 | Broad outline displacement and wavelength, in blocks; small bodies cap displacement |
-| `edges.enabled` | true | Add a granular apron outside ordinary land bodies |
+| `edges.enabled` | true | Add a granular apron outside land and ocean bodies |
 | `edges.minimumSmoothFraction`, `maximumSmoothFraction` | 0.30, 0.70 | Seeded smooth-perimeter share for Mixed islands |
 | `edges.falloffDistance` | 64 | Maximum apron reach in blocks; coherent local variation shortens individual sectors |
 | `edges.disintegratingChance`, `disintegratingScale` | 0.15, 1.6 | Chance and reach multiplier for the intact-core Disintegrating profile |
@@ -280,7 +290,7 @@ These are selection settings, not measured worldwide frequencies. Deep Dark sele
 
 ## Ocean habitats
 
-`config/skyweave_compat-oceans.json` controls native floating ocean habitats independently of the disabled global ocean layer. Only locations admitted by `sky_archipelago:spawn_ocean_islands` qualify. Rejected locations remain void; ordinary land is not substituted. The resolved marked preset owns these settings; foreign Sky Archipelago presets retain upstream behavior.
+`config/skyweave/skyweave_compat-oceans.json` controls native floating ocean habitats independently of the disabled global ocean layer. Only locations admitted by `sky_archipelago:spawn_ocean_islands` qualify. Rejected locations remain void; ordinary land is not substituted. The resolved marked preset owns these settings; foreign Sky Archipelago presets retain upstream behavior.
 
 | Fields | Defaults | Purpose |
 | --- | --- | --- |
@@ -288,18 +298,18 @@ These are selection settings, not measured worldwide frequencies. Deep Dark sele
 | `lagoonWeight`, `brokenReefWeight` | 1, 1 | Relative weights among admitted ocean candidates |
 | `reefRingWeight`, `deadOceanShelfWeight` | 0, 0 | Disabled by default; positive weights retain explicit native alternatives |
 | `coastalChance`, `perimeterChance` | 0.25, 0.15 | Mutually exclusive Lagoon-only edge treatments; remaining 0.60 retains the native rim |
-| `perimeterMinRadius`, `perimeterMaxRadius` | 40, 64 | Descriptor radii for falling-perimeter hosts |
-| `outletWidth`, `outletDepth` | 2, 2 | Coastal corridor width and depth below fluid surface |
+| `coveOpeningDegrees`, `coveShoulderDegrees` | 100, 20 | Angular mouth width and transition on each side |
+| `outletDepth` | 2 | Open-edge bed depth below the native fluid surface |
 | `sealThickness` | 4 | Minimum retaining-bed thickness |
 | `spireCompanions`, `spireClearance` | true, 16 | Separate solid needles around ocean hosts and horizontal clearance from their footprints |
 
-Coastal mode lowers a selected native rim corridor; perimeter mode lowers the rim around the wet footprint. Broken Reef and other native water types retain their own edges. Ocean clusters receive solid spires rather than ordinary land satellites. There is no separate enclosed-basin or underside-outlet generator. Actual fluid ticks and feature generation remain authoritative over realized waterfalls.
+Open-cove mode lowers a broad arc of the Lagoon shore with graded shoulders, retaining native basin floors and interior islets. Perimeter mode lowers the rim around the wet footprint. All ocean anchors use the normal generation radii and seeded aspect/warp settings. Mixed and Disintegrating dry fragments can surround the native outer footprint; they do not replace water beds and are restricted to the sampled outer silhouette, and the cove mouth stays clear. Broken Reef and other native water types retain their own wet edges. Ocean clusters receive solid spires rather than ordinary land satellites. There is no separate enclosed-basin or underside-outlet generator. Actual fluid ticks and feature generation remain authoritative over realized waterfalls.
 
-All fields enter generation identity and need a fresh world when changed. The exact previous eight-field ocean schema remains readable: existing values are preserved, and new fields receive defaults. Startup and opening the editor do not rewrite it. Saving an edited profile writes the complete validated schema through the existing conflict checks. Unknown fields and incomplete or malformed profiles still fail; accepting an old configuration does not convert an incompatible world. Explicit false values remain authoritative. [Verification](development/verification.md) records tested material, flow, persistence, and consumer coverage separately from aquatic progression.
+All fields enter generation identity and need a fresh world when changed. The exact previous eight- and fifteen-field ocean schemas remain readable. Admission, weights, mode chances, depths and explicit opt-outs are preserved; obsolete small-island radii and narrow-corridor width are replaced by normal anchor sizing and the new cove defaults. Startup and opening the editor do not rewrite it. Saving an edited profile writes the complete validated schema through the existing conflict checks. Unknown fields and incomplete or malformed profiles still fail; accepting an old configuration does not convert an incompatible world. Explicit false values remain authoritative. [Verification](development/verification.md) records tested material, flow, persistence, and consumer coverage separately from aquatic progression.
 
 ## Structure distribution
 
-`config/skyweave_compat-structures.json` controls discoveries in the Skyweave preset.
+`config/skyweave/skyweave_compat-structures.json` controls discoveries in the Skyweave preset.
 Each family shares an allowance across the main island and its companions. Void
 around the cluster contributes no area. Variants share the allowance: five village
 biome IDs do not supply five separate village budgets, and ordinary/beached
@@ -403,7 +413,7 @@ structure-set datapack. The neighbor rule only filters those candidates.
 ## BlueMap viewer
 
 On a dedicated server with BlueMap 5.7, edit
-`config/skyweave_compat-bluemap.json`. The mod default selects no maps. Add map
+`config/skyweave/skyweave_compat-bluemap.json`. The mod default selects no maps. Add map
 IDs to `maps` to opt in; only maps of the running Sky Archipelago Overworld qualify.
 Both the ordinary Sky Archipelago generator and Skyweave Islands are supported.
 The current world's actual vertical bounds are used. Nether, End and foreign
@@ -448,7 +458,7 @@ See [DH implementation](development/lod.md) for boundaries and update checks.
 
 ## Questlog
 
-`config/skyweave_compat-journal-client.toml` is registered when either client
+`config/skyweave/skyweave_compat-journal-client.toml` is registered when either client
 journal feature is active. The Settings bookmark opens grouped Display and
 Notifications preferences. Mods → Skyweave: Compatibility Patches → Config → Interface and accessibility → Questlog
 edits the same values. Changes save locally and apply without restart.

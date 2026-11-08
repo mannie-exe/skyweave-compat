@@ -12,7 +12,7 @@ public final class ShaderWorkspace {
     public record Status(String id, String output, String state, String detail) {}
     private ShaderWorkspace() {}
     public static List<ShaderRecipe> recipes(Path root) throws IOException {
-        Path directory = ShaderEngine.safe(root, "config/skyweave-shaders/recipes");
+        Path directory = ShaderEngine.safe(root, "config/skyweave/shaders/recipes");
         if (!Files.isDirectory(directory)) return List.of();
         try (var paths = Files.list(directory)) {
             var result = new ArrayList<ShaderRecipe>(); var ids = new HashSet<String>(); var outputs = new HashSet<String>();

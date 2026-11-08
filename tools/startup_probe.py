@@ -39,6 +39,14 @@ def main():
         (run / 'libraries').symlink_to(server / 'libraries', target_is_directory=True)
         (run / 'mods').mkdir()
         (run / 'config').mkdir()
+        (run / 'config/skyweave').mkdir()
+        # Full-pack startup includes its established external prerequisite: Zfastnoise's
+        # biome redirect conflicts with Sky Archipelago even when Compat is absent.
+        # Keep Compat's own switches controlled below rather than importing them here.
+        if args.scenario in {'full', 'all-disabled'}:
+            prerequisite = server / 'config/zfastnoise.mixin.properties'
+            if prerequisite.is_file():
+                shutil.copy2(prerequisite, run / 'config' / prerequisite.name)
         shutil.copy2(server / 'eula.txt', run / 'eula.txt')
         shutil.copy2(mod, run / 'mods' / mod.name)
         if args.scenario.startswith('unsupported-'):
@@ -46,7 +54,7 @@ def main():
             # Disabled adapters must neither reject their versions nor resolve their APIs.
             metadata = 'modLoader="lowcodefml"\nloaderVersion="[1,)"\nlicense="MIT"\n'
             for target in ['sky_archipelago', 'skyvillages', 'architectury', 'sable', 'aeronautics_delivery_quests',
-                           'distanthorizons', 'bluemap', 'surveyor', 'analogaudio', 'analoglib', 'yigd', 'create', 'veil', 'iris', 'sodium', 'aeronautics', 'questlog', 'sabledynlights', 'lambdynlights', 'colorwheel', 'flywheel', 'linearbearing', 'linearbearingsfix', 'simulated', 'aeronautics_utility_objects', 'fusion', 'rechiseled', 'mcwbridges', 'ssrd']:
+                           'distanthorizons', 'bluemap', 'surveyor', 'lithostitched', 'yungsapi', 'betterdeserttemples', 'betterjungletemples', 'bettermineshafts', 'betterwitchhuts', 'betteroceanmonuments', 'analogaudio', 'analoglib', 'yigd', 'create', 'veil', 'iris', 'sodium', 'aeronautics', 'questlog', 'sabledynlights', 'lambdynlights', 'colorwheel', 'flywheel', 'linearbearing', 'linearbearingsfix', 'simulated', 'aeronautics_utility_objects', 'fusion', 'rechiseled', 'mcwbridges', 'ssrd']:
                 metadata += f'[[mods]]\nmodId="{target}"\nversion="999.0.0"\ndisplayName="Fixture {target}"\n'
             with zipfile.ZipFile(run / 'mods/future-targets-fixture.jar', 'w') as fixture:
                 fixture.writestr('META-INF/neoforge.mods.toml', metadata)
@@ -71,13 +79,13 @@ def main():
         if args.scenario in {'all-disabled', 'terrain-disabled', 'unsupported-disabled', 'questlog-disabled', 'macaw-disabled'}:
             import re
             keys = re.findall(r'\("([a-z_]+\.[a-z_]+)"', (ROOT / 'src/main/java/design/inherent/skyweavecompat/Feature.java').read_text())
-            (run / 'config/skyweave_compat-features.properties').write_text(''.join(f'{key}=false\n' for key in keys))
+            (run / 'config/skyweave/skyweave_compat-features.properties').write_text(''.join(f'{key}=false\n' for key in keys))
         if args.enable:
             import re
             keys = set(re.findall(r'\("([a-z_]+\.[a-z_]+)"', (ROOT / 'src/main/java/design/inherent/skyweavecompat/Feature.java').read_text()))
             if not set(args.enable) <= keys:
                 parser.error('Unknown fixture feature key')
-            feature_file = run / 'config/skyweave_compat-features.properties'
+            feature_file = run / 'config/skyweave/skyweave_compat-features.properties'
             lines = feature_file.read_text().splitlines() if feature_file.exists() else []
             lines = [line for line in lines if line.partition('=')[0] not in args.enable]
             feature_file.write_text('\n'.join(lines + [key + '=true' for key in args.enable]) + '\n')

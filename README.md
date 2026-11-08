@@ -10,7 +10,7 @@ No content mod is required. With no supported targets installed, no adapters act
 Use it on the client for rendering fixes; install it on both sides with matching
 configuration when using the expanded island preset.
 
-Edit `config/skyweave_compat-features.properties` before startup to disable
+Edit `config/skyweave/skyweave_compat-features.properties` before startup to disable
 unwanted features. Changes require a full process restart. Disabled adaptations
 select no target mixins, callbacks, or data packs and do not constrain target
 versions. An enabled adaptation activates only when its full dependency combination
@@ -188,14 +188,14 @@ systems and mod pages. Setting links jump within the selected page; owned JSON
 files and registered scalar TOML settings have inline forms.
 Journal preferences apply immediately; fix changes save for the next startup. The menu edits local files, not a connected server.
 
-Feature switches remain in `config/skyweave_compat-features.properties`.
-Village tuning uses `config/skyweave_compat-common.toml`. Island geometry lives in
-`config/skyweave_compat-generation.json`; cavity and native-carver controls live in
-`config/skyweave_compat-interiors.json`. Native hydrology uses
-`config/skyweave_compat-rivers.json`; adapted watersheds use upstream
+Feature switches remain in `config/skyweave/skyweave_compat-features.properties`.
+Village tuning uses `config/skyweave/skyweave_compat-common.toml`. Island geometry lives in
+`config/skyweave/skyweave_compat-generation.json`; cavity and native-carver controls live in
+`config/skyweave/skyweave_compat-interiors.json`. Native hydrology uses
+`config/skyweave/skyweave_compat-rivers.json`; adapted watersheds use upstream
 `config/dynamicwaters-common.toml`. Optional ocean edges use
-`config/skyweave_compat-oceans.json`, and city burial uses
-`config/skyweave_compat-ancient-cities.json`. Restart the game/server after changes;
+`config/skyweave/skyweave_compat-oceans.json`, and city burial uses
+`config/skyweave/skyweave_compat-ancient-cities.json`. Restart the game/server after changes;
 changed generation settings require a fresh world.
 The server's configuration controls multiplayer generation.
 

@@ -40,7 +40,7 @@ public final class GenerationGuard {
         }
         var ops = RegistryOps.create(JsonOps.INSTANCE, server.registryAccess());
         var identity = new JsonObject();
-        identity.addProperty("algorithm", "islands_v1-skyarch-1.4-3");
+        identity.addProperty("algorithm", "islands_v1-skyarch-1.4-4");
         identity.addProperty("largeVeins", "native_reference_depth_v1");
         identity.addProperty("seed", server.getWorldData().worldGenOptions().seed());
         identity.add("villagePolicy", new Gson().toJsonTree(NeighborConfig.settings()));
@@ -59,6 +59,10 @@ public final class GenerationGuard {
         if (OptionalIntegrations.enabled(Feature.STRUCTURE_DISTRIBUTION)) {
             identity.addProperty("structureDistribution", "cluster_family_v1");
             identity.add("structures", new Gson().toJsonTree(design.inherent.skyweavecompat.terrain.structure.StructureConfiguration.policy()));
+            if (OptionalIntegrations.enabled(Feature.YUNG_STRUCTURES)) {
+                var replacements = ((design.inherent.skyweavecompat.terrain.structure.YungWorldPolicy)(Object)sky).skyweave$yungReplacements();
+                if (!replacements.isEmpty()) identity.add("yungReplacements", new Gson().toJsonTree(replacements));
+            }
         }
         var mudBiomes = new JsonArray();
         server.registryAccess().registryOrThrow(Registries.BIOME).getTag(BiomeMaterials.MUD).ifPresent(tag ->
@@ -75,7 +79,8 @@ public final class GenerationGuard {
         identity.addProperty("climate", "biome_temperature_at_reference_surface");
         var disabled = new JsonArray();
         for (var feature : java.util.List.of(Feature.ORE_PLACEMENT, Feature.CARVERS, Feature.CAVE_BIOMES,
-                Feature.ANCIENT_CITIES, Feature.SPAWN, Feature.STRUCTURE_LOCATION, Feature.CLIMATE,
+                Feature.ANCIENT_CITIES, Feature.SPAWN, Feature.STRUCTURE_LOCATION, Feature.STRUCTURE_DISTRIBUTION,
+                Feature.LITHOSTITCHED_STRUCTURES, Feature.YUNG_STRUCTURES, Feature.YUNG_MINESHAFTS, Feature.YUNG_WITCH_HUTS, Feature.CLIMATE,
                 Feature.VILLAGE_CLEARANCE, Feature.VILLAGE_PLACEMENT)) {
             if (!OptionalIntegrations.configured(feature)) disabled.add(feature.key);
         }

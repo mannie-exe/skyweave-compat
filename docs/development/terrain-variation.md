@@ -1,6 +1,6 @@
 # Horizontal terrain variation
 
-The marked Skyweave preset composes horizontal outlines, selective edge disturbance, and fractured exteriors over Sky Archipelago 1.4's native land body. [Terrain](terrain.md) owns geological mapping, interiors, hydrology, structures, and saved-world boundaries. [Configuration](../configuration.md#island-outlines-and-fractured-terrain) owns field defaults and application timing; [verification](verification.md) separates actual native observations from visual tuning and balance.
+The marked Skyweave preset composes horizontal outlines, selective edge disturbance, and fractured exteriors over Sky Archipelago 1.4's native land and ocean bodies. [Terrain](terrain.md) owns geological mapping, interiors, hydrology, structures, and saved-world boundaries. [Configuration](../configuration.md#island-outlines-and-fractured-terrain) owns field defaults and application timing; [verification](verification.md) separates actual native observations from visual tuning and balance.
 
 ## Geometry and ownership
 
@@ -37,7 +37,7 @@ Operators can inspect accepted plans without loading or generating chunks:
 /skyweavecompat islands cancel
 ```
 
-The search captures its origin and dimension. Filters compose as unique `key=value` arguments; suggestions expose native archetypes, `exterior=native|fractured|deep_dark`, `interior=baseline|noise|hollow`, `edge=none|native|coastal|perimeter|mixed|disintegrating`, biome IDs, and families. The default family is `anchor_plateau`; `family=any` includes companions. Non-native Lagoon edge filters cannot be combined with another archetype.
+The search captures its origin and dimension. Filters compose as unique `key=value` arguments; suggestions expose native archetypes, `exterior=native|fractured|deep_dark`, `interior=baseline|noise|hollow`, `edge=none|native|coastal|perimeter|mixed|disintegrating`, biome IDs, and families. The default family is `anchor_plateau`; `family=any` includes companions. Non-native Lagoon edge filters cannot be combined with another archetype. `apron=none|mixed|disintegrating` separately filters dry outer-fragment styles on land or ocean hosts; it can combine with `archetype=lagoon edge=coastal`. The retained `coastal` command value identifies the open-cove shore treatment.
 
 Searches continue automatically in worker slices of at most 256 cells or two seconds, yielding through the server tick scheduler between slices. Search bounds allow at most 131072 blocks and 65536 cells; overly dense configurations require a smaller radius. The cursor retains at most 64 nearest planned centers, ten per page. The full finite search must finish to establish those nearest results. Status and pages remain available while running; these pages are provisional. No match so far differs from completed absence. The old `more` command is an observational alias for `status`; it does not enqueue extra work.
 

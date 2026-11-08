@@ -1,5 +1,69 @@
 # Verification
 
+## Terrain and structure compatibility
+
+Native checks use Minecraft 1.21.1, NeoForge 21.1.265, Sky Archipelago 1.4,
+Dynamic Waters 13.1.0, Java 21.0.13 and the exact optional versions in the
+[configuration matrix](../configuration.md). These qualify the changed seams,
+not every generated arrangement or survival balance.
+
+- Original-spawn seed 1477658567442615827: all four reported lake columns are wet,
+  both void columns and sampled detached fragments remain dry, and no low source
+  shelf returns after 120 ticks/reopening. The sampled submerged lake bands have
+  no logs/leaves. Probe-only native task-completion taps also observe all nine
+  sites after NOISE, SURFACE, CARVERS and FEATURES: lake points are wet from NOISE,
+  void/remnant points stay dry and no low source shelf appears. The four submerged
+  lake bands contain no logs/leaves at those stages. Persisted status still names
+  the preceding stage until Minecraft commits completion; later requested-status
+  reads correctly report FULL. Initial traces remain in the reopened report.
+- Native watershed checks with the thirteen added dependencies, C2ME and Dynamic
+  Waters pass at seeds 42 and 2026 through fluid ticks/reopening. The bounded
+  fractured-host path survey finds no wet continuation after crossing void and
+  acquires no chunks. Ordinary falling water is not a generated channel.
+- Composed plains villages retain native pieces, processors and containers through
+  full generation/reopening with water enabled. Local checks find 76 supported
+  doors and 53 supported beds across two profiles. Desert profiles add regional
+  samples. This is local placement evidence, not villager pathfinding.
+- Native replacement flags suppress six vanilla structure IDs in attempts and
+  prospective lookup; false flags restore eligibility. Independent generator
+  snapshots and the API-only/disabled controls pass without distant chunk loads.
+- Desert and jungle temples each retain five accepted starts in their final
+  fixed-biome samples; full first-layout realization and reopening pass with
+  Dynamic Waters/C2ME. Water and village exclusion controls retain rejection.
+- Native mineshaft and hut support controls place no supports in the sampled void
+  column and seven on valid ground; unadapted controls placed 826/827 into void.
+  Entrance absolute coordinates, native solid/fluid checks and foreign controls
+  remain covered separately.
+- Geophilic's resolved features and supported/unsupported decoration controls pass
+  across forest, desert, snowy-taiga and explicitly permitted shore fixtures.
+  No separate ecology patch is justified by those finite observations.
+- A full expanded-stack DH 3.3.3 32-chunk-radius job completes and grows saved
+  terrain from 156 to 8,258 chunks. Its closed SQLite database passes quick-check
+  and retains 412 FullData records. This proves generation/storage, not fluid
+  palette appearance or every client distance policy. BlueMap 5.7 passes adapted,
+  ordinary and foreign selection/bounds controls, reload and shutdown cleanup.
+- Native witch-circle sampling retains two starts, complete first-layout
+  realization and reopening under its independent source schedule. Shared-budget
+  selection is pack-owned. The approved shared-budget fixture admits both huts
+  and circles, realizes one layout of each and preserves the results on reopening.
+- Normal-sized Lagoon treatments pass 120 ticks/reopening with the expanded mod
+  stack. The bounded YUNG monument fixture rejects rough or insufficiently
+  submerged hosts; it does not prove a viable island monument.
+- Full-pack configuration checks read the nested owned files and native foreign
+  TOML, save/read back/restored owned and foreign values, preserve generation
+  confirmation and work at 720×480. No legacy root files are regenerated.
+
+`tools/probe.py --water-witnesses tools/fixtures/terrain/water-spawn-regression.json`
+adds the original water sites to a native hydrology run. Its probe-only
+`ChunkStatusTasks` future taps observe completed stage work before status commit;
+recheck those method descriptors and completion ordering on Minecraft/C2ME updates.
+The runner requires all four initial traces and preserves them through reopening.
+Keep the recorded persisted status distinct from the completed task stage.
+`--drainage-only`
+provides a bounded metadata route check without chunks; `--ecology` and the
+`--yung` controls exercise qualified upstream implementations. Probe JARs and
+fixture overrides are excluded from release artifacts.
+
 ## Granular edges and island watersheds
 
 Candidate checks use Minecraft 1.21.1, NeoForge 21.1.265, Sky Archipelago 1.4,
@@ -15,9 +79,10 @@ boundaries; they do not replace the earlier release-specific evidence below.
 | Remote client | A full client connects to an isolated dedicated server, receives generated river blocks and nonzero watershed flow, and reproduces that flow through a render-style BlockGetter. Disconnecting and rejoining the same server restores the same vector. An integrated-server-only command is refused, confirming this exercises a separate server process. |
 | Sable boundary | A real assembled body records zero dry and one wet current impulse; a 90-degree yaw preserves the world-space vector. Plot-to-world fluid coordinates agree. The synchronous test recorder is restored before physics ticks; this is not a vessel sailing playtest or full voxel-immersion proof. |
 | Climate and environment | High temperate shore and hot Badlands controls do not freeze; a genuinely cold biome retains freezing. Native cloud height is 469.3333. Low open-sky fog remains clear across the floor band while blindness remains black. Generated Complementary/Euphoria and BSL/Colorwheel corrections compile/reload and preserve an enclosed dark room. Native rain and Iris agree at high river altitude; underwater fog survives, Nether effects remain native, and returning restores the marked provider. Explicitly disabling cloud/void corrections restores Y192 clouds and black below-floor fog. Shader captures are separate from photography fixtures with fog overridden. |
+| Ocean sizing and cove | Normal anchor sizing, aspect and outer dry fragments pass native base-column/FULL checks for Lagoons (seeds42 and2026) and dry Broken Reef (2026). Lagoon native/open-cove/perimeter modes retain supported water through120 ticks on both seeds; seed42 reopening preserves source/bed ownership. The full pack with C2ME and Dynamic Waters repeats the seed42 controls. The cove/perimeter witnesses have17 fluid blocks in the inspected fall band. Warm metadata sweeps and bounded fixture times are not a cold-cache or world-wide performance claim. New ocean visuals and aquatic balance remain unqualified. |
 | Locator | Automatic completion visits 625 cells and retains nearest results, provisional paging, cancellation, stale-connection rejection and permission checks. Coordinate clicks suggest rather than execute teleportation. Maximum loaded chunks do not exceed the initial 1930; normal startup unloading reduces the final count. |
 | Configuration | Dynamic Waters COMMON entries use the existing typed editor, including validated string lists. The editor shows readable generation timing. A native generation edit is blocked while the integrated server runs; its draft survives and discarding leaves the file unchanged. Main-menu generation saves retain the fresh-world confirmation. |
-| Optional loading | Standalone dedicated startup and a Minecraft/NeoForge/Compat-only native client/config screen have no active foreign adapters. A terrain-only native client without Iris or Dynamic Waters activates the cloud/void hooks and opens configuration successfully. Default full-pack startup succeeds. An all-disabled full-pack control fails an existing upstream Sky Archipelago/ZFastNoise redirect conflict; it does not establish that this combination is supported. |
+| Optional loading | Standalone dedicated startup and a Minecraft/NeoForge/Compat-only native client/config screen have no active foreign adapters. A terrain-only native client without Iris or Dynamic Waters activates the cloud/void hooks and opens configuration successfully. Default full-pack startup succeeds. An all-disabled full-pack control passes with the pack's existing `zfastnoise.mixin.properties` biome optimization opt-out. The first failed fixture omitted that prerequisite and exposed the upstream Sky Archipelago/ZFastNoise redirect conflict; it was a fixture configuration error. |
 
 Reproduce the watershed check with `tools/probe.py --hydrology --dynamic-waters
 /path/to/dynamicwaters.jar --seed 42 --fluid-ticks 200 --reopen`, the authored

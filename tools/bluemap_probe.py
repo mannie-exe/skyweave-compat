@@ -79,7 +79,8 @@ def main():
             core = config / 'core.conf'
             import re
             core.write_text(re.sub(r'accept-download:\s*(?:true|false)', 'accept-download: true', core.read_text()))
-            policy = run / 'config/skyweave_compat-bluemap.json'
+            policy = run / 'config/skyweave/skyweave_compat-bluemap.json'
+            policy.parent.mkdir(parents=True, exist_ok=True)
             settings = dict(maps=['world'], detailDistance=4000, tileRadius=31, concurrentRequests=4, geometryMiB=256)
             policy.write_text(json.dumps(settings))
             manifest = run / 'bluemap/web/skyweave-compat/settings.json'

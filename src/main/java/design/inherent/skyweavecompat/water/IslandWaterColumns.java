@@ -1,6 +1,7 @@
 package design.inherent.skyweavecompat.water;
 
 import com.AdamNew.dynamicwaters.HydrologyManager;
+import design.inherent.skyweavecompat.terrain.InteriorConfiguration;
 import design.inherent.skyweavecompat.terrain.TerrainStage;
 import java.util.ArrayList;
 import java.util.List;
@@ -64,7 +65,32 @@ public final class IslandWaterColumns {
     public static boolean supported(HydrologyManager.RiverCarving cut, TerrainColumn top, int maximumY) {
         return cut.modifies && (cut.isMountainRiver || cut.isLake) && !cut.isPillar
                 && (cut.cavernRoofY == -999 || cut.cavernRoofY == maximumY)
-                && cut.targetY >= top.bottomY() + design.inherent.skyweavecompat.terrain.InteriorConfiguration.profile().shellThickness()
+                && cut.targetY >= minimumBed(top)
                 && cut.targetY <= top.topY() && cut.waterLevel < maximumY;
+    }
+
+    /** A native no-op also needs inert heights: post-carver repair reads waterLevel when modifies is false. */
+    public static HydrologyManager.RiverCarving unchanged(int originalY, int maximumY) {
+        var cut = new HydrologyManager.RiverCarving();
+        cut.targetY = originalY;
+        cut.waterLevel = originalY;
+        cut.sealFloorY = originalY;
+        cut.cavernRoofY = maximumY;
+        return cut;
+    }
+
+    /** Keep an existing supported lake floor instead of excavating through its retained cavity roof. */
+    public static boolean fitToSupport(HydrologyManager.RiverCarving cut, TerrainColumn top, int maximumY) {
+        if (cut.modifies && cut.isLake && minimumBed(top) <= top.topY()) {
+            cut.targetY = Math.max(minimumBed(top), Math.min(cut.targetY, top.topY()));
+            // A constrained bed must still leave room for the proposed lake.
+            if (cut.targetY >= cut.waterLevel) return false;
+        }
+        return supported(cut, top, maximumY);
+    }
+
+    private static int minimumBed(TerrainColumn top) {
+        // TerrainColumn endpoints are inclusive: bottom=410, top=421 already contains twelve blocks.
+        return top.bottomY() + InteriorConfiguration.profile().shellThickness() - 1;
     }
 }

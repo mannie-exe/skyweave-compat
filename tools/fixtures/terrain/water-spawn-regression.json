@@ -1,0 +1,15 @@
+{
+  "seed": 1477658567442615827,
+  "waterY": 425,
+  "points": [
+    { "x": 429, "z": -1042, "expectedWet": false },
+    { "x": 451, "z": -1002, "expectedWet": false },
+    { "x": 787, "z": -1114, "expectedWet": true },
+    { "x": 674, "z": -1053, "expectedWet": true },
+    { "x": 748, "z": -1079, "expectedWet": true },
+    { "x": 820, "z": -1100, "expectedWet": true },
+    { "x": 552, "z": -991, "expectedWet": false },
+    { "x": 948, "z": -928, "expectedWet": false },
+    { "x": 949, "z": -928, "expectedWet": false }
+  ]
+}

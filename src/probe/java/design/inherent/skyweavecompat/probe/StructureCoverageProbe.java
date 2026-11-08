@@ -46,15 +46,40 @@ final class StructureCoverageProbe {
                 : List.of("stronghold", "trial_chambers", "ancient_city", "mineshaft", "mineshaft_mesa");
         String selectedId = System.getProperty("neighbors.probe.structureId", "");
         if (!selectedId.isEmpty()) {
-            if (!names.contains(selectedId)) throw new IllegalArgumentException("Structure is outside this fixture: " + selectedId);
-            var family = design.inherent.skyweavecompat.terrain.structure.StructureFamily.forId("minecraft:" + selectedId);
-            names = family == null ? List.of(selectedId) : family.ids().stream().sorted()
-                    .map(id -> id.substring("minecraft:".length())).toList();
+            var selectedFamily = Arrays.stream(design.inherent.skyweavecompat.terrain.structure.StructureFamily.values())
+                    .filter(family -> family.key.equals(selectedId)).findFirst().orElse(null);
+            if (selectedFamily != null) {
+                var distribution = ((design.inherent.skyweavecompat.terrain.structure.StructurePlacementState)state).skyweave$structureDistribution();
+                if (distribution == null) throw new IllegalArgumentException("Managed family fixture requires structure distribution");
+                var selected = new TreeSet<String>();
+                for (var anchor : anchors) {
+                    var owner = anchor.terrainPlan() == null ? distribution.owner(anchor.x(), anchor.z())
+                            : distribution.owner(anchor.terrainPlan().descriptor());
+                    if (owner == null) continue;
+                    distribution.plan(owner).layouts().getOrDefault(selectedFamily, List.of())
+                            .forEach(layout -> selected.add(layout.id().toString()));
+                }
+                if (selected.isEmpty()) throw new AssertionError("No fitted " + selectedId + " in this bounded fixture");
+                names = List.copyOf(selected);
+                report.add("selectedFamilyVariants", new Gson().toJsonTree(names));
+            } else if (selectedId.contains(":")) {
+                var selected = registry.getHolder(ResourceLocation.parse(selectedId)).orElseThrow();
+                if (design.inherent.skyweavecompat.terrain.structure.StructureMembership.family(selected) == null
+                        && !(selected.value() instanceof design.inherent.skyweavecompat.terrain.structure.IslandJigsaw))
+                    throw new IllegalArgumentException("Structure has no qualified family or native custom-jigsaw bridge: " + selectedId);
+                names = List.of(selectedId);
+            } else {
+                if (!names.contains(selectedId)) throw new IllegalArgumentException("Structure is outside this fixture: " + selectedId);
+                var family = design.inherent.skyweavecompat.terrain.structure.StructureFamily.forId("minecraft:" + selectedId);
+                names = family == null ? List.of(selectedId) : family.ids().stream().sorted()
+                        .map(id -> id.substring("minecraft:".length())).toList();
+            }
         }
         report.addProperty("layoutsOnly", Boolean.getBoolean("neighbors.probe.layoutsOnly"));
         for (String name : names) {
-            var id = ResourceLocation.withDefaultNamespace(name);
+            var id = ResourceLocation.parse(name);
             var holder = registry.getHolder(id).orElseThrow();
+            var probeFamily = design.inherent.skyweavecompat.terrain.structure.StructureMembership.family(holder);
             var candidates = new LinkedHashSet<ChunkPos>();
             var observedStarts = new LinkedHashSet<ChunkPos>();
             var nativeReport = org.sathrek.sky_archipelago.worldgen.benchmark.StructureBenchmarkRecorder
@@ -164,27 +189,41 @@ final class StructureCoverageProbe {
                 if (valid && managed && !report.has("physicalClaimIsolation"))
                     report.add("physicalClaimIsolation", physicalClaimIsolation(level, chunk, candidate, id));
                 if (managed && design.inherent.skyweavecompat.terrain.structure.StructureDistribution.hasLayoutPlan(
-                        design.inherent.skyweavecompat.terrain.structure.StructureFamily.forId(id.toString()))) {
+                        probeFamily)) {
                     var policy = ((design.inherent.skyweavecompat.terrain.structure.StructurePlacementState)state).skyweave$structureDistribution();
                     var owner = policy.owner(candidate.getMiddleBlockX(), candidate.getMiddleBlockZ());
                     var site = new design.inherent.skyweavecompat.terrain.structure.StructureSelection.Site(candidate.x, candidate.z);
                     var fitted = policy.plan(owner);
-                    var layout = fitted.layout(design.inherent.skyweavecompat.terrain.structure.StructureFamily.forId(id.toString()), site);
+                    var layout = fitted.layout(probeFamily, site);
                     var expectedId = layout == null ? null : layout.id();
-                    if (id.equals(expectedId) != valid)
-                        throw new AssertionError("Structure fit/materialization mismatch at " + candidate + " for " + id);
-                    if (valid && !chunk.getPersistedStatus().isOrAfter(ChunkStatus.FULL)) {
+                    if (id.equals(expectedId) != valid) {
+                        sample.addProperty("expectedStructure", String.valueOf(expectedId));
+                        row.add("candidates", samples); samples.add(sample); rows.add(row); report.add("structures", rows);
+                        report.addProperty("complete", false);
+                        report.add("nativePlacement", new Gson().toJsonTree(org.sathrek.sky_archipelago.worldgen.benchmark.StructureBenchmarkRecorder
+                                .report("skyweave", level.getSeed(), List.of(), Map.of())));
+                        Files.writeString(output, new GsonBuilder().setPrettyPrinting().create().toJson(report));
+                        throw new AssertionError("Structure fit/materialization mismatch at " + candidate + " for " + id
+                                + "; expected=" + expectedId + "; valid=" + valid);
+                    }
+                    if (valid && !replay.contains(candidate) && !chunk.getPersistedStatus().isOrAfter(ChunkStatus.FULL)) {
                         var expected = layout.pieces();
                         var actual = start.getPieces().stream().map(piece -> {
                             var b = piece.getBoundingBox();
                             return new design.inherent.skyweavecompat.terrain.structure.StructureVolume.Box(b.minX(),b.minY(),b.minZ(),b.maxX(),b.maxY(),b.maxZ());
                         }).toList();
-                        if (expected == null || !new HashSet<>(expected).equals(new HashSet<>(actual)))
+                        if (expected == null || !new HashSet<>(expected).equals(new HashSet<>(actual))) {
+                            sample.add("fittedBoxes", new Gson().toJsonTree(expected));
+                            sample.add("actualPieces", pieceGeometry(start, level.getServer().getStructureManager()));
+                            row.add("candidates", samples); samples.add(sample); rows.add(row); report.add("structures", rows);
+                            report.addProperty("complete", false);
+                            Files.writeString(output, new GsonBuilder().setPrettyPrinting().create().toJson(report));
                             throw new AssertionError("Committed structure geometry differs from its fitted plan at " + candidate);
+                        }
                         sample.addProperty("fittedPiecesMatch", true);
                     } else if (valid) {
                         sample.addProperty("fittedVariantMatch", true);
-                        sample.addProperty("geometryPhase", "native postprocessing complete; compare saved outcome on reopen");
+                        sample.addProperty("geometryPhase", "persisted or postprocessed; compare native serialized outcome on reopen");
                     }
                 }
                 if (valid) {
@@ -192,6 +231,24 @@ final class StructureCoverageProbe {
                     var bounds = start.getBoundingBox();
                     sample.addProperty("bounds", bounds.toString()); sample.addProperty("pieces", start.getPieces().size());
                     var serialization = net.minecraft.world.level.levelgen.structure.pieces.StructurePieceSerializationContext.fromLevel(level);
+                    sample.add("pieceGeometry", pieceGeometry(start, server.getStructureManager()));
+                    sample.add("donors", donors(start, serialization));
+                    if (start.getStructure() instanceof design.inherent.skyweavecompat.terrain.structure.IslandUnderground) {
+                        int inside = 0, total = 0;
+                        for (var piece : start.getPieces().subList(1, start.getPieces().size())) {
+                            var box = piece.getBoundingBox();
+                            for (int x : new int[]{box.minX(), (box.minX()+box.maxX())>>1, box.maxX()})
+                                for (int z : new int[]{box.minZ(), (box.minZ()+box.maxZ())>>1, box.maxZ()}) {
+                                    var column = field.sampleColumn(x, z, settings);
+                                    for (int y : new int[]{box.minY(), box.maxY()}) {
+                                        total++;
+                                        if (column.exists() && y >= column.bottomY() && y <= column.topY()) inside++;
+                                    }
+                                }
+                        }
+                        sample.addProperty("undergroundExteriorSamples", total);
+                        sample.addProperty("undergroundExteriorCoverage", total == 0 ? 0 : (double)inside/total);
+                    }
                     sample.addProperty("piecesBeforeRealizationDigest", piecesDigest(start, serialization));
                     if (name.equals("ancient_city")) {
                         var root = start.getPieces().getFirst().getBoundingBox();
@@ -247,6 +304,9 @@ final class StructureCoverageProbe {
                                         }
                             }
                         sample.add("blocks", new Gson().toJsonTree(blocks));
+                        if (design.inherent.skyweavecompat.terrain.structure.StructureMembership.family(holder)
+                                == design.inherent.skyweavecompat.terrain.structure.StructureFamily.VILLAGES)
+                            sample.add("localAccess",VillageContentProbe.access(level,contentBounds));
                         if (!name.startsWith("mineshaft")) {
                             var containers = VillageContentProbe.inspect(level, contentBounds,
                                     !Boolean.getBoolean("neighbors.probe.surfaceStructures"));
@@ -283,7 +343,7 @@ final class StructureCoverageProbe {
                         }
                         if (name.startsWith("mineshaft")) sample.addProperty("chestMinecarts", level.getEntitiesOfClass(
                                 net.minecraft.world.entity.vehicle.MinecartChest.class, net.minecraft.world.phys.AABB.of(bounds)).size());
-                        if (name.startsWith("village_")) {
+                        if (probeFamily == design.inherent.skyweavecompat.terrain.structure.StructureFamily.VILLAGES) {
                             var skyVillage = registry.getHolder(ResourceLocation.parse("skyvillages:skyvillage"));
                             var nearby = new JsonArray();
                             if (skyVillage.isPresent()) for (var villagePlacement : state.getPlacementsForStructure(skyVillage.get())) {
@@ -390,7 +450,7 @@ final class StructureCoverageProbe {
                     // so calculate the completed box from the current pieces before comparing a saved reload.
                     var completedBounds = holder.value().adjustBoundingBox(
                             net.minecraft.world.level.levelgen.structure.BoundingBox.encapsulatingBoxes(
-                                    start.getPieces().stream().map(piece -> piece.getBoundingBox()).toList()).orElseThrow());
+                                    start.getPieces().stream().map(piece -> persistedPiece(piece, serialization).getBoundingBox()).toList()).orElseThrow());
                     sample.addProperty("bounds", completedBounds.toString());
                     sample.addProperty("piecesDigest", piecesDigest(start, serialization));
                 }
@@ -399,7 +459,7 @@ final class StructureCoverageProbe {
                 if (accepted >= 2 && !managed) break;
             }
             // Later native pending takeovers must not invalidate a start already counted as accepted.
-            for (int index = 0; index < selectedCandidates.size(); index++) {
+            for (int index = 0; index < samples.size(); index++) {
                 var source = selectedCandidates.get(index);
                 var finalStart = level.getChunk(source.x, source.z, ChunkStatus.STRUCTURE_STARTS).getStartForStructure(holder.value());
                 boolean retained = finalStart != null && finalStart.isValid()
@@ -517,13 +577,65 @@ final class StructureCoverageProbe {
                 placement instanceof design.inherent.skyweavecompat.terrain.structure.ArchipelagoStructurePlacement);
     }
 
+    private static JsonArray pieceGeometry(net.minecraft.world.level.levelgen.structure.StructureStart start,
+            net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplateManager templates) {
+        var rows = new JsonArray();
+        for (var piece : start.getPieces()) {
+            var row = new JsonObject(); row.addProperty("bounds", piece.getBoundingBox().toString());
+            if (piece instanceof net.minecraft.world.level.levelgen.structure.PoolElementStructurePiece pool) {
+                row.addProperty("position", pool.getPosition().toShortString()); row.addProperty("rotation", pool.getRotation().name());
+                row.addProperty("element", pool.getElement().toString());
+                row.addProperty("templateBounds", pool.getElement().getBoundingBox(templates, pool.getPosition(), pool.getRotation()).toString());
+            }
+            rows.add(row);
+        }
+        return rows;
+    }
+
+    private static JsonArray donors(net.minecraft.world.level.levelgen.structure.StructureStart start,
+            net.minecraft.world.level.levelgen.structure.pieces.StructurePieceSerializationContext context) {
+        var ops = net.minecraft.resources.RegistryOps.create(com.mojang.serialization.JsonOps.INSTANCE, context.registryAccess());
+        var counts = new TreeMap<String, Integer>(); var limits = new HashMap<String, Integer>();
+        var templates = new TreeMap<String, java.util.Set<String>>();
+        for (var piece : start.getPieces()) {
+            if (!(piece instanceof net.minecraft.world.level.levelgen.structure.PoolElementStructurePiece pool)) continue;
+            var element = net.minecraft.world.level.levelgen.structure.pools.StructurePoolElement.CODEC
+                    .encodeStart(ops, pool.getElement()).getOrThrow().getAsJsonObject();
+            if (!element.has("name") || !element.get("name").getAsString().startsWith("skyweave_compat:villages/")) continue;
+            String name = element.get("name").getAsString();
+            int limit = element.get("max_count").getAsInt();
+            if (limits.putIfAbsent(name, limit) != null && limits.get(name) != limit)
+                throw new AssertionError("Conflicting donor role limits: " + name);
+            counts.merge(name, 1, Integer::sum);
+            templates.computeIfAbsent(name, ignored -> new TreeSet<>())
+                    .add(element.getAsJsonObject("delegate").get("location").getAsString());
+        }
+        var rows = new JsonArray();
+        counts.forEach((name, count) -> {
+            if (count > limits.get(name)) throw new AssertionError("Native donor limit exceeded: " + name + " " + count);
+            var row = new JsonObject(); row.addProperty("role", name); row.addProperty("count", count);
+            row.addProperty("limit", limits.get(name)); row.add("templates", new Gson().toJsonTree(templates.get(name))); rows.add(row);
+        });
+        return rows;
+    }
+
     private static String piecesDigest(net.minecraft.world.level.levelgen.structure.StructureStart start,
                                       net.minecraft.world.level.levelgen.structure.pieces.StructurePieceSerializationContext context)
             throws java.security.NoSuchAlgorithmException {
-        String pieces = start.getPieces().stream().map(piece -> canonical(piece.createTag(context)))
+        String pieces = start.getPieces().stream().map(piece -> canonical(persistedPiece(piece, context).createTag(context)))
                 .collect(java.util.stream.Collectors.joining("\n"));
         return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
                 .digest(pieces.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+    }
+
+    private static net.minecraft.world.level.levelgen.structure.StructurePiece persistedPiece(
+            net.minecraft.world.level.levelgen.structure.StructurePiece piece,
+            net.minecraft.world.level.levelgen.structure.pieces.StructurePieceSerializationContext context) {
+        // Vanilla reload reconstructs jigsaw bounds from the template, dropping assembly-only
+        // use_expansion_hack padding. Compare its actual serialized contract, including position,
+        // rotation, processors and junctions, rather than erasing BB from the observation.
+        return piece instanceof net.minecraft.world.level.levelgen.structure.PoolElementStructurePiece
+                ? new net.minecraft.world.level.levelgen.structure.PoolElementStructurePiece(context, piece.createTag(context)) : piece;
     }
 
     private static String canonical(net.minecraft.nbt.Tag tag) {
