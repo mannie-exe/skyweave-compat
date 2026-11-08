@@ -29,8 +29,8 @@ run against the release candidate with C2ME and the separate non-C2ME control.
 - Seed1's chunk-free fine drainage survey passes across ordinary and fractured
   hosts without wet route continuation after crossing void. This checks planned
   channel continuity, not every subsequent falling-water path.
-- Independent interior volume/query-order controls pass at seeds42 and1. The final
-  seed1 full-pack roof fixture finds a real HOLLOW opening, preserves the two NOISE
+- Independent interior volume/query-order controls pass at seeds 42 and 1. The final
+  seed 1 full-pack roof fixture finds a real HOLLOW opening, preserves the two NOISE
   roof controls and a narrow protected Deep Dark fragment. The same admitted host
   has zero openings when skylights are disabled. Empty crescent centers are not
   roofs and are excluded from positive shaft coverage. Native roof witnesses
@@ -38,26 +38,26 @@ run against the release candidate with C2ME and the separate non-C2ME control.
   Fully loaded client captures check the roof and connection, with fog unchanged;
   the interior geometry view uses explicit night vision, not natural-light evidence.
 - Structure search with C2ME, the natural biome source and the exact rare target
-  `ctov:medium/village_plains` visits15,101 cold and22,269 warm candidates before
-  the configured120-second limits. Both report partial with no matches; neither
-  establishes absence or nearest coverage. Maximum observed tick gap is598ms.
+  `ctov:medium/village_plains` visits 15,101 cold and 22,269 warm candidates before
+  the configured 120-second limits. Both report partial with no matches; neither
+  establishes absence or nearest coverage. Maximum observed tick gap is 598 ms.
   Cancellation, permission checks, stale callbacks and lease cleanup pass.
 - Separate positive fixtures find real CTOV starts through family and village-tag
   selectors. Without C2ME, the bounded tag domain completes cold/warm with the
   same canonical start. JVM reopening plus a probe-forced negative new-start
   precheck still finds that saved start and releases its leases. The largest
-  reopened tick gap is621ms; these observations are not a throughput guarantee.
+  reopened tick gap is 621 ms; these observations are not a throughput guarantee.
   The final C2ME candidate also preserves the positive canonical start across JVM
   reopening under a forced negative new-start precheck. Repeated rapid cancels
-  leave no leases or stale completion. The non-C2ME candidate completes1731
-  candidates with that same start cold/warm; its maximum observed tick gap is72ms.
+  leave no leases or stale completion. The non-C2ME candidate completes 1,731
+  candidates with that same start cold/warm; its maximum observed tick gap is 72 ms.
 - Standalone, terrain-disabled and all-disabled dedicated starts pass. The native
   full-pack client opens the existing configuration screen and its new skylight
   and search-limit anchors, with readable labels and authored defaults. A native
   player search cancels on dimension change and reports its cancelled status
   after returning; no stale completion replaces it.
-- The final full-pack DH32-chunk-radius job completes in91 seconds of generation.
-  Its closed LOD database passes SQLite quick-check with410 FullData records.
+- The final full-pack DH 32-chunk-radius job completes in 91 seconds of generation.
+  Its closed LOD database passes SQLite quick-check with 410 FullData records.
   BlueMap passes adapted, ordinary and foreign bounds/selection, reload and
   shutdown checks. These do not establish distant fluid colors or every renderer.
 
