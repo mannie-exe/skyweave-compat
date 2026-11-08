@@ -12,6 +12,7 @@ boundaries; they do not replace the earlier release-specific evidence below.
 | Water ownership | A failing native fixture isolated sandstone appearing at CARVERS across an outlet that was air at NOISE and SURFACE. Shared pre-water support checks remove that foundation while preserving upstream bed decoration and lake containment. |
 | Rivers and falls | Full pack with C2ME, seed 42: generated river sources at Y406 and a lake at Y509 agree with native base-column/height queries. After 200 ordinary fluid ticks, water falls below the supported outlet at (-1216, -1073). No source was hand-placed or manually scheduled. Reopening preserves the hydrology witnesses. Twelve route nodes enter void sinks; they do not create terrain there. |
 | DH persistence | The actual DH 3.3.3 generator completes a 32-chunk-radius full-pack job in 88.32 seconds, increasing saved chunks from 144 to 8202. The closed SQLite database passes quick-check, contains 412 FullData records and 28 palettes with Minecraft water. This checks persistence, not distant fluid color or visual coverage. |
+| Remote client | A full client connects to an isolated dedicated server, receives generated river blocks and nonzero watershed flow, and reproduces that flow through a render-style BlockGetter. Disconnecting and rejoining the same server restores the same vector. An integrated-server-only command is refused, confirming this exercises a separate server process. |
 | Sable boundary | A real assembled body records zero dry and one wet current impulse; a 90-degree yaw preserves the world-space vector. Plot-to-world fluid coordinates agree. The synchronous test recorder is restored before physics ticks; this is not a vessel sailing playtest or full voxel-immersion proof. |
 | Climate and environment | High temperate shore and hot Badlands controls do not freeze; a genuinely cold biome retains freezing. Native cloud height is 469.3333. Low open-sky fog remains clear across the floor band while blindness remains black. Generated Complementary/Euphoria and BSL/Colorwheel corrections compile/reload and preserve an enclosed dark room. Native rain and Iris agree at high river altitude; underwater fog survives, Nether effects remain native, and returning restores the marked provider. Explicitly disabling cloud/void corrections restores Y192 clouds and black below-floor fog. Shader captures are separate from photography fixtures with fog overridden. |
 | Locator | Automatic completion visits 625 cells and retains nearest results, provisional paging, cancellation, stale-connection rejection and permission checks. Coordinate clicks suggest rather than execute teleportation. Maximum loaded chunks do not exceed the initial 1930; normal startup unloading reduces the final count. |
@@ -29,8 +30,9 @@ Current limitations include untested arbitrary boats/ships, unknown shaderpacks
 and Photon on Apple hardware. The source-level use of ordinary Minecraft water
 does not establish every Create machine, DH material or BlueMap view. Native
 hydrology must remain disabled and Dynamic Waters must use VANILLA lowland mode
-with mountain tunnels off for this bridge. Artistically tuned apron defaults
-still require owner review before publishing.
+with mountain tunnels off for this bridge. The owner accepted the revised shorter, uneven aprons, with varied fragments
+that shrink and thin outward. Reach, coverage, density, fragment scale/depth,
+falloff and Disintegrating frequency/reach remain configurable.
 
 
 ## Horizontal variation and discovery
