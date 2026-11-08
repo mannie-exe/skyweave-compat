@@ -11,14 +11,21 @@ import org.sathrek.sky_archipelago.worldgen.generator.field.internal.ChunkTerrai
 import org.sathrek.sky_archipelago.worldgen.generator.field.internal.IslandCandidateIndex;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.injection.At;
 
 @Mixin(value = IslandField.class, remap = false)
 public abstract class WaterFieldMixin implements WaterField {
     @Unique private volatile IslandWaterColumns skyweave$water;
+    @Shadow @Final private org.sathrek.sky_archipelago.worldgen.generator.field.internal.IslandColumnResolver columnResolver;
 
     @Override public synchronized void skyweave$water(SkyIslandChunkGenerator generator, RandomState random) {
-        if (skyweave$water == null) skyweave$water = new IslandWaterColumns(generator, random);
+        if (skyweave$water == null) {
+            skyweave$water = new IslandWaterColumns(generator, random);
+            ((design.inherent.skyweavecompat.terrain.InteriorResolver)(Object)columnResolver)
+                    .skyweave$waterProtection(skyweave$water::protectedFloor);
+        }
     }
 
     @WrapOperation(method = "createChunkColumnResolver", at = @At(value = "NEW",

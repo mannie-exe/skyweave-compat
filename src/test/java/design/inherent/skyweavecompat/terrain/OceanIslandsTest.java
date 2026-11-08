@@ -73,10 +73,8 @@ class OceanIslandsTest {
         var settings = GenerationProfile.INITIAL;
         var cluster = new ClusterDescriptor(0, 0, 0, 450, 0, null, null, null, 0,
                 IslandShapeArchetype.LAGOON, 0, 0, 17);
-        long perimeterSeed = java.util.stream.LongStream.range(0, 1000)
-                .filter(seed -> OceanConfiguration.profile().mode(seed) == OceanProfile.Mode.PERIMETER).findFirst().orElseThrow();
-        var lagoon = IslandGeometry.island(island(IslandShapeArchetype.LAGOON, perimeterSeed), cluster, settings);
-        var classic = IslandGeometry.island(island(IslandShapeArchetype.CLASSIC, perimeterSeed), cluster, settings);
+        var lagoon = IslandGeometry.island(island(IslandShapeArchetype.LAGOON, SEED), cluster, settings);
+        var classic = IslandGeometry.island(island(IslandShapeArchetype.CLASSIC, SEED), cluster, settings);
         assertEquals(classic.radiusX(), lagoon.radiusX());
         assertEquals(classic.radiusZ(), lagoon.radiusZ());
         assertTrue(lagoon.maxRadius() >= settings.anchorMinRadius());
@@ -92,7 +90,7 @@ class OceanIslandsTest {
         }
         assertEquals(.20, admitted / 40000.0, .01);
         assertEquals(.25, coastal / (double)admitted, .02);
-        assertEquals(.15, perimeter / (double)admitted, .02);
+        assertEquals(0, perimeter);
         var json = new com.google.gson.Gson().toJson(profile);
         assertEquals(profile, OceanConfiguration.parse(json));
         assertThrows(RuntimeException.class, () -> OceanConfiguration.parse(json.replace("\"admissionChance\":0.2", "\"admissionChance\":2")));

@@ -306,21 +306,8 @@ public final class IslandLocator {
         return values;
     }
     private static String name(Enum<?> value) { return value.name().toLowerCase(Locale.ROOT); }
-    private static final Map<String, String> ENGLISH = english();
-    private static Map<String, String> english() {
-        try (var stream = IslandLocator.class.getResourceAsStream("/assets/skyweave_compat/lang/en_us.json")) {
-            if (stream == null) throw new IllegalStateException("Island command language is missing");
-            var asset = com.google.gson.JsonParser.parseReader(new java.io.InputStreamReader(stream,
-                    java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
-            var messages = new HashMap<String, String>();
-            asset.entrySet().stream().filter(entry -> entry.getKey().startsWith("skyweave_compat.islands."))
-                    .forEach(entry -> messages.put(entry.getKey(), entry.getValue().getAsString()));
-            return Map.copyOf(messages);
-        } catch (java.io.IOException invalid) { throw new IllegalStateException("Cannot load island command language", invalid); }
-    }
     private static Component text(String key, Object... args) {
-        String full = "skyweave_compat.islands." + key;
-        return Component.translatableWithFallback(full, Objects.requireNonNull(ENGLISH.get(full), full), args);
+        return LocatorText.text("islands", key, args);
     }
     private static int fail(CommandSourceStack source, String key) { source.sendFailure(text(key)); return 0; }
     private IslandLocator() {}

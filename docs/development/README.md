@@ -183,8 +183,9 @@ draws descriptor radii at equal scale rather than pretending they are shorelines
 `--overlap --minimal` compares exterior intervals under VOID/OVERLAP at identical
 geometry and three seeds. `--interiors --minimal --seed N` records representative
 baseline/noise/hollow cross-sections, solid-volume differences and independent
-snapshot/direct query-order checks. These are pre-carver baseline samples, not
-observations of decorated chunks or dynamic water. Use `--generation adapted`
+snapshot/direct query-order checks. Bounded skylight witnesses also check native
+NOISE/SURFACE writes. Sampled volumes remain pre-carver metadata, not a survey of
+decorated chunks or Dynamic Waters. Use `--generation adapted`
 for actual fill/base-column agreement and completed chunk content.
 `--veins --minimal --seed N` searches a bounded set of solid columns for raw
 iron/copper witnesses, then checks native fill, base columns and completed chunks.
@@ -195,6 +196,47 @@ before and after an explicit native precipitation sweep. `--benchmark --seed 42`
 measures a fixed column/chunk workload; use `--mod /exact/baseline.jar` for a
 comparison without modifying installed instances. Different layouts generate
 different terrain, so timings do not isolate the cost of a single algorithm.
+
+`--lookup --lookup-structure ctov:medium/village_plains --lookup-radius 100`
+checks native cold/warm discovery for that exact registered variant. Include the
+pinned `--dynamic-waters` artifact when qualifying its planning cost. The default
+target remains `minecraft:ancient_city`; `--city-witness` retains its separate
+fixed city control. Fresh-world startup and the timed lookup are distinct costs.
+Use the disposable fixture, never repeated watchdog failures on a playing server.
+
+With `--hydrology --water-witnesses tools/fixtures/terrain/river-climate-regression.json`, each point may override the
+fixture's `waterY`. An `expectedWet` value enables water assertions; omitting it
+records observation only; `expectedBlock` asserts the final block. Optional fixture
+`weatherSweeps` invokes native precipitation, and `freezeControl` temporarily tests
+cold water in the disposable world before restoring the witness. The report separates native generation stages, stored
+and runtime biomes, reference-temperature checks, and bounded snow/ice writer
+stacks. A completed observation is attribution evidence, not a repaired-behavior
+regression. Use zero fluid ticks when isolating initial generation.
+`--climate-only` restricts that exact-witness check to generation and precipitation;
+it requires zero fluid ticks and no reopening. Use it for climate-disabled controls,
+where legitimate frozen channels would invalidate the separate flow assertions.
+Reports include water/air biome receivers and their native freezing decisions.
+
+`--interiors --skylights-only` checks bounded roof openings without repeating the
+volume survey. Positive fixtures require native HOLLOW hosts with an actual center
+roof; fractured protected cells and empty crescent centers are not positive shafts.
+The fixture must find real openings, preserve NOISE roofs and retain its protected
+fracture control where available. Keep volume/query-order evidence separate.
+
+`--structure-search --search-radius 3000 --search-target 'structure=#minecraft:village'`
+executes the real command over ordinary ticks, checking cold/warm completion,
+result navigation, cancellation and lease release. Use `--without-c2me` to qualify
+vanilla scheduling. `--reopen` requires the same saved results after restarting,
+with a probe-only negative new-start precheck to exercise saved-data discovery.
+For broader/rare searches, partial results prove bounded work, not absence or nearest
+coverage. Keep generation/fixture settings in the report and separately qualify a
+positive target. No search test belongs on a playing server.
+
+For isolated terrain screenshots, `skyweave_compat.probe.terrain_readiness=true`
+enables the existing `terrain_ready` observation without changing fog. Require
+received FULL chunks and completed visible Sodium sections before capturing.
+The separate `terrain_capture` photography option also overrides fog; do not use
+those images to qualify weather, visibility distance or environmental rendering.
 
 `check` runs geometry tests and verifies upstream artifact hashes. Tests cover
 void, fragments, exact distance boundaries, narrow unaligned overlaps, full

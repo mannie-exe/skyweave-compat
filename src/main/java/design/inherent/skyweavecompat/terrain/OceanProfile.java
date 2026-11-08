@@ -7,7 +7,7 @@ public record OceanProfile(boolean enabled, double admissionChance,
         int coveOpeningDegrees, int coveShoulderDegrees, int outletDepth, int sealThickness,
         boolean spireCompanions, int spireClearance) {
     public enum Mode { NATIVE, COASTAL, PERIMETER }
-    public static final OceanProfile INITIAL = new OceanProfile(true, 0.20, 1, 0, 0, 1, 0.25, 0.15, 100, 20, 2, 4, true, 16);
+    public static final OceanProfile INITIAL = new OceanProfile(true, 0.20, 1, 0, 0, 1, 0.25, 0, 100, 20, 2, 4, true, 16);
     public OceanProfile {
         if (!Double.isFinite(admissionChance) || admissionChance < 0 || admissionChance > 1
                 || !weight(lagoonWeight) || !weight(reefRingWeight) || !weight(deadOceanShelfWeight) || !weight(brokenReefWeight)

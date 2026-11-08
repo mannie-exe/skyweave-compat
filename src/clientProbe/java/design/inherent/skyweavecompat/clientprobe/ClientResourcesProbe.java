@@ -337,8 +337,9 @@ final class ClientResourcesProbe {
         } catch (java.io.IOException failure) { throw new IllegalStateException(failure); }
     }
     private static com.google.gson.JsonObject terrainReadiness(com.google.gson.JsonObject command) throws ReflectiveOperationException {
-        if (!Boolean.getBoolean("skyweave_compat.probe.terrain_capture"))
-            throw new IllegalStateException("Enable the isolated terrain-capture fixture");
+        if (!Boolean.getBoolean("skyweave_compat.probe.terrain_capture")
+                && !Boolean.getBoolean("skyweave_compat.probe.terrain_readiness"))
+            throw new IllegalStateException("Enable isolated terrain readiness or capture checks");
         var mc = Minecraft.getInstance();
         if (mc.level == null || mc.getSingleplayerServer() == null)
             throw new IllegalStateException("Expected an isolated integrated world");

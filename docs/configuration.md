@@ -188,7 +188,7 @@ Ordinary Sky Archipelago worlds continue to use upstream controls.
 `config/skyweave/skyweave_compat-interiors.json` controls interior selection in Skyweave
 Islands. It is generated at startup, applies only to the opted-in preset, and is
 part of saved generation identity. Restart with a fresh world after changing it.
-All fields are required; invalid values and unknown fields fail explicitly.
+Current records require all fields; the complete older interior record receives the skylight defaults without being rewritten on load. Invalid values and unknown fields fail explicitly.
 
 | Fields | Defaults | Purpose |
 | --- | --- | --- |
@@ -197,7 +197,9 @@ All fields are required; invalid values and unknown fields fail explicitly.
 | `noiseHorizontalScale`, `noiseVerticalScale` | 64, 32 | Passage/chamber noise scales in blocks |
 | `passageWidth`, `chamberThreshold` | 0.075, 0.48 | Intersecting-band width and chamber-noise threshold |
 | `hollowRadius`, `hollowHeight` | 0.58, 0.24 | Hollow radii relative to descriptor horizontal radius and cliff depth |
-| `openingChance` | 0.35 | Selected interiors with an entrance and upper opening |
+| `openingChance` | 0.35 | Shared seeded roll for side entrances and eligible skylights |
+| `skylights.enabled`, `skylights.noiseInteriors` | true, false | Roof openings default to HOLLOW; side entrances remain independent |
+| `skylights.radius`, `skylights.warp`, `skylights.aspectVariation` | 6, 0.25, 0.25 | Nominal block radius, smooth outline warping and oval variation |
 | `nativeCarvers` | true | Retain Minecraft's subsequent classic cave/canyon pass |
 
 Small bodies without four shell-thicknesses of cliff depth keep baseline interiors.
@@ -241,7 +243,7 @@ settings retain their registered application timing.
 | `ecological_bank_width` | 4 | Bank projection width |
 | `excluded_biomes` | `[]` | Biomes excluded from native hydrology |
 
-These native controls remain available when the optional Dynamic Waters adaptation is disabled. They do not enable the global ocean or change sea level. Configured frequency is not realized river coverage. Native fluid ticks and later features remain authoritative. When Dynamic Waters owns hydrology, its watershed plans feed the same solid/fluid columns; the two planners must not run together. Native fluid ticks and later features can change initial fluid states. See [terrain stages and ownership](development/terrain.md#local-water).
+These native controls remain available when the optional Dynamic Waters adaptation is disabled. They do not enable the global ocean or change sea level. Configured frequency is not realized river coverage. When Dynamic Waters owns hydrology, its watershed plans feed the same solid/fluid columns; the two planners must not run together. Native fluid ticks and later features remain authoritative. See [terrain stages and ownership](development/terrain.md#local-water).
 
 ## Dynamic Waters
 
@@ -297,7 +299,7 @@ These are selection settings, not measured worldwide frequencies. Deep Dark sele
 | `enabled`, `admissionChance` | true, 0.20 | Enable habitats and admit one fifth of activated ocean-biome opportunities before clearance |
 | `lagoonWeight`, `brokenReefWeight` | 1, 1 | Relative weights among admitted ocean candidates |
 | `reefRingWeight`, `deadOceanShelfWeight` | 0, 0 | Disabled by default; positive weights retain explicit native alternatives |
-| `coastalChance`, `perimeterChance` | 0.25, 0.15 | Mutually exclusive Lagoon-only edge treatments; remaining 0.60 retains the native rim |
+| `coastalChance`, `perimeterChance` | 0.25, 0 | Lagoon-only treatments; 75% retains the native rim. Falling perimeters remain available by explicit selection |
 | `coveOpeningDegrees`, `coveShoulderDegrees` | 100, 20 | Angular mouth width and transition on each side |
 | `outletDepth` | 2 | Open-edge bed depth below the native fluid surface |
 | `sealThickness` | 4 | Minimum retaining-bed thickness |
@@ -367,6 +369,19 @@ typed configuration page. Changes require a restart and a new world. The saved
 generation identity includes the effective policy; incompatible worlds fail
 clearly rather than changing generation silently. See [placement ownership and
 update checks](development/terrain.md#cluster-structure-policy).
+
+## Structure search
+
+`config/skyweave/skyweave_compat-search.json` configures operator discovery under **World → Sky Archipelago → Structure search**. It uses the shared validated JSON editor, requires a restart, and is excluded from saved generation identity. Changing a search budget does not require a fresh world.
+
+| Field | Default | Range |
+| --- | --- | --- |
+| `candidateLimit` | 65536 | 16–65536 retained candidates |
+| `timeLimitSeconds` | 120 | 5–600 wall seconds |
+| `concurrentChunks` | 2 | 1–2 native requests |
+| `tickBudgetMillis` | 5 | 1–10 milliseconds of per-tick bookkeeping |
+
+These are separate bounds. Metadata checks use at most one active batch across successive jobs; only native verification requests hold chunk leases. The tick budget does not interrupt a single native generation operation, so minimum-status requests use the verified asynchronous engine path. Results remain provisional until the supported domain is exhausted. Cancellation and partial results relinquish search leases; shared native generation may finish independently. [Command usage](../README.md#structure-search) distinguishes structure verification from metadata-only island discovery and ordinary synchronous `/locate`.
 
 ## Biome materials
 

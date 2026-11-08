@@ -2,10 +2,23 @@ package design.inherent.skyweavecompat.terrain;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonObject;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class InteriorProfileTest {
+    @Test void legacyProfilesKeepExplicitPolicyAndReceiveBoundedHollowSkylights() {
+        var json = JsonParser.parseString(new Gson().toJson(InteriorProfile.INITIAL)).getAsJsonObject();
+        json.remove("skylights"); json.addProperty("openingChance", 0); json.addProperty("nativeCarvers", false);
+        var parsed = InteriorConfiguration.parse(json.toString());
+        assertEquals(0, parsed.openingChance());
+        assertFalse(parsed.nativeCarvers());
+        assertFalse(parsed.skylights().noiseInteriors());
+        var normalized = InteriorConfiguration.parse(InteriorConfiguration.normalize(json.toString()));
+        assertEquals(parsed, normalized);
+        json.add("skylights", new JsonObject());
+        assertThrows(IllegalArgumentException.class, () -> InteriorConfiguration.parse(json.toString()));
+    }
     @Test void independentBaselineAndCarverPolicy() {
         var json = JsonParser.parseString(new Gson().toJson(InteriorProfile.INITIAL)).getAsJsonObject();
         json.addProperty("noiseChance", 0); json.addProperty("hollowChance", 0);

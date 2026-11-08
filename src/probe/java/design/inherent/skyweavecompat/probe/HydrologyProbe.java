@@ -19,6 +19,25 @@ public final class HydrologyProbe {
     private static int remaining, elapsed;
     private static JsonObject regressionFixture;
     private static final Map<String, JsonObject> generationStages = new HashMap<>();
+    private static final Map<String, JsonArray> climateWrites = new HashMap<>();
+
+    /** Bounded witness attribution; this observer is selected only by the probe runner. */
+    public static synchronized void recordClimateWrite(net.minecraft.core.BlockPos pos,
+            net.minecraft.world.level.block.state.BlockState state) {
+        if (regressionFixture == null) return;
+        for (var entry : regressionFixture.getAsJsonArray("points")) {
+            var point = entry.getAsJsonObject();
+            int y = point.has("waterY") ? point.get("waterY").getAsInt() : regressionFixture.get("waterY").getAsInt();
+            if (pos.getX() != point.get("x").getAsInt() || pos.getZ() != point.get("z").getAsInt() || pos.getY() != y) continue;
+            var writes = climateWrites.computeIfAbsent(pos.getX() + "," + y + "," + pos.getZ(), ignored -> new JsonArray());
+            if (writes.size() >= 4) return;
+            var row = new JsonObject(); row.addProperty("state", state.toString());
+            row.addProperty("surfaceClimateScope", design.inherent.skyweavecompat.climate.SurfaceClimateScope.active());
+            row.addProperty("stack", StackWalker.getInstance().<String>walk(frames -> frames.limit(18)
+                    .map(Object::toString).collect(java.util.stream.Collectors.joining("\n"))));
+            writes.add(row);
+        }
+    }
 
     public static synchronized void recordStage(long seed, net.minecraft.world.level.chunk.status.ChunkStatus status,
             net.minecraft.world.level.chunk.ChunkAccess chunk) {
@@ -29,11 +48,11 @@ public final class HydrologyProbe {
             } catch (java.io.IOException error) { throw new java.io.UncheckedIOException(error); }
         }
         if (seed != regressionFixture.get("seed").getAsLong()) throw new AssertionError("Wrong stage regression seed");
-        int waterY = regressionFixture.get("waterY").getAsInt();
         for (var entry : regressionFixture.getAsJsonArray("points")) {
             var point = entry.getAsJsonObject(); int x = point.get("x").getAsInt(), z = point.get("z").getAsInt();
+            int waterY = point.has("waterY") ? point.get("waterY").getAsInt() : regressionFixture.get("waterY").getAsInt();
             if (chunk.getPos().x != Math.floorDiv(x, 16) || chunk.getPos().z != Math.floorDiv(z, 16)) continue;
-            var stages = generationStages.computeIfAbsent(x + "," + z, ignored -> new JsonObject());
+            var stages = generationStages.computeIfAbsent(x + "," + waterY + "," + z, ignored -> new JsonObject());
             if (!stages.has(status.toString())) stages.add(status.toString(), witnessSample(chunk, x, waterY, z));
         }
     }
@@ -41,6 +60,7 @@ public final class HydrologyProbe {
     private static JsonObject witnessSample(net.minecraft.world.level.chunk.ChunkAccess chunk, int x, int waterY, int z) {
         var sample = new JsonObject();
         sample.addProperty("actualStatus", chunk.getPersistedStatus().toString());
+        sample.addProperty("storedBiome", chunk.getNoiseBiome(x >> 2, waterY >> 2, z >> 2).getRegisteredName());
         sample.addProperty("atWaterline", chunk.getBlockState(new net.minecraft.core.BlockPos(x, waterY, z)).toString());
         sample.addProperty("wetAtWaterline", chunk.getFluidState(new net.minecraft.core.BlockPos(x, waterY, z))
                 .is(net.minecraft.tags.FluidTags.WATER));
@@ -58,8 +78,15 @@ public final class HydrologyProbe {
     }
 
     static void start(MinecraftServer server, Path output, int ticks) throws Exception {
+        long started = System.nanoTime();
         var regression = witnessStages(server);
-        run(server, output);
+        if (Boolean.getBoolean("neighbors.probe.climateOnly")) {
+            if (regression == null || ticks != 0) throw new IllegalArgumentException("Climate-only check requires exact witnesses and zero fluid ticks");
+            var report = new JsonObject(); report.addProperty("complete", true);
+            report.addProperty("stage", "exact native climate witnesses, generation and precipitation only");
+            report.addProperty("elapsedSeconds", (System.nanoTime() - started) / 1e9);
+            Files.writeString(output, new GsonBuilder().setPrettyPrinting().create().toJson(report) + "\n");
+        } else run(server, output);
         if (regression != null) {
             var report=JsonParser.parseString(Files.readString(output)).getAsJsonObject();report.add("regressionSites",regression);
             Files.writeString(output,new GsonBuilder().setPrettyPrinting().create().toJson(report)+"\n");
@@ -101,8 +128,10 @@ public final class HydrologyProbe {
             if(tickReport.has("regressionSites"))for(var entry:tickReport.getAsJsonArray("regressionSites")) {
                 var site=entry.getAsJsonObject();var pos=new net.minecraft.core.BlockPos(site.get("x").getAsInt(),site.get("waterY").getAsInt(),site.get("z").getAsInt());
                 boolean wet=level.getFluidState(pos).is(net.minecraft.tags.FluidTags.WATER);site.addProperty("wetAfterTicks",wet);
-                if(site.get("expectedWet").getAsBoolean()&&!wet)throw new AssertionError("Regression lake dried after ticks: "+pos);
-                if(lowSources(level.getChunkAt(pos),pos.getX(),pos.getZ())!=0)throw new AssertionError("Unsupported low source shelf returned after ticks: "+pos);
+                if(site.has("expectedWet")) {
+                    if(site.get("expectedWet").getAsBoolean()&&!wet)throw new AssertionError("Regression lake dried after ticks: "+pos);
+                    if(lowSources(level.getChunkAt(pos),pos.getX(),pos.getZ())!=0)throw new AssertionError("Unsupported low source shelf returned after ticks: "+pos);
+                }
             }
             tickReport.addProperty("complete", true);
         } catch (Throwable error) { tickReport.addProperty("error", error.toString()); error.printStackTrace(); }
@@ -114,24 +143,110 @@ public final class HydrologyProbe {
         String filename=System.getProperty("neighbors.probe.waterWitnesses","");if(filename.isEmpty())return null;
         var fixture=JsonParser.parseString(Files.readString(Path.of(filename))).getAsJsonObject();
         var level=server.overworld();if(level.getSeed()!=fixture.get("seed").getAsLong())throw new AssertionError("Wrong regression seed");
-        int waterY=fixture.get("waterY").getAsInt();var rows=new JsonArray();
+        var rows=new JsonArray();
         for(var entry:fixture.getAsJsonArray("points")) {
             var point=entry.getAsJsonObject();int x=point.get("x").getAsInt(),z=point.get("z").getAsInt();
+            int waterY=point.has("waterY")?point.get("waterY").getAsInt():fixture.get("waterY").getAsInt();
             var row=point.deepCopy();rows.add(row);row.addProperty("waterY",waterY);var stages=new JsonObject();row.add("stages",stages);
+            row.add("planning", witnessPlanning(server, x, z));
             for(var status:List.of(net.minecraft.world.level.chunk.status.ChunkStatus.NOISE,net.minecraft.world.level.chunk.status.ChunkStatus.SURFACE,
                     net.minecraft.world.level.chunk.status.ChunkStatus.CARVERS,net.minecraft.world.level.chunk.status.ChunkStatus.FEATURES,net.minecraft.world.level.chunk.status.ChunkStatus.FULL)) {
                 var chunk=level.getChunk(Math.floorDiv(x,16),Math.floorDiv(z,16),status);
                 stages.add(status.toString(),witnessSample(chunk,x,waterY,z));
             }
             var full=level.getChunk(Math.floorDiv(x,16),Math.floorDiv(z,16));
+            var pos = new net.minecraft.core.BlockPos(x, waterY, z);
+            var biome = level.getBiome(pos);
+            row.addProperty("runtimeBiome", biome.getRegisteredName());
+            row.addProperty("runtimeColdAtActualY", biome.value().coldEnoughToSnow(pos));
+            row.addProperty("runtimeColdAtReferenceY", biome.value().coldEnoughToSnow(
+                    design.inherent.skyweavecompat.climate.IslandClimate.temperaturePosition(pos)));
+            row.addProperty("runtimeShouldFreeze", biome.value().shouldFreeze(level, pos, false));
+            row.addProperty("runtimeShouldSnow", biome.value().shouldSnow(level, pos));
+            var air = level.getBiome(pos.above());
+            row.addProperty("airRuntimeBiome", air.getRegisteredName());
+            row.addProperty("airColdAtReferenceY", air.value().coldEnoughToSnow(
+                    design.inherent.skyweavecompat.climate.IslandClimate.temperaturePosition(pos.above())));
+            row.addProperty("airShouldFreezeWater", air.value().shouldFreeze(level, pos, false));
+            var climateColumn = new JsonArray();
+            for (int y = waterY - 1; y <= waterY + 6; y++) {
+                var samplePos = new net.minecraft.core.BlockPos(x, y, z);
+                var sampled = level.getBiome(samplePos);
+                var climate = new JsonObject(); climate.addProperty("y", y);
+                climate.addProperty("biome", sampled.getRegisteredName());
+                climate.addProperty("block", full.getBlockState(samplePos).toString());
+                climate.addProperty("coldAtReferenceY", sampled.value().coldEnoughToSnow(
+                        design.inherent.skyweavecompat.climate.IslandClimate.temperaturePosition(samplePos)));
+                climateColumn.add(climate);
+            }
+            row.add("climateColumn", climateColumn);
             synchronized (HydrologyProbe.class) {
-                var traced = generationStages.get(x + "," + z);
+                var traced = generationStages.get(x + "," + waterY + "," + z);
                 row.add("generationStages", traced == null ? new JsonObject() : traced.deepCopy());
+                row.add("climateWrites", climateWrites.getOrDefault(x + "," + waterY + "," + z, new JsonArray()).deepCopy());
             }
             boolean wet=full.getFluidState(new net.minecraft.core.BlockPos(x,waterY,z)).is(net.minecraft.tags.FluidTags.WATER);
-            if(wet!=point.get("expectedWet").getAsBoolean()||lowSources(full,x,z)!=0)throw new AssertionError("Original water regression returned at "+x+","+z);
+            if (point.has("expectedBlock")) {
+                String block = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(full.getBlockState(pos).getBlock()).toString();
+                if (!point.get("expectedBlock").getAsString().equals(block))
+                    throw new AssertionError("Wrong final block at " + pos + ": " + block);
+            }
+            int sweeps = fixture.has("weatherSweeps") ? fixture.get("weatherSweeps").getAsInt() : 0;
+            if (sweeps > 0) {
+                var original = level.getBlockState(pos);
+                boolean coldControl = point.has("freezeControl") && point.get("freezeControl").getAsBoolean();
+                var weather = net.minecraft.server.level.ServerLevel.class.getDeclaredMethod("tickPrecipitation", net.minecraft.core.BlockPos.class);
+                weather.setAccessible(true);
+                try {
+                    if (coldControl) level.setBlockAndUpdate(pos, net.minecraft.world.level.block.Blocks.WATER.defaultBlockState());
+                    row.addProperty("beforeWeather", level.getBlockState(pos).toString());
+                    for (int sweep = 0; sweep < sweeps; sweep++) weather.invoke(level, pos);
+                    row.addProperty("afterWeather", level.getBlockState(pos).toString());
+                    if (coldControl && !level.getBlockState(pos).is(net.minecraft.world.level.block.Blocks.ICE))
+                        throw new AssertionError("Genuine cold-biome water no longer freezes at " + pos);
+                    if (!coldControl && !level.getBlockState(pos).equals(original))
+                        throw new AssertionError("Weather changed the climate regression witness at " + pos);
+                } finally { if (coldControl) level.setBlockAndUpdate(pos, original); }
+            }
+            if(point.has("expectedWet")&&(wet!=point.get("expectedWet").getAsBoolean()||lowSources(full,x,z)!=0))throw new AssertionError("Original water regression returned at "+x+","+z);
         }
         return rows;
+    }
+
+    /** Compare the upstream proposal, shell admission and completed snapshot without changing any of them. */
+    private static JsonObject witnessPlanning(MinecraftServer server, int x, int z) throws Exception {
+        var level = server.overworld();
+        var generator = (SkyIslandChunkGenerator)level.getChunkSource().getGenerator();
+        var random = level.getChunkSource().randomState();
+        var field = ((GeologicalGenerator)(Object)generator).skyweave$field(random);
+        var settings = generator.resolvedSkyIslandSettings();
+        var interior = ((InteriorField)(Object)field).skyweave$planningColumn(x, z, settings, TerrainStage.INTERIOR);
+        var row = new JsonObject();
+        var gson = new Gson();
+        row.add("preWaterSegments", gson.toJsonTree(interior.segments()));
+        if (!interior.segments().isEmpty()) {
+            var top = interior.segments().getFirst();
+            var envelope = net.minecraft.world.level.LevelHeightAccessor.create(generator.getMinY(), generator.getGenDepth());
+            // Test-only inspection bypasses the public admission wrapper to retain the rejected proposal's evidence.
+            var carve = HydrologyManager.class.getDeclaredMethod("carve", double.class, double.class, int.class, int.class,
+                    net.minecraft.world.level.chunk.ChunkGenerator.class, net.minecraft.world.level.LevelHeightAccessor.class,
+                    net.minecraft.world.level.levelgen.RandomState.class, boolean.class);
+            carve.setAccessible(true);
+            row.add("upstreamCut", gson.toJsonTree(carve.invoke(null, (double)x, (double)z, top.topY(),
+                    generator.getSeaLevel(), generator, envelope, random, true)));
+            row.add("admittedCut", gson.toJsonTree(HydrologyManager.calculateRiverCarving(x, z, top.topY(),
+                    generator.getSeaLevel(), generator, envelope, random)));
+        }
+        var river = field.sampleHydrologyColumn(x, z, settings);
+        var completed = new JsonObject();
+        completed.addProperty("role", river.role().name());
+        completed.addProperty("originalSurfaceY", river.originalSurfaceY());
+        completed.addProperty("solidSurfaceY", river.solidSurfaceY());
+        completed.addProperty("waterY", river.waterY());
+        completed.addProperty("wet", river.wet());
+        row.add("completedRiver", completed);
+        row.add("completedSegments", gson.toJsonTree(field.sampleSolidSegments(x, z, settings)));
+        return row;
     }
     private static int lowSources(net.minecraft.world.level.chunk.ChunkAccess chunk,int x,int z) {
         int sources=0;
@@ -181,6 +296,16 @@ public final class HydrologyProbe {
         int outletChecks = 0;
         for (var region : tile.pathsByRegion.values()) for (var path : region) {
             int supported = 0, voids = 0, minimumY = Integer.MAX_VALUE, maximumY = Integer.MIN_VALUE;
+            if (path.validNodeCount > 0) {
+                int mx = (int)Math.floor(path.segmentsX[0]), mz = (int)Math.floor(path.segmentsZ[0]);
+                var boundary = (InteriorField)(Object)field;
+                var mouth = boundary.skyweave$planningColumn(mx, mz, settings, TerrainStage.EXTERIOR);
+                boolean voidMouth = mouth.segments().isEmpty()
+                        || boundary.skyweave$isApron(mouth.dominantDescriptor(), mx, mz, settings);
+                int sourceY = path.segmentsY[path.validNodeCount - 1];
+                if (voidMouth && sourceY > generator.getSeaLevel() + 96 && path.segmentsY[0] == generator.getSeaLevel() - 1)
+                    throw new AssertionError("High island outlet still targets global sea level");
+            }
             int deepestIncision = 0;
             for (int i = 0; i < path.validNodeCount; i++) {
                 int ground = CoarseHeightField.surfaceAt((int)Math.floor(path.segmentsX[i]), (int)Math.floor(path.segmentsZ[i]), generator, random);

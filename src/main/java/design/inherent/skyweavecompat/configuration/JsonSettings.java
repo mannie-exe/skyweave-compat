@@ -18,7 +18,7 @@ public final class JsonSettings {
     private static final List<Definition> DEFINITIONS = new java.util.concurrent.CopyOnWriteArrayList<>(List.of(
             new Definition("skyweave_compat-generation.json", "generation", json(GenerationProfile.INITIAL), ProfileJson::generation),
             new Definition(ShapeConfiguration.FILE, "shapes", json(ShapeProfile.INITIAL), ShapeConfiguration::parse, ShapeConfiguration::normalize),
-            new Definition("skyweave_compat-interiors.json", "interiors", json(InteriorProfile.INITIAL), InteriorConfiguration::parse),
+            new Definition("skyweave_compat-interiors.json", "interiors", json(InteriorProfile.INITIAL), InteriorConfiguration::parse, InteriorConfiguration::normalize),
             new Definition("skyweave_compat-oceans.json", "oceans", json(OceanProfile.INITIAL), OceanConfiguration::parse, OceanConfiguration::normalize),
             new Definition(design.inherent.skyweavecompat.terrain.structure.StructureConfiguration.FILE, "structures",
                     json(design.inherent.skyweavecompat.terrain.structure.StructurePolicy.DEFAULT),
@@ -26,6 +26,9 @@ public final class JsonSettings {
             new Definition(design.inherent.skyweavecompat.terrain.city.CityConfiguration.FILE, "ancient_cities",
                     json(design.inherent.skyweavecompat.terrain.city.CityConfiguration.DEFAULT),
                     design.inherent.skyweavecompat.terrain.city.CityConfiguration::parse),
+            new Definition(design.inherent.skyweavecompat.terrain.structure.SearchSettings.FILE, "structure_search",
+                    json(design.inherent.skyweavecompat.terrain.structure.SearchSettings.DEFAULT),
+                    design.inherent.skyweavecompat.terrain.structure.SearchSettings::parse),
             new Definition(BlueMapSettings.FILE, "bluemap", json(BlueMapSettings.DEFAULT), BlueMapSettings::parse)));
     public static final List<Definition> FILES = java.util.Collections.unmodifiableList(DEFINITIONS);
 

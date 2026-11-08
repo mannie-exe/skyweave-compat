@@ -47,11 +47,25 @@ Result rows show representative coordinates, horizontal distance/direction, and 
 
 ## Structure discovery
 
+Pending metadata batches and native requests retain their shared server-wide allowances until completion, including after cancellation. Repeatedly replacing a job cannot accumulate additional outstanding scans or native requests.
+
 Minecraft's random-spread lookup enumerates potential chunks before presence resolution; it does not first call the owned `isPlacementChunk` override. `ArchipelagoStructurePlacement.applyAdditionalChunkRestrictions` shares the distribution's selected-site rejection with native lookup after loaded/saved-start checks. Unselected void candidates can therefore be rejected without requesting STRUCTURE_STARTS. Before fitting a full cluster plan, the same sampled area, biome eligibility, allowance, and ranked attempt budget used by fitting reject impossible family/site pairs. This avoids fitting unrelated surface families for a city search with no eligible city site. Full fitting, family priority, conflicts, and successful starts retain their existing behavior.
 
 An unbound distribution must not publish a cached negative based on provisional fitting. Runtime context binding remains authoritative. Preserve canonical relocated positions, saved starts, references, skip-known behavior, native bypasses, disabled adapters, and unknown structures. Finding a positive city and rejecting void requests do not establish all rare-search latency or structure frequency; retain bounded cold/warm and missing-result checks.
 
+Ownership rejection uses pre-water exterior metadata. Native generation and legacy lookup share the same authoritative fitted plan and ranked-attempt bounds. This avoids a separate unverified fitting cache; the bounded structure command does not use native synchronous presence lookup as its precheck. Completed terrain inside a fit can still invoke cold watersheds. Qualify exact village variants with Dynamic Waters, absent-city and saved-start controls; passing metadata rejection checks alone does not establish safe synchronous search latency.
+
 This is a discovery repair, not a rarity or watchdog-policy change. Two original watchdog reports showed synchronous STRUCTURE_STARTS waits; only one also had active DH workers. Those observations did not establish a rarity regression, deadlock, or DH as the sole cause. Use isolated fixtures rather than repeating watchdog crashes on a playing server.
+
+## Structure discovery
+
+`StructureLocator` shares readable localized messages with the island locator through `LocatorText`. It captures a requester/origin/dimension and supports native random-spread placements, including Compat's destination lattice. Tags/families include their available registered placements. Unplaced IDs receive an explicit coverage warning, since no current source grid exists to enumerate their historical starts. An exact unplaced ID or a target using unsupported placement types is rejected explicitly.
+
+Candidate enumeration is finite and visits nearby source regions first, merging equivalent grids without merging their target IDs or native locate offsets. Completed-domain claims require exhausting every relevant grid. Results use actual valid `StructureStart`s and native locate X/Z, with an actual start-bounds Y where the placement supplies nominal zero. Retained results are ordered by final horizontal distance and stable identity. Partial searches never promise globally nearest results.
+
+Conservative prechecks use exterior ownership and disabled-family policy only. They must not call fitted selection or completed hydrology. A precheck rejection still scans saved chunk metadata before rejecting a historical start; current settings do not erase saved evidence. Metadata batches are capped separately from the two native verification slots. The worker may call the pinned thread-aware `getChunkFuture` API, whose main-thread branch would managedBlock. Ticket registration/removal and result inspection remain server-owned. A custom minimum-status ticket uses `ChunkLevel.byStatus(STRUCTURE_STARTS)` through the narrow cache accessor; a FULL region-radius ticket would violate this contract.
+
+Requalify future registration, ticket level semantics, streaming saved-status access, placement salts/offsets, registry tags, cancellation, worker/callback lifetime and resource release on Minecraft/NeoForge/C2ME updates. Verify exact-ID and tag positives, cold/warm behavior, absent targets and honest budget exhaustion on actual ticks. The ordinary synchronous lookup hooks remain separate and do not inherit a responsiveness guarantee from this command.
 
 ## Deferred Gargantuan islands
 

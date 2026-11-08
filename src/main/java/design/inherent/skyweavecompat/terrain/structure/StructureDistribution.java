@@ -182,7 +182,10 @@ public final class StructureDistribution {
     }
 
     public StructureSelection.Owner owner(int x, int z) {
-        var descriptor = field.sampleDominantIslandDescriptor(x, z, settings);
+        // Cluster ownership precedes hydrology. Completed snapshots can synchronously
+        // build whole watersheds even for an unselected native /locate candidate.
+        var descriptor = ((InteriorField)(Object)field)
+                .skyweave$planningColumn(x, z, settings, TerrainStage.EXTERIOR).dominantDescriptor();
         if (descriptor == null) return null;
         var column = ((InteriorField)(Object)field).skyweave$exteriorOf(descriptor, x, z, settings);
         if (!column.exists()) return null;
@@ -203,6 +206,14 @@ public final class StructureDistribution {
 
     public boolean manages(StructureSet.StructureSelectionEntry entry) { return managedEntries.contains(entry); }
     public StructureFamily family(ResourceLocation id) { return families.get(id); }
+
+    /** Conservative precheck only: no biome projection, hydrology or layout fitting. Saved starts bypass it. */
+    public boolean possibleNewStart(StructureFamily family, int chunkX, int chunkZ) {
+        if (family == null) return true;
+        var rule = policy.rule(family);
+        if (policy.frequencyMultiplier() == 0 || rule.maximumPerCluster() == 0 || rule.targetStartsPer1024Chunks() == 0) return false;
+        return owner(chunkX * 16 + 8, chunkZ * 16 + 8) != null;
+    }
     public StructurePlacementCategory category(ResourceLocation id, Object policyOwner) {
         return settings.advanced().structurePlacementPolicy() == policyOwner ? categories.get(id) : null;
     }

@@ -15,18 +15,16 @@ public final class InteriorConfiguration {
 
     public static InteriorProfile parse(String text) {
         var object = design.inherent.skyweavecompat.configuration.ProfileJson.object(text);
-        var fields = Arrays.stream(InteriorProfile.class.getRecordComponents())
-                .map(component -> component.getName()).collect(Collectors.toSet());
-        if (!object.keySet().equals(fields)) throw new IllegalArgumentException("Interior profile requires exactly: " + fields);
-        for (var entry : object.entrySet()) {
-            if (!entry.getValue().isJsonPrimitive()) throw new IllegalArgumentException("Invalid " + entry.getKey());
-            var value = entry.getValue().getAsJsonPrimitive();
-            if (entry.getKey().equals("nativeCarvers") ? !value.isBoolean() : !value.isNumber())
-                throw new IllegalArgumentException("Invalid type for " + entry.getKey());
+        if (!object.has("skylights")) {
+            var legacyFields = Arrays.stream(InteriorProfile.class.getRecordComponents())
+                    .map(component -> component.getName()).filter(name -> !name.equals("skylights")).collect(Collectors.toSet());
+            if (!object.keySet().equals(legacyFields)) throw new IllegalArgumentException("Incomplete legacy interior profile");
+            object.add("skylights", JSON.toJsonTree(InteriorProfile.Skylights.INITIAL));
         }
-        object.get("shellThickness").getAsBigDecimal().intValueExact();
-        return JSON.fromJson(object, InteriorProfile.class);
+        return design.inherent.skyweavecompat.configuration.ProfileJson.record(object.toString(), InteriorProfile.class);
     }
+
+    public static String normalize(String text) { return JSON.toJson(parse(text)) + "\n"; }
 
     public static void load(Path directory) {
         Path path = directory.resolve(FILE);

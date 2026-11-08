@@ -14,7 +14,7 @@ public final class ConfigLocations {
             "skyweave_compat-journal-client.toml", "skyweave_compat-generation.json",
             "skyweave_compat-shapes.json", "skyweave_compat-interiors.json", "skyweave_compat-rivers.json",
             "skyweave_compat-oceans.json", "skyweave_compat-structures.json",
-            "skyweave_compat-ancient-cities.json", "skyweave_compat-bluemap.json");
+            "skyweave_compat-ancient-cities.json", "skyweave_compat-search.json", "skyweave_compat-bluemap.json");
 
     private ConfigLocations() {}
 

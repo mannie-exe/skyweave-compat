@@ -12,6 +12,11 @@ import java.util.*;
 
 /** Subtract each contributor's interior before union, within the admitted exterior intervals. */
 public final class IslandInteriors {
+    @FunctionalInterface
+    public interface BedProtection {
+        /** Lowest retained bed cell, or MIN_VALUE when this contributor has no accepted water cut. */
+        int floor(IslandDescriptor host, int x, int z, TerrainColumn exterior);
+    }
     public enum Kind { BASELINE, NOISE, HOLLOW }
     private final InteriorProfile profile;
     private final IslandStyles styles;
@@ -39,6 +44,11 @@ public final class IslandInteriors {
 
     public ColumnData carve(int x, int z, SkyIslandSettings settings, ColumnData exterior,
             List<ResolvedContributor> contributors) {
+        return carve(x, z, settings, exterior, contributors, null);
+    }
+
+    public ColumnData carve(int x, int z, SkyIslandSettings settings, ColumnData exterior,
+            List<ResolvedContributor> contributors, BedProtection protection) {
         if (exterior.segments().isEmpty()) return exterior;
         var allowed = new BitSet(GenerationProfile.MAX_Y - GenerationProfile.MIN_Y);
         for (var segment : exterior.segments()) allowed.set(segment.bottomY() - GenerationProfile.MIN_Y,
@@ -73,10 +83,14 @@ public final class IslandInteriors {
                 retained.or(solid);
                 continue;
             }
+            int protectedFloor = protection == null ? Integer.MIN_VALUE
+                    : protection.floor(descriptor, x, z, new TerrainColumn(bottom, top));
+            int skylightFloor = skylightFloor(descriptor, x, z, bottom, top, kind);
             for (int y = bottom; y <= top; y++) {
                 int index = y - GenerationProfile.MIN_Y;
-                if (allowed.get(index) && (water.containsProtectedSealAt(y)
-                        || !removed(descriptor, x, y, z, bottom, top, kind == Kind.HOLLOW))) retained.set(index);
+                if (allowed.get(index) && (protectedFloor != Integer.MIN_VALUE && y >= protectedFloor
+                        || water.containsProtectedSealAt(y)
+                        || y < skylightFloor && !removed(descriptor, x, y, z, bottom, top, kind == Kind.HOLLOW))) retained.set(index);
             }
         }
         // Preserve native river/water/overlay metadata; a cavity is not another island.
@@ -100,9 +114,35 @@ public final class IslandInteriors {
     private boolean removed(IslandDescriptor island, int x, int y, int z, int bottom, int top, boolean hollow) {
         double dx = x - island.centerX(), dz = z - island.centerZ();
         double middle = island.centerY() - island.cliffDepth() * 0.35;
-        double h = island.cliffDepth() * profile.hollowHeight();
         boolean openings = unit(island.seed() ^ 0x329df348abc51d27L) < profile.openingChance();
-        if (openings && entrance(island, dx, y - middle, dz, h)) return true;
+        if (openings && sideEntrance(island, dx, y - middle, dz)) return true;
+        return cavity(island, x, y, z, bottom, top, hollow);
+    }
+
+    private int skylightFloor(IslandDescriptor island, int x, int z, int bottom, int top, Kind kind) {
+        if (!profile.skylights().enabled() || kind != Kind.HOLLOW && !profile.skylights().noiseInteriors()
+                || unit(island.seed() ^ 0x329df348abc51d27L) >= profile.openingChance()
+                || !SkylightShape.contains(island.seed(), x - island.centerX(), z - island.centerZ(), profile.skylights()))
+            return Integer.MAX_VALUE;
+        double middle = island.centerY() - island.cliffDepth() * 0.35;
+        double height = island.cliffDepth() * profile.hollowHeight();
+        // Three local witnesses bound the work and preserve pillars without drilling to the floor.
+        for (double fraction : new double[]{0.65, 0.5, 0.35}) {
+            int y = (int)Math.floor(middle + height * fraction);
+            if (!cavity(island, x, y, z, bottom, top, kind == Kind.HOLLOW)) continue;
+            boolean clear = true;
+            if (kind == Kind.HOLLOW) for (int check = y; check <= Math.min(top, (int)Math.ceil(middle + height * 1.1)); check++) {
+                if (pillar(island, x - island.centerX(), check, z - island.centerZ())) { clear = false; break; }
+            }
+            if (clear) return y;
+        }
+        return Integer.MAX_VALUE;
+    }
+
+    private boolean cavity(IslandDescriptor island, int x, int y, int z, int bottom, int top, boolean hollow) {
+        double dx = x - island.centerX(), dz = z - island.centerZ();
+        double middle = island.centerY() - island.cliffDepth() * 0.35;
+        double h = island.cliffDepth() * profile.hollowHeight();
         if (y - bottom < profile.shellThickness() || top - y < profile.shellThickness()) return false;
         // Keep ragged outer shoulders solid, except for the explicitly selected entrance.
         double radial = dx * dx / (island.radiusX() * (double)island.radiusX())
@@ -114,29 +154,32 @@ public final class IslandInteriors {
             double dy = (y - middle) / h;
             double shape = radial / (profile.hollowRadius() * profile.hollowRadius()) + dy * dy;
             if (shape >= 1 + chamber.getValue(nx * 0.6, ny * 0.6, nz * 0.6) * 0.18) return false;
-            // Three irregular rock columns join roof and floor without dividing the entire hollow.
-            for (int i = 0; i < 3; i++) {
-                double angle = island.rotation() + i * Math.PI * 2 / 3;
-                double distance = island.maxRadius() * (0.14 + unit(island.seed() + i * 437L) * 0.13);
-                double px = Math.cos(angle) * distance + Math.sin(y * 0.035 + i) * 3;
-                double pz = Math.sin(angle) * distance + Math.cos(y * 0.028 + i) * 3;
-                double radius = 7 + unit(island.seed() ^ (i + 992L)) * 7;
-                if ((dx - px) * (dx - px) + (dz - pz) * (dz - pz) < radius * radius) return false;
-            }
-            return true;
+            return !pillar(island, dx, y, dz);
         }
         return (Math.abs(passageA.getValue(nx, ny, nz)) < profile.passageWidth()
                 && Math.abs(passageB.getValue(nx, ny, nz)) < profile.passageWidth())
                 || chamber.getValue(nx * 0.6, ny * 0.6, nz * 0.6) > profile.chamberThreshold();
     }
 
-    private boolean entrance(IslandDescriptor island, double dx, double dy, double dz, double h) {
+    /** Three retained columns join the roof and floor; skylights must not sever them. */
+    private static boolean pillar(IslandDescriptor island, double dx, int y, double dz) {
+        for (int i = 0; i < 3; i++) {
+            double angle = island.rotation() + i * Math.PI * 2 / 3;
+            double distance = island.maxRadius() * (0.14 + unit(island.seed() + i * 437L) * 0.13);
+            double px = Math.cos(angle) * distance + Math.sin(y * 0.035 + i) * 3;
+            double pz = Math.sin(angle) * distance + Math.cos(y * 0.028 + i) * 3;
+            double radius = 7 + unit(island.seed() ^ (i + 992L)) * 7;
+            if ((dx - px) * (dx - px) + (dz - pz) * (dz - pz) < radius * radius) return true;
+        }
+        return false;
+    }
+
+    private static boolean sideEntrance(IslandDescriptor island, double dx, double dy, double dz) {
         double c = Math.cos(island.rotation()), s = Math.sin(island.rotation());
         double along = dx * c + dz * s, across = dz * c - dx * s;
         double rise = Math.max(0, along) * 0.16;
         if (along > 0 && Math.abs(across) < 8 && Math.abs(dy - rise) < 8) return true;
-        // A bounded skylight connects the hollow to the upper cap on selected islands.
-        return dx * dx + dz * dz < 36 && dy > h * 0.5;
+        return false;
     }
 
     private static double unit(long value) {

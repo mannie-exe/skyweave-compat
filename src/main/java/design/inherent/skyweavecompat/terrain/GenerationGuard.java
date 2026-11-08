@@ -40,7 +40,7 @@ public final class GenerationGuard {
         }
         var ops = RegistryOps.create(JsonOps.INSTANCE, server.registryAccess());
         var identity = new JsonObject();
-        identity.addProperty("algorithm", "islands_v1-skyarch-1.4-4");
+        identity.addProperty("algorithm", "islands_v1-skyarch-1.4-5");
         identity.addProperty("largeVeins", "native_reference_depth_v1");
         identity.addProperty("seed", server.getWorldData().worldGenOptions().seed());
         identity.add("villagePolicy", new Gson().toJsonTree(NeighborConfig.settings()));

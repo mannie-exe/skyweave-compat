@@ -1,39 +1,37 @@
-# Skyweave: Compatibility Patches 0.27.0
+# Skyweave: Compatibility Patches 0.28.0
 
-Repair island water continuity, support composed villages and selected YUNG
-structures, and keep ocean variants on the normal island sizing/shaping system.
-Minecraft remains 1.21.1, with Sky Archipelago 1.4 and Dynamic Waters 13.1.0.
+Keep rivers continuous across island cavities, distinguish real water mouths from
+void outlets, and add bounded structure discovery. Minecraft remains 1.21.1,
+Sky Archipelago 1.4 and Dynamic Waters 13.1.0.
 
-- Rejected river cuts no longer create source shelves in void. Inclusive cave-roof
-  support and shallower lake beds prevent the reported dry lake holes. Generated
-  channels exclude additive fragments and terminate at physical void sinks.
-- Lagoon treatments retain normal host sizes and native floors. Coastal mode
-  opens a broad seeded cove with supported shoulders; perimeter falls and native
-  Lagoon/Broken Reef habitats remain available. Ocean outlines share the normal
-  seeded shaping and external fragment authority.
-- Optional Lithostitched integration keeps native assembly for the pack's composed
-  CTOV/Better Villages/Towns and Towers profiles, with explicit family membership
-  and shared island discovery allowances.
-- Optional YUNG integration preserves configured vanilla replacements, projected
-  temple water/exclusion rules and supported buried rooms. Mineshaft entrances
-  move with their layouts; mineshaft and hut supports stop at the island underside.
-  All new adapters default on when their exact dependencies qualify.
-- Owned configuration now lives under `config/skyweave/`; shader recipes live in
-  `config/skyweave/shaders/recipes/`. Move existing owned files while stopped,
-  preserving custom values and resolving conflicting copies before starting.
-  Foreign mods retain their native paths. Startup refuses unmigrated settings.
+- Protect supported river beds before subtracting NOISE/HOLLOW interiors. Retain
+  the original rock shell without constructing foundations into empty sky.
+- Terminate drainage at its own island rim or actual local water level. Empty sky
+  no longer sends river mouths toward global sea level or across detached fragments.
+  Dynamic Waters density remains HIGH.
+- Use the water cell's biome for generation and precipitation freezing. Preserve
+  genuine cold-biome snow, cold surface layers and running-water ice rules.
+- Give skylights seeded oval/warped outlines and bounded connections to HOLLOW
+  interiors. NOISE skylights default off; side entrances remain independent.
+  Radius, warp and aspect variation are editable in the existing settings page.
+- Default falling-perimeter lagoon selection to zero, retaining 25% coastal and
+  75% native treatment among admitted lagoons. Explicit opt-in remains available.
+- Add `/skyweavecompat structures search <radius> family=…` or `structure=<id|#tag>`,
+  plus status/page/cancel. Searches continue automatically within configurable
+  limits and return verified starts with suggested teleports. Limited searches
+  report partial results, never false absence or a proved nearest result.
 
-**Terrain changes require a fresh world.** Existing marked saves are not silently
-converted. Configuration relocation alone does not invalidate terrain or caches.
+Structure search can save early chunk metadata. Supported random-spread grids
+are enumerated; unsupported placements and omitted unplaced IDs are reported.
+Historical starts without an active placement grid are outside this command's
+coverage. Vanilla `/locate` remains synchronous; use the bounded command for
+broad cold searches. Search limits live in `config/skyweave/skyweave_compat-search.json`
+and require restart, without changing terrain identity.
 
-Verification covers native water stages, fluid ticks/reopening, composed layouts,
-local door/bed support, retained loot, optional loading, registered configuration,
-bounded DH generation and BlueMap lifecycle. Finite samples do not certify every
-layout, villager pathfinding or survival balance. YUNG monuments retain habitat
-checks; no suitable island monument was demonstrated in the bounded sample.
-Geophilic's sampled ecology works through existing surface/feature owners.
+**A fresh world is required.** Terrain identity is now
+`islands_v1-skyarch-1.4-5`, with `island_watersheds_v4` drainage. Existing saves are
+not silently converted. Legacy interior files receive the new skylight defaults
+while preserving their explicit existing settings.
 
-See [configuration](https://github.com/mannie-exe/skyweave-compat/blob/v0.27.0/docs/configuration.md),
-[terrain](https://github.com/mannie-exe/skyweave-compat/blob/v0.27.0/docs/development/terrain.md)
-and [verification](https://github.com/mannie-exe/skyweave-compat/blob/v0.27.0/docs/development/verification.md)
-for controls, tested boundaries and dependency-update checks.
+See [verification](https://github.com/mannie-exe/skyweave-compat/blob/v0.28.0/docs/development/verification.md)
+for exact native checks, tested boundaries and remaining limitations.

@@ -1,5 +1,73 @@
 # Verification
 
+## Terrain repair and structure discovery (0.28.0)
+
+Tests use Minecraft 1.21.1, NeoForge 21.1.265, Sky Archipelago 1.4,
+Dynamic Waters 13.1.0 and Java 21.0.13 on Apple Silicon. Native reports record
+exact artifact digests and fixture configurations; older reports remain evidence
+for their tested snapshots, rather than every subsequent binary.
+
+The release candidate SHA-256 is `abb6e33539513c04e4b5ac0bfeb557a0f6b207fb1968a0442221d5e965ab26f0`.
+Climate, DH and roof captures used `ed1a6b07d4286e10d8f9739078da0ee68208d6c00a75b04bbe24bfad0919a6c7`;
+archive comparison confirms identical terrain/rendering bytecode and resources.
+The final difference is limited to structure-command metadata backpressure and
+its state counter. Final positive, repeated-cancellation and saved-start checks
+run against the release candidate with C2ME and the separate non-C2ME control.
+
+- Seed `-134939836980226417`: both reported dry ridges and adjacent wet controls
+  contain water at the observed NOISE/SURFACE/CARVERS/FEATURES boundaries. The
+  supported twelve-block exterior retains its bed shell before cavity subtraction.
+  A 200-tick/reopened fixture preserves water, produces a natural falling outlet
+  and retains a generated lake. These are finite local controls, not all river paths.
+- At `(3040,498,-653)`, the actual water biome is forest and the air biome is
+  jagged peaks. With the repair active, the native air receiver would freeze that
+  water while the water receiver rejects freezing; generation and two deliberate
+  precipitation sweeps retain water. The same-input climate-disabled control
+  produces ice. Genuine snowy-slopes snow remains, and a separate cold-water
+  precipitation control freezes. Snow material extending beneath a genuinely
+  cold surface cap is retained.
+- Seed1's chunk-free fine drainage survey passes across ordinary and fractured
+  hosts without wet route continuation after crossing void. This checks planned
+  channel continuity, not every subsequent falling-water path.
+- Independent interior volume/query-order controls pass at seeds42 and1. The final
+  seed1 full-pack roof fixture finds a real HOLLOW opening, preserves the two NOISE
+  roof controls and a narrow protected Deep Dark fragment. The same admitted host
+  has zero openings when skylights are disabled. Empty crescent centers are not
+  roofs and are excluded from positive shaft coverage. Native roof witnesses
+  survive NOISE/SURFACE; exterior bounds and island floors remain intact.
+  Fully loaded client captures check the roof and connection, with fog unchanged;
+  the interior geometry view uses explicit night vision, not natural-light evidence.
+- Structure search with C2ME, the natural biome source and the exact rare target
+  `ctov:medium/village_plains` visits15,101 cold and22,269 warm candidates before
+  the configured120-second limits. Both report partial with no matches; neither
+  establishes absence or nearest coverage. Maximum observed tick gap is598ms.
+  Cancellation, permission checks, stale callbacks and lease cleanup pass.
+- Separate positive fixtures find real CTOV starts through family and village-tag
+  selectors. Without C2ME, the bounded tag domain completes cold/warm with the
+  same canonical start. JVM reopening plus a probe-forced negative new-start
+  precheck still finds that saved start and releases its leases. The largest
+  reopened tick gap is621ms; these observations are not a throughput guarantee.
+  The final C2ME candidate also preserves the positive canonical start across JVM
+  reopening under a forced negative new-start precheck. Repeated rapid cancels
+  leave no leases or stale completion. The non-C2ME candidate completes1731
+  candidates with that same start cold/warm; its maximum observed tick gap is72ms.
+- Standalone, terrain-disabled and all-disabled dedicated starts pass. The native
+  full-pack client opens the existing configuration screen and its new skylight
+  and search-limit anchors, with readable labels and authored defaults. A native
+  player search cancels on dimension change and reports its cancelled status
+  after returning; no stale completion replaces it.
+- The final full-pack DH32-chunk-radius job completes in91 seconds of generation.
+  Its closed LOD database passes SQLite quick-check with410 FullData records.
+  BlueMap passes adapted, ordinary and foreign bounds/selection, reload and
+  shutdown checks. These do not establish distant fluid colors or every renderer.
+
+Required source checks are `./gradlew --no-daemon check build probeJar clientProbeJar`
+and `git diff --check`. Reproduce the focused controls using the options in the
+[development guide](README.md); use disposable worlds and read-only installed
+server inputs. Vanilla `/locate` remains synchronous and broad cold searches are
+not certified safe by these command checks. Historical starts whose IDs no longer
+have active placement grids are explicitly outside the new command's coverage.
+
 ## Terrain and structure compatibility
 
 Native checks use Minecraft 1.21.1, NeoForge 21.1.265, Sky Archipelago 1.4,

@@ -18,6 +18,9 @@ public final class IslandWaterColumns {
     private final SkyIslandChunkGenerator generator;
     private final RandomState random;
     private final LevelHeightAccessor envelope;
+    private record Protection(long host, int x, int z, int bottom, int top) {}
+    private final com.google.common.cache.Cache<Protection, Integer> beds =
+            com.google.common.cache.CacheBuilder.newBuilder().maximumSize(8192).build();
 
     public IslandWaterColumns(SkyIslandChunkGenerator generator, RandomState random) {
         var rivers = generator.resolvedSkyIslandSettings().rivers();
@@ -30,6 +33,28 @@ public final class IslandWaterColumns {
         this.generator = generator;
         this.random = random;
         envelope = LevelHeightAccessor.create(generator.getMinY(), generator.getGenDepth());
+    }
+
+    /** Ask drainage against the exterior before subtracting cavities; never call completed columns here. */
+    public int protectedFloor(org.sathrek.sky_archipelago.worldgen.generator.field.model.IslandDescriptor host,
+            int x, int z, TerrainColumn exterior) {
+        if (host.archetype().waterBased()) return Integer.MIN_VALUE;
+        var key = new Protection(host.seed(), x, z, exterior.bottomY(), exterior.topY());
+        try {
+            return beds.get(key, () -> TerrainStage.EXTERIOR.query(() -> {
+                var field = ((design.inherent.skyweavecompat.terrain.GeologicalGenerator)(Object)generator).skyweave$field(random);
+                var boundary = (design.inherent.skyweavecompat.terrain.InteriorField)(Object)field;
+                var raw = boundary.skyweave$planningColumn(x, z, generator.resolvedSkyIslandSettings(), TerrainStage.EXTERIOR);
+                // A union's water belongs to its selected exterior, never another overlapping contributor.
+                if (raw.dominantDescriptor() == null || raw.dominantDescriptor().seed() != host.seed()
+                        || boundary.skyweave$isApron(host, x, z, generator.resolvedSkyIslandSettings())) return Integer.MIN_VALUE;
+                var cut = HydrologyManager.calculateRiverCarving(x, z, exterior.topY(), generator.getSeaLevel(), generator, envelope, random);
+                return fitToSupport(cut, exterior, envelope.getMaxBuildHeight())
+                        ? cut.targetY - InteriorConfiguration.profile().shellThickness() + 1 : Integer.MIN_VALUE;
+            }));
+        } catch (java.util.concurrent.ExecutionException error) {
+            throw new IllegalStateException("Cannot plan protected island water bed", error.getCause());
+        }
     }
 
     public ColumnData apply(int x, int z, ColumnData raw) {

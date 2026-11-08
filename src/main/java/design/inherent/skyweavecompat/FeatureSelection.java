@@ -166,7 +166,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
         for (var feature : Feature.values()) {
             if (!enabled(feature)) continue;
             result.addAll(switch (feature) {
-                case TERRAIN -> List.of("GeneratorProfileMixin", "IslandFieldMixin", "ColumnResolverMixin",
+                case TERRAIN -> List.of("StructureSearchCacheAccess", "GeneratorProfileMixin", "IslandFieldMixin", "ColumnResolverMixin",
                         "ColumnDataMixin", "InteriorSurfaceMixin", "SurfaceRulesMixin", "ClusterPlacementMixin", "ClusterSamplerMixin",
                         "DescriptorFactoryMixin", "OceanShapeMixin", "PerimeterPlanMixin", "PerimeterColumnMixin", "ShapeDensityMixin", "ShapeDecorationMixin", "TerrainMaterialMixin", "InteriorInterpolationMixin",
                         "GeologicalMaterialMixin", "OreVeinifierAccessor");
@@ -190,7 +190,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                         "StructurePolicyReservationMixin", "StructurePolicyPendingOwnerMixin", "StructurePolicyPyramidPieceMixin");
                 case SURVEYOR_STRUCTURES -> List.of("SurveyorStructureMixin");
                 case WATER_SPAWNS -> List.of("WaterAnimalMixin");
-                case CLIMATE -> List.of("SurfaceClimateMixin", "SurfaceTemperatureMixin", "FreezeClimateMixin",
+                case CLIMATE -> List.of("SurfaceClimateMixin", "SurfaceTemperatureMixin", "FreezeClimateMixin", "SnowFreezeClimateMixin",
                         "LevelClimateMixin", "ServerClimateMixin", "PortalClimateMixin", "ProjectionClimateContext",
                         "ShoreProjectionClimateMixin", "RiverProjectionClimateMixin", "ShoreLocatorClimateMixin");
                 case DYNAMIC_WATERS -> List.of("water.WaterTerrainMixin", "water.WaterSinksMixin", "water.WaterSchedulerMixin",
@@ -201,7 +201,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                 case ISLAND_CLOUDS -> List.of();
                 case ISLAND_VOID -> List.of("client.IslandVoidFogMixin", "client.IslandVoidSkyMixin");
                 case VILLAGE_CLEARANCE -> List.of("StructureSupportMixin");
-                case VILLAGE_PLACEMENT -> List.of("VillageHeightMixin", "PlacementSaltAccessor", "VillageStructureStateMixin", "GeneratorStructureStateMixin");
+                case VILLAGE_PLACEMENT -> List.of("VillageHeightMixin", "VillageStructureStateMixin", "GeneratorStructureStateMixin");
                 case PRESSURE -> List.of("DimensionPhysicsMixin");
                 case DELIVERY_DISTANCE -> List.of("DeliveryDistanceMixin");
                 case DELIVERY_CHUNKS -> List.of("DeliveryChunksMixin");
@@ -257,6 +257,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                 case QUESTLOG_REWARD_VALIDATION -> List.of("questlog.RewardClaimMixin");
             });
         }
+        if (enabled(Feature.TERRAIN) || enabled(Feature.VILLAGE_PLACEMENT)) result.add("PlacementSaltAccessor");
         if (enabled(Feature.STRUCTURE_LOCATION) || enabled(Feature.YUNG_STRUCTURES)) result.add("StructureLocateCheckMixin");
         if (client && (enabled(Feature.CONSTRUCT_DISTANCE) || enabled(Feature.CONSTRUCT_OCCLUSION)))
             result.addAll(List.of("client.ConstructDrawMixin", "client.ConstructBufferMixin", "client.ConstructProgramMixin"));

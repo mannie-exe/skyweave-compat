@@ -78,6 +78,10 @@ generation. Recovery keeps its metadata in YiGD's saved grave records.
 See [redstone editing and gate behavior](docs/development/redstone.md) for relocation
 limits, analog signal changes and pack-owned resource fixes.
 
+Shader recipes can assemble qualified shaders on the client before Iris loads them.
+The [rendering guide](docs/development/rendering.md#shader-assembly) covers inputs,
+ownership, caching and supported patch operations. No recipes are installed by this mod itself.
+
 ## Linear Bearing
 
 Independent switches repair dedicated startup and gum drops, passive-guide braking
@@ -147,7 +151,7 @@ separate controls for openings and native carving. Sky Archipelago 1.4 supplies
 the exterior shapes. An optional Dynamic Waters adapter supplies island-local
 rivers and lakes while the native planner stays off. Granular aprons add detached
 outer terrain without consuming the main body. Optional floating-ocean settings add coastal
-outlets and falling perimeters to native wet profiles; the global ocean stays off.
+outlets to native wet profiles; falling perimeters remain opt-in and the global ocean stays off.
 Ancient Cities fit inside Deep Dark hosts, including suitable hollow interiors.
 Normal and noise-cave hosts permit limited peripheral exposure while protecting
 the core. Structure lookup resolves relocated starts instead of
@@ -181,6 +185,25 @@ island and reject that candidate. Clearance checks every column in the exclusion
 band, so that approximation cannot admit a village overlapping terrain. Terrain
 predictions do not include later structures or player-built blocks.
 
+## Structure search
+
+Operators can verify structures without blocking a synchronous `/locate` search:
+
+```text
+/skyweavecompat structures search 24000 family=villages
+/skyweavecompat structures search 24000 structure=ctov:medium/village_plains
+/skyweavecompat structures search 24000 structure=#minecraft:village
+/skyweavecompat structures status
+/skyweavecompat structures page 2
+/skyweavecompat structures cancel
+```
+
+Use one family, registered structure ID or structure tag. Results contain verified native starts; click coordinates to prepare a teleport. Where native placement has no meaningful altitude, the displayed Y comes from the saved start's bounds. Nothing teleports automatically. The search continues on its own, retains up to64 nearby matches and pages ten at a time. One structure search may run per server; its requester owns cancellation.
+
+Verification can generate and save early chunk metadata. It requests `STRUCTURE_STARTS`, with at most two native requests at once, and does not deliberately generate full terrain. Time/candidate exhaustion returns **partial** results, not proof of absence or of the nearest possible structure. Only an exhausted supported search domain is complete. Unsupported placements, including concentric-ring strongholds, are reported explicitly. Ordinary vanilla `/locate`, exploration maps and other synchronous callers retain their existing behavior and can still be expensive.
+
+Search budgets live in `config/skyweave/skyweave_compat-search.json` and apply after restart. They do not change terrain identity. See [search limits](docs/configuration.md#structure-search) and [maintenance](docs/development/terrain-variation.md#structure-discovery).
+
 ## Configuration
 
 Open **Mods → Skyweave: Compatibility Patches → Config** for searchable gameplay
@@ -210,7 +233,3 @@ LGPL-3.0-only. See [NOTICE](NOTICE) and [license texts](licenses/). Upstream bin
 and templates are not bundled. This is an independent compatibility mod.
 
 Skyweave: Compatibility Patches is independent of the unfinished Skyweave civilization mod. The playable pack is Create: Skyweave. The registry namespace is `skyweave_compat`; see [existing saves](docs/configuration.md#release-identity-and-existing-saves).
-
-Shader recipes can assemble qualified shaders on the client before Iris loads them.
-The [rendering guide](docs/development/rendering.md#shader-assembly) covers inputs,
-ownership, caching and supported patch operations. No recipes are installed by this mod itself.

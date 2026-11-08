@@ -26,6 +26,8 @@ public abstract class ColumnResolverMixin implements ProfiledTerrain, InteriorRe
     @Override public GenerationProfile skyweave$profile() { return skyweave$profile; }
     @Unique private IslandInteriors skyweave$interiors;
     @Override public void skyweave$interiors(IslandInteriors interiors) { skyweave$interiors = interiors; }
+    @Unique private IslandInteriors.BedProtection skyweave$waterProtection;
+    @Override public void skyweave$waterProtection(IslandInteriors.BedProtection protection) { skyweave$waterProtection = protection; }
 
     @Inject(method = "resolveColumnDataFromContributors", at = @At("RETURN"), cancellable = true)
     private void interiors(int x, int z, SkyIslandSettings settings, int top, int bottom, long started,
@@ -57,7 +59,7 @@ public abstract class ColumnResolverMixin implements ProfiledTerrain, InteriorRe
             List<ResolvedContributor> contributors, ColumnData exterior) {
         if (skyweave$interiors == null || TerrainStage.current() == TerrainStage.EXTERIOR
                 || ((LayeredColumn)(Object)exterior).skyweave$hasExterior()) return exterior;
-        return skyweave$interiors.carve(x, z, settings, exterior, contributors);
+        return skyweave$interiors.carve(x, z, settings, exterior, contributors, skyweave$waterProtection);
     }
 
     @WrapOperation(method = "resolveContributorsWithMetrics", at = @At(value = "INVOKE", target =

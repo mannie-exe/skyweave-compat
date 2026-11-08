@@ -1,0 +1,70 @@
+{
+  "seed": -134939836980226417,
+  "waterY": 424,
+  "points": [
+    {
+      "x": -1382,
+      "z": 1610,
+      "expectedWet": true,
+      "note": "grass ridge amid water in saved playing world",
+      "waterY": 423
+    },
+    {
+      "x": -1343,
+      "z": 1608,
+      "expectedWet": true,
+      "note": "second grass ridge"
+    },
+    {
+      "x": -1344,
+      "z": 1608,
+      "expectedWet": true,
+      "note": "neighboring water control"
+    },
+    {
+      "x": -1343,
+      "z": 1607,
+      "expectedWet": true,
+      "note": "neighboring water control"
+    },
+    {
+      "x": -41608,
+      "waterY": 463,
+      "z": 25504,
+      "expectedBlock": "minecraft:snow_block"
+    },
+    {
+      "x": -41592,
+      "waterY": 461,
+      "z": 25564,
+      "expectedBlock": "minecraft:water",
+      "note": "Previously rejected river crosses a shallow roof; bed protection now admits its channel here too."
+    },
+    {
+      "x": -41592,
+      "waterY": 463,
+      "z": 25560,
+      "expectedBlock": "minecraft:water"
+    },
+    {
+      "x": -41596,
+      "waterY": 463,
+      "z": 25564,
+      "expectedBlock": "minecraft:water"
+    },
+    {
+      "x": -41640,
+      "waterY": 469,
+      "z": 25564,
+      "expectedBlock": "minecraft:snow",
+      "freezeControl": true
+    },
+    {
+      "x": 3040,
+      "waterY": 498,
+      "z": -653,
+      "expectedBlock": "minecraft:water"
+    }
+  ],
+  "weatherSweeps": 2
+}

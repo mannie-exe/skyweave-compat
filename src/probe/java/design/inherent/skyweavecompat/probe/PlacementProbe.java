@@ -32,6 +32,7 @@ public final class PlacementProbe {
         WaterProbe.tick(event.getServer());
         LocatorProbe.tick(event.getServer());
         HydrologyProbe.tick(event.getServer());
+        StructureLocatorProbe.tick(event.getServer());
         // Sky Archipelago chooses its fallback spawn in another ServerStarted listener.
         // The first completed tick observes all startup handlers, regardless of registration order.
         if (pendingServer != null) {
@@ -197,6 +198,10 @@ public final class PlacementProbe {
 
     private void run(net.minecraft.server.MinecraftServer server) {
         try {
+            if (Boolean.getBoolean("neighbors.probe.structureSearch")) {
+                StructureLocatorProbe.start(server, Path.of(System.getProperty("neighbors.probe.output")));
+                asynchronous = true; return;
+            }
             if (Boolean.getBoolean("neighbors.probe.perimeter")) {
                 PerimeterProbe.run(server, Path.of(System.getProperty("neighbors.probe.output")));
                 return;

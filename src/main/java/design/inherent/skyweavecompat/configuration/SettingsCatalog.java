@@ -159,6 +159,7 @@ public final class SettingsCatalog {
             new FileEntry("skyweave_compat-common.toml", Group.VILLAGES, "villages", List.of(Feature.VILLAGE_CLEARANCE, Feature.VILLAGE_PLACEMENT), SectionKind.TUNING),
             new FileEntry("skyweave_compat-generation.json", Group.TERRAIN, "generation", List.of(Feature.TERRAIN), SectionKind.TUNING),
             new FileEntry("skyweave_compat-shapes.json", Group.TERRAIN, "shapes", List.of(Feature.TERRAIN), SectionKind.TUNING),
+            new FileEntry("skyweave_compat-search.json", Group.TERRAIN, "structure_search", List.of(Feature.TERRAIN), SectionKind.TUNING),
             new FileEntry("skyweave_compat-interiors.json", Group.TERRAIN, "interiors", List.of(Feature.TERRAIN), SectionKind.TUNING),
             new FileEntry("skyweave_compat-rivers.json", Group.TERRAIN, "rivers", List.of(Feature.TERRAIN), SectionKind.TUNING),
             new FileEntry("dynamicwaters-common.toml", Group.WATERSHEDS, "watersheds", List.of(Feature.DYNAMIC_WATERS), SectionKind.TUNING),

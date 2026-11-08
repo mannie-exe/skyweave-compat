@@ -22,7 +22,7 @@ public abstract class WaterCutOwnershipMixin {
     private static HydrologyManager.RiverCarving owned(double x, double z, int originalY, int sea,
             ChunkGenerator generator, LevelHeightAccessor level, RandomState random,
             Operation<HydrologyManager.RiverCarving> original) {
-        if (!IslandWaterTerrain.applies(generator) || random == null)
+        if (!IslandWaterTerrain.applies(generator) || random == null || TerrainStage.current() == TerrainStage.EXTERIOR)
             return original.call(x, z, originalY, sea, generator, level, random);
         var sky = (SkyIslandChunkGenerator)generator;
         var field = ((GeologicalGenerator)(Object)sky).skyweave$field(random);

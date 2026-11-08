@@ -132,7 +132,7 @@ themselves or consulting generated neighbor chunks.
 
 Noise interiors combine intersecting noise bands and larger chambers. Hollow interiors
 use an irregular chamber with three rock pillars. Descriptor-seeded selection also
-admits occasional side passages and skylights. Vertical shell protection and a radial
+admits occasional side passages and, by default, HOLLOW-only skylights. Their bounded seeded oval/warped outlines connect through the cap to an actual retained cavity, preserve water protection and omit columns blocked by pillars. NOISE skylights and the whole roof-opening feature have separate controls; the existing side-passage roll remains independent of roof applicability. Vertical shell protection and a radial
 shoulder limit constrain ordinary cavities; selected openings deliberately bypass that
 shell. These are independently configured interiors, not new upstream exterior enums.
 The selected native exterior remains independent of the interior mode.
@@ -148,9 +148,14 @@ Sky Archipelago 1.4 owns the native solid/fluid column, shoreline seal and water
 
 Completed point queries and chunk filling consume the same cached native snapshot, including interpolation, hydrology, shoreline sealing, peak cleanup and sidewall treatment. EXTERIOR and INTERIOR planning reads retain their separate earlier meanings and never load neighboring chunks or tick fluids. The earlier raw exterior is not necessarily byte-identical to a completed surface after native interpolation and cleanup.
 
-The Dynamic Waters bridge substitutes accepted EXTERIOR main-body heights for its vanilla density-router shortcut, marks empty sky and detached additive apron remnants as terminal drainage, and maps the upstream carver's hard-coded upper limit to the real envelope. Apron classification reuses the native horizontal shape metadata; it does not erase fragments or classify independent host bodies by distance alone. `IslandWaterColumns` translates upstream cuts at the completed snapshot boundary, preserves interior shell support and excludes native wet-ocean descriptors. `WaterCutOwnershipMixin` makes snapshot filling and upstream post-carver repair use the same pre-water INTERIOR surface. Rejected cuts retain the caller's original ground as both target and water level, because upstream repair reads water level even when `modifies` is false. Lake beds cannot rise above existing ground and may become shallower to preserve the required inclusive roof span: bottom410 through top421 already supplies twelve blocks. Unsupported thinner roofs remain rejected. Channels use the native outlet flag so shoreline sealing does not dam their discharge; closed lakes retain containment. Water-biome projection follows accepted wet columns at the climate reference, rather than the raw lowland river stripe. Routing metadata can extend into a terminal void sink; it does not authorize filling air or creating a foundation there.
+The Dynamic Waters bridge substitutes accepted EXTERIOR main-body heights for the vanilla density-router shortcut. `DrainageBoundary` distinguishes supported land, physically present native water and terminal void, including detached apron remnants. Ocean biome names alone do not prove that water exists. `WaterSinksMixin` uses local rim/water elevations in sink settlement and mouth emission, terminates mouth walking at the first physical boundary, and disables the upstream sideways sea-contact shortcut in marked worlds. Routing metadata may reach terminal sky; it never authorizes foundations or source-water shelves there.
+
+Water proposals precede cavity subtraction. The resolver receives an optional per-contributor bed protector from `IslandWaterColumns`. It asks upstream carving against EXTERIOR under an explicit early-stage scope, retains the configured inclusive shell beneath an admitted bed, then subtracts the remaining interior. The bounded field-local floor cache contains immutable decisions; it does not store mutable carving objects. A contributor cannot retain rock outside its original envelope or protect an unrelated overlapping island. Raw proposal reads bypass the INTERIOR admission wrapper, preventing a planning cycle.
+
+Snapshot filling and upstream post-carver repair then share the protected INTERIOR boundary through `WaterCutOwnershipMixin`. Unsupported original exteriors still reject cuts. Inert rejected cuts retain the caller's ground in both height fields, because native repair reads `waterLevel` even when `modifies` is false. Native ocean beds/seals remain outside watershed carving. Channels retain the native outlet flag, while lakes keep containment. Bed protection fixes the demonstrated twelve-block cavity-roof interruptions without reducing the shell or raising water to conceal dry strips. Base-column/height queries and stored river biomes consume the completed admitted water column.
 
 Native lowland mode is `VANILLA`: `NONE` rewrites ridge inputs even though its name suggests otherwise. Experimental mountain tunnels are unsupported by this bridge and default off. Global border prewarming is suppressed for marked worlds; bounded on-demand upstream planning and packets remain available. Persisted watershed stamps include the saved owning generator identity and effective generation settings. Flow zones and configured biome vetoes retain ownership; only the automatic ocean-neighbor veto is bypassed for a real island stream's flow query. Supported cases and update seams are recorded in [adapter maintenance](adapters.md).
+
 
 `WaterCarverMixin` protects authored native water, retaining seals and river floors from classic aquifer replacement. Native river postprocessing remains upstream-owned. `WaterPostprocessing` adds flow-frontier updates for selected ocean-profile extensions during filling; read-only queries never schedule updates. Initial sources, actual flow and saved/reloaded fluid behavior need separate verification.
 
@@ -456,18 +461,15 @@ query order and reopening; a layout-only positive does not prove loot or placeme
 
 Temperature comparisons use reference Y=64 throughout this preset. Climate follows
 biome rather than absolute altitude: a high temperate island does not become snowy
-solely because it is high. This also keeps multiplayer client weather and server
-freezing consistent without reconstructing server terrain or exposing its seed.
+solely because it is high. Client weather and server freezing share this altitude reference without reconstructing server terrain or exposing its seed.
 Altitude cooling above a mountain is deliberately absent in this preset. The
-adapter changes only temperature-query positions; light, fluid, terrain and block
-coordinates retain their real altitude. It covers Sky Archipelago surface
+adapter remaps temperature-query positions; freezing also selects the actual water-cell biome. Light, fluid, terrain and block coordinates retain their real altitude. It covers Sky Archipelago surface
 selection, ruined-portal cold classification, vanilla snow/freezing predicates,
 precipitation ticks, rain exposure
 and the client's weather rendering/sounds. Native snow rendering was checked
 with shaders enabled and disabled. Surface selectors receive a bounded thread-local context from
 the owning surface pass because their API has no world argument; `finally`
 restores it across nested calls and failures. No biome temperature is mutated.
-
 
 Surface generation and player-facing biome queries do not use identical sampling.
 Sky Archipelago chooses materials from stored quart biomes at the surface;
@@ -476,11 +478,7 @@ snow tags and cold-biome rules can also choose snowy ground independently of the
 temperature adaptation. Its river/beach terrain-profile blending does not smooth
 general biome boundaries.
 
-A reported grainy snow pattern has no confirmed location or affected version.
-Contiguous surface probes distinguish stored biomes, smoothed lookups, unprojected
-biomes, snow blocks, snow layers and precipitation. They retain cold weather and
-do not globally smooth biomes to hide boundaries. See the verification record for
-observations and remaining uncertainty.
+Native attribution distinguishes genuine snowy surfaces, their material layers extending into neighboring biome cells, and warm water frozen by a cold air-biome receiver. Initial `SnowAndFreezeFeature` placement and recurring `ServerLevel.tickPrecipitation` now use the water cell's biome for freezing. Snow still follows its own surface/air eligibility; the patch neither warms cold habitats nor removes existing snow. [Verification](verification.md#terrain-repair-and-structure-discovery-0280) records the marked controls and remaining coverage limits.
 
 Sky Villages keep their authored start-height spread, shifted from the old
 Y=192 datum to the new anchor surface datum. Only the named structure and the
@@ -581,7 +579,7 @@ canonicalized so map iteration cannot change the identity. Reopening with a
 different identity fails before generation. Existing region files without an
 identity are not adopted. Replacing the generator in a marked world is rejected.
 
-The identity records `islands_v1-skyarch-1.4-4` and the `island_watersheds_v3` water bridge when active, resolved river settings and `ancientCityPlacement: interior_union_v1`, including the city policy. Existing worlds are not silently upgraded to different exterior, hydrology or structure rules. Keep their original artifacts and settings or generate a separate world.
+The identity records `islands_v1-skyarch-1.4-5` and the `island_watersheds_v4` water bridge when active, resolved river settings and `ancientCityPlacement: interior_union_v1`, including the city policy. Existing worlds are not silently upgraded to different exterior, hydrology or structure rules. Keep their original artifacts and settings or generate a separate world.
 
 There is no conversion or automatic marker rewrite. Restore a world's original
 settings/mod version or create a separate world. Deleting the marker is not a
