@@ -2,6 +2,16 @@
 
 Generated from Git history. Player-facing release summaries are in [release notes](RELEASE_NOTES.md).
 
+## v0.26.0 · 2026-11-08
+
+### Features
+
+- **worldgen:** Add granular edges and island watersheds ([865fd0b](https://github.com/mannie-exe/skyweave-compat/commit/865fd0b9874ee77511e6655da65742f5bd627cc7))
+
+### Documentation
+
+- **verification:** Record accepted edges and remote flow ([4340c3e](https://github.com/mannie-exe/skyweave-compat/commit/4340c3e58e55baa19da0166eaa31ae02a6d40b9b))
+
 ## v0.25.0 · 2026-11-07
 
 ### Features
