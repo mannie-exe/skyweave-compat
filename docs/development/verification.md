@@ -6,7 +6,7 @@ domain guides. A later checkout needs its own relevant checks.
 
 ## Discovery and capability integration 0.30.0
 
-The candidate uses Minecraft 1.21.1, NeoForge 21.1.265 and Java 21. The required
+The release uses Minecraft 1.21.1, NeoForge 21.1.265 and Java 21. The required
 `check build probeJar clientProbeJar` run passes 268 Java tests with no failures,
 plus package, upstream, Ponder and release-tool checks. Native receipts under
 `.git/captures/misc-changes/` identify the tested unpublished artifacts; a later
@@ -21,6 +21,14 @@ version label alone is not a fresh runtime check.
   checks to one candidate. A mixed query finds managed and ordinary random-spread
   starts, qualifies an unsupported ring entry and preserves results after reopen.
   A separate 16-candidate control stops with explicit incomplete coverage.
+- A follow-up lifecycle fixture against the published 0.30.0 JAR (SHA-256
+  `fbc64f79844e86824d87c2b77af608ff3cb73edf872afd97a272236b93e9c79c`)
+  verifies both locators cancel after native caller removal, travel to the End
+  and actual Overworld unload. An independently leased FULL chunk completes
+  alongside the searches; unload leaves no search or fixture tickets. Island
+  cancellation removes its job, while structure cancellation retains a terminal
+  report. These embedded-player checks qualify lifecycle cleanup, not remote
+  networking, positive discovery or a throughput improvement.
 - Dedicated enabled/disabled controls cover both portal axes, ordinary fire,
   saved-Nether login recovery, valid personal beds and no denied-entry Nether
   chunk growth. Shared companion selection survives restart. A full integrated

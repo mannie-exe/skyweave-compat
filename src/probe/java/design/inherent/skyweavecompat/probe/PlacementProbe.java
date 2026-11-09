@@ -38,6 +38,7 @@ public final class PlacementProbe {
         LocatorProbe.tick(event.getServer());
         HydrologyProbe.tick(event.getServer());
         StructureLocatorProbe.tick(event.getServer());
+        LocatorLifecycleProbe.tick(event.getServer());
         // Sky Archipelago chooses its fallback spawn in another ServerStarted listener.
         // The first completed tick observes all startup handlers, regardless of registration order.
         if (pendingServer != null) {

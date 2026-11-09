@@ -130,7 +130,9 @@ final class StructureLocatorProbe {
                     if (!Boolean.getBoolean("neighbors.probe.savedStartsExercised")) throw new AssertionError("Saved-start discriminator was not exercised");
                     report.addProperty("forcedNewStartRejection", true);
                 }
-                if (Boolean.getBoolean("neighbors.probe.searchPlanning") && !Boolean.getBoolean("neighbors.probe.savedStartsOnly")) {
+                if (System.getProperty("neighbors.probe.searchFixture", "").equals("lifecycle")) {
+                    active = false; LocatorLifecycleProbe.start(server, output, report, started, maxGap);
+                } else if (Boolean.getBoolean("neighbors.probe.searchPlanning") && !Boolean.getBoolean("neighbors.probe.savedStartsOnly")) {
                     int x = (int)source.getPosition().x, z = (int)source.getPosition().z;
                     planning = java.util.concurrent.CompletableFuture.supplyAsync(() ->
                             System.getProperty("neighbors.probe.searchTarget", "").equals("structure=skyvillages:skyvillage")
@@ -153,12 +155,16 @@ final class StructureLocatorProbe {
         catch (java.io.IOException error) { throw new java.io.UncheckedIOException(error); }
         server.halt(false);
     }
-    private static void assertNoSearchTickets(MinecraftServer server) throws Exception {
+    static void assertNoSearchTickets(MinecraftServer server) throws Exception {
+        assertNoTickets(server, Set.of("skyweave_structure_search"));
+    }
+    static void assertNoTickets(MinecraftServer server, Set<String> types) throws Exception {
         var manager = ((design.inherent.skyweavecompat.mixin.StructureSearchCacheAccess)server.overworld().getChunkSource()).skyweave$searchTickets();
         var field = net.minecraft.server.level.DistanceManager.class.getDeclaredField("tickets"); field.setAccessible(true);
         for (var value : ((Map<?, ?>)field.get(manager)).values()) for (var entry : (Iterable<?>)value) {
             var ticket = (net.minecraft.server.level.Ticket<?>)entry;
-            if (ticket.getType().toString().equals("skyweave_structure_search")) throw new AssertionError("Search retained a ticket");
+            if (types.contains(ticket.getType().toString()))
+                throw new AssertionError("Search retained a ticket");
         }
     }
     private static void command(MinecraftServer server, String command) throws Exception { command(server, command, source); }

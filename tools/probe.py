@@ -97,7 +97,7 @@ parser.add_argument('--reverse-structure-order', action='store_true', help='Visi
 parser.add_argument('--far-structure-fixture', action='store_true', help='Use structure destinations at least 4096 blocks from spawn for fresh-order checks')
 parser.add_argument('--empty-village-start', action='store_true', help='In a fixed-plains fixture, make village layouts fail with an empty start pool')
 parser.add_argument('--seed', type=int, default=1)
-parser.add_argument('--search-fixture', choices=['mixed', 'cap'], help='With --structure-search, test mixed placement contracts or a 16-candidate cap')
+parser.add_argument('--search-fixture', choices=['mixed', 'cap', 'lifecycle'], help='With --structure-search, test mixed placements, a candidate cap, or native caller/world lifecycle')
 parser.add_argument('--terrain-seed', type=int, help='Survey this exact seed instead of the five-seed terrain comparison')
 parser.add_argument('--maximum-gap', type=int, default=128)
 parser.add_argument('--disable-climate-adapter', action='store_true', help='Disable only the climate adaptation in the disposable fixture')

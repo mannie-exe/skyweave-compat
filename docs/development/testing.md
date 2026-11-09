@@ -119,6 +119,16 @@ coverage for the unsupported entry. `--search-fixture cap` uses a disposable
 16-candidate limit and verifies that exhaustion stays partial. Neither fixture
 changes the input server or production generation policy.
 
+`--search-fixture lifecycle --search-radius 64 --search-target family=villages`
+adds native caller removal, travel to the End and actual Overworld unload while
+both locators have active searches. It also completes a separately leased FULL
+chunk request alongside the searches. Embedded native test players exercise
+server lifecycle boundaries; they are not remote network clients. On unload,
+island status must report no owned job, structure status must be terminal, and
+neither search nor fixture chunk tickets may remain. This fixture qualifies
+cleanup, not positive discovery or search throughput; retain the separate
+positive family/tag/ID and saved-start controls.
+
 For broader/rare searches, partial results prove bounded work, not absence or nearest
 coverage. Keep generation/fixture settings in the report and separately qualify a
 positive target. No search test belongs on a playing server.
