@@ -3,16 +3,16 @@ package design.inherent.skyweavecompat.terrain;
 import java.util.List;
 
 /** Exterior choices around the protected native body and independent interiors. */
-public record ShapeProfile(boolean enabled, double strengthVariation, Outline outline, Edges edges, Fractures fractures) {
+public record ShapeProfile(boolean enabled, double strengthVariation, Outline outline, Fringe fringe, Fractures fractures) {
     public static final ShapeProfile INITIAL = new ShapeProfile(true, .15,
-            new Outline(.65, 1.96, 26, 102), new Edges(true, .3, .7, 64, .15, 1.6, 28, .6, .55, 1.2, 6),
+            new Outline(.65, 1.96, 26, 102), new Fringe(true, .3, .7, 64, .15, 1.6, 28, .6, .55, 1.2, 6),
             new Fractures(.35, List.of("minecraft:mushroom_fields", "minecraft:badlands",
                     "minecraft:eroded_badlands", "minecraft:wooded_badlands"), 72, 6, 32, .28, .10, .25));
 
     public ShapeProfile {
         if (!Double.isFinite(strengthVariation) || strengthVariation < 0 || strengthVariation > .5)
             throw new IllegalArgumentException("Shape strength variation must be between 0 and 0.5");
-        if (outline == null || edges == null || fractures == null) throw new IllegalArgumentException("Missing shape group");
+        if (outline == null || fringe == null || fractures == null) throw new IllegalArgumentException("Missing shape group");
     }
     public record Outline(double aspectChance, double maximumAspectRatio, int warpAmplitude, int warpWavelength) {
         public Outline {
@@ -21,10 +21,10 @@ public record ShapeProfile(boolean enabled, double strengthVariation, Outline ou
                 throw new IllegalArgumentException("Invalid outline; aspect ratio 1–2.5, warp 0–48 blocks, wavelength 32–512");
         }
     }
-    public record Edges(boolean enabled, double minimumSmoothFraction, double maximumSmoothFraction,
+    public record Fringe(boolean enabled, double minimumSmoothFraction, double maximumSmoothFraction,
             int falloffDistance, double disintegratingChance, double disintegratingScale, int fragmentScale,
             double fragmentDepthRatio, double density, double falloffExponent, int undersideAccent) {
-        public Edges {
+        public Fringe {
             if (!chance(minimumSmoothFraction) || !chance(maximumSmoothFraction)
                     || minimumSmoothFraction > maximumSmoothFraction || !chance(disintegratingChance)
                     || falloffDistance < 0 || falloffDistance > 256 || fragmentScale < 8 || fragmentScale > 128

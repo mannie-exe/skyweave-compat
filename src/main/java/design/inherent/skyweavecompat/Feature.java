@@ -64,6 +64,7 @@ public enum Feature {
     MODEL_DATA("rendering.single_block_model_data"),
     SINGLE_BLOCK_PASSES("rendering.single_block_passes"),
     MACAW_LANTERN("macaw.bridge_lantern_shape"),
+    MACAW_LANTERN_SABLE("macaw.bridge_lantern_sable"),
     MACAW_GLASS("macaw.glass_backfaces"),
     CONFECTIONERY_BACKFACES("confectionery.block_backfaces"),
     BUBBLE_GUM_BACKFACES("linear_bearing.bubble_gum_backfaces"),

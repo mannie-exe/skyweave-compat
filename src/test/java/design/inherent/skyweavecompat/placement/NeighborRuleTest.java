@@ -7,6 +7,17 @@ import static org.junit.jupiter.api.Assertions.*;
 import static design.inherent.skyweavecompat.placement.NeighborRule.*;
 
 final class NeighborRuleTest {
+    @Test void closePolicyRejectsDistantHostsAndKeepsExactOverlapChecks() {
+        var close = new Settings(true, 64, 128, 96);
+        assertEquals(Decision.ACCEPTED, evaluate(POINT, close, columns(96, new Point(128, 0))));
+        assertEquals(Decision.NO_HOST, evaluate(POINT, close, columns(96, new Point(144, 0))));
+        assertEquals(Decision.TOO_CLOSE, evaluate(POINT, close, columns(96, new Point(128, 0), new Point(7, 9))));
+    }
+
+    @Test void invalidHostSentinelCannotQualifyWhenMinimumRadiusIsZero() {
+        assertEquals(Decision.NO_HOST, evaluate(POINT, new Settings(true, 64, 128, 0),
+                columns(-1, new Point(128, 0))));
+    }
     private static final Settings DEFAULTS = new Settings(true, 64, 512, 96);
     private static final Footprint POINT = new Footprint(0, 0, 0, 0);
 

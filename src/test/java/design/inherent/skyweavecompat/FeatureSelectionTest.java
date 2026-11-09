@@ -136,6 +136,26 @@ class FeatureSelectionTest {
         }
     }
 
+    @Test void constructLanternPickingReplacesOnlyTheQualifiedGlobalHook() {
+        var settings = only(Feature.MACAW_LANTERN, Feature.MACAW_LANTERN_SABLE);
+        var supported = Map.of("mcwbridges", "3.1.2", "sable", "2.0.6");
+        for (boolean client : new boolean[]{false, true}) {
+            var selected = FeatureSelection.select(settings, supported, client);
+            assertTrue(selected.enabled(Feature.MACAW_LANTERN_SABLE));
+            assertTrue(selected.mixins(client).contains("macaw.SableLanternRayMixin"));
+            assertFalse(selected.mixins(client).contains("macaw.LanternRayMixin"));
+            var absent = FeatureSelection.select(settings, Map.of("mcwbridges", "3.1.2"), client);
+            assertFalse(absent.enabled(Feature.MACAW_LANTERN_SABLE));
+            assertTrue(absent.mixins(client).contains("macaw.LanternRayMixin"));
+            assertFalse(FeatureSelection.select(only(Feature.MACAW_LANTERN_SABLE), supported, client)
+                    .enabled(Feature.MACAW_LANTERN_SABLE));
+            var future = Map.of("mcwbridges", "3.1.2", "sable", "future");
+            assertThrows(IllegalStateException.class, () -> FeatureSelection.select(settings, future, client));
+            assertFalse(FeatureSelection.select(only(Feature.MACAW_LANTERN), future, client)
+                    .mixins(client).contains("macaw.SableLanternRayMixin"));
+        }
+    }
+
     @Test void prerequisitesPrecedeTheirDependents() {
         for (var feature : Feature.values()) {
             var prerequisite = FeatureSelection.prerequisite(feature);

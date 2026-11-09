@@ -1,26 +1,26 @@
 package design.inherent.skyweavecompat.terrain;
 
 /** Seeded outer density lobes. Distances are outside the retained body, never removed from it. */
-public final class GranularEdges {
+public final class FragmentFringes {
     public record Fragment(int topOffset, int depth) {}
     public record Boundary(double angle, double distance, double outwardX, double outwardZ) {}
-    private GranularEdges() {}
+    private FragmentFringes() {}
 
-    public static boolean disintegrating(long seed, ShapeProfile.Edges settings) {
+    public static boolean disintegrating(long seed, ShapeProfile.Fringe settings) {
         return settings.enabled() && IslandStyles.unit(seed, 0x653a27L) < settings.disintegratingChance();
     }
-    public static double width(long seed, double radius, ShapeProfile.Edges settings) {
+    public static double width(long seed, double radius, ShapeProfile.Fringe settings) {
         return settings.enabled() ? Math.min(radius * .8, settings.falloffDistance()
                 * (disintegrating(seed, settings) ? settings.disintegratingScale() : 1)) : 0;
     }
-    public static double granularFraction(long seed, ShapeProfile.Edges settings) {
+    public static double granularFraction(long seed, ShapeProfile.Fringe settings) {
         double mixed = 1 - settings.minimumSmoothFraction()
                 - IslandStyles.unit(seed, 0x47a38eL) * (settings.maximumSmoothFraction() - settings.minimumSmoothFraction());
         return disintegrating(seed, settings) ? mixed + (1 - mixed) * .45 : mixed;
     }
 
     /** A conservative maximum is kept separate from the continuously varying local reach. */
-    public static double localWidth(long seed, double radius, double angle, ShapeProfile.Edges settings) {
+    public static double localWidth(long seed, double radius, double angle, ShapeProfile.Fringe settings) {
         double ux = Math.cos(angle), uz = Math.sin(angle);
         double broad = IslandStyles.noise(seed ^ 0x2b5c31L, ux * 2.3, uz * 2.3);
         double detail = IslandStyles.noise(seed ^ 0x682fa9L, ux * 5.7, uz * 5.7);
@@ -28,7 +28,7 @@ public final class GranularEdges {
     }
 
     public static Fragment sample(long seed, double x, double z, Boundary boundary,
-            double radius, int nominalHeight, ShapeProfile.Edges settings) {
+            double radius, int nominalHeight, ShapeProfile.Fringe settings) {
         double outsideDistance = boundary.distance();
         double width = localWidth(seed, radius, boundary.angle(), settings);
         if (width <= 0 || settings.density() == 0 || settings.fragmentDepthRatio() == 0

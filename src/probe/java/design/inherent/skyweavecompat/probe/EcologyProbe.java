@@ -37,18 +37,18 @@ final class EcologyProbe {
                 String kind = IslandInteriors.kind(host, InteriorConfiguration.profile()).name();
                 var column = field.sampleColumn(host.centerX(), host.centerZ(), settings);
                 if (column.exists()) sites.putIfAbsent(kind, new Site(kind, host.centerX(), host.centerZ()));
-                if (!sites.containsKey("APRON")) {
+                if (!sites.containsKey("FRINGE")) {
                     int reach = host.maxRadius() * 2;
                     search: for (int x = host.centerX() - reach; x <= host.centerX() + reach; x += 16)
                         for (int z = host.centerZ() - reach; z <= host.centerZ() + reach; z += 16)
-                            if (planning.skyweave$isApron(host, x, z, settings) && field.sampleColumn(x, z, settings).exists()) {
-                                sites.put("APRON", new Site("APRON", x, z)); break search;
+                            if (planning.skyweave$isFringe(host, x, z, settings) && field.sampleColumn(x, z, settings).exists()) {
+                                sites.put("FRINGE", new Site("FRINGE", x, z)); break search;
                             }
                 }
                 if (sites.size() == IslandInteriors.Kind.values().length + 1) break;
             }
             if (before != level.getChunkSource().getLoadedChunksCount()) throw new AssertionError("Ecology site selection loaded chunks");
-            if (!sites.containsKey("APRON") || Arrays.stream(IslandInteriors.Kind.values()).anyMatch(kind -> !sites.containsKey(kind.name())))
+            if (!sites.containsKey("FRINGE") || Arrays.stream(IslandInteriors.Kind.values()).anyMatch(kind -> !sites.containsKey(kind.name())))
                 throw new AssertionError("Missing bounded ecology host/fragment controls: " + sites.keySet());
             report.addProperty("seed", Long.toString(level.getSeed()));
             report.addProperty("evidence", "Natural native chunk stages; block counts are bounded witnesses, not feature frequency estimates");

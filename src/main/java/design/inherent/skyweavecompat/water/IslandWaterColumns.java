@@ -47,7 +47,7 @@ public final class IslandWaterColumns {
                 var raw = boundary.skyweave$planningColumn(x, z, generator.resolvedSkyIslandSettings(), TerrainStage.EXTERIOR);
                 // A union's water belongs to its selected exterior, never another overlapping contributor.
                 if (raw.dominantDescriptor() == null || raw.dominantDescriptor().seed() != host.seed()
-                        || boundary.skyweave$isApron(host, x, z, generator.resolvedSkyIslandSettings())) return Integer.MIN_VALUE;
+                        || boundary.skyweave$isFringe(host, x, z, generator.resolvedSkyIslandSettings())) return Integer.MIN_VALUE;
                 var cut = HydrologyManager.calculateRiverCarving(x, z, exterior.topY(), generator.getSeaLevel(), generator, envelope, random);
                 return fitToSupport(cut, exterior, envelope.getMaxBuildHeight())
                         ? cut.targetY - InteriorConfiguration.profile().shellThickness() + 1 : Integer.MIN_VALUE;

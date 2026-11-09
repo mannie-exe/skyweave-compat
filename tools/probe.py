@@ -24,6 +24,7 @@ parser.add_argument('--java', default='java')
 parser.add_argument('--heap', choices=['4G', '6G', '8G'], default='4G', help='Maximum Java heap; distributed island scans need 6G')
 parser.add_argument('--samples', type=int, default=12, help='Layouts per seed')
 parser.add_argument('--reopen', action='store_true', help='Reopen generated samples and require unchanged ore counts or village starts')
+parser.add_argument('--ocean-fringes', action='store_true', help='With --perimeter, verify parent ocean materials through native surface/features')
 parser.add_argument('--world-output', type=Path, help='Keep a successful disposable world at a new path for isolated client inspection')
 parser.add_argument('--minimal', action='store_true', help='Generate with only Sky Archipelago and Skyweave: Compatibility Patches, plus the read-only probe')
 parser.add_argument('--skylights-only', action='store_true', help='With --interiors, check bounded roof openings without repeating the volume survey')
@@ -68,6 +69,8 @@ parser.add_argument('--search-target', default='structure=ctov:medium/village_pl
 parser.add_argument('--without-c2me', action='store_true', help='Omit C2ME only in the disposable scheduling fixture')
 parser.add_argument('--lookup-structure', default='minecraft:ancient_city', help='Exact structure ID for the native lookup check')
 parser.add_argument('--structure-id', help='Managed family key (such as villages), vanilla structure name, or exact namespaced supported ID')
+parser.add_argument('--settlement-review', choices=['allowances', 'fits'], help='With --surface-structures, export bounded family allowance or village fit diagnostics')
+parser.add_argument('--sky-neighborhood', action='store_true', help='With --surface-structures, check native close-range Sky Villages and actual host blocks')
 parser.add_argument('--structure-debug', action='store_true', help='Enable native decision logs only in the disposable structure fixture')
 parser.add_argument('--structure-clusters', type=int, default=16, help='Accepted main-island clusters for structure sampling (1..64)')
 parser.add_argument('--layouts-only', action='store_true', help='With structure checks, inspect canonical starts without generating their entire footprints')
@@ -90,11 +93,16 @@ parser.add_argument('--far-structure-fixture', action='store_true', help='Use st
 parser.add_argument('--empty-village-start', action='store_true', help='In a fixed-plains fixture, make village layouts fail with an empty start pool')
 parser.add_argument('--seed', type=int, default=1)
 parser.add_argument('--terrain-seed', type=int, help='Survey this exact seed instead of the five-seed terrain comparison')
-parser.add_argument('--maximum-gap', type=int, default=512)
+parser.add_argument('--maximum-gap', type=int, default=128)
 parser.add_argument('--disable-climate-adapter', action='store_true', help='Disable only the climate adaptation in the disposable fixture')
 parser.add_argument('--disable-carver-adapter', action='store_true',
                     help='Disable the relative-carving adaptation in the disposable startup configuration')
 args = parser.parse_args()
+if (args.settlement_review or args.sky_neighborhood) and not args.surface_structures:
+    parser.error('--settlement-review/--sky-neighborhood require --surface-structures')
+if args.settlement_review and args.sky_neighborhood:
+    parser.error('Select one settlement diagnostic')
+if args.ocean_fringes and not args.perimeter: parser.error('--ocean-fringes requires --perimeter')
 if args.climate_only and (not args.hydrology or not args.water_witnesses or args.fluid_ticks != 0 or args.reopen):
     parser.error('--climate-only requires --hydrology --water-witnesses --fluid-ticks 0 without --reopen')
 if args.natural_shore_fixture and not args.fixed_biome:
@@ -137,8 +145,8 @@ if args.oceans and not args.ocean_config:
     parser.error('--oceans requires --ocean-config')
 if args.minimal and args.generation != 'adapted' and not any((args.perimeter, args.hydrology, args.variation, args.structure_search, args.locator, args.lookup, args.coverage, args.structures, args.surface_structures, args.overlap, args.interiors, args.veins, args.water, args.materials, args.oceans, args.biomes, args.surface_climate, args.terrain, args.benchmark)):
     parser.error('--minimal requires a terrain, coverage, structure, interior, vein, water or material check')
-if args.reopen and not (args.structure_search or args.hydrology or args.lookup or args.generation or args.natural or args.structures or args.surface_structures or args.water or args.oceans):
-    parser.error('--reopen requires generation, natural villages, structures or water')
+if args.reopen and not (args.ocean_fringes or args.structure_search or args.hydrology or args.lookup or args.generation or args.natural or args.structures or args.surface_structures or args.water or args.oceans):
+    parser.error('--reopen requires generation, natural villages, structures, water or ocean fringes')
 if args.natural_profile != 'current' and not args.natural:
     parser.error('--natural-profile requires --natural')
 if (args.structure_id or args.layouts_only) and not (args.structures or args.surface_structures):
@@ -201,6 +209,9 @@ if args.chunk_futures: name = f'chunk-futures-{args.seed}'
 if args.dh_pregen: name = f'dh-pregen-{args.seed}'
 if args.dh_stop_after: name += '-shutdown'
 if args.dh_world_key: name += '-world-key'
+if args.settlement_review: name += '-settlement-' + args.settlement_review
+if args.sky_neighborhood: name += '-sky-neighborhood'
+if args.ocean_fringes: name += '-ocean-fringes'
 if args.disable_climate_adapter: name += '-native-climate'
 if args.disable_carver_adapter:
     name += '-native-carvers'
@@ -233,7 +244,9 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
         ids = {mod['modId'] for mod in metadata.get('mods', [])}
         # Empack bindings may use unversioned filenames; identity comes from metadata.
         if args.without_c2me and 'c2me' in ids: continue
-        if ids & {'skyweave_compat', 'create_sky_compat', 'sky_village_neighbors', 'veil_iris_fix'}:
+        retired = ids & {'create_sky_compat', 'sky_village_neighbors', 'veil_iris_fix'}
+        if retired: raise SystemExit('Remove retired integration artifacts from fixture inputs: ' + ', '.join(sorted(retired)))
+        if 'skyweave_compat' in ids:
             continue
         if args.minimal or (args.audio and args.audio != 'full'):
             selected = {'sky_archipelago'}
@@ -353,6 +366,8 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
                f'-Dneighbors.probe.dhStopAfter={args.dh_stop_after}',
                f'-Dneighbors.probe.dhWorldKey={str(args.dh_world_key).lower()}',
                f'-Dneighbors.probe.generation={args.generation or ""}',
+               f'-Dneighbors.probe.skyNeighborhood={str(args.sky_neighborhood).lower()}',
+               f'-Dneighbors.probe.settlementReview={args.settlement_review or ""}',
                f'-Dneighbors.probe.structures={str(args.structures or args.surface_structures).lower()}',
                f'-Dneighbors.probe.surfaceStructures={str(args.surface_structures).lower()}',
                f'-Dneighbors.probe.coverage={str(args.coverage).lower()}',
@@ -364,6 +379,7 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
                f'-Dneighbors.probe.searchRadius={args.search_radius}',
                f'-Dneighbors.probe.searchTarget={args.search_target}',
                f'-Dneighbors.probe.locator={str(args.locator).lower()}',
+               f'-Dneighbors.probe.oceanFringes={str(args.ocean_fringes).lower()}',
                f'-Dneighbors.probe.perimeter={str(args.perimeter).lower()}',
                f'-Dneighbors.probe.hydrology={str(args.hydrology).lower()}',
                f'-Dneighbors.probe.drainageOnly={str(args.drainage_only).lower()}',
@@ -440,6 +456,8 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
             if second.get('complete') is False:
                 raise SystemExit(f'Native check failed after reopening; diagnostics: {report}')
             def observed(data):
+                if args.ocean_fringes:
+                    return data['witnesses']
                 if args.structure_search:
                     return data['warm']['outcome'], data['warm']['firstPage']
                 if args.hydrology:
@@ -458,7 +476,7 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
                     return {key: data[key] for key in ['samples', 'villagePlan']} if 'villagePlan' in data else data['samples']
                 return [(sample['x'], sample['z'], {key: value for key, value in sample['blocks'].items()
                         if key.endswith('_ore')}) for sample in data['samples']]
-            match_key = ('reopenSavedStartsMatch' if args.structure_search else 'reopenHydrologyMatch' if args.hydrology else 'reopenLookupMatch' if args.lookup else
+            match_key = ('reopenFringeMaterialsMatch' if args.ocean_fringes else 'reopenSavedStartsMatch' if args.structure_search else 'reopenHydrologyMatch' if args.hydrology else 'reopenLookupMatch' if args.lookup else
                          'reopenWaterOwnershipMatch' if args.water or args.oceans else
                          'reopenStructuresMatch' if args.structures or args.surface_structures else
                          'reopenVillagesMatch' if args.natural else 'reopenOreCountsMatch')

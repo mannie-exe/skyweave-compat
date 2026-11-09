@@ -15,7 +15,7 @@ public final class WaterPostprocessing {
         for (int x = chunk.getPos().getMinBlockX(); x <= chunk.getPos().getMaxBlockX(); x++)
             for (int z = chunk.getPos().getMinBlockZ(); z <= chunk.getPos().getMaxBlockZ(); z++) {
                 var island = field.sampleDominantIslandDescriptor(x, z, settings);
-                if (island == null || !OceanIslands.wetArchetype(island.archetype())
+                if (island == null || !OceanIslands.supportsShorelineTreatment(island.archetype())
                         || OceanConfiguration.profile().mode(island.seed()) == OceanProfile.Mode.NATIVE) continue;
                 var water = field.sampleWaterArchetypeColumnProfile(x, z, settings);
                 if (!water.water()) continue;

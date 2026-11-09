@@ -98,6 +98,7 @@ inactive selections.
 | `rendering.single_block_model_data` | Match model data used for layer selection and tessellation | Client, Sable 2.0.6 |
 | `rendering.single_block_passes` | Draw single-block geometry in its current Iris terrain pass | Client, Sable 2.0.6, Iris 1.8.14-beta.1+mc1.21.1, Sodium 0.8.13+mc1.21.1 |
 | `macaw.bridge_lantern_shape` | Flat/stair lantern outlines and selection; matching resource models required, default on | Shared, Macaw’s Bridges 3.1.2 |
+| `macaw.bridge_lantern_sable` | Same-frame lantern picking on constructs; default on | Macaw’s Bridges 3.1.2, Sable 2.0.6; requires lantern shape |
 | `create.glass_backfaces` | Show exposed Create glass from behind, retaining final connected textures | Client, Create 6.0.10; default on, independent of terrain and renderers |
 | `macaw.glass_backfaces` | Two-sided mosaic blocks/panes, retaining native states and material boundaries | Client, Macaw’s Windows 2.4.2; default on, independent of Create/Fusion |
 | `confectionery.block_backfaces` | Two-sided caramel bricks, slabs and stairs | Client, Create Confectionery 1.1.3b (metadata `1.1.3.`); default on |
@@ -135,7 +136,7 @@ contain a second enable switch.
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | `minimumGap` | `64` | Minimum horizontal column distance to any island terrain |
-| `maximumGap` | `512` | Maximum horizontal column distance to a sampled host island |
+| `maximumGap` | `128` | Maximum horizontal column distance to a sampled host island |
 | `minimumIslandRadius` | `96` | Minimum native descriptor radius of the host island |
 
 Distances accept integers from 0 to 2048. `maximumGap` must be at least
@@ -273,14 +274,14 @@ The Iris adaptation supplies precipitation at the same Y64 climate reference and
 | `strengthVariation` | 0.15 | Seeded variation around broad outline displacement; 0 keeps that strength fixed |
 | `outline.aspectChance`, `maximumAspectRatio` | 0.65, 1.96 | Chance and maximum length-to-width ratio for approximately area-preserving elongation |
 | `outline.warpAmplitude`, `warpWavelength` | 26, 102 | Broad outline displacement and wavelength, in blocks; small bodies cap displacement |
-| `edges.enabled` | true | Add a granular apron outside land and ocean bodies |
-| `edges.minimumSmoothFraction`, `maximumSmoothFraction` | 0.30, 0.70 | Seeded smooth-perimeter share for Mixed islands |
-| `edges.falloffDistance` | 64 | Maximum apron reach in blocks; coherent local variation shortens individual sectors |
-| `edges.disintegratingChance`, `disintegratingScale` | 0.15, 1.6 | Chance and reach multiplier for the intact-core Disintegrating profile |
-| `edges.fragmentScale` | 28 | Typical horizontal density-lobe scale in blocks |
-| `edges.fragmentDepthRatio` | 0.60 | Near-edge fragment depth relative to parent nominal height, before outward/density taper |
-| `edges.density`, `falloffExponent` | 0.55, 1.2 | Surviving outer density and outward decay |
-| `edges.undersideAccent` | 6 | Maximum small points below the native body underside, in blocks |
+| `fringe.enabled` | true | Add a granular fringe outside land and ocean bodies |
+| `fringe.minimumSmoothFraction`, `maximumSmoothFraction` | 0.30, 0.70 | Seeded smooth-perimeter share for Mixed islands |
+| `fringe.falloffDistance` | 64 | Maximum fringe reach in blocks; coherent local variation shortens individual sectors |
+| `fringe.disintegratingChance`, `disintegratingScale` | 0.15, 1.6 | Chance and reach multiplier for the intact-core Disintegrating profile |
+| `fringe.fragmentScale` | 28 | Typical horizontal density-lobe scale in blocks |
+| `fringe.fragmentDepthRatio` | 0.60 | Near-edge fragment depth relative to parent nominal height, before outward/density taper |
+| `fringe.density`, `falloffExponent` | 0.55, 1.2 | Surviving outer density and outward decay |
+| `fringe.undersideAccent` | 6 | Maximum small points below the native body underside, in blocks |
 | `fractures.chance` | 0.35 | Fractured selection among eligible land-biome anchors |
 | `fractures.biomes` | Mushroom Fields, Badlands, Eroded Badlands, Wooded Badlands | Exact namespaced biome IDs; other biomes retain ordinary exteriors |
 | `fractures.cellSize`, `gapWidth`, `verticalRange` | 72, 6, 32 | Remnant scale, separating gaps, and maximum vertical shift, in blocks |
@@ -288,7 +289,7 @@ The Iris adaptation supplies precipitation at the same Y64 climate reference and
 | `fractures.deepDarkChance` | 0.10 | Separate selection at native Deep Dark climate hosts; also requires `terrain.cave_biomes` |
 | `fractures.sculkPatchChance` | 0.25 | Per-chunk native sculk-patch chance on fractured Deep Dark surfaces |
 
-These are selection settings, not measured worldwide frequencies. Deep Dark selection samples native underground climate eligibility; it does not turn every existing cave patch into a surface island or guarantee an Ancient City. Fractured geometry and biome ecology remain independent of NOISE/HOLLOW interiors. Thin remnants retain rock when the configured cavity shell cannot fit. Set `enabled` false to disable outline/exterior modifiers, or `edges.enabled` false to keep outlines without the apron. Neither disables existing interiors. Every admitted ordinary non-spire land host receives Mixed or Disintegrating treatment by default; the latter adds broader, more extensive breakup with quiet sectors, without consuming its core. Fragment radii vary by cell and diminish outward; deterministic thinning increases their average separation. See [sampling and ownership](development/terrain-variation.md).
+These are selection settings, not measured worldwide frequencies. Deep Dark selection samples native underground climate eligibility; it does not turn every existing cave patch into a surface island or guarantee an Ancient City. Fractured geometry and biome ecology remain independent of NOISE/HOLLOW interiors. Thin remnants retain rock when the configured cavity shell cannot fit. Set `enabled` false to disable outline/exterior modifiers, or `fringe.enabled` false to keep outlines without the fringe. Neither disables existing interiors. Every admitted ordinary non-spire land host receives Mixed or Disintegrating treatment by default; the latter adds broader, more extensive breakup with quiet sectors, without consuming its core. Fragment radii vary by cell and diminish outward; deterministic thinning increases their average separation. See [sampling and ownership](development/terrain-variation.md).
 
 ## Ocean habitats
 
@@ -327,17 +328,16 @@ Larger eligible areas increase the allowance up to `maximumPerCluster`.
 | Family | Rate (rounded) | Maximum per cluster |
 | --- | ---: | ---: |
 | Ruined portals | 0.32 | 1 |
-| Ordinary villages | 0.443 | 3 |
+| Ordinary villages | 0.889 | 3 |
 | Pillager outposts | 0.1 | 1 |
 | Shipwrecks | 0.889 | 1 |
 | Desert temples, jungle temples, swamp huts, igloos | 0.5 each | 1 each |
-| Woodland mansions | 0.08 | 1 |
+| Woodland mansions | 0.32 | 1 |
 | Ancient Cities | 0.889 | 1 |
 | Mineshafts | 2.048 | 3 |
 | Trial chambers, trail ruins | 0.443 each | 1 each |
 
-These starting rates use half the nominal vanilla source-opportunity density,
-with separate biome and fit checks. They do not promise vanilla encounter rates.
+Most rates start near half the nominal vanilla source-opportunity density. Villages and mansions have higher encounter targets after native scarcity checks; separate biome and fit checks still apply. These values do not promise vanilla encounter rates.
 `frequencyMultiplier` defaults to `1`, accepts `0..8`, and scales managed allowances
 once. Family rates accept `0..16`; maximum counts accept integers `0..16`. A zero
 rate, cap or multiplier disables the corresponding managed opportunities in a new
@@ -415,7 +415,7 @@ villages closer, at the cost of more clusters without a village. Decrease
 `minimumIslandRadius` to allow small islands to qualify as hosts. Increase
 `minimumGap` to leave a wider void around villages.
 
-In the versioned Skyweave preset, each anchor receives a deterministic allowance
+In the versioned Skyweave preset, a four-chunk candidate lattice samples the actual shaped exterior with a provisional 144-block footprint. The complete native layout must still pass exact clearance and a substantial same-cluster host check; dry fringe columns cannot prove a host. Native retries and biome rejection may leave an allowance unfilled. Each anchor receives a deterministic allowance
 of 0–3 villages. The weights are 96:24:8:3: approximately 73.3% receive zero, 18.3%
 one, 6.1% two and 2.3% three. Companions share their anchor's allowance. These are
 maximums, not promised counts: biome, layout and clearance rules can reject a site.

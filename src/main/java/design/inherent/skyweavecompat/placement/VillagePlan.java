@@ -25,8 +25,9 @@ public final class VillagePlan {
             Function<Site, Anchor> ownership, int minimumGap, int maximumGap) {
         int target = VillageDistribution.forAnchor(anchor.seed());
         if (target == 0) return List.of();
-        // Reserve approximate layout room. Complete native footprints still pass NeighborRule afterward.
-        long minimum = (long)anchor.radius() + minimumGap + 128;
+        // The caller screens against the actual shaped body. A circular inner annulus would exclude
+        // valid sites beside elliptical/crescent shores; complete footprints still pass NeighborRule.
+        long minimum = minimumGap;
         long maximum = (long)anchor.radius() + maximumGap + 128;
         var eligible = candidates.stream().distinct().filter(site -> anchor.equals(ownership.apply(site)))
                 .filter(site -> {

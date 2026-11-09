@@ -24,14 +24,12 @@ class OceanProfileTest {
         assertThrows(ArithmeticException.class, () -> OceanConfiguration.parse(fraction.toString()));
     }
 
-    @Test void releasedFullProfileKeepsAdmissionAndOptOutButRetiresTinyPerimeterSizing() {
+    @Test void retiredOceanDimensionsAreRejected() {
         var old = JsonParser.parseString(new Gson().toJson(OceanProfile.INITIAL)).getAsJsonObject();
         old.remove("coveOpeningDegrees"); old.remove("coveShoulderDegrees");
         old.addProperty("perimeterMinRadius", 40); old.addProperty("perimeterMaxRadius", 64); old.addProperty("outletWidth", 2);
         old.addProperty("enabled", false); old.addProperty("admissionChance", .35);
-        var normalized = OceanConfiguration.parse(old.toString());
-        assertFalse(normalized.enabled()); assertEquals(.35, normalized.admissionChance());
-        assertEquals(100, normalized.coveOpeningDegrees());
+        assertThrows(IllegalArgumentException.class, () -> OceanConfiguration.parse(old.toString()));
         old.addProperty("outletWidth", "2");
         assertThrows(RuntimeException.class, () -> OceanConfiguration.parse(old.toString()));
         old.remove("outletWidth");

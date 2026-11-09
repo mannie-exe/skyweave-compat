@@ -90,6 +90,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             case LINEAR_PONDER, LINEAR_JADE -> Feature.LINEAR_CARRIAGE;
             case LINKAGE_JADE -> Feature.LINKAGE_INTERACTIONS;
             case LINK_GUI_SABLE -> Feature.LINK_GUI_INTERACTIONS;
+            case MACAW_LANTERN_SABLE -> Feature.MACAW_LANTERN;
             default -> null;
         };
     }
@@ -114,6 +115,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             case CONSTRUCT_DISTANCE -> Map.of("ssrd", "1.8.8", "sable", "2.0.6", "iris", "1.8.14-beta.1+mc1.21.1");
             case CONSTRUCT_OCCLUSION -> Map.of("ssrd", "1.8.8", "sable", "2.0.6", "iris", "1.8.14-beta.1+mc1.21.1", "distanthorizons", "3.3.3");
             case MACAW_LANTERN -> Map.of("mcwbridges", "3.1.2");
+            case MACAW_LANTERN_SABLE -> Map.of("mcwbridges", "3.1.2", "sable", "2.0.6");
             case MACAW_GLASS -> Map.of("mcwwindows", "2.4.2");
             case CONFECTIONERY_BACKFACES -> Map.of("create_confectionery", "1.1.3.");
             case BUBBLE_GUM_BACKFACES -> Map.of("linearbearing", "1.3.5");
@@ -167,8 +169,8 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             if (!enabled(feature)) continue;
             result.addAll(switch (feature) {
                 case TERRAIN -> List.of("StructureSearchCacheAccess", "GeneratorProfileMixin", "IslandFieldMixin", "ColumnResolverMixin",
-                        "ColumnDataMixin", "InteriorSurfaceMixin", "SurfaceRulesMixin", "ClusterPlacementMixin", "ClusterSamplerMixin",
-                        "DescriptorFactoryMixin", "OceanShapeMixin", "PerimeterPlanMixin", "PerimeterColumnMixin", "ShapeDensityMixin", "ShapeDecorationMixin", "TerrainMaterialMixin", "InteriorInterpolationMixin",
+                        "ColumnDataMixin", "InteriorSurfaceMixin", "SurfaceRulesMixin", "SurfacePaletteAccessor", "ClusterPlacementMixin", "ClusterSamplerMixin",
+                        "DescriptorFactoryMixin", "OceanShapeMixin", "FringePlanMixin", "FringeColumnMixin", "ShapeDensityMixin", "ShapeDecorationMixin", "TerrainMaterialMixin", "InteriorInterpolationMixin",
                         "GeologicalMaterialMixin", "OreVeinifierAccessor");
                 case ORE_PLACEMENT -> List.of("OreHeightMixin");
                 case CARVERS -> List.of("TerrainCarverPolicyMixin", "CarvingContextMixin", "CarverHeightMixin", "CarverLavaMixin", "WaterCarverMixin");
@@ -246,7 +248,10 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                 case SODIUM_LIGHTING -> List.of("client.SodiumLightingMixin");
                 case MODEL_DATA -> List.of("client.SingleBlockModelDataMixin");
                 case SINGLE_BLOCK_PASSES -> List.of("client.SingleBlockPassMixin");
-                case MACAW_LANTERN -> List.of("macaw.BridgeLanternShapeMixin", "macaw.ClipModeAccessor", "macaw.LanternRayMixin");
+                case MACAW_LANTERN -> enabled(Feature.MACAW_LANTERN_SABLE)
+                        ? List.of("macaw.BridgeLanternShapeMixin", "macaw.ClipModeAccessor")
+                        : List.of("macaw.BridgeLanternShapeMixin", "macaw.ClipModeAccessor", "macaw.LanternRayMixin");
+                case MACAW_LANTERN_SABLE -> List.of("macaw.SableLanternRayMixin");
                 case SHADER_PATCHES -> List.of("client.ShaderAssemblyMixin");
                 case CREATE_BACKFACES -> List.of("client.CreateGlassBackfaceMixin");
                 case FUSION_BACKFACES -> List.of("client.FusionGlassBackfaceMixin", "client.FusionPaneBackfaceMixin");

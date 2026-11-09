@@ -79,7 +79,7 @@ final class WaterProbe {
         if (oceans)
         for (var preview : field.collectIslandPreviewsInRadius(0, 0, radius, settings)) {
             if (SITES.size() >= 3) break;
-            if (!OceanIslands.wetArchetype(preview.archetype())) continue;
+            if (!OceanIslands.supportsShorelineTreatment(preview.archetype())) continue;
             var island = preview.terrainPlan() == null ? field.sampleDominantIslandDescriptor(preview.x(), preview.z(), settings)
                     : preview.terrainPlan().descriptor();
             if (island == null) continue;

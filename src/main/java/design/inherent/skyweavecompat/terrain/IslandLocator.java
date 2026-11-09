@@ -36,7 +36,7 @@ public final class IslandLocator {
         Job job;
     }
     private record Match(String id, int x, int y, int z, long distanceSquared, String archetype,
-            String exterior, String interior, String biome, String edge, String apron, String family) {}
+            String exterior, String interior, String biome, String shoreline, String fringe, String family) {}
     private record Snapshot(int visited, int total, long matches, List<Match> results) {
         boolean complete() { return visited == total; }
     }
@@ -100,9 +100,8 @@ public final class IslandLocator {
                                 .executes(ctx -> start(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "radius"),
                                         StringArgumentType.getString(ctx, "filters"))))))
                     .then(Commands.literal("status").executes(ctx -> status(ctx.getSource())))
-                    // Older command history remains usable, without submitting duplicate slices.
-                    .then(Commands.literal("more").executes(ctx -> status(ctx.getSource())))
-                    .then(Commands.literal("page").then(Commands.argument("number", IntegerArgumentType.integer(1, 7))
+                    .then(Commands.literal("page").executes(ctx -> page(ctx.getSource(), 1))
+                        .then(Commands.argument("number", IntegerArgumentType.integer(1, 7))
                             .executes(ctx -> page(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "number")))))
                     .then(Commands.literal("cancel").executes(ctx -> cancel(ctx.getSource())))));
     }
@@ -218,15 +217,12 @@ public final class IslandLocator {
     }
     private Match match(Job job, ClusterLayout.Cell cell, IslandDescriptor island) {
         var style = job.styles.style(island);
-        String apron = style.disturbed()
-                ? GranularEdges.disintegrating(island.seed(), job.styles.profile().edges()) ? "disintegrating" : "mixed" : "none";
-        String edge = OceanIslands.wetArchetype(island.archetype())
-                ? name(OceanConfiguration.profile().mode(island.seed())) : apron;
+        var components = IslandComponents.resolve(island, job.styles);
         long dx = (long)island.centerX() - job.x, dz = (long)island.centerZ() - job.z;
         return new Match(cell.x() + "," + cell.z() + "/" + Long.toUnsignedString(island.seed(), 16),
                 island.centerX(), island.centerY(), island.centerZ(), dx * dx + dz * dz, name(island.archetype()),
                 name(style.kind()), name(IslandInteriors.kind(island, InteriorConfiguration.profile())),
-                style.kind() == IslandStyles.Kind.DEEP_DARK ? "minecraft:deep_dark" : style.hostBiome(), edge, apron, name(island.family()));
+                style.kind() == IslandStyles.Kind.DEEP_DARK ? "minecraft:deep_dark" : style.hostBiome(), name(components.shoreline()), name(components.fringe()), name(island.family()));
     }
     private int page(CommandSourceStack source, int page) {
         var job = owned(source);
@@ -234,6 +230,11 @@ public final class IslandLocator {
         var snapshot = job.snapshot;
         var results = snapshot.results(); int first = (page - 1) * PAGE_SIZE;
         if (first >= results.size() && page != 1) return fail(source, "page_missing");
+        if (results.isEmpty()) {
+            source.sendSuccess(() -> text(job.running ? "no_match_yet" : "no_match"), false);
+            if (job.running) source.sendSuccess(() -> action("cancel_action", "cancel"), false);
+            return 0;
+        }
         int pages = Math.max(1, (results.size() + PAGE_SIZE - 1) / PAGE_SIZE);
         source.sendSuccess(() -> text(job.running ? "page_provisional" : "page", page, pages, results.size()), false);
         for (var match : results.subList(Math.min(first, results.size()), Math.min(first + PAGE_SIZE, results.size()))) {
@@ -244,12 +245,11 @@ public final class IslandLocator {
                         .withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
                             "/tp @s " + match.x() + " " + match.y() + " " + match.z())));
             var details = text("result_details", match.archetype(), match.exterior(), match.interior(),
-                    match.biome(), match.edge(), match.apron(), match.family(), match.id());
+                    match.biome(), match.shoreline(), match.fringe(), match.family(), match.id());
             source.sendSuccess(() -> text("result", coordinates, Math.round(Math.sqrt(match.distanceSquared())),
                     direction, match.exterior().equals("native") ? match.archetype() : match.archetype() + " / " + match.exterior())
                     .copy().withStyle(style -> style.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, details))), false);
         }
-        if (results.isEmpty()) source.sendSuccess(() -> text(job.running ? "no_match_yet" : "no_match"), false);
         var navigation = Component.empty();
         if (page > 1) navigation.append(action("previous_action", "page " + (page - 1))).append(" ");
         if (page < pages) navigation.append(action("next_action", "page " + (page + 1))).append(" ");
@@ -273,26 +273,24 @@ public final class IslandLocator {
                 case "exterior" -> Arrays.stream(IslandStyles.Kind.values()).anyMatch(v -> name(v).equals(value));
                 case "interior" -> Arrays.stream(IslandInteriors.Kind.values()).anyMatch(v -> name(v).equals(value));
                 case "family" -> value.equals("any") || Arrays.stream(IslandFamily.values()).anyMatch(v -> name(v).equals(value));
-                case "edge" -> Set.of("none", "native", "coastal", "perimeter", "mixed", "disintegrating").contains(value);
-                case "apron" -> Set.of("none", "mixed", "disintegrating").contains(value);
+                case "shoreline" -> Set.of("none", "native", "coastal", "perimeter").contains(value);
+                case "fringe" -> Set.of("none", "mixed", "disintegrating").contains(value);
                 case "biome" -> net.minecraft.resources.ResourceLocation.tryParse(value) != null && value.contains(":");
                 default -> false;
             };
             if (!valid) throw new IllegalArgumentException("Unsupported filter: " + token);
             if (key.equals("family") && value.equals("any")) filters.remove(key); else filters.put(key, value);
         }
-        if (Set.of("native", "coastal", "perimeter").contains(filters.getOrDefault("edge", "none")) && filters.containsKey("archetype")
-                && !filters.get("archetype").equals("lagoon")) throw new IllegalArgumentException("Ocean edge filters require lagoon");
-        if (Set.of("mixed", "disintegrating").contains(filters.getOrDefault("edge", "none")) && filters.containsKey("archetype")
-                && IslandShapeArchetype.valueOf(filters.get("archetype").toUpperCase(Locale.ROOT)).waterBased())
-            throw new IllegalArgumentException("Granular edges require a land archetype");
+        if (Set.of("coastal", "perimeter").contains(filters.getOrDefault("shoreline", "none"))
+                && filters.containsKey("archetype") && !filters.get("archetype").equals("lagoon"))
+            throw new IllegalArgumentException("Coastal/perimeter shoreline filters require lagoon");
         return Map.copyOf(filters);
     }
     private static String value(Match match, String key) {
         return switch (key) {
             case "archetype" -> match.archetype(); case "exterior" -> match.exterior();
             case "interior" -> match.interior(); case "biome" -> match.biome();
-            case "edge" -> match.edge(); case "apron" -> match.apron(); case "family" -> match.family(); default -> throw new AssertionError(key);
+            case "shoreline" -> match.shoreline(); case "fringe" -> match.fringe(); case "family" -> match.family(); default -> throw new AssertionError(key);
         };
     }
     private static List<String> suggestions() {
@@ -301,8 +299,8 @@ public final class IslandLocator {
         for (var value : IslandStyles.Kind.values()) values.add("exterior=" + name(value));
         for (var value : IslandInteriors.Kind.values()) values.add("interior=" + name(value));
         for (var value : IslandFamily.values()) values.add("family=" + name(value));
-        values.addAll(List.of("edge=native", "edge=coastal", "edge=perimeter", "edge=mixed", "edge=disintegrating", "edge=none", "family=any", "biome=minecraft:"));
-        values.addAll(List.of("apron=none", "apron=mixed", "apron=disintegrating"));
+        values.addAll(List.of("shoreline=native", "shoreline=coastal", "shoreline=perimeter", "shoreline=none", "family=any", "biome=minecraft:"));
+        values.addAll(List.of("fringe=none", "fringe=mixed", "fringe=disintegrating"));
         return values;
     }
     private static String name(Enum<?> value) { return value.name().toLowerCase(Locale.ROOT); }

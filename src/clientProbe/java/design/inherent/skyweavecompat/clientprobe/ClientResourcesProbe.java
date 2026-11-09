@@ -198,6 +198,7 @@ final class ClientResourcesProbe {
                                 command.get("chunkX").getAsInt(), command.get("chunkZ").getAsInt(),
                                 command.get("structure").getAsString());
                         case "distance" -> modelReport = ClientDistanceProbe.observe(command);
+                        case "assembly" -> modelReport = ClientAssemblyProbe.observe(command);
                         case "ray" -> {
                             var pos = new BlockPos(command.get("x").getAsInt(), command.get("y").getAsInt(), command.get("z").getAsInt());
                             var a = command.getAsJsonArray("from"); var b = command.getAsJsonArray("to");

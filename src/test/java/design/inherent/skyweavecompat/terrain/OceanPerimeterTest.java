@@ -21,7 +21,7 @@ class OceanPerimeterTest {
         assertEquals(outline.outsideDistance(350, 0), outline.outsideDistance(350, 0));
         assertEquals(sampled, calls.get(), "Column queries must not resample the native footprint");
     }
-    @Test void missingNativeCoastCannotCreateAnApronFromNothing() {
+    @Test void missingNativeCoastCannotCreateAnFringeFromNothing() {
         var outline = OceanPerimeter.sample(0, 0, 300, (x, z) -> false);
         assertEquals(Double.POSITIVE_INFINITY, outline.outsideDistance(310, 0));
     }

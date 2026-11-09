@@ -18,8 +18,8 @@ final class OceanGeometryProbe {
         var rows = new JsonArray();
         var selected = new HashSet<IslandShapeArchetype>();
         var profile = ((StyledTerrain)(Object)shapes).skyweave$styles().profile();
-        if (!profile.enabled() || !profile.edges().enabled() || profile.edges().falloffDistance() == 0
-                || profile.edges().density() == 0 || profile.edges().fragmentDepthRatio() == 0) return rows;
+        if (!profile.enabled() || !profile.fringe().enabled() || profile.fringe().falloffDistance() == 0
+                || profile.fringe().density() == 0 || profile.fringe().fragmentDepthRatio() == 0) return rows;
         for (var preview : field.collectIslandPreviewsInRadius(0, 0, radius, settings)) {
             var plan = preview.terrainPlan();
             if (plan == null || !preview.archetype().waterBased() || selected.contains(preview.archetype())) continue;
@@ -38,7 +38,7 @@ final class OceanGeometryProbe {
             search: for (int dx = -reach; dx <= reach; dx += 8) for (int dz = -reach; dz <= reach; dz += 8) {
                 int x = island.centerX() + dx, z = island.centerZ() + dz;
                 var horizontal = shapes.sampleHorizontal(plan, x, z); queries++;
-                var fragment = ((PerimeterColumn)(Object)horizontal).skyweave$fragment();
+                var fragment = ((FringeColumn)(Object)horizontal).skyweave$fragment();
                 var nativeColumn = shapes.sampleWaterArchetypeColumnProfile(island, horizontal);
                 if (bodyWitness == null && nativeColumn.exists()) {
                     var completed = field.sampleWaterArchetypeColumnProfile(x, z, settings);
@@ -50,19 +50,19 @@ final class OceanGeometryProbe {
                 }
                 if (fragment == null) continue;
                 if (nativeColumn.exists())
-                    throw new AssertionError("Dry apron replaced a native wet column");
+                    throw new AssertionError("Dry fringe replaced a native wet column");
                 int y = island.centerY() + island.plateauHeight() + fragment.topOffset();
                 witness = new BlockPos(x, y, z); break search;
             }
             row.addProperty("metadataQueries", queries);
             row.addProperty("metadataSeconds", (System.nanoTime() - began) / 1e9);
-            if (witness == null) throw new AssertionError("No native ocean apron in bounded fixture: " + island.seed());
+            if (witness == null) throw new AssertionError("No native ocean fringe in bounded fixture: " + island.seed());
             var random = level.getChunkSource().randomState();
             var base = generator.getBaseColumn(witness.getX(), witness.getZ(), level, random).getBlock(witness.getY());
-            if (base.isAir() || !base.getFluidState().isEmpty()) throw new AssertionError("Ocean apron base-column mismatch: " + witness);
+            if (base.isAir() || !base.getFluidState().isEmpty()) throw new AssertionError("Ocean fringe base-column mismatch: " + witness);
             level.getChunk(witness.getX() >> 4, witness.getZ() >> 4);
             var actual = level.getBlockState(witness);
-            if (actual.isAir() || !actual.getFluidState().isEmpty()) throw new AssertionError("Ocean apron FULL-chunk mismatch: " + witness);
+            if (actual.isAir() || !actual.getFluidState().isEmpty()) throw new AssertionError("Ocean fringe FULL-chunk mismatch: " + witness);
             row.addProperty("fragment", witness.toShortString());
             row.addProperty("baseColumn", base.toString()); row.addProperty("fullChunk", actual.toString());
             // Scan order can encounter an exterior fragment before the core. Use the native

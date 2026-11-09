@@ -1,37 +1,29 @@
-# Skyweave: Compatibility Patches 0.28.0
+# Skyweave: Compatibility Patches 0.29.0
 
-Keep rivers continuous across island cavities, distinguish real water mouths from
-void outlets, and add bounded structure discovery. Minecraft remains 1.21.1,
-Sky Archipelago 1.4 and Dynamic Waters 13.1.0.
+Repair construct picking, keep floating villages closer to their islands, and
+make fragment materials and discovery terminology consistent.
 
-- Protect supported river beds before subtracting NOISE/HOLLOW interiors. Retain
-  the original rock shell without constructing foundations into empty sky.
-- Terminate drainage at its own island rim or actual local water level. Empty sky
-  no longer sends river mouths toward global sea level or across detached fragments.
-  Dynamic Waters density remains HIGH.
-- Use the water cell's biome for generation and precipitation freezing. Preserve
-  genuine cold-biome snow, cold surface layers and running-water ice rules.
-- Give skylights seeded oval/warped outlines and bounded connections to HOLLOW
-  interiors. NOISE skylights default off; side entrances remain independent.
-  Radius, warp and aspect variation are editable in the existing settings page.
-- Default falling-perimeter lagoon selection to zero, retaining 25% coastal and
-  75% native treatment among admitted lagoons. Explicit opt-in remains available.
-- Add `/skyweavecompat structures search <radius> family=…` or `structure=<id|#tag>`,
-  plus status/page/cancel. Searches continue automatically within configurable
-  limits and return verified starts with suggested teleports. Limited searches
-  report partial results, never false absence or a proved nearest result.
+- Fix the Macaw/Sable picking interaction that could stall rendering after a
+  platform assembly. The new optional same-frame adapter defaults on.
+- Default Sky Village footprint gaps to 64–128 blocks. Use closer candidate
+  sampling and a substantial same-cluster host; retain exact overlap exclusion.
+- Separate outline, shoreline and fragment-fringe metadata. Dry Lagoon fragments
+  inherit sandy shores; Broken Reef fragments inherit native exposed rock palettes.
+  Water membership, river ownership and accepted geometry remain separate.
+- Increase ordinary-village and mansion encounter targets to 0.889 and 0.32 per
+  1024 eligible terrain chunks. Keep family caps, fitting safeguards and intentional
+  ruin variants. These are opportunities, not guaranteed per-island probabilities.
+- Align island/structure progress, empty results and paging. Use `shoreline=` and
+  `fringe=` island filters, with automatic continuation and `status/page/cancel`.
+- Accept canonical configuration schemas only. The shape group is now `fringe`;
+  obsolete partial-schema translation and stale Atlas input fallbacks are removed.
 
-Structure search can save early chunk metadata. Supported random-spread grids
-are enumerated; unsupported placements and omitted unplaced IDs are reported.
-Historical starts without an active placement grid are outside this command's
-coverage. Vanilla `/locate` remains synchronous; use the bounded command for
-broad cold searches. Search limits live in `config/skyweave/skyweave_compat-search.json`
-and require restart, without changing terrain identity.
+**A fresh Skyweave world is required:** generation identity is
+`islands_v1-skyarch-1.4-6`; drainage remains `island_watersheds_v4`. Existing worlds
+are not silently reinterpreted. Use the current shipped profiles; custom profiles
+must supply their canonical fields. No automatic configuration migration is added.
 
-**A fresh world is required.** Terrain identity is now
-`islands_v1-skyarch-1.4-5`, with `island_watersheds_v4` drainage. Existing saves are
-not silently converted. Legacy interior files receive the new skylight defaults
-while preserving their explicit existing settings.
-
-See [verification](https://github.com/mannie-exe/skyweave-compat/blob/v0.28.0/docs/development/verification.md)
-for exact native checks, tested boundaries and remaining limitations.
+Minecraft remains 1.21.1, Sky Archipelago 1.4 and Dynamic Waters 13.1.0.
+See [verification](https://github.com/mannie-exe/skyweave-compat/blob/v0.29.0/docs/development/verification.md)
+for native evidence, tested versions and remaining limits. Vanilla `/locate`
+remains synchronous; broad searches should use the bounded structure command.

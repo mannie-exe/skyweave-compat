@@ -50,8 +50,8 @@ public record GenerationProfile(int spacing, int jitter, int centerMinY, int cen
         double land = Math.sqrt(2) * (1.34 * 1.65 + 0.14) * radius + 2;
         double reef = radius + 1.5 * Math.max(8, radius / 2) + 10;
         var shapes = ShapeConfiguration.profile();
-        int apron = shapes.enabled() ? shapes.edges().maximumReach(radius) : 0;
-        return (int)Math.ceil(Math.max(land, reef)) + apron;
+        int fringe = shapes.enabled() ? shapes.fringe().maximumReach(radius) : 0;
+        return (int)Math.ceil(Math.max(land, reef)) + fringe;
     }
     // Native full-coverage nominal depth: 1.18 * (plateau + .97 * cliff) + .2 * capped hang.
     // This selects a shape parameter, not a replacement density/taper algorithm.

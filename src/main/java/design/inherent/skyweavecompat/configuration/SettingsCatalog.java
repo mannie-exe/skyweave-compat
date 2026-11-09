@@ -103,7 +103,7 @@ public final class SettingsCatalog {
             case ISLAND_SHADER_ENVIRONMENT -> Group.IRIS;
             case DYNAMIC_WATERS -> Group.WATERSHEDS;
             case DYNAMIC_WATERS_SABLE -> Group.WATER_SHIPS;
-            case MACAW_LANTERN -> Group.MACAW;
+            case MACAW_LANTERN, MACAW_LANTERN_SABLE -> Group.MACAW;
             case MACAW_GLASS -> Group.MACAW_GLASS;
             case CONFECTIONERY_BACKFACES -> Group.CONFECTIONERY;
             case BUBBLE_GUM_BACKFACES -> Group.LINEAR_GLASS;

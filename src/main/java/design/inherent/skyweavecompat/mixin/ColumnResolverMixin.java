@@ -45,7 +45,7 @@ public abstract class ColumnResolverMixin implements ProfiledTerrain, InteriorRe
     @Unique private ColumnData skyweave$shaped(int checks, ColumnData column) {
         var shape = design.inherent.skyweavecompat.terrain.ShapeConfiguration.profile();
         if (skyweave$profile == null || !shape.enabled() || checks == 0
-                || !shape.edges().enabled() && shape.fractures().chance() == 0 && shape.fractures().deepDarkChance() == 0)
+                || !shape.fringe().enabled() && shape.fractures().chance() == 0 && shape.fractures().deepDarkChance() == 0)
             return column;
         // A gap can occupy all four lattice corners while a remnant survives between them.
         // Keep candidate-index proven-empty cells fast, but never interpolate possible fractured terrain.

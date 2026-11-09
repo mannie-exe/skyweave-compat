@@ -7,26 +7,21 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ShapeProfileTest {
     private final Gson json = new Gson();
-    @Test void releasedPerimeterControlsNormalizeWithoutKeepingCompetingAuthorities() {
+    @Test void retiredPerimeterSchemaIsRejectedWithoutDefaultInsertion() {
         var old = json.toJsonTree(ShapeProfile.INITIAL).getAsJsonObject();
-        old.add("edges", JsonParser.parseString("{\"chance\":0,\"affectedFraction\":0.625,\"bandWidth\":57,\"amplitude\":24,\"wavelength\":26}"));
-        assertFalse(ShapeConfiguration.parse(old.toString()).edges().enabled());
-        var normalized = JsonParser.parseString(ShapeConfiguration.normalize(old.toString())).getAsJsonObject();
-        assertFalse(normalized.getAsJsonObject("edges").has("chance"));
-        assertEquals(57, normalized.getAsJsonObject("edges").get("falloffDistance").getAsInt());
-        old.getAsJsonObject("edges").remove("amplitude");
-        assertThrows(RuntimeException.class, () -> ShapeConfiguration.parse(old.toString()));
+        old.remove("fringe"); old.add("edges", JsonParser.parseString("{\"chance\":0,\"affectedFraction\":0.625,\"bandWidth\":57,\"amplitude\":24,\"wavelength\":26}"));
+        assertThrows(IllegalArgumentException.class, () -> ShapeConfiguration.parse(old.toString()));
     }
     @Test void strictNestedProfilesRejectCoercionMissingFieldsAndInvalidLinkedBounds() {
         var original = json.toJsonTree(ShapeProfile.INITIAL).getAsJsonObject();
         assertEquals(ShapeProfile.INITIAL, ShapeConfiguration.parse(original.toString()));
         var string = original.deepCopy(); string.getAsJsonObject("outline").addProperty("warpAmplitude", "18");
         assertThrows(RuntimeException.class, () -> ShapeConfiguration.parse(string.toString()));
-        var missing = original.deepCopy(); missing.getAsJsonObject("edges").remove("falloffDistance");
+        var missing = original.deepCopy(); missing.getAsJsonObject("fringe").remove("falloffDistance");
         assertThrows(RuntimeException.class, () -> ShapeConfiguration.parse(missing.toString()));
         var fractional = original.deepCopy(); fractional.getAsJsonObject("fractures").addProperty("cellSize", 72.5);
         assertThrows(RuntimeException.class, () -> ShapeConfiguration.parse(fractional.toString()));
-        var linked = original.deepCopy(); linked.getAsJsonObject("edges").addProperty("maximumSmoothFraction", .2);
+        var linked = original.deepCopy(); linked.getAsJsonObject("fringe").addProperty("maximumSmoothFraction", .2);
         assertThrows(RuntimeException.class, () -> ShapeConfiguration.parse(linked.toString()));
         var duplicate = original.deepCopy(); duplicate.getAsJsonObject("fractures").add("biomes", json.toJsonTree(List.of("minecraft:badlands", "minecraft:badlands")));
         assertThrows(RuntimeException.class, () -> ShapeConfiguration.parse(duplicate.toString()));
@@ -38,7 +33,7 @@ class ShapeProfileTest {
 
     @Test void perIslandStrengthsStayBoundedCenteredAndIndependentlySeeded() {
         var p = ShapeProfile.INITIAL;
-        var fixed = new ShapeProfile(true, 0, p.outline(), p.edges(), p.fractures());
+        var fixed = new ShapeProfile(true, 0, p.outline(), p.fringe(), p.fractures());
         double total = 0; int low = 0, high = 0, different = 0;
         for (long seed = -10000; seed < 10000; seed++) {
             double outline = IslandStyles.strengthScale(seed, 0x4fc139L, p);
@@ -84,8 +79,8 @@ class ShapeProfileTest {
 
     @Test void disabledAndZeroAspectChoicesKeepTheNativeDimensions() {
         var p = ShapeProfile.INITIAL;
-        var off = new ShapeProfile(false, p.strengthVariation(), p.outline(), p.edges(), p.fractures());
-        var zero = new ShapeProfile(true, p.strengthVariation(), new ShapeProfile.Outline(0, 2, 0, 128), p.edges(), p.fractures());
+        var off = new ShapeProfile(false, p.strengthVariation(), p.outline(), p.fringe(), p.fractures());
+        var zero = new ShapeProfile(true, p.strengthVariation(), new ShapeProfile.Outline(0, 2, 0, 128), p.fringe(), p.fractures());
         int elongated = 0;
         for (long seed = 0; seed < 20000; seed++) {
             assertEquals(1, IslandStyles.aspect(seed, off));
@@ -101,7 +96,7 @@ class ShapeProfileTest {
 
     @Test void styleCacheEvictionAndConcurrentReadsDoNotChangeEligibility() throws Exception {
         var p = ShapeProfile.INITIAL; var f = p.fractures();
-        var profile = new ShapeProfile(true, p.strengthVariation(), p.outline(), p.edges(), new ShapeProfile.Fractures(1,
+        var profile = new ShapeProfile(true, p.strengthVariation(), p.outline(), p.fringe(), new ShapeProfile.Fractures(1,
                 List.of("minecraft:mushroom_fields"), f.cellSize(), f.gapWidth(), f.verticalRange(), f.removalChance(), 0, f.sculkPatchChance()));
         var styles = new IslandStyles(profile, (x, y, z) -> new org.sathrek.sky_archipelago.worldgen.generator.field.model.BiomeSample(
                 null, false, false, net.minecraft.resources.ResourceLocation.parse(x < 0 ? "minecraft:mushroom_fields" : "minecraft:plains")));
@@ -117,7 +112,7 @@ class ShapeProfileTest {
         samples.parallelStream().forEach(island -> assertEquals(expected.get(samples.indexOf(island)), styles.style(island)));
         for (int i = 0; i < samples.size(); i++) assertEquals(samples.get(i).centerX() < 0 ? IslandStyles.Kind.FRACTURED
                 : IslandStyles.Kind.NATIVE, expected.get(i).kind());
-        var off = new IslandStyles(new ShapeProfile(false, p.strengthVariation(), p.outline(), p.edges(), profile.fractures()),
+        var off = new IslandStyles(new ShapeProfile(false, p.strengthVariation(), p.outline(), p.fringe(), profile.fractures()),
                 (x, y, z) -> new org.sathrek.sky_archipelago.worldgen.generator.field.model.BiomeSample(null, false));
         assertEquals(IslandStyles.Kind.NATIVE, off.style(samples.getFirst()).kind());
     }

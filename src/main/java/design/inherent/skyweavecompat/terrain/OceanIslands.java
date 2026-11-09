@@ -7,12 +7,12 @@ import org.sathrek.sky_archipelago.worldgen.generator.field.model.IslandDescript
 
 /** Adjusts native water columns without replacing their footprint, underbelly, or materials. */
 public final class OceanIslands {
-    public static boolean wetArchetype(IslandShapeArchetype type) {
+    public static boolean supportsShorelineTreatment(IslandShapeArchetype type) {
         return type == IslandShapeArchetype.LAGOON;
     }
     public static WaterArchetypeColumnProfile adapt(IslandDescriptor island, HorizontalSample horizontal,
             WaterArchetypeColumnProfile nativeColumn, OceanProfile profile) {
-        if (!nativeColumn.exists() || !wetArchetype(island.archetype())) return nativeColumn;
+        if (!nativeColumn.exists() || !supportsShorelineTreatment(island.archetype())) return nativeColumn;
         var mode = profile.mode(island.seed());
         if (mode == OceanProfile.Mode.NATIVE || mode == OceanProfile.Mode.COASTAL && !nativeColumn.shore())
             return nativeColumn;

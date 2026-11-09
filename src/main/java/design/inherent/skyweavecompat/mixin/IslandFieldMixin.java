@@ -59,12 +59,12 @@ public abstract class IslandFieldMixin implements ProfiledTerrain, GeologicalFie
             int x, int z, SkyIslandSettings settings) {
         return skyweave$planningColumn(x, z, settings, TerrainStage.EXTERIOR).segments();
     }
-    @Override public boolean skyweave$isApron(IslandDescriptor host, int x, int z, SkyIslandSettings settings) {
+    @Override public boolean skyweave$isFringe(IslandDescriptor host, int x, int z, SkyIslandSettings settings) {
         if (skyweave$profile == null || host == null) return false;
         var plan = terrainPlanForDescriptor(host, settings);
         if (!plan.mightInfluence(x, z)) return false;
         var horizontal = shapeSampler.sampleHorizontal(plan, x, z);
-        return ((PerimeterColumn)(Object)horizontal).skyweave$fragment() != null;
+        return ((FringeColumn)(Object)horizontal).skyweave$fragment() != null;
     }
     @Override public org.sathrek.sky_archipelago.worldgen.generator.field.TerrainColumn skyweave$exteriorOf(
             IslandDescriptor host, int x, int z, SkyIslandSettings settings) {

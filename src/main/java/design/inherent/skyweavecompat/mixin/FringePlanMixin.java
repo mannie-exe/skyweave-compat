@@ -12,9 +12,9 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-/** Candidate lookup and clearance reserve the apron before accepting a cluster. */
+/** Candidate lookup and clearance reserve the fringe before accepting a cluster. */
 @Mixin(value = IslandTerrainPlanFactory.class, remap = false)
-public abstract class PerimeterPlanMixin implements ProfiledTerrain {
+public abstract class FringePlanMixin implements ProfiledTerrain {
     @Unique private GenerationProfile skyweave$profile;
     @Override public GenerationProfile skyweave$profile() { return skyweave$profile; }
     @Override public void skyweave$configure(GenerationProfile profile) { skyweave$profile = profile; }
@@ -24,7 +24,7 @@ public abstract class PerimeterPlanMixin implements ProfiledTerrain {
         var shape = ShapeConfiguration.profile();
         if (skyweave$profile == null || !shape.enabled() || descriptor.archetype().waterBased()
                 || descriptor.family() == IslandFamily.SPIRE) return;
-        int reach = shape.edges().maximumReach(descriptor.maxRadius());
+        int reach = shape.fringe().maximumReach(descriptor.maxRadius());
         if (reach == 0) return;
         var p = result.getReturnValue(); var b = p.bounds();
         result.setReturnValue(new IslandTerrainPlan(descriptor, p.dedicatedCrescentAnchor(), p.dedicatedWaterAnchor(),

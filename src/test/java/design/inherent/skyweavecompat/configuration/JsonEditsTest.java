@@ -16,12 +16,11 @@ class JsonEditsTest {
         Files.writeString(directory.resolve(definition.filename()), definition.defaults());
         return new JsonEdits(directory, definition);
     }
-    @Test void releasedOceanSchemaGainsEditableFieldsWithoutAnImplicitWrite() throws IOException {
+    @Test void canonicalOceanEditsPreserveValuesAndDetectExternalChanges() throws IOException {
         var definition = JsonSettings.find("skyweave_compat-oceans.json");
-        var original = """
-                {"enabled":false,"coastalChance":0.04,"perimeterChance":0.01,
-                 "perimeterMinRadius":40,"perimeterMaxRadius":64,"outletWidth":2,"outletDepth":2,"sealThickness":4}
-                """;
+        var json = JsonParser.parseString(definition.defaults()).getAsJsonObject();
+        json.addProperty("enabled", false); json.addProperty("coastalChance", .04);
+        var original = json.toString();
         var path = directory.resolve(definition.filename()); Files.writeString(path, original);
         var edits = new JsonEdits(directory, definition);
         assertEquals(original, Files.readString(path)); assertFalse(edits.dirty());

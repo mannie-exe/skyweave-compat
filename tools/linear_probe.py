@@ -12,7 +12,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 LINEAR_HASH = '29563cdb52a82ac7d8b3aca823cd47a15c443e06314df06ca1a635ae9e91a253'
 FIX_HASH = '04afaaaf62951fc4cccfbb4468572fea2a876a6b5e872a6c60545d171fb21976'
-SCENES = {'redstone': 'redstone/RedstoneProbe', 'recovery': 'recovery/RecoveryProbe', 'bootstrap': 'linear/BootstrapProbe', 'carriage': 'linear/CarriageProbe',
+SCENES = {'lantern': 'macaw/LanternProbe', 'redstone': 'redstone/RedstoneProbe', 'recovery': 'recovery/RecoveryProbe', 'bootstrap': 'linear/BootstrapProbe', 'carriage': 'linear/CarriageProbe',
           'parent': 'linear/ParentProbe', 'reopen': 'linear/ParentProbe',
           'disassembly': 'linear/DisassemblyProbe', 'transmission': 'linear/TransmissionProbe',
           'linkage': 'linkage/LinkageProbe',
@@ -45,7 +45,7 @@ def main():
     args = parser.parse_args()
     if args.scenario == 'recovery' and not args.yigd:
         parser.error('--scenario recovery requires --yigd')
-    if args.scenario not in {'recovery', 'redstone'} and not args.linear:
+    if args.scenario not in {'recovery', 'redstone', 'lantern'} and not args.linear:
         parser.error('Machinery scenes require --linear')
     allowed = {'carriage': {'floor', 'ceiling', 'wall-front', 'wall-back'},
                'disassembly': {'floor', 'height', 'quarter'}}.get(args.scenario, {'floor'})
@@ -68,6 +68,8 @@ def main():
     if args.linkage:
         excluded.add('create-aeronautics-transmission-linkage')
     minimal_keys = {'sable', 'cloth-config'} if args.scenario == 'recovery' else {'create', 'ponder', 'sable', 'create-aeronautics'}
+    if args.scenario == 'lantern':
+        minimal_keys = {'sable', 'cloth-config', 'macaws-bridges'}
     if args.scenario == 'redstone':
         minimal_keys = {'create', 'ponder'}
     files = [Path(row['path']) for row in runtime['mods'] if row['key'] not in excluded

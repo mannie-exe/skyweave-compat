@@ -16,13 +16,13 @@ final class LocatorProbe {
     private static final List<Component> messages = new ArrayList<>();
     private static CommandSourceStack source;
     private static Path destination;
-    private static int before, maximumLoaded, phase, ticks;
+    private static int before, maximumLoaded, phase, ticks, stableTicks;
     private static long began;
     private static boolean active;
     private static final JsonObject report = new JsonObject();
 
     static void start(MinecraftServer server, Path output) throws Exception {
-        destination = output; messages.clear(); phase = 0; ticks = 0;
+        destination = output; messages.clear(); phase = -1; ticks = 0; stableTicks = 0;
         CommandSource sink = new CommandSource() {
             public void sendSystemMessage(Component message) { messages.add(message); }
             public boolean acceptsSuccess() { return true; }
@@ -35,8 +35,7 @@ final class LocatorProbe {
             command(server, "search 8000", source.withPermission(0));
             throw new AssertionError("Unauthorized search accepted");
         } catch (com.mojang.brigadier.exceptions.CommandSyntaxException expected) { }
-        // More than one worker slice, including any slow cold-cache slice.
-        command(server, "search 24000 family=any");
+        // Observe settled startup before testing a no-additional-chunks invariant.
         active = true;
     }
 
@@ -44,6 +43,16 @@ final class LocatorProbe {
         if (!active) return;
         try {
             if (++ticks > 2400) throw new AssertionError("Metadata command exceeded 120 seconds");
+            if (phase == -1) {
+                int loaded = server.overworld().getChunkSource().getLoadedChunksCount();
+                if (loaded != before) { before = loaded; stableTicks = 0; }
+                else stableTicks++;
+                if (stableTicks < 40) return;
+                maximumLoaded = before; phase = 0;
+                report.addProperty("startupStableTicks", stableTicks);
+                command(server, "search 24000 family=any");
+                return;
+            }
             maximumLoaded = Math.max(maximumLoaded, server.overworld().getChunkSource().getLoadedChunksCount());
             if (has("failed")) throw new AssertionError(messages.toString());
             if (phase == 0) {
@@ -63,19 +72,22 @@ final class LocatorProbe {
                         || first.getStyle().getHoverEvent() == null) throw new AssertionError("Result click/hover contract missing");
                 if (completion.getString().contains("skyweave_compat.islands.")) throw new AssertionError("Unreadable language fallback");
                 if (!hasAction(ClickEvent.Action.RUN_COMMAND, "page 2")) throw new AssertionError("Next page action missing");
+                messages.clear(); command(server, "page");
+                if (!has("page")) throw new AssertionError("Page shortcut did not show the first results");
                 messages.clear(); command(server, "page 2");
                 if (!hasAction(ClickEvent.Action.RUN_COMMAND, "page 1")) throw new AssertionError("Previous page action missing");
                 command(server, "page 7");
                 if (has("page_missing")) throw new AssertionError("Retained final page unavailable");
-                command(server, "search 1000 archetype=classic edge=coastal");
+                command(server, "search 1000 archetype=classic shoreline=coastal");
                 if (!has("invalid")) throw new AssertionError("Conflicting filters accepted");
                 report.addProperty("firstPageMatches", results);
                 report.addProperty("automaticCells", (int)args[0]);
                 messages.clear(); command(server, "search 48000 biome=minecraft:the_void");
                 command(server, "page 1");
-                if (!has("page_provisional")) throw new AssertionError("Running cursor cannot be paged");
-                command(server, "more");
-                if (!has("progress")) throw new AssertionError("Legacy more alias is not an observational status");
+                if (!has("no_match_yet") || has("page_provisional"))
+                    throw new AssertionError("Running empty search displayed a blank results page");
+                command(server, "status");
+                if (!has("progress")) throw new AssertionError("Status did not report current progress");
                 phase = 1;
             } else if (phase == 1) {
                 messages.clear(); command(server, "status");
@@ -86,12 +98,13 @@ final class LocatorProbe {
                     throw new AssertionError("Cancellation case already complete");
                 command(server, "cancel");
                 if (!has("cancelled")) throw new AssertionError("Cancellation not acknowledged");
-                messages.clear(); command(server, "more");
+                messages.clear(); command(server, "status");
                 if (!has("missing")) throw new AssertionError("Cancelled cursor remained active");
                 messages.clear(); command(server, "search 1 biome=minecraft:the_void"); phase = 2;
             } else if (phase == 2) {
                 if (!has("complete")) return;
                 if (!has("no_match")) throw new AssertionError("Completed absence not reported");
+                if (has("page")) throw new AssertionError("Completed empty search displayed a blank results page");
                 if (messages.stream().filter(m -> key(m).equals("complete")).count() != 1)
                     throw new AssertionError("Cancelled stale callback published a completion");
                 // Ordinary ticks may unload startup chunks. The observer must not add any.

@@ -26,6 +26,7 @@ public abstract class StructureSupportMixin {
         if (!report.accepted() || report.category() != StructurePlacementCategory.SKY
                 || !context.structureId().equals(ResourceLocation.fromNamespaceAndPath("skyvillages", "skyvillage"))) return;
         var bounds = start.getBoundingBox();
+        VillagePlan.Anchor expectedHost = null;
         if ((Object)context.islandField() instanceof ProfiledTerrain terrain && terrain.skyweave$profile() != null
                 && design.inherent.skyweavecompat.OptionalIntegrations.enabled(design.inherent.skyweavecompat.Feature.VILLAGE_PLACEMENT)) {
             var anchors = (VillageAnchors)(Object)context.islandField();
@@ -33,13 +34,14 @@ public abstract class StructureSupportMixin {
             int centerX = (bounds.minX() + bounds.maxX()) / 2, centerZ = (bounds.minZ() + bounds.maxZ()) / 2;
             var sourceOwner = VillagePlan.owner(sourceX, sourceZ, anchors.skyweave$anchorsNear(sourceX, sourceZ, context.settings()));
             var finalOwner = VillagePlan.owner(centerX, centerZ, anchors.skyweave$anchorsNear(centerX, centerZ, context.settings()));
+            expectedHost = sourceOwner;
             if (sourceOwner == null || !sourceOwner.equals(finalOwner)) {
                 callback.setReturnValue(report.withAccepted(false));
                 return;
             }
         }
         var footprint = new NeighborRule.Footprint(bounds.minX(), bounds.minZ(), bounds.maxX(), bounds.maxZ());
-        var decision = NeighborRule.evaluate(footprint, NeighborConfig.settings(), new IslandTerrain(context));
+        var decision = NeighborRule.evaluate(footprint, NeighborConfig.settings(), new IslandTerrain(context, expectedHost));
         if (decision == NeighborRule.Decision.TOO_CLOSE || decision == NeighborRule.Decision.NO_HOST) {
             LogUtils.getLogger().debug("Skyweave: Compatibility Patches rejected {}: {}", bounds, decision);
             callback.setReturnValue(report.withAccepted(false));

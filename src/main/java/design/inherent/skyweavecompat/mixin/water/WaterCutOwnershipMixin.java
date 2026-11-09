@@ -31,7 +31,7 @@ public abstract class WaterCutOwnershipMixin {
         int maximumY = generator.getMinY() + generator.getGenDepth();
         if (column.segments().isEmpty() || column.dominantDescriptor() == null
                 || column.dominantDescriptor().archetype().waterBased()
-                || ((InteriorField)(Object)field).skyweave$isApron(column.dominantDescriptor(), Mth.floor(x), Mth.floor(z),
+                || ((InteriorField)(Object)field).skyweave$isFringe(column.dominantDescriptor(), Mth.floor(x), Mth.floor(z),
                         sky.resolvedSkyIslandSettings()))
             return IslandWaterColumns.unchanged(originalY, maximumY);
         var top = column.segments().getFirst();

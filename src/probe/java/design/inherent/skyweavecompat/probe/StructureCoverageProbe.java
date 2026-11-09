@@ -26,6 +26,15 @@ final class StructureCoverageProbe {
     private static Path pendingOutput;
 
     static void run(MinecraftServer server, Path output) throws Exception {
+        if (Boolean.getBoolean("neighbors.probe.skyNeighborhood")) {
+            SkyVillageProbe.run(server, output); return;
+        }
+        String review = System.getProperty("neighbors.probe.settlementReview", "");
+        if (!review.isEmpty()) {
+            if (!Set.of("allowances", "fits").contains(review)) throw new IllegalArgumentException("Unknown settlement review: " + review);
+            SettlementReviewProbe.run(server, output, review.equals("fits"));
+            return;
+        }
         var level = server.overworld();
         var generator = (SkyIslandChunkGenerator)level.getChunkSource().getGenerator();
         var state = level.getChunkSource().getGeneratorState();
@@ -52,14 +61,33 @@ final class StructureCoverageProbe {
                 var distribution = ((design.inherent.skyweavecompat.terrain.structure.StructurePlacementState)state).skyweave$structureDistribution();
                 if (distribution == null) throw new IllegalArgumentException("Managed family fixture requires structure distribution");
                 var selected = new TreeSet<String>();
+                var survey = new JsonArray();
+                var surveyed = new HashSet<design.inherent.skyweavecompat.terrain.structure.StructureSelection.Owner>();
                 for (var anchor : anchors) {
                     var owner = anchor.terrainPlan() == null ? distribution.owner(anchor.x(), anchor.z())
                             : distribution.owner(anchor.terrainPlan().descriptor());
-                    if (owner == null) continue;
-                    distribution.plan(owner).layouts().getOrDefault(selectedFamily, List.of())
+                    if (owner == null || !surveyed.add(owner)) continue;
+                    var plan = distribution.plan(owner);
+                    var row = new JsonObject();
+                    row.add("owner", new Gson().toJsonTree(owner));
+                    row.add("eligibleChunks", new Gson().toJsonTree(plan.eligibleChunks()));
+                    var allowances = new JsonObject();
+                    for (var family : design.inherent.skyweavecompat.terrain.structure.StructureFamily.values())
+                        allowances.addProperty(family.key, design.inherent.skyweavecompat.terrain.structure.StructureSelection.allowance(
+                                level.getSeed(), owner, family, plan.eligibleChunks().getOrDefault(family, 0.0),
+                                design.inherent.skyweavecompat.terrain.structure.StructureConfiguration.policy()));
+                    row.add("allowances", allowances);
+                    row.add("sites", new Gson().toJsonTree(plan.sites()));
+                    survey.add(row);
+                    plan.layouts().getOrDefault(selectedFamily, List.of())
                             .forEach(layout -> selected.add(layout.id().toString()));
                 }
-                if (selected.isEmpty()) throw new AssertionError("No fitted " + selectedId + " in this bounded fixture");
+                report.add("familySurvey", survey);
+                if (selected.isEmpty()) {
+                    report.addProperty("complete", false);
+                    Files.writeString(output, new GsonBuilder().setPrettyPrinting().create().toJson(report));
+                    throw new AssertionError("No fitted " + selectedId + " in this bounded fixture; inspect familySurvey");
+                }
                 names = List.copyOf(selected);
                 report.add("selectedFamilyVariants", new Gson().toJsonTree(names));
             } else if (selectedId.contains(":")) {

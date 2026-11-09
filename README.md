@@ -149,7 +149,7 @@ use island-relative heights rather than vanilla world altitude. The preset retai
 stacked exterior terrain and offers baseline, noise-cave and hollow interiors with
 separate controls for openings and native carving. Sky Archipelago 1.4 supplies
 the exterior shapes. An optional Dynamic Waters adapter supplies island-local
-rivers and lakes while the native planner stays off. Granular aprons add detached
+rivers and lakes while the native planner stays off. Fragment fringes add detached
 outer terrain without consuming the main body. Optional floating-ocean settings add coastal
 outlets to native wet profiles; falling perimeters remain opt-in and the global ocean stays off.
 Ancient Cities fit inside Deep Dark hosts, including suitable hollow interiors.
@@ -169,7 +169,7 @@ and [terrain](docs/development/terrain.md) for implementation limits.
 
 The default rule requires at least **64 blocks** between the village's full
 horizontal bounds and predicted island terrain. It also requires a sampled terrain
-column within **512 blocks** belonging to an island with a native radius of at
+column within **128 blocks** belonging to an island with a native radius of at
 least **96 blocks**. These distances are measured between block columns, not from
 the village center.
 
@@ -199,6 +199,12 @@ Operators can verify structures without blocking a synchronous `/locate` search:
 ```
 
 Use one family, registered structure ID or structure tag. Results contain verified native starts; click coordinates to prepare a teleport. Where native placement has no meaningful altitude, the displayed Y comes from the saved start's bounds. Nothing teleports automatically. The search continues on its own, retains up to64 nearby matches and pages ten at a time. One structure search may run per server; its requester owns cancellation.
+
+Both `islands` and `structures` show periodic progress while running. Players see
+action-bar updates; console users receive less frequent messages. `page` opens
+the first results page. Empty searches show an explanation instead of a blank
+page; an unfinished structure search does not establish absence. Island results
+are planned centers, while structure results are verified native starts.
 
 Verification can generate and save early chunk metadata. It requests `STRUCTURE_STARTS`, with at most two native requests at once, and does not deliberately generate full terrain. Time/candidate exhaustion returns **partial** results, not proof of absence or of the nearest possible structure. Only an exhausted supported search domain is complete. Unsupported placements, including concentric-ring strongholds, are reported explicitly. Ordinary vanilla `/locate`, exploration maps and other synchronous callers retain their existing behavior and can still be expensive.
 

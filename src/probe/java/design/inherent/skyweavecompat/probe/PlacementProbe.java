@@ -203,7 +203,10 @@ public final class PlacementProbe {
                 asynchronous = true; return;
             }
             if (Boolean.getBoolean("neighbors.probe.perimeter")) {
-                PerimeterProbe.run(server, Path.of(System.getProperty("neighbors.probe.output")));
+                if (Boolean.getBoolean("neighbors.probe.oceanFringes")) {
+                    OceanFringeProbe.run(server, Path.of(System.getProperty("neighbors.probe.output")));
+                    settleTicks = 100;
+                } else FringeProbe.run(server, Path.of(System.getProperty("neighbors.probe.output")));
                 return;
             }
             if (Boolean.getBoolean("neighbors.probe.hydrology")) {
@@ -215,7 +218,7 @@ public final class PlacementProbe {
                 AnalogAudioProbe.run(server, Path.of(System.getProperty("neighbors.probe.output")));
                 return;
             }
-            check(NeighborConfig.settings().maximumGap() == Integer.getInteger("neighbors.probe.expectedMaximumGap", 512), "Config not applied at server start");
+            check(NeighborConfig.settings().maximumGap() == Integer.getInteger("neighbors.probe.expectedMaximumGap", 128), "Config not applied at server start");
             if (Boolean.getBoolean("neighbors.probe.variation")) {
                 VariationProbe.run(server, Path.of(System.getProperty("neighbors.probe.output")));
                 return;

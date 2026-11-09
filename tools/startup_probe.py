@@ -64,7 +64,9 @@ def main():
                     meta = (tomllib.loads(jar.read('META-INF/neoforge.mods.toml').decode())
                             if 'META-INF/neoforge.mods.toml' in jar.namelist() else {})
                 ids = {entry['modId'] for entry in meta.get('mods', [])}
-                if ids & {'skyweave_compat', 'create_sky_compat', 'veil_iris_fix', 'sky_village_neighbors'}:
+                retired = ids & {'create_sky_compat', 'sky_village_neighbors', 'veil_iris_fix'}
+                if retired: raise SystemExit('Remove retired integration artifacts from fixture inputs: ' + ', '.join(sorted(retired)))
+                if 'skyweave_compat' in ids:
                     continue
                 if args.scenario in {'terrain', 'terrain-disabled'} and 'sky_archipelago' not in ids:
                     continue

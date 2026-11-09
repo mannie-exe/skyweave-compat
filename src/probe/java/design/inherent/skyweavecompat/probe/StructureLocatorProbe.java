@@ -48,6 +48,9 @@ final class StructureLocatorProbe {
                 var values = ((TranslatableContents)terminal.getContents()).getArgs();
                 var run = new JsonObject(); run.addProperty("outcome", key(terminal));
                 run.addProperty("candidates", ((Number)values[0]).intValue()); run.addProperty("matches", ((Number)values[1]).intValue());
+                if (((Number)values[1]).intValue() == 0 && (has("page")
+                        || !has(key(terminal).equals("complete") ? "empty_complete" : "empty_partial")))
+                    throw new AssertionError("Empty results must explain coverage instead of displaying a blank page");
                 var results = new JsonArray();
                 for (var message : messages) if (key(message).equals("result")) {
                     var args = ((TranslatableContents)message.getContents()).getArgs();
@@ -58,6 +61,9 @@ final class StructureLocatorProbe {
                     results.add(message.getString());
                 }
                 run.add("firstPage", results); run.addProperty("serverTicks", ticks);
+                command(server, "page");
+                if (((Number)values[1]).intValue() > 0 && !has("page"))
+                    throw new AssertionError("Page shortcut did not show retained results");
                 report.add(phase == 0 ? "cold" : "warm", run);
                 if (terminal.getString().contains("skyweave_compat.structures.")) throw new AssertionError("Missing readable fallback");
                 if (maxGap > java.util.concurrent.TimeUnit.SECONDS.toNanos(5)) throw new AssertionError("Search stalled ordinary server ticks");
@@ -75,6 +81,10 @@ final class StructureLocatorProbe {
                 }
                 messages.clear(); command(server, "search 1 family=villages"); phase = 3; phaseTick = ticks;
             } else if (phase == 3 && has("complete") && ticks - phaseTick >= 20) {
+                var completion = messages.stream().filter(m -> key(m).equals("complete")).findFirst().orElseThrow();
+                if (((Number)((TranslatableContents)completion.getContents()).getArgs()[1]).intValue() == 0
+                        && (!has("empty_complete") || has("page")))
+                    throw new AssertionError("Completed empty search displayed a blank results page");
                 long completions = messages.stream().filter(m -> key(m).equals("complete")).count();
                 if (completions != 1) throw new AssertionError("Cancelled callback published stale completion");
                 messages.clear(); command(server, "search 100 structure=minecraft:stronghold");

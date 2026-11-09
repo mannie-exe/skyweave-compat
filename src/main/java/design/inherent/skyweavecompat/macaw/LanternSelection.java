@@ -15,8 +15,14 @@ public final class LanternSelection {
         if (((ClipModeAccessor) context).skyweave$blockMode() != ClipContext.Block.OUTLINE
                 || !(getter instanceof Level level) || context.getFrom().equals(context.getTo())) return nativeHit;
         var from = context.getFrom();
+        var to = context.getTo();
+        if (!finite(from) || !finite(to)) return nativeHit;
         var end = nativeHit.getType() == HitResult.Type.MISS ? context.getTo() : nativeHit.getLocation();
+        if (!finite(end) || !SelectionRay.contains(to.x - from.x, to.y - from.y, to.z - from.z,
+                end.x - from.x, end.y - from.y, end.z - from.z)) return nativeHit;
+        long[] remaining = {SelectionRay.cellBudget(from.x, from.y, from.z, end.x, end.y, end.z)};
         var found = BlockGetter.traverseBlocks(from, end, context, (ray, cell) -> {
+            if (remaining[0]-- <= 0) return nativeHit;
             BlockHitResult nearest = null;
             // Each rotated lantern overhangs one horizontal face and the cell below.
             for (int dy = 0; dy <= 1; dy++) {
@@ -38,6 +44,10 @@ public final class LanternSelection {
             return nearest;
         }, ray -> null);
         return found == null ? nativeHit : found;
+    }
+
+    private static boolean finite(net.minecraft.world.phys.Vec3 point) {
+        return Double.isFinite(point.x) && Double.isFinite(point.y) && Double.isFinite(point.z);
     }
 
     private static boolean inCell(BlockHitResult hit, BlockPos cell) {

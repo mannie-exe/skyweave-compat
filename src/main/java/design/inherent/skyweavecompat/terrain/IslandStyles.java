@@ -7,7 +7,7 @@ import org.sathrek.sky_archipelago.worldgen.generator.field.model.*;
 /** Seeded horizontal modifiers and ecology metadata, memoized by one native field. */
 public final class IslandStyles {
     public enum Kind { NATIVE, FRACTURED, DEEP_DARK }
-    public record Style(Kind kind, boolean disturbed, String hostBiome) {}
+    public record Style(Kind kind, IslandComponents.Fringe fringe, String hostBiome) {}
     private final ShapeProfile profile;
     private final BiomeTerrainSampler biomes;
     private final Cache<IslandDescriptor, Style> styles = CacheBuilder.newBuilder().maximumSize(8192).build();
@@ -28,10 +28,13 @@ public final class IslandStyles {
                     kind = Kind.DEEP_DARK;
                 else if (f.biomes().contains(id) && unit(island.seed(), 0x39a280b3L) < f.chance()) kind = Kind.FRACTURED;
             }
-            return new Style(kind, profile.enabled()
-                    && island.family() != IslandFamily.SPIRE && profile.edges().enabled()
-                    && profile.edges().falloffDistance() > 0 && profile.edges().fragmentDepthRatio() > 0
-                    && profile.edges().density() > 0, id);
+            boolean fringed = profile.enabled() && island.family() != IslandFamily.SPIRE
+                    && profile.fringe().enabled() && profile.fringe().falloffDistance() > 0
+                    && profile.fringe().fragmentDepthRatio() > 0 && profile.fringe().density() > 0;
+            var fringe = !fringed ? IslandComponents.Fringe.NONE
+                    : FragmentFringes.disintegrating(island.seed(), profile.fringe())
+                        ? IslandComponents.Fringe.DISINTEGRATING : IslandComponents.Fringe.MIXED;
+            return new Style(kind, fringe, id);
         }); } catch (java.util.concurrent.ExecutionException error) { throw new IllegalStateException("Cannot resolve island style", error.getCause()); }
     }
     public static double aspect(long seed, ShapeProfile profile) {

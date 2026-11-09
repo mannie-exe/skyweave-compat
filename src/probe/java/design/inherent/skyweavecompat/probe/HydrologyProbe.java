@@ -275,7 +275,7 @@ public final class HydrologyProbe {
             for (int z = anchor.z() - 512; z <= anchor.z() + 512; z += 64) {
                 var col = ((InteriorField)(Object)field).skyweave$planningColumn(x, z, settings, TerrainStage.EXTERIOR);
                 int expected = col.segments().isEmpty() || col.dominantDescriptor() != null && col.dominantDescriptor().archetype().waterBased()
-                        || ((InteriorField)(Object)field).skyweave$isApron(col.dominantDescriptor(), x, z, settings)
+                        || ((InteriorField)(Object)field).skyweave$isFringe(col.dominantDescriptor(), x, z, settings)
                         ? generator.getMinY() : col.segments().getFirst().topY() + 1;
                 int sampled = CoarseHeightField.surfaceAt(x, z, generator, random);
                 int cached = CoarseHeightField.sample(Math.floorDiv(x, 8), Math.floorDiv(z, 8), generator, random);
@@ -301,7 +301,7 @@ public final class HydrologyProbe {
                 var boundary = (InteriorField)(Object)field;
                 var mouth = boundary.skyweave$planningColumn(mx, mz, settings, TerrainStage.EXTERIOR);
                 boolean voidMouth = mouth.segments().isEmpty()
-                        || boundary.skyweave$isApron(mouth.dominantDescriptor(), mx, mz, settings);
+                        || boundary.skyweave$isFringe(mouth.dominantDescriptor(), mx, mz, settings);
                 int sourceY = path.segmentsY[path.validNodeCount - 1];
                 if (voidMouth && sourceY > generator.getSeaLevel() + 96 && path.segmentsY[0] == generator.getSeaLevel() - 1)
                     throw new AssertionError("High island outlet still targets global sea level");

@@ -46,7 +46,7 @@ public abstract class OceanShapeMixin implements ProfiledTerrain, StyledTerrain 
         if (island.archetype().waterBased()) {
             // Native water kernels return discontinuous +/-1 outside their footprint.
             // Reuse their actual occupancy instead of deriving distance from that sentinel.
-            if (!style.disturbed() || coverage > -.5) return horizontal;
+            if (style.fringe() == IslandComponents.Fringe.NONE || coverage > -.5) return horizontal;
             OceanPerimeter perimeter;
             try {
                 perimeter = skyweave$oceanPerimeters.get(plan, () -> OceanPerimeter.sample(island.centerX(), island.centerZ(),
@@ -56,30 +56,30 @@ public abstract class OceanShapeMixin implements ProfiledTerrain, StyledTerrain 
             }
             double dx = wx - island.centerX(), dz = wz - island.centerZ();
             double outside = perimeter.outsideDistance(dx, dz);
-            if (outside < 0 || outside >= GranularEdges.width(island.seed(), radius, profile.edges())) return horizontal;
+            if (outside < 0 || outside >= FragmentFringes.width(island.seed(), radius, profile.fringe())) return horizontal;
             // Keep the open-cove mouth free of added islands in its discharge direction.
-            if (OceanIslands.wetArchetype(island.archetype())
+            if (OceanIslands.supportsShorelineTreatment(island.archetype())
                     && OceanConfiguration.profile().mode(island.seed()) == OceanProfile.Mode.COASTAL
                     && OceanIslands.coveOpening(island, horizontal.localX(), horizontal.localZ(), OceanConfiguration.profile()) > 0)
                 return horizontal;
             double length = Math.hypot(dx, dz);
             if (length == 0) return horizontal;
             double angle = Math.atan2(horizontal.localZ() / island.radiusZ(), horizontal.localX() / island.radiusX());
-            var boundary = new GranularEdges.Boundary(angle, outside,
+            var boundary = new FragmentFringes.Boundary(angle, outside,
                     (dx * plan.cosRotation() + dz * plan.sinRotation()) / length,
                     (dz * plan.cosRotation() - dx * plan.sinRotation()) / length);
             int nominal = (int)Math.round(1.18 * (island.plateauHeight() + .97 * island.cliffDepth()) + 3.2);
-            var fragment = GranularEdges.sample(island.seed(), horizontal.localX(), horizontal.localZ(), boundary,
-                    radius, nominal, profile.edges());
+            var fragment = FragmentFringes.sample(island.seed(), horizontal.localX(), horizontal.localZ(), boundary,
+                    radius, nominal, profile.fringe());
             if (fragment == null) return horizontal;
             var remnant = new HorizontalSample(horizontal.localX(), horizontal.localZ(), .2, horizontal.branchCoverage(),
                     horizontal.edgeDistance(), horizontal.attachmentStrength(), true);
-            ((PerimeterColumn)(Object)remnant).skyweave$fragment(fragment);
+            ((FringeColumn)(Object)remnant).skyweave$fragment(fragment);
             return remnant;
         }
-        if (coverage <= .1 && style.disturbed()) {
+        if (coverage <= .1 && style.fringe() != IslandComponents.Fringe.NONE) {
             double outside = (.1 - coverage) * radius * .5;
-            if (outside >= GranularEdges.width(island.seed(), radius, profile.edges())) return horizontal;
+            if (outside >= FragmentFringes.width(island.seed(), radius, profile.fringe())) return horizontal;
             // Inner Crescent lips point toward increasing radius: keep their opening clear.
             double gx = original.call(plan, wx + 2, wz).coverage() - original.call(plan, wx - 2, wz).coverage();
             double gz = original.call(plan, wx, wz + 2).coverage() - original.call(plan, wx, wz - 2).coverage();
@@ -88,15 +88,15 @@ public abstract class OceanShapeMixin implements ProfiledTerrain, StyledTerrain 
             int nominal = (int)Math.round(1.18 * (island.plateauHeight() + .97 * island.cliffDepth()) + 3.2);
             double gradient = Math.hypot(gx, gz);
             if (gradient < 1e-9) return horizontal;
-            var boundary = new GranularEdges.Boundary(angle, outside,
+            var boundary = new FragmentFringes.Boundary(angle, outside,
                     -(gx * plan.cosRotation() + gz * plan.sinRotation()) / gradient,
                     -(gz * plan.cosRotation() - gx * plan.sinRotation()) / gradient);
-            var fragment = GranularEdges.sample(island.seed(), horizontal.localX(), horizontal.localZ(), boundary,
-                    radius, nominal, profile.edges());
+            var fragment = FragmentFringes.sample(island.seed(), horizontal.localX(), horizontal.localZ(), boundary,
+                    radius, nominal, profile.fringe());
             if (fragment == null) return horizontal;
             var remnant = new HorizontalSample(horizontal.localX(), horizontal.localZ(), .2, horizontal.branchCoverage(),
                     horizontal.edgeDistance(), horizontal.attachmentStrength(), true);
-            ((PerimeterColumn)(Object)remnant).skyweave$fragment(fragment);
+            ((FringeColumn)(Object)remnant).skyweave$fragment(fragment);
             return remnant;
         }
         if (style.kind() != IslandStyles.Kind.NATIVE) {

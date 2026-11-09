@@ -148,7 +148,7 @@ Sky Archipelago 1.4 owns the native solid/fluid column, shoreline seal and water
 
 Completed point queries and chunk filling consume the same cached native snapshot, including interpolation, hydrology, shoreline sealing, peak cleanup and sidewall treatment. EXTERIOR and INTERIOR planning reads retain their separate earlier meanings and never load neighboring chunks or tick fluids. The earlier raw exterior is not necessarily byte-identical to a completed surface after native interpolation and cleanup.
 
-The Dynamic Waters bridge substitutes accepted EXTERIOR main-body heights for the vanilla density-router shortcut. `DrainageBoundary` distinguishes supported land, physically present native water and terminal void, including detached apron remnants. Ocean biome names alone do not prove that water exists. `WaterSinksMixin` uses local rim/water elevations in sink settlement and mouth emission, terminates mouth walking at the first physical boundary, and disables the upstream sideways sea-contact shortcut in marked worlds. Routing metadata may reach terminal sky; it never authorizes foundations or source-water shelves there.
+The Dynamic Waters bridge substitutes accepted EXTERIOR main-body heights for the vanilla density-router shortcut. `DrainageBoundary` distinguishes supported land, physically present native water and terminal void, including detached fringe remnants. Ocean biome names alone do not prove that water exists. `WaterSinksMixin` uses local rim/water elevations in sink settlement and mouth emission, terminates mouth walking at the first physical boundary, and disables the upstream sideways sea-contact shortcut in marked worlds. Routing metadata may reach terminal sky; it never authorizes foundations or source-water shelves there.
 
 Water proposals precede cavity subtraction. The resolver receives an optional per-contributor bed protector from `IslandWaterColumns`. It asks upstream carving against EXTERIOR under an explicit early-stage scope, retains the configured inclusive shell beneath an admitted bed, then subtracts the remaining interior. The bounded field-local floor cache contains immutable decisions; it does not store mutable carving objects. A contributor cannot retain rock outside its original envelope or protect an unrelated overlapping island. Raw proposal reads bypass the INTERIOR admission wrapper, preventing a planning cycle.
 
@@ -494,15 +494,9 @@ selects stable random-spread candidates per anchor; it never uses mutable accept
 counters or chunk visitation order. Companion islands do not receive separate
 quotas. Layout, biome and clearance rejection can reduce the realized count.
 
-The candidate grid uses 24-chunk spacing and 12-chunk separation. A candidate
-belongs to the nearest anchor, with coordinate tie-breaking. It must pass a cheap
-center-biome eligibility check before selection. Seeded ranking selects at most
-the anchor's allowance, leaving at least 384 blocks between its candidate centers.
-Native Jigsaw still checks the actual start-piece center biome and native layouts
-still pass complete-footprint clearance. The preliminary ring reserves 128 blocks
-for layout extent; it does not replace the final terrain check. Original salt,
-spread type, frequency, exclusion-zone checks and locate behavior are retained.
-Registered structure sets and ordinary Sky Archipelago worlds remain unchanged.
+The marked preset uses four-chunk spacing and two-chunk separation for candidate coverage near shaped shores. A provisional 144-block footprint receives coarse exterior/host checks before seeded selection; the native complete layout still passes exact clearance. The host must be a substantial body in the assigned cluster, not a detached fringe. Disabling clearance also disables that provisional screen rather than eliminating every site. No fine-grid change is applied to ordinary upstream presets.
+
+Candidates belong to their nearest anchor, with coordinate tie-breaking. Center-biome screening, seeded ranking and a minimum 384-block separation retain the per-anchor allowance. Native Jigsaw checks its actual start-piece biome and may reject or move a layout through bounded retries. A circular inner annulus cannot represent crescent/elliptical shores and is not used as proof of proximity. Original salt, spread type, frequency, exclusion-zone checks and locate behavior retain their owners.
 
 Candidate admission also reserves a 192-block square inside the anchor's nearest-
 center region: 32 blocks for upstream SKY biome retries and 160 for layout extent.

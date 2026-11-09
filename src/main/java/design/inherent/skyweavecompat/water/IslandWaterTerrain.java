@@ -20,7 +20,7 @@ public final class IslandWaterTerrain {
                 island.resolvedSkyIslandSettings(), TerrainStage.EXTERIOR);
         return column.segments().isEmpty() || column.dominantDescriptor() != null
                 && column.dominantDescriptor().archetype().waterBased()
-                || ((InteriorField)(Object)field).skyweave$isApron(column.dominantDescriptor(), x, z,
+                || ((InteriorField)(Object)field).skyweave$isFringe(column.dominantDescriptor(), x, z,
                         island.resolvedSkyIslandSettings())
                 ? generator.getMinY() : column.segments().getFirst().topY() + 1;
     }

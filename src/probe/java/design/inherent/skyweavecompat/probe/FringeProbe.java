@@ -14,7 +14,7 @@ import org.sathrek.sky_archipelago.worldgen.generator.field.internal.IslandShape
 import org.sathrek.sky_archipelago.worldgen.generator.field.model.IslandFamily;
 
 /** Exact added-remnant witnesses through metadata, columns, base queries and native noise fill. */
-final class PerimeterProbe {
+final class FringeProbe {
     static void run(MinecraftServer server, Path output) throws Exception {
         var level = server.overworld();
         var generator = (SkyIslandChunkGenerator)level.getChunkSource().getGenerator();
@@ -34,20 +34,20 @@ final class PerimeterProbe {
         int before = level.getChunkSource().getLoadedChunksCount(), checked = 0;
         for (var preview : previews) {
             var plan = preview.terrainPlan(); var island = plan.descriptor();
-            boolean disintegrating = GranularEdges.disintegrating(island.seed(), ShapeConfiguration.profile().edges());
+            boolean disintegrating = FragmentFringes.disintegrating(island.seed(), ShapeConfiguration.profile().fringe());
             if (profiles.contains(disintegrating) && archetypes.contains(island.archetype()) && ellipse) continue;
             var bounds = plan.bounds();
             boolean found = false;
             for (int x = bounds.minX(); x <= bounds.maxX() && !found; x += 8)
                 for (int z = bounds.minZ(); z <= bounds.maxZ() && !found; z += 8) {
                     var horizontal = sampler.sampleHorizontal(plan, x, z);
-                    var fragment = ((PerimeterColumn)(Object)horizontal).skyweave$fragment();
+                    var fragment = ((FringeColumn)(Object)horizontal).skyweave$fragment();
                     if (fragment == null || fragment.depth() < 80) continue;
                     int top = island.centerY() + island.plateauHeight() + fragment.topOffset();
                     int bottom = top - fragment.depth() + 1;
                     if (bottom < GenerationProfile.MIN_Y + GenerationConfiguration.profile().floorClearance()
                             || top >= GenerationProfile.MAX_Y - GenerationConfiguration.profile().buildingHeadroom())
-                        throw new AssertionError("Apron exceeds the reserved envelope");
+                        throw new AssertionError("Fringe exceeds the reserved envelope");
                     int middle = Math.floorDiv(bottom + top, 2);
                     var column = ((InteriorField)(Object)field).skyweave$planningColumn(x, z, settings, TerrainStage.EXTERIOR);
                     if (!island.equals(column.dominantDescriptor())) continue;
@@ -76,7 +76,7 @@ final class PerimeterProbe {
             var row = entry.getAsJsonObject();
             int x = row.get("x").getAsInt(), z = row.get("z").getAsInt(), y = row.get("middle").getAsInt();
             var chunk = level.getChunk(Math.floorDiv(x, 16), Math.floorDiv(z, 16), ChunkStatus.NOISE);
-            if (chunk.getBlockState(new BlockPos(x, y, z)).isAir()) throw new AssertionError("Native fill lost a planned apron");
+            if (chunk.getBlockState(new BlockPos(x, y, z)).isAir()) throw new AssertionError("Native fill lost a planned fringe");
             row.addProperty("nativeFilled", true);
         }
         var report = new JsonObject(); report.addProperty("complete", true); report.addProperty("seed", level.getSeed());

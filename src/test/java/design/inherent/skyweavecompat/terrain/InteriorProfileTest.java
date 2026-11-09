@@ -7,15 +7,10 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class InteriorProfileTest {
-    @Test void legacyProfilesKeepExplicitPolicyAndReceiveBoundedHollowSkylights() {
+    @Test void missingSkylightPolicyIsRejectedInsteadOfInserted() {
         var json = JsonParser.parseString(new Gson().toJson(InteriorProfile.INITIAL)).getAsJsonObject();
-        json.remove("skylights"); json.addProperty("openingChance", 0); json.addProperty("nativeCarvers", false);
-        var parsed = InteriorConfiguration.parse(json.toString());
-        assertEquals(0, parsed.openingChance());
-        assertFalse(parsed.nativeCarvers());
-        assertFalse(parsed.skylights().noiseInteriors());
-        var normalized = InteriorConfiguration.parse(InteriorConfiguration.normalize(json.toString()));
-        assertEquals(parsed, normalized);
+        json.remove("skylights");
+        assertThrows(IllegalArgumentException.class, () -> InteriorConfiguration.parse(json.toString()));
         json.add("skylights", new JsonObject());
         assertThrows(IllegalArgumentException.class, () -> InteriorConfiguration.parse(json.toString()));
     }

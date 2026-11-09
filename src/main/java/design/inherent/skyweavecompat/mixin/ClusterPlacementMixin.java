@@ -57,7 +57,7 @@ public abstract class ClusterPlacementMixin implements ClusterField {
         // Sampling a coarse grid could miss narrow native reef/rim remnants.
         for (int x = minX; x <= maxX; x++) for (int z = minZ; z <= maxZ; z++) {
             var horizontal = shapeSampler.sampleHorizontal(ocean, x, z);
-            if (horizontal.inInfluence() && (((PerimeterColumn)(Object)horizontal).skyweave$fragment() != null
+            if (horizontal.inInfluence() && (((FringeColumn)(Object)horizontal).skyweave$fragment() != null
                     || shapeSampler.sampleWaterArchetypeColumnProfile(ocean.descriptor(), horizontal).exists()))
                 return false;
         }

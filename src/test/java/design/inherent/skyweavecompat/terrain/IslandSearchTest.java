@@ -38,16 +38,18 @@ class IslandSearchTest {
         assertTrue(edge.total() <= 4);
     }
     @Test void filtersRejectContradictionsAndRetainCombinedCriteria() {
-        assertEquals(Map.of("family", "anchor_plateau", "archetype", "lagoon", "edge", "perimeter"),
-                IslandLocator.filters("archetype=lagoon edge=perimeter"));
+        assertEquals(Map.of("family", "anchor_plateau", "archetype", "lagoon", "shoreline", "perimeter"),
+                IslandLocator.filters("archetype=lagoon shoreline=perimeter"));
         assertEquals(Map.of("exterior", "fractured"), IslandLocator.filters("family=any exterior=fractured"));
-        assertEquals(Map.of("family", "anchor_plateau", "archetype", "crescent", "edge", "disintegrating"),
-                IslandLocator.filters("archetype=crescent edge=disintegrating"));
-        assertThrows(IllegalArgumentException.class, () -> IslandLocator.filters("archetype=lagoon edge=mixed"));
-        assertEquals(Map.of("family", "anchor_plateau", "archetype", "lagoon", "edge", "coastal", "apron", "disintegrating"),
-                IslandLocator.filters("archetype=lagoon edge=coastal apron=disintegrating"));
-        assertThrows(IllegalArgumentException.class, () -> IslandLocator.filters("apron=coastal"));
-        assertThrows(IllegalArgumentException.class, () -> IslandLocator.filters("archetype=classic edge=coastal"));
+        assertEquals(Map.of("family", "anchor_plateau", "archetype", "crescent", "fringe", "disintegrating"),
+                IslandLocator.filters("archetype=crescent fringe=disintegrating"));
+        assertEquals("mixed", IslandLocator.filters("archetype=lagoon fringe=mixed").get("fringe"));
+        assertThrows(IllegalArgumentException.class, () -> IslandLocator.filters("edge=coastal"));
+        assertThrows(IllegalArgumentException.class, () -> IslandLocator.filters("apron=mixed"));
+        assertEquals(Map.of("family", "anchor_plateau", "archetype", "lagoon", "shoreline", "coastal", "fringe", "disintegrating"),
+                IslandLocator.filters("archetype=lagoon shoreline=coastal fringe=disintegrating"));
+        assertThrows(IllegalArgumentException.class, () -> IslandLocator.filters("fringe=coastal"));
+        assertThrows(IllegalArgumentException.class, () -> IslandLocator.filters("archetype=classic shoreline=coastal"));
         assertThrows(IllegalArgumentException.class, () -> IslandLocator.filters("interior=hollow interior=noise"));
         assertThrows(IllegalArgumentException.class, () -> IslandLocator.filters("unknown=value"));
     }

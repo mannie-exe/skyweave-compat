@@ -30,7 +30,7 @@ public final class ArchipelagoVillagePlacement extends RandomSpreadStructurePlac
     public ArchipelagoVillagePlacement(RandomSpreadStructurePlacement original, IslandField field,
             SkyIslandSettings settings, long worldSeed, NeighborRule.Settings policy,
             BiomeSource biomes, RandomState random, HolderSet<Biome> allowedBiomes) {
-        super(24, 12, original.spreadType(), ((PlacementSaltAccessor)original).skyweave$salt());
+        super(4, 2, original.spreadType(), ((PlacementSaltAccessor)original).skyweave$salt());
         this.original = original; this.field = field; this.settings = settings; this.worldSeed = worldSeed; this.policy = policy;
         this.biomes = biomes; this.random = random; this.allowedBiomes = allowedBiomes;
     }
@@ -58,6 +58,9 @@ public final class ArchipelagoVillagePlacement extends RandomSpreadStructurePlac
             var chunk = getPotentialStructureChunk(worldSeed, x * spacing(), z * spacing());
             var site = new VillagePlan.Site(chunk.x, chunk.z);
             if (!staysWithAnchor(anchor, site)) continue;
+            var footprint = new NeighborRule.Footprint(site.x() - 72, site.z() - 72, site.x() + 72, site.z() + 72);
+            if (policy.enabled() && NeighborRule.coarseDecision(footprint, policy, new IslandTerrain(field, settings, anchor))
+                    != NeighborRule.Decision.ACCEPTED) continue;
             // Cheap eligibility screen. Native Jigsaw still checks the actual randomized start-piece center.
             if (allowedBiomes.contains(biomes.getNoiseBiome(site.x() >> 2, surfaceY >> 2, site.z() >> 2, random.sampler()))) {
                 candidates.add(site);

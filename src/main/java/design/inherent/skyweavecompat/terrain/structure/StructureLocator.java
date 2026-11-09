@@ -101,8 +101,9 @@ public final class StructureLocator {
                             return builder.buildFuture();
                         }).executes(ctx -> start(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "radius"), StringArgumentType.getString(ctx, "target"))))))
                     .then(Commands.literal("status").executes(ctx -> status(ctx.getSource())))
-                    .then(Commands.literal("page").then(Commands.argument("number", IntegerArgumentType.integer(1, 7))
-                        .executes(ctx -> page(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "number")))))
+                    .then(Commands.literal("page").executes(ctx -> page(ctx.getSource(), 1))
+                        .then(Commands.argument("number", IntegerArgumentType.integer(1, 7))
+                            .executes(ctx -> page(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "number")))))
                     .then(Commands.literal("cancel").executes(ctx -> {
                         var job = owned(ctx.getSource()); if (job == null) return fail(ctx.getSource(), "missing");
                         stop(job, "cancelled", true); return 1;
@@ -376,6 +377,12 @@ public final class StructureLocator {
         var job = owned(source); if (job == null) return fail(source, "missing");
         int first = (page - 1) * 10, pages = Math.max(1, Math.ceilDiv(job.matches.size(), 10));
         if (page > pages) return fail(source, "page_missing");
+        if (job.matches.isEmpty()) {
+            source.sendSuccess(() -> text(job.running ? "empty_running"
+                    : job.outcome.equals("complete") ? "empty_complete" : "empty_partial"), false);
+            if (job.running) source.sendSuccess(() -> action("cancel", "cancel"), false);
+            return 0;
+        }
         source.sendSuccess(() -> text("page", page, pages, job.running || !job.outcome.equals("complete")
                 ? text("provisional") : text("verified")), false);
         for (var match : job.matches.subList(Math.min(first, job.matches.size()), Math.min(first + 10, job.matches.size()))) {

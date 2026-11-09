@@ -1,5 +1,83 @@
 # Verification
 
+## Terrain, settlements and construct picking
+
+The November 8 follow-up uses Minecraft 1.21.1, NeoForge 21.1.265, Java 21,
+Sky Archipelago 1.4, Dynamic Waters 13.1.0, Macaw’s Bridges 3.1.2 and Sable 2.0.6.
+`./gradlew --no-daemon check build probeJar clientProbeJar` passes 249 Java tests,
+package/Ponder/upstream checks and release-tool tests. The native 0.29.0 candidate
+SHA-256 is `275510a308c6c221aba5c8f4976dca0e926e4d59e612468810927a8038b6709c`.
+Native fixtures use disposable worlds and exact artifact/configuration digests;
+the personal world is not their input.
+
+- Two live Render-thread dumps reproduced the platform-assembly freeze inside our
+  global lantern DDA. Sable’s combined result could contain plot coordinates.
+  The same-frame hook passes 1,024 rays across eight lantern states, translated
+  and yawed, in both minimum and full dedicated combinations. The full client
+  assembles a pinned planks platform, tracks it, hits its plot block through normal
+  player picking and an explicit ray, and advances 130 ticks across six seconds.
+  This establishes responsive picking, not flight balance or an FPS benchmark.
+- Two native Sky Village starts satisfy final-footprint clearance, with actual
+  generated host columns about 126.59 and 119.67 blocks away. Other sampled
+  candidates are rejected. A selected opportunity is not a guaranteed village.
+- Full-pack seed 42 surface/features checks cover dry land, Broken Reef, native
+  Lagoon and coastal Lagoon fragments, including Mixed and Disintegrating
+  treatment. Reef materials use the exposed native palette rather than its
+  dirt-producing required-soil fallback. Material checks survive save/reopen;
+  fragments retain dry metadata and no source fluid at/above their surface.
+  These bounded controls do not establish every overlapping lower overlay or
+  every foreign biome’s later decoration. Native lower overlays retain ownership.
+- The full-pack island locator passes automatic continuation, result navigation,
+  cancellation, permission and empty-result checks. After 40 unchanged startup
+  ticks, its loaded-chunk assertion remains 49→49 across 625 cells (4.514 seconds).
+  The earlier 130→134 startup run failed and is not counted as a pass. Its timing
+  did not establish a search-induced chunk request.
+- The 0.29.0 full-pack structure fixture finds the same real fortified-plains
+  CTOV start at (-3936,426,816) cold/warm across 1,731 candidates. Empty results,
+  permission, cancellation and lease cleanup pass; maximum observed tick gap is
+  79.99 ms. This fixed-plains control is separate from natural scarcity sampling.
+- Both commands accept `page` without a number and explain empty/partial results
+  without blank pages. Island results remain plans; structure results require
+  actual valid native starts. Broad vanilla `/locate` remains synchronous.
+- Native configuration search selects the localized Fragment fringe fields on the
+  Sky Archipelago page, retains its section anchor and leaves the draft clean.
+  Canonical profile rejection, optimistic save/conflict handling, independent
+  optional selection and invalid ray boundaries have targeted regressions.
+
+### Settlement evidence
+
+In seed -6318123714405175225, the baseline 32-cluster survey has 27,328 eligible
+village chunks, nine allowance slots and four actual fitted starts. One is the
+intentional Towns & Towers forest ruin. In a bounded budget comparison, one
+rejected cluster fails all eight alternatives and a control succeeds on its
+second; production retains three alternatives per allowance and its safety rules.
+
+The revised village rate 0.889 produces twelve allowances and nine actual starts
+in sixteen clusters. The same sixteen baseline clusters had two allowances and
+one start. Five revised starts use intentional forest-ruin content. Counts are
+not population verification or worldwide encounter rates. The mansion rate 0.32
+remains biome-limited: a controlled dark-forest eight-cluster fixture produces
+one allowance, one fitted layout and one real mansion start. It is an enabled
+placement control, not a natural rarity measurement.
+
+The marked personal Sky Villages explain the distance complaint: one host was
+only planned/unsaved at the tested positions; another had actual saved terrain
+about 287 blocks away, outside a 12-chunk client view. Neither observation proves
+a missing-island generator defect. Paired native start records sharing a physical
+layout are not counted as separate settlements or declared a duplication bug.
+
+### Other log findings
+
+DH 3.3.3’s missing-payload errors occur before decoding when a split-buffer entry
+is absent. Its receiver expires entries after 30 seconds and the request queue
+retries. These traces do not prove LOD database corruption or identify why the
+buffer was unavailable. No cache clearing, fabricated data or speculative network
+hook was added. Recheck after removing the independent Render-thread stall.
+The Accessories null-entity respawn error was not reproduced in the current log.
+Copycats 3.0.9 supplies the stale `copycats:copycat_catwalk` physics selector itself;
+the missing block’s ignored mass/volume entry is unrelated to picking. These
+remain upstream investigation limits, not claimed repairs.
+
 ## Terrain repair and structure discovery (0.28.0)
 
 Tests use Minecraft 1.21.1, NeoForge 21.1.265, Sky Archipelago 1.4,
@@ -147,7 +225,7 @@ boundaries; they do not replace the earlier release-specific evidence below.
 | Remote client | A full client connects to an isolated dedicated server, receives generated river blocks and nonzero watershed flow, and reproduces that flow through a render-style BlockGetter. Disconnecting and rejoining the same server restores the same vector. An integrated-server-only command is refused, confirming this exercises a separate server process. |
 | Sable boundary | A real assembled body records zero dry and one wet current impulse; a 90-degree yaw preserves the world-space vector. Plot-to-world fluid coordinates agree. The synchronous test recorder is restored before physics ticks; this is not a vessel sailing playtest or full voxel-immersion proof. |
 | Climate and environment | High temperate shore and hot Badlands controls do not freeze; a genuinely cold biome retains freezing. Native cloud height is 469.3333. Low open-sky fog remains clear across the floor band while blindness remains black. Generated Complementary/Euphoria and BSL/Colorwheel corrections compile/reload and preserve an enclosed dark room. Native rain and Iris agree at high river altitude; underwater fog survives, Nether effects remain native, and returning restores the marked provider. Explicitly disabling cloud/void corrections restores Y192 clouds and black below-floor fog. Shader captures are separate from photography fixtures with fog overridden. |
-| Ocean sizing and cove | Normal anchor sizing, aspect and outer dry fragments pass native base-column/FULL checks for Lagoons (seeds42 and2026) and dry Broken Reef (2026). Lagoon native/open-cove/perimeter modes retain supported water through120 ticks on both seeds; seed42 reopening preserves source/bed ownership. The full pack with C2ME and Dynamic Waters repeats the seed42 controls. The cove/perimeter witnesses have17 fluid blocks in the inspected fall band. Warm metadata sweeps and bounded fixture times are not a cold-cache or world-wide performance claim. New ocean visuals and aquatic balance remain unqualified. |
+| Ocean sizing and cove | Normal anchor sizing, aspect and outer dry fragments pass native base-column/FULL checks for Lagoons (seeds42 and2026) and dry Broken Reef (2026). Lagoon native/open-cove/perimeter modes retain supported water through120 ticks on both seeds; seed 42 reopening preserves source/bed ownership. The full pack with C2ME and Dynamic Waters repeats the seed 42 controls. The cove/perimeter witnesses have17 fluid blocks in the inspected fall band. Warm metadata sweeps and bounded fixture times are not a cold-cache or world-wide performance claim. New ocean visuals and aquatic balance remain unqualified. |
 | Locator | Automatic completion visits 625 cells and retains nearest results, provisional paging, cancellation, stale-connection rejection and permission checks. Coordinate clicks suggest rather than execute teleportation. Maximum loaded chunks do not exceed the initial 1930; normal startup unloading reduces the final count. |
 | Configuration | Dynamic Waters COMMON entries use the existing typed editor, including validated string lists. The editor shows readable generation timing. A native generation edit is blocked while the integrated server runs; its draft survives and discarding leaves the file unchanged. Main-menu generation saves retain the fresh-world confirmation. |
 | Optional loading | Standalone dedicated startup and a Minecraft/NeoForge/Compat-only native client/config screen have no active foreign adapters. A terrain-only native client without Iris or Dynamic Waters activates the cloud/void hooks and opens configuration successfully. Default full-pack startup succeeds. An all-disabled full-pack control passes with the pack's existing `zfastnoise.mixin.properties` biome optimization opt-out. The first failed fixture omitted that prerequisite and exposed the upstream Sky Archipelago/ZFastNoise redirect conflict; it was a fixture configuration error. |

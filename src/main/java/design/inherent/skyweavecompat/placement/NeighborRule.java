@@ -32,6 +32,22 @@ public final class NeighborRule {
     public enum Decision { DISABLED, TOO_CLOSE, NO_HOST, ACCEPTED }
 
     public static Decision evaluate(Footprint footprint, Settings settings, Terrain terrain) {
+        var coarse = coarseDecision(footprint, settings, terrain);
+        if (coarse != Decision.ACCEPTED) return coarse;
+        int pad = Math.max(0, settings.minimumGap() - 1);
+        long minimumSquared = (long)settings.minimumGap() * settings.minimumGap();
+        // Every column in the exclusion band is checked, including narrow island tips.
+        for (int x = footprint.minX() - pad; x <= footprint.maxX() + pad; x++) {
+            for (int z = footprint.minZ() - pad; z <= footprint.maxZ() + pad; z++) {
+                long d = footprint.distanceSquared(x, z);
+                if ((d == 0 || d < minimumSquared) && terrain.exists(x, z)) return Decision.TOO_CLOSE;
+            }
+        }
+        return Decision.ACCEPTED;
+    }
+
+    /** Positive proximity with coarse exclusion; only a candidate screen, never final admission. */
+    public static Decision coarseDecision(Footprint footprint, Settings settings, Terrain terrain) {
         if (!settings.enabled()) return Decision.DISABLED;
         int pad = Math.max(0, settings.minimumGap() - 1);
         long minimumSquared = (long)settings.minimumGap() * settings.minimumGap();
@@ -43,13 +59,6 @@ public final class NeighborRule {
             }
         }
         if (!hasHost(footprint, settings, terrain)) return Decision.NO_HOST;
-        // Every column in the exclusion band is checked, including narrow island tips.
-        for (int x = footprint.minX() - pad; x <= footprint.maxX() + pad; x++) {
-            for (int z = footprint.minZ() - pad; z <= footprint.maxZ() + pad; z++) {
-                long d = footprint.distanceSquared(x, z);
-                if ((d == 0 || d < minimumSquared) && terrain.exists(x, z)) return Decision.TOO_CLOSE;
-            }
-        }
         return Decision.ACCEPTED;
     }
 

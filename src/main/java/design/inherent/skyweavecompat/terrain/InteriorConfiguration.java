@@ -3,8 +3,6 @@ package design.inherent.skyweavecompat.terrain;
 import com.google.gson.*;
 import java.nio.file.*;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.stream.Collectors;
 
 public final class InteriorConfiguration {
     public static final String FILE = "skyweave_compat-interiors.json";
@@ -14,14 +12,7 @@ public final class InteriorConfiguration {
     public static InteriorProfile profile() { return profile; }
 
     public static InteriorProfile parse(String text) {
-        var object = design.inherent.skyweavecompat.configuration.ProfileJson.object(text);
-        if (!object.has("skylights")) {
-            var legacyFields = Arrays.stream(InteriorProfile.class.getRecordComponents())
-                    .map(component -> component.getName()).filter(name -> !name.equals("skylights")).collect(Collectors.toSet());
-            if (!object.keySet().equals(legacyFields)) throw new IllegalArgumentException("Incomplete legacy interior profile");
-            object.add("skylights", JSON.toJsonTree(InteriorProfile.Skylights.INITIAL));
-        }
-        return design.inherent.skyweavecompat.configuration.ProfileJson.record(object.toString(), InteriorProfile.class);
+        return design.inherent.skyweavecompat.configuration.ProfileJson.record(text, InteriorProfile.class);
     }
 
     public static String normalize(String text) { return JSON.toJson(parse(text)) + "\n"; }

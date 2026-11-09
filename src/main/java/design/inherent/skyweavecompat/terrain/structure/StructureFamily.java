@@ -4,11 +4,11 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Set;
 
-/** Explicit membership and rounded half-vanilla opportunity densities; names alone do not establish a family. */
+/** Explicit family membership and eligible-area encounter targets; names alone do not establish a family. */
 public enum StructureFamily {
     PORTALS("portals", .32, 1, "ruined_portal", "ruined_portal_desert", "ruined_portal_jungle",
             "ruined_portal_swamp", "ruined_portal_mountain", "ruined_portal_ocean"),
-    VILLAGES("villages", .443, 3, "village_plains", "village_desert",
+    VILLAGES("villages", .889, 3, "village_plains", "village_desert",
             "village_savanna", "village_snowy", "village_taiga"),
     OUTPOSTS("outposts", .1, 1, "pillager_outpost"),
     SHIPWRECKS("shipwrecks", .889, 1, "shipwreck", "shipwreck_beached"),
@@ -16,7 +16,7 @@ public enum StructureFamily {
     JUNGLE_TEMPLES("jungle_temples", .5, 1, "jungle_pyramid"),
     SWAMP_HUTS("swamp_huts", .5, 1, "swamp_hut"),
     IGLOOS("igloos", .5, 1, "igloo"),
-    MANSIONS("mansions", .08, 1, "mansion"),
+    MANSIONS("mansions", .32, 1, "mansion"),
     ANCIENT_CITIES("ancient_cities", .889, 1, "ancient_city"),
     MINESHAFTS("mineshafts", 2.048, 3, "mineshaft", "mineshaft_mesa"),
     TRIAL_CHAMBERS("trial_chambers", .443, 1, "trial_chambers"),

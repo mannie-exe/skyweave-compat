@@ -14,7 +14,7 @@ public record DrainageBoundary(Kind kind, int level, long owner) {
         var settings = generator.resolvedSkyIslandSettings();
         var column = field.skyweave$planningColumn(x, z, settings, TerrainStage.EXTERIOR);
         var host = column.dominantDescriptor();
-        if (column.segments().isEmpty() || host == null || field.skyweave$isApron(host, x, z, settings))
+        if (column.segments().isEmpty() || host == null || field.skyweave$isFringe(host, x, z, settings))
             return new DrainageBoundary(Kind.VOID, generator.getMinY(), 0);
         var water = column.waterArchetype();
         if (water.water()) return new DrainageBoundary(Kind.LOCAL_WATER, water.fluidSurfaceY(), host.seed());
