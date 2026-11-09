@@ -2,6 +2,16 @@
 
 Generated from Git history. Player-facing release summaries are in [release notes](RELEASE_NOTES.md).
 
+## v0.29.1 · 2026-11-09
+
+### Build and verification
+
+- **terrain:** Verify placed Sky Village buildings ([c5028e3](https://github.com/mannie-exe/skyweave-compat/commit/c5028e3bc4b2aa718258d43b3fa123d232fddd25))
+
+### Maintenance
+
+- **branding:** Add replaceable Compat logo ([90a3ad9](https://github.com/mannie-exe/skyweave-compat/commit/90a3ad9623dbb7cbc8d5eb0c2685f34b71877a49))
+
 ## v0.29.0 · 2026-11-09
 
 ### Features
