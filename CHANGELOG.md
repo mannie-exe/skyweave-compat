@@ -2,6 +2,16 @@
 
 Generated from Git history. Player-facing release summaries are in [release notes](RELEASE_NOTES.md).
 
+## v0.29.0 · 2026-11-09
+
+### Features
+
+- **terrain:** Unify island components and settlements ([70888c3](https://github.com/mannie-exe/skyweave-compat/commit/70888c371ec11748e7e03b09a80d9d533de54095))
+
+### Documentation
+
+- Polish terrain verification prose ([041674b](https://github.com/mannie-exe/skyweave-compat/commit/041674ba30675683ac3ce691081a00863de57013))
+
 ## v0.28.0 · 2026-11-08
 
 ### Features
