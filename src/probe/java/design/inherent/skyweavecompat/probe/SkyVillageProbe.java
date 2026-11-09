@@ -63,6 +63,20 @@ final class SkyVillageProbe {
                             }
                         }
                     if (!host) throw new AssertionError("No generated host body near accepted start");
+                    var piece = start.getPieces().getFirst().getBoundingBox();
+                    int cx = Math.floorDiv((piece.minX() + piece.maxX()) / 2, 16);
+                    int cz = Math.floorDiv((piece.minZ() + piece.maxZ()) / 2, 16);
+                    var building = level.getChunk(cx, cz, ChunkStatus.FULL);
+                    var blocks = new TreeMap<String, Integer>();
+                    for (int x = Math.max(piece.minX(), cx * 16); x <= Math.min(piece.maxX(), cx * 16 + 15); x++)
+                        for (int z = Math.max(piece.minZ(), cz * 16); z <= Math.min(piece.maxZ(), cz * 16 + 15); z++)
+                            for (int y = piece.minY(); y <= piece.maxY(); y++) {
+                                var state = building.getBlockState(new BlockPos(x,y,z));
+                                if (!state.isAir()) blocks.merge(net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString(),1,Integer::sum);
+                            }
+                    if (blocks.isEmpty()) throw new AssertionError("Accepted Sky Village has no placed blocks in its FULL building chunk");
+                    row.add("placedBuildingBlocks", new Gson().toJsonTree(blocks));
+                    row.addProperty("buildingChunk", cx + "," + cz);
                     accepted++;
                 }
                 Files.writeString(output, new GsonBuilder().setPrettyPrinting().create().toJson(report));

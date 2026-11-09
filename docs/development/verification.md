@@ -19,7 +19,10 @@ the personal world is not their input.
   This establishes responsive picking, not flight balance or an FPS benchmark.
 - Two native Sky Village starts satisfy final-footprint clearance, with actual
   generated host columns about 126.59 and 119.67 blocks away. Other sampled
-  candidates are rejected. A selected opportunity is not a guaranteed village.
+  candidates are rejected. A follow-up using the published 0.29.0 binary
+  generates representative building chunks to FULL and verifies actual placed
+  structure blocks for both starts. A selected opportunity is not a guaranteed
+  village, and a start-only search is not proof that its whole footprint is loaded.
 - Full-pack seed 42 surface/features checks cover dry land, Broken Reef, native
   Lagoon and coastal Lagoon fragments, including Mixed and Disintegrating
   treatment. Reef materials use the exposed native palette rather than its
