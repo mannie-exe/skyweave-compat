@@ -11,6 +11,12 @@ Sky Villages 1.0.6 are pinned by Modrinth version ID and SHA-256. They are downl
 for compilation/testing, not redistributed. Architectury 13.0.11 is included in
 the development runtime for Sky Villages. Output is in `build/libs`.
 
+`src/main/resources/logo.png` owns the NeoForge mod-list image, referenced by
+`logoFile` in the mod metadata. Replace this image independently of the modpack
+and its resource packs. The current placeholder is an opaque white, indexed PNG
+banner; `logoBlur=false` preserves crisp pixels. Gradle packages it at the JAR
+root. It does not set a hosted project's publishing icon.
+
 See [DH integration](lod.md) for optional lifecycle and cache fixes, pinned
 implementation boundaries and dependency-update checks. The server and client
 probes are separate artifacts and are never bundled in the mod.

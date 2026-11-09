@@ -1,5 +1,14 @@
 # Verification
 
+## Branding release 0.29.1
+
+`./gradlew --no-daemon check build` passes 249 Java tests plus package,
+Ponder/upstream, framebuffer and release-tool checks. The JAR includes the native
+metadata-referenced white indexed logo. This update changes branding/docs, not
+terrain behavior or generation identity; existing world compatibility remains
+subject to the same saved-profile guard. Logo presentation was verified at the
+archive/metadata boundary, not through a fresh native mod-list capture.
+
 ## Terrain, settlements and construct picking
 
 The November 8 follow-up uses Minecraft 1.21.1, NeoForge 21.1.265, Java 21,
@@ -492,7 +501,7 @@ the original exposed plane. These are rendering checks, not new physics or
 adhesion tests. Scaffolding remains excluded; its existing inward geometry was
 reviewed against vanilla source models rather than altered.
 
-Local evidence is in `.git/glass-approved-native/`. Dedicated-server execution
+Local evidence is in `.git/captures/glass-approved-native/`. Dedicated-server execution
 was not repeated; these new adapters have no server hooks or foreign Java-class
 references. The preceding implementation's dedicated checks retain their own
 recorded artifact and version scope.
@@ -525,7 +534,7 @@ supports return the correct lantern owner. All retain empty physical collision.
 Material and connection variants share the two native lantern model states;
 this is source coverage, not a claim that every bridge was placed interactively.
 
-Evidence is retained locally in `.git/glass-macaw-native/`. Dedicated probes were
+Evidence is retained locally in `.git/captures/glass-macaw-native/`. Dedicated probes were
 not rerun for this follow-up: the personal server has NeoForge 21.1.264 and the
 runner requires 21.1.265. Its libraries and installation were left untouched.
 The previous dedicated checks below apply to their recorded artifact.
@@ -580,7 +589,7 @@ Do not infer them from an unobstructed hull capture.
 
 Retained baseline media is in the local harness's
 `images/2026-11-05-ssrd-shaders/`; candidate media and JSON observations are in
-Compat's `.git/ssrd-native/`. Keep exact shader presets with reproduction inputs.
+Compat's `.git/captures/ssrd-native/`. Keep exact shader presets with reproduction inputs.
 A shader-disabled fallback after a compile failure is invalid visual evidence.
 [Rendering](rendering.md#distant-constructs-with-shaders) owns implementation and
 update contracts.
@@ -849,7 +858,7 @@ The candidate passes `./gradlew --no-daemon check build clientProbeJar`
 (179 Java tests plus tooling, upstream and packaging checks). This pass used the
 isolated full-pack client; the earlier minimum/server matrix below was not rerun
 for this candidate. Evidence and staging corrections are retained privately in
-`.git/pane-seams/`; personal instances were not changed.
+`.git/captures/pane-seams/`; personal instances were not changed.
 
 ### Shared-surface qualification
 

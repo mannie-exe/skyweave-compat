@@ -44,6 +44,9 @@ tests alone does not establish generation behavior.
 README owns installation and behavior; docs own configuration, development and
 publishing. Use direct prose without marketing. Preserve one owner per fact.
 Remove disposable worlds and inspection files after recording useful evidence.
+Follow the shared [private storage convention](../../Minecraft/create-skyweave/AGENTS.md#work-and-evidence):
+use this repository's `.git/goals/` for goals/design documents and `.git/captures/`
+for retained evidence, both when writing new material and consolidating old runs.
 Do not edit live instances or publish releases without authorization.
 
 Use conventional commit subjects with relevant `- [tag]: message` body bullets.
