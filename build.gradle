@@ -12,6 +12,11 @@ java {
 repositories {
     mavenCentral()
     maven {
+        url = 'https://maven.ftb.dev/releases'
+        content { includeGroup 'dev.ftb.mods' }
+        metadataSources { artifact() }
+    }
+    maven {
         url = 'https://api.modrinth.com/maven'
         content { includeGroup 'maven.modrinth' }
     }
@@ -37,11 +42,15 @@ configurations {
     irisSource
     flywheelSource
     analogSource
+    c2meSource
     runtimeClasspath.extendsFrom localRuntime
 }
 sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
 sourceSets.test.runtimeClasspath += sourceSets.main.runtimeClasspath
 dependencies {
+    compileOnly('dev.ftb.mods:ftb-quests-neoforge:2101.1.38') { transitive = false }
+    testRuntimeOnly('dev.ftb.mods:ftb-quests-neoforge:2101.1.38') { transitive = false }
+    c2meSource('maven.modrinth:c2me-neoforge:VACgDPOc') { transitive = false }
     compileOnly('maven.modrinth:lithostitched:cZu4cHY3') { transitive = false }
     compileOnly('maven.modrinth:yungs-api:2prKITKh') { transitive = false }
     compileOnly('maven.modrinth:yungs-better-mineshafts:Go3nbneL') { transitive = false }
@@ -118,6 +127,12 @@ tasks.register('verifyUpstream') {
     inputs.files(configurations.runtimeClasspath)
     inputs.files(configurations.compileClasspath)
     doLast {
+        def quests = configurations.compileClasspath.resolvedConfiguration.resolvedArtifacts.find {
+            it.moduleVersion.id.group == 'dev.ftb.mods' && it.name == 'ftb-quests-neoforge'
+        }?.file
+        if (quests == null || java.security.MessageDigest.getInstance('SHA-256').digest(quests.bytes).encodeHex().toString()
+                != '3752657a82c69b0a80c034700df86f1a3d7c5f3e3aad814b5af748b9082a834b')
+            throw new GradleException('Unexpected FTB Quests compile-only dependency')
         def pins = [
             'sable': '9c199157843bf953a47dff625fc5bb41c01a90538d35ad18e6996bbcb8a617c2',
             'sky-archipelago': '4aa55186f8c49c4143cc0d9fd8e11acad103edaf0cc8dcee7845ac10c80ccc20',
@@ -313,6 +328,10 @@ def glslJar = pinnedNestedJar('extractIrisGlsl', configurations.irisSource,
         'META-INF/jarjar/glsl-transformer-3.0.0-pre3.jar',
         '60d5f8bf52f25e9986440f4a4270a6bd986d9cff994510e1108ac1547063b314',
         '0d55650fb8e58dad25b714d447a1ed5a713a6b6120a06610ce216c9b26e852d7')
+def c2meStorageJar = pinnedNestedJar('extractC2meStorage', configurations.c2meSource,
+        'META-INF/jars/c2me-neoforge-rewrites-chunkio-mc1.21.1-0.4.0-alpha.0.124.jar',
+        'a04533b015e8e4d411d571c081c3ff7b28fb42ab6dea0046a3cde3e54166befd',
+        'b71f7b0c05acdbc376028729eadca7d022e054cb3dedc99695c10691ad7182c1')
 def analogJar = pinnedNestedJar('extractAnalogLib', configurations.analogSource,
         'META-INF/jarjar/analoglib-neoforge-0.1.0.jar',
         'effc623ad0b3e332bb29252f5c41f767cb194a47ce5ae195d186f442124807a3',
@@ -342,6 +361,7 @@ def sodiumTestJar = pinnedNestedJar('extractSodium', configurations.sodiumSource
         '575d187b15328d7bddd8a9b1bee64333c22c14735f5780ec49eac0cd5503c08d',
         'd71acbffafd3d177add7624710114d8570cdd70d5553a2b5c8ab371852c59ce3')
 dependencies {
+    compileOnly c2meStorageJar
     compileOnly glslJar
     testImplementation glslJar
     testImplementation "org.antlr:antlr4-runtime:4.13.1"

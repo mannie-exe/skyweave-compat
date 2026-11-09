@@ -1,7 +1,8 @@
-# Hoofprint zoom investigation
+# Hoofprint map zoom
 
-Reviewed 2026-10-31 for Minecraft 1.21.1. Status: source and released-bytecode
-inspection; the adapter below is proposed, not implemented or tested in game.
+`hoofprint.zoom` is an optional client adaptation for the pinned Hoofprint, Surveyor
+and Connector stack. It changes map projection and controls, not terrain discovery
+or server generation. Native qualification belongs to the client probe evidence.
 
 ## Configuration limits
 
@@ -50,47 +51,38 @@ and [`HoofprintScreen.java`](https://github.com/HestiMae/hoofprint/blob/78225fdb
 The released JAR's annotations and those scale paths were also inspected with
 `javap -p -c` / `javap -p -c -v`; conclusions do not rely on branch names alone.
 
-## Proposed Skyweave: Compatibility Patches adapter
+## Adapter and configuration
 
-Use an independently selectable, physical-client-only adaptation, tentatively
-`hoofprint.zoom`. Gate it through `FeatureSelection` and `OptionalMixinPlugin`
-before resolving Hoofprint classes. Pin the exact Hoofprint version and artifact;
-require the tested Connector/Surveyor stack when active. Disabled or absent
-Hoofprint must select no target mixins and impose no target version constraint.
-No terrain-preset prerequisite or server hook is needed.
+`HoofprintZoomMixin` owns a separate positive fractional scale. Its exact mapped
+boundaries are `init()V`, `getScaleFactor()F`, `mouseScrolled(DDDD)Z`, `changeDim`
+and `onClose()V`. The drawing, pan, inspection and waypoint helpers consume the
+same float scale getter. Do not change the upstream integer field type or the
+window GUI scale to extend map range.
 
-Keep a separate positive floating-point map scale in the screen mixin, rather
-than changing the upstream integer field's type. Override `getScaleFactor()` to
-return that scale divided by the window GUI scale. Existing drawing, panning,
-inspection and waypoint coordinate helpers already consume this method.
-Do not write Minecraft's GUI scale or change Surveyor's saved terrain.
+`config/skyweave/skyweave_compat-hoofprint.json` is editable under
+**Maps → Hoofprint → Map zoom**. It applies when the screen opens again.
+Defaults are 1/8..32 display pixels per block, initial 1/8 and a 1.25 multiplicative
+scroll step. Initial zero selects Hoofprint's native opening scale. Validation
+requires finite positive endpoints within 1/64..128, an initial value within the
+interval or zero, and a step within 1.01..2. Invalid external files are preserved;
+the client retains its last valid settings and logs the error.
 
-Replace vertical scroll handling with bounded multiplicative zoom, retaining
-the world position under the pointer. For each axis, capture its world position
-before changing scale, then add `before - after` to the map center. This works
-for fractional scales; the original integer-step center adjustment does not.
-Handle small trackpad deltas, ignore horizontal-only input and reject nonfinite
-input. Clamp finite positive minimum, initial and maximum values coherently.
-Candidate limits of 1/8 through 32 display pixels per block would allow eight
-times the current widest span and 3.2 times the current closest magnification;
-these are illustrative tuning values, not accepted defaults or performance claims.
+Scrolling preserves the world point beneath the pointer by adding `before - after`
+to the center after updating scale. Tiny trackpad deltas accumulate multiplicatively;
+horizontal-only and nonfinite input are ignored. Resize preserves the current
+view; reopening restores the view within the same connection. A new connection
+uses opening defaults. Native positive interdimension ratios convert the center
+and inversely scale zoom within configured bounds; zero ratios retain zoom.
 
-Initialize the new scale after upstream `init`; define reopening behavior and
-preserve zoom/center through resize so GUI reinitialization cannot reset the
-extension unexpectedly. Also adapt `changeDim`: upstream converts the center
-by the dimension ratio and truncates/clamps its integer zoom back to 1..10.
-Retain center conversion, but apply the inverse ratio to the floating-point
-scale within the new limits; dimensions with zero coordinate scale should keep
-zoom. Changing only the scroll constants or config annotation cannot supply
-fractional zoom-out and would leave this reset path intact.
-
-Before implementation is considered verified, inspect Connector's remapped
-target names and method descriptors. The original 1.21 JAR uses intermediary
-names (`method_25426()V` for `init`, `method_25401(DDDD)Z` for scrolling), while
-Hoofprint-owned helpers retain their names. A NeoForge mixin must target the
-actual transformed class; do not assume Yarn names or raw intermediary names
-will work unchanged. The existing ModDev client limitation with Connector is
-recorded in [client probes](README.md#client-probes).
+Selection is physical-client-only and independent of the terrain preset. Gate
+foreign classes/mixins through metadata before loading them. Connector reports
+Hoofprint and Surveyor versions as `1.3.0_1.21` and `1.2.4_1.21`, while their
+published artifacts use `+1.21`. Connector's runtime version is
+`2.0.0-beta.17+1.21.1`; `-full` is an artifact classifier, not part of that version.
+Inspect actual loader metadata when updating, as well as the original and
+Connector-transformed method descriptors. Disabled or absent targets must impose
+no foreign-class resolution or version constraint. The ModDev limitation is
+recorded in [client probes](testing.md#client-probes).
 
 ## Verification requirements
 

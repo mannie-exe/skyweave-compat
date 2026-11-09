@@ -16,6 +16,7 @@ public final class JsonSettings {
     }
     private static String json(Object value) { return new GsonBuilder().setPrettyPrinting().create().toJson(value) + "\n"; }
     private static final List<Definition> DEFINITIONS = new java.util.concurrent.CopyOnWriteArrayList<>(List.of(
+            new Definition(design.inherent.skyweavecompat.maps.MapZoomSettings.FILE, "hoofprint_zoom", json(design.inherent.skyweavecompat.maps.MapZoomSettings.DEFAULT), design.inherent.skyweavecompat.maps.MapZoomSettings::parse),
             new Definition("skyweave_compat-generation.json", "generation", json(GenerationProfile.INITIAL), ProfileJson::generation),
             new Definition(ShapeConfiguration.FILE, "shapes", json(ShapeProfile.INITIAL), ShapeConfiguration::parse, ShapeConfiguration::normalize),
             new Definition("skyweave_compat-interiors.json", "interiors", json(InteriorProfile.INITIAL), InteriorConfiguration::parse, InteriorConfiguration::normalize),

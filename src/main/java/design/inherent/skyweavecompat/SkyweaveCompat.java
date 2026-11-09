@@ -19,6 +19,9 @@ public final class SkyweaveCompat {
         com.mojang.logging.LogUtils.getLogger().debug("Skyweave: Compatibility Patches inactive adaptations: {}", selection.inactive());
         if (selection.enabled(Feature.REDSTONE_SCRAPING))
             design.inherent.skyweavecompat.redstone.RedstoneScraping.register();
+        if (selection.enabled(Feature.FTB_ITEM_FILTERS))
+            modBus.addListener((net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent event) ->
+                    event.enqueueWork(design.inherent.skyweavecompat.quests.QuestItemFilters::register));
         if (selection.enabled(Feature.SABLE_GRAVES))
             design.inherent.skyweavecompat.recovery.ShipGraves.register();
         if (OptionalIntegrations.skyVillages()) {

@@ -8,6 +8,18 @@ import static org.junit.jupiter.api.Assertions.*;
 class StructurePolicyTest {
     private final Gson json = new Gson();
 
+    @Test void lookupPrefixIncludesEveryFitAttemptButNotUnselectedLand() {
+        var sites = java.util.stream.IntStream.range(0, 20)
+                .mapToObj(i -> new StructureSelection.Site(i, -i)).toList();
+        for (var family : StructureFamily.values()) {
+            long limit = StructureSelection.attemptLimit(family, 1);
+            for (int i = 0; i < sites.size(); i++)
+                assertEquals(i < limit, StructureSelection.withinAttempts(family, 1, sites, sites.get(i)));
+            assertFalse(StructureSelection.withinAttempts(family, 0, sites, sites.getFirst()));
+            assertFalse(StructureSelection.withinAttempts(family, 1, sites, new StructureSelection.Site(100, 100)));
+        }
+    }
+
     @Test void variantsShareFamiliesAndForeignNamespacesRemainForeign() {
         assertSame(StructureFamily.PORTALS, StructureFamily.forId("minecraft:ruined_portal_desert"));
         assertSame(StructureFamily.PORTALS, StructureFamily.forId("minecraft:ruined_portal_ocean"));

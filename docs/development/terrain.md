@@ -44,15 +44,11 @@ Completed point queries use the same native chunk snapshot as filling, including
 
 Updates must recheck native plan bounds, prepared land/water intervals, direct and snapshot resolution, shoreline sealing, surface cleanup and the geological datum. Query/fill agreement is a runtime requirement, not a consequence of matching method names. Ordinary presets retain upstream behavior. The native codec still serializes the ground-support groups as `surface_sky` and `small_sky`; only their Java accessors were renamed to `mediumGround` and `smallGround` in 1.4. Do not rename serialized keys based on accessor names.
 
-The native fresh-world fallback predicts a landing before carving/features have
-necessarily left the same surface. `SpawnFallbackMixin` validates only its final
-spawn assignment in this preset. `SpawnLanding` checks the generated chunk's
-motion-blocking height, solid support, clear feet/head and fluids, then searches
-bounded four-block offsets up to 16 blocks if necessary. It fails explicitly when
-no landing exists. Chunk loads occur only during startup, never in the terrain
-query path. Review the upstream fallback's event and saved-world guard when
-updating; this hook must not relocate existing worlds. When the local 16-block check fails on water or an opening, Compat considers up to 24 nearby accepted descriptors within 8192 blocks, inspecting at most 216 planned positions and explicitly requesting at most 32 chunks across the whole validation. It skips planned underwater caps, then checks generated support, collision-free feet/head space, fluid, and the world border. This startup-only fallback can use a solid companion; metadata lookup itself never requests chunks. Failure remains explicit when the finite search finds no safe landing.
+The native fresh-world fallback can retain a safe main-island spawn before its final assignment branch. `SpawnFallbackMixin` therefore selects the shared initial landing after all native return paths. `SpawnLanding` considers accepted dry SATELLITE descriptors, prefers the original cluster, then checks generated motion-blocking height, support, feet/head collision, fluids, build range and world border. It never accepts an anchor, spire or detached fringe as a companion substitute.
 
+The search stays within 8,192 blocks, 24 descriptors, 216 planned positions and 32 requested chunks. Native spawn-radius arrival still validates terrain normally. No terrain query loads chunks; this work occurs once during initial server startup. If the bounded companion search fails, startup reports the failure instead of fabricating terrain or silently choosing the main island.
+
+`skyweave_compat_initial_spawn` records that the shared selection completed. A head guard prevents upstream recovery from replacing it when a fresh save is reopened before 40 ticks; worlds older than that retain their existing spawn without selection. The record is not a player/team assignment, home policy or respawn override. Preserve native beds and saved player positions. On Sky Archipelago updates, recheck startup event ordering, early returns, the 40-tick guard, metadata ownership, actual arrival and save/reopen behavior.
 
 Embedded settings retain biome eligibility, archetypes and structure policy.
 Their serialized spacing is a placeholder: upstream caps that field at 2000,

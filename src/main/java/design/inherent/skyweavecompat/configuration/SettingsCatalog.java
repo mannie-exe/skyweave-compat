@@ -9,7 +9,8 @@ import java.util.List;
 public final class SettingsCatalog {
     public enum Category { INTERFACE, RENDERING, MAPS, SHIPS, MACHINES, INVENTORY, AUDIO, WORLD }
     public enum Group {
-        JOURNAL(Category.INTERFACE, "questlog"), AUDIO_CLIENT(Category.AUDIO, "analog_audio"),
+        FTB_QUESTS(Category.INTERFACE, "ftbquests"),
+        FTB_LIBRARY(Category.INVENTORY, "ftblibrary"), JOURNAL(Category.INTERFACE, "questlog"), AUDIO_CLIENT(Category.AUDIO, "analog_audio"),
         DH_CLIENT(Category.MAPS, "distant_horizons"), SABLE_CLIENT(Category.RENDERING, "sable"),
         VEIL(Category.RENDERING, "veil"), IRIS(Category.RENDERING, "iris"), AERONAUTICS(Category.RENDERING, "aeronautics"),
         SSRD(Category.MAPS, "ssrd"), COLORWHEEL(Category.RENDERING, "colorwheel"), LIGHTS(Category.RENDERING, "lighting"),
@@ -23,8 +24,8 @@ public final class SettingsCatalog {
         MACAW(Category.SHIPS, "mcwbridges"),
         GRAVES(Category.INVENTORY, "yigd"), AUDIO(Category.AUDIO, "analog_audio"),
         DELIVERY(Category.SHIPS, "delivery"), QUESTLOG_SERVER(Category.INTERFACE, "questlog"),
-        DH(Category.MAPS, "distant_horizons"), BLUEMAP(Category.MAPS, "bluemap"), SURVEYOR(Category.MAPS, "surveyor"),
-        TERRAIN(Category.WORLD, "sky_archipelago"), LITHOSTITCHED(Category.WORLD, "lithostitched"), YUNG(Category.WORLD, "yungsapi"), YUNG_MINESHAFTS(Category.WORLD, "bettermineshafts"), YUNG_WITCH_HUTS(Category.WORLD, "betterwitchhuts"), WATERSHEDS(Category.WORLD, "dynamic_waters"), ISLAND_SKY(Category.RENDERING, "sky_archipelago"), VILLAGES(Category.WORLD, "sky_villages"),
+        HOOFPRINT(Category.MAPS, "hoofprint"), DH(Category.MAPS, "distant_horizons"), BLUEMAP(Category.MAPS, "bluemap"), SURVEYOR(Category.MAPS, "surveyor"),
+        C2ME(Category.WORLD, "c2me"), TERRAIN(Category.WORLD, "sky_archipelago"), LITHOSTITCHED(Category.WORLD, "lithostitched"), YUNG(Category.WORLD, "yungsapi"), YUNG_MINESHAFTS(Category.WORLD, "bettermineshafts"), YUNG_WITCH_HUTS(Category.WORLD, "betterwitchhuts"), WATERSHEDS(Category.WORLD, "dynamic_waters"), ISLAND_SKY(Category.RENDERING, "sky_archipelago"), VILLAGES(Category.WORLD, "sky_villages"),
         PRESSURE(Category.SHIPS, "sable"), WATER_SHIPS(Category.SHIPS, "dynamic_waters");
         public final Category category;
         public final String label;
@@ -70,7 +71,7 @@ public final class SettingsCatalog {
     }
     public static List<Page> pages() { return Arrays.stream(Category.values()).flatMap(category -> pages(category).stream()).toList(); }
     public static Page page(Group group) { return pages(group.category).stream().filter(page -> page.groups.contains(group)).findFirst().orElseThrow(); }
-    public enum Timing { IMMEDIATE, SERVER_START, GAME_RESTART, NEW_WORLD, RELOAD }
+    public enum Timing { IMMEDIATE, SERVER_START, GAME_RESTART, NEW_WORLD, RELOAD, SCREEN_OPEN }
     public record FeatureEntry(Feature feature, Group group, String labelKey, String summaryKey, String filename, Timing timing) {}
     public static FeatureEntry entry(Feature feature) {
         return new FeatureEntry(feature, group(feature), "skyweave_compat.configuration.feature." + feature.key,
@@ -83,6 +84,7 @@ public final class SettingsCatalog {
         public Timing timing() {
             return switch (help) {
                 case "journal" -> Timing.IMMEDIATE;
+                case "hoofprint_zoom" -> Timing.SCREEN_OPEN;
                 case "villages" -> Timing.SERVER_START;
                 case "generation", "shapes", "interiors", "rivers", "oceans", "ancient_cities", "structures", "watersheds" -> Timing.NEW_WORLD;
                 case "bluemap", "link_gui_client", "link_gui_common" -> Timing.RELOAD;
@@ -99,6 +101,7 @@ public final class SettingsCatalog {
     }
     public static Group group(Feature feature) {
         return switch (feature) {
+            case FTB_ITEM_FILTERS -> Group.FTB_QUESTS;
             case ISLAND_CLOUDS, ISLAND_VOID -> Group.ISLAND_SKY;
             case ISLAND_SHADER_ENVIRONMENT -> Group.IRIS;
             case DYNAMIC_WATERS -> Group.WATERSHEDS;
@@ -128,6 +131,7 @@ public final class SettingsCatalog {
             case REDSTONE_LOGIC, REDSTONE_SCRAPING, REDSTONE_WRENCH -> Group.REDSTONE;
             case REDSTONE_RENDERING -> Group.REDSTONE_CLIENT;
             case LINEAR_BOOTSTRAP, LINEAR_CARRIAGE, LINEAR_TRANSMISSION, LINEAR_GYRO, LINEAR_JADE -> Group.LINEAR;
+            case FTB_CREATIVE_RETURN -> Group.FTB_LIBRARY;
             case SABLE_GRAVES -> Group.GRAVES;
             case ANALOG_AUDIO -> Group.AUDIO;
             case DELIVERY_DISTANCE, DELIVERY_CHUNKS, DELIVERY_LANDING -> Group.DELIVERY;
@@ -135,8 +139,11 @@ public final class SettingsCatalog {
             case DH_SHUTDOWN, DH_CACHE -> Group.DH;
             case BLUEMAP -> Group.BLUEMAP;
             case SURVEYOR_STRUCTURES -> Group.SURVEYOR;
+            case NETHER_ACCESS -> Group.TERRAIN;
+            case C2ME_SEARCH -> Group.C2ME;
+            case HOOFPRINT_ZOOM -> Group.HOOFPRINT;
             case TERRAIN, ORE_PLACEMENT, CARVERS, CAVE_BIOMES, ANCIENT_CITIES, SPAWN,
-                    STRUCTURE_LOCATION, STRUCTURE_DISTRIBUTION, WATER_SPAWNS, CLIMATE -> Group.TERRAIN;
+                    STRUCTURE_LOCATION, STRUCTURE_COMMAND, STRUCTURE_DISTRIBUTION, WATER_SPAWNS, CLIMATE -> Group.TERRAIN;
             case VILLAGE_CLEARANCE, VILLAGE_PLACEMENT -> Group.VILLAGES;
             case LITHOSTITCHED_STRUCTURES -> Group.LITHOSTITCHED;
             case YUNG_STRUCTURES -> Group.YUNG;
@@ -152,6 +159,7 @@ public final class SettingsCatalog {
         return Arrays.stream(Group.values()).filter(group -> group.category == category).toList();
     }
     public static final List<FileEntry> FILES = List.of(
+            new FileEntry("skyweave_compat-hoofprint.json", Group.HOOFPRINT, "hoofprint_zoom", List.of(Feature.HOOFPRINT_ZOOM), SectionKind.PREFERENCES),
             new FileEntry(FeatureSettings.FILE, null, "startup", List.of(), SectionKind.FIXES),
             new FileEntry("createredstonelinkgui-client.toml", Group.GUI_CLIENT, "link_gui_client", List.of(Feature.LINK_GUI_INTERACTIONS), SectionKind.PREFERENCES),
             new FileEntry("createredstonelinkgui-common.toml", Group.LINK_GUI, "link_gui_common", List.of(Feature.LINK_GUI_RELOCATION), SectionKind.TUNING),

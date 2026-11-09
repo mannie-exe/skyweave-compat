@@ -1,0 +1,37 @@
+{
+  id: "1000000000000000"
+  filename: "behavior"
+  quests: [
+    {
+      id: "1100000000000001"
+      tasks: [{ id: "1200000000000001", type: "checkmark" }]
+    }
+    {
+      id: "1100000000000002"
+      dependencies: ["1100000000000001"]
+      tasks: [{ id: "1200000000000002", type: "advancement", advancement: "minecraft:story/upgrade_tools" }]
+    }
+    {
+      id: "1100000000000003"
+      tasks: [{
+        id: "1200000000000003"
+        type: "item"
+        consume_items: true
+        count: 8L
+        match_components: "strict"
+        item: { id: "minecraft:paper", components: { "minecraft:custom_data": { "skyweave_compat:quest_items": { schema: 1, items: ["minecraft:bread", "minecraft:potato"] } } } }
+      }]
+      rewards: [{ id: "1300000000000003", type: "item", item: { id: "minecraft:andesite" }, count: 2, team_reward: true, auto: "disabled" }]
+    }
+    {
+      id: "1100000000000004"
+      tasks: [{ id: "1200000000000004", type: "item", item: { id: "minecraft:oak_log" }, consume_items: false }]
+      rewards: [{ id: "1300000000000004", type: "item", item: { id: "minecraft:bread" }, count: 1, team_reward: false, auto: "disabled" }]
+    }
+    {
+      id: "1100000000000005"
+      tasks: [{ id: "1200000000000005", type: "checkmark" }]
+      rewards: [{ id: "1300000000000005", type: "item", item: { id: "minecraft:diamond" }, count: 2, team_reward: false, auto: "disabled" }]
+    }
+  ]
+}

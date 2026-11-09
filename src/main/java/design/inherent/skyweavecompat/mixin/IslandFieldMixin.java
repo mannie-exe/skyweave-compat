@@ -137,13 +137,19 @@ public abstract class IslandFieldMixin implements ProfiledTerrain, GeologicalFie
         // Maximum configured village reach includes layout reservation and native SKY retries.
         int range = skyweave$profile.lookupCells(skyweave$profile.anchorMaxRadius() + 2048 + 320);
         for (int dx = -range; dx <= range; dx++) for (int dz = -range; dz <= range; dz++) {
-            var descriptors = terrainPlansForCell(cx + dx, cz + dz, settings);
-            if (descriptors.isEmpty()) continue;
-            var anchor = descriptors.getFirst().descriptor();
-            anchors.add(new VillagePlan.Anchor(anchor.seed(), anchor.centerX(), anchor.centerZ(), anchor.maxRadius(),
-                    anchor.centerY() + anchor.plateauHeight()));
+            var anchor = skyweave$anchorInCell(cx + dx, cz + dz, settings);
+            if (anchor != null) anchors.add(anchor);
         }
         return List.copyOf(anchors);
+    }
+
+    @Override public VillagePlan.Anchor skyweave$anchorInCell(int cellX, int cellZ, SkyIslandSettings settings) {
+        if (skyweave$profile == null) return null;
+        var plans = terrainPlansForCell(cellX, cellZ, settings);
+        if (plans.isEmpty()) return null;
+        var anchor = plans.getFirst().descriptor();
+        return new VillagePlan.Anchor(anchor.seed(), anchor.centerX(), anchor.centerZ(), anchor.maxRadius(),
+                anchor.centerY() + anchor.plateauHeight());
     }
 
     @Override public GeologicalFrame skyweave$frameAt(int x, int z, SkyIslandSettings settings) {

@@ -39,6 +39,9 @@ See [all switches and supported combinations](docs/configuration.md#adaptation-s
 | Macaw’s Windows | 2.4.2 | Client mosaic block/pane backfaces; retains native vertical patterns |
 | Decorative block backfaces | Create Confectionery 1.1.3b, Linear Bearing 1.3.5, Design n’ Decor 2.2b or Bits ’n’ Bobs 2.3.5 | Independent client switches for caramel bricks, bubble gum, ornate grate and industrial grating |
 | Macaw’s Bridges | 3.1.2 | Standing/stair lantern selection matching pack models; enable on both sides |
+| Hoofprint + Surveyor + Connector | 1.3.0+1.21 + 1.2.4+1.21 + 2.0.0-beta.17+1.21.1 | Fractional client map zoom, pointer anchoring and retained views |
+| FTB Quests | 2101.1.38 | Native item alternatives and item-tag matching for authored Skyweave quests |
+| FTB Library | 2101.1.39 | Restore inventory screens against the correct active menu |
 | Questlog | 3.5.0, 3.5.3 | Readable conditions, reward previews, first-progress/completion notifications and server claim validation |
 | BlueMap | 5.7 | Opt-in island viewer adaptation on dedicated servers |
 | Surveyor + Sky Archipelago | 1.2.4 + 1.4 | Skip rejected structure starts in map records |
@@ -58,6 +61,10 @@ No world preset is selected automatically. To use the expanded terrain, install
 Sky Archipelago and create a new world with **Skyweave Islands**, or set
 `level-type=skyweave_compat:islands_v1` before creating a dedicated-server world.
 Do not change an existing save's generator or recorded generation configuration.
+Initial shared spawn recovery selects a safe companion island. It preserves mature
+world spawns and personal beds; no custom team-island allocation is included. The
+optional Nether-access policy blocks native portal activation and entry in marked
+worlds, including singleplayer, while preserving ordinary fire and stored data.
 Ordinary Sky Archipelago worlds receive only applicable enabled adaptations.
 With Dynamic Waters installed, set `Generation.normalRiverMode=VANILLA` and
 `mountainRiverTunnels=false` before creating a Skyweave world; keep both native
@@ -198,7 +205,7 @@ Operators can verify structures without blocking a synchronous `/locate` search:
 /skyweavecompat structures cancel
 ```
 
-Use one family, registered structure ID or structure tag. Results contain verified native starts; click coordinates to prepare a teleport. Where native placement has no meaningful altitude, the displayed Y comes from the saved start's bounds. Nothing teleports automatically. The search continues on its own, retains up to64 nearby matches and pages ten at a time. One structure search may run per server; its requester owns cancellation.
+Use one family, registered structure ID or structure tag. Managed queries prioritize eligible cluster sites; loaded and saved starts remain discoverable independently of current placement rules. Results contain verified native starts; click coordinates to prepare a teleport. Where native placement has no meaningful altitude, the displayed Y comes from the saved start's bounds. Nothing teleports automatically. The search continues on its own, retains up to64 nearby matches and pages ten at a time. One structure search may run per server; its requester owns cancellation.
 
 Both `islands` and `structures` show periodic progress while running. Players see
 action-bar updates; console users receive less frequent messages. `page` opens
@@ -206,7 +213,7 @@ the first results page. Empty searches show an explanation instead of a blank
 page; an unfinished structure search does not establish absence. Island results
 are planned centers, while structure results are verified native starts.
 
-Verification can generate and save early chunk metadata. It requests `STRUCTURE_STARTS`, with at most two native requests at once, and does not deliberately generate full terrain. Time/candidate exhaustion returns **partial** results, not proof of absence or of the nearest possible structure. Only an exhausted supported search domain is complete. Unsupported placements, including concentric-ring strongholds, are reported explicitly. Ordinary vanilla `/locate`, exploration maps and other synchronous callers retain their existing behavior and can still be expensive.
+Verification can generate and save early chunk metadata. It requests `STRUCTURE_STARTS`, with at most two native requests at once, and does not deliberately generate full terrain. Time/candidate exhaustion returns **partial** results, not proof of absence or of the nearest possible structure. Only an exhausted supported search domain is complete. Unsupported placements, including concentric-ring strongholds, are reported explicitly. In marked worlds, the default-on structure-command policy replaces `/locate structure` lookup with an editable bounded-command suggestion. `/locate biome`, `/locate poi`, exploration maps and direct native callers retain their behavior; synchronous callers can still be expensive. Disabling the policy or using an unmarked world preserves native structure commands.
 
 Search budgets live in `config/skyweave/skyweave_compat-search.json` and apply after restart. They do not change terrain identity. See [search limits](docs/configuration.md#structure-search) and [maintenance](docs/development/terrain-variation.md#structure-discovery).
 

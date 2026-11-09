@@ -11,3 +11,6 @@
 
 [Adapter maintenance](development/adapters.md) and [rendering boundaries](development/rendering.md)
 own optional integration updates and rendering contracts.
+
+[Testing and native probes](development/testing.md) owns disposable verification commands;
+[verification](development/verification.md) indexes the evidence for published artifacts.

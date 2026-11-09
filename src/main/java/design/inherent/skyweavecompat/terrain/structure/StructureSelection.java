@@ -16,6 +16,12 @@ public final class StructureSelection {
         return allowance * (family == StructureFamily.VILLAGES ? 3L : 8L);
     }
 
+    /** Shared conservative prefix for generation, native lookup and command prechecks. */
+    public static boolean withinAttempts(StructureFamily family, int allowance, List<Site> ranked, Site site) {
+        int index = ranked.indexOf(site);
+        return index >= 0 && index < attemptLimit(family, allowance);
+    }
+
     public static int allowance(long worldSeed, Owner owner, StructureFamily family,
             double eligibleChunks, StructurePolicy policy) {
         if (!Double.isFinite(eligibleChunks) || eligibleChunks < 0)

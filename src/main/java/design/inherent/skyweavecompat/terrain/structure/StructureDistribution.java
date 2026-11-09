@@ -55,8 +55,8 @@ public final class StructureDistribution {
     private final Map<String, Boolean> yungReplacements;
     private final Map<ResourceLocation, net.minecraft.world.level.levelgen.structure.placement.StructurePlacement> yungTemplePlacements;
     private YungTempleRules yungTempleRules;
-    private final Cache<StructureSelection.Owner, Plan> plans = CacheBuilder.newBuilder().maximumSize(512).build();
-    private final Cache<StructureSelection.Owner, Plan> fittedPlans = CacheBuilder.newBuilder().maximumSize(512).build();
+    private final Cache<StructureSelection.Owner, OrderedPlan<Plan>> plans = CacheBuilder.newBuilder().maximumSize(512).build();
+    private final Cache<StructureSelection.Owner, OrderedPlan<Plan>> fittedPlans = CacheBuilder.newBuilder().maximumSize(512).build();
     private final Cache<StructureSelection.Owner, Map<StructureSelection.Site, Sample>> sampledSites = CacheBuilder.newBuilder().maximumSize(512).build();
     private record ChoiceKey(StructureSelection.Owner owner, StructureFamily family) {}
     private record Choice(double area, int count, List<StructureSelection.Site> ranked) {}
@@ -198,21 +198,64 @@ public final class StructureDistribution {
     }
 
     public Plan plan(StructureSelection.Owner owner) {
+        return plan(owner, StructureFamily.values()[StructureFamily.values().length - 1]);
+    }
+
+    /** Earlier families reserve first; later unrelated families need not be fitted for this query. */
+    public Plan plan(StructureSelection.Owner owner, StructureFamily through) {
         var context = environment;
         var cache = context == null ? plans : fittedPlans;
-        try { return cache.get(owner, () -> compute(owner, context)); }
-        catch (java.util.concurrent.ExecutionException failed) { throw new IllegalStateException("Cannot plan cluster structures", failed.getCause()); }
+        try {
+            var progress = cache.get(owner, () -> new OrderedPlan<>(StructureFamily.values().length,
+                    new Plan(owner, Map.of(), Map.of(), Map.of()),
+                    (index, previous) -> extend(owner, context, StructureFamily.values()[index], previous)));
+            return progress.through(through.ordinal());
+        } catch (java.util.concurrent.ExecutionException failed) {
+            throw new IllegalStateException("Cannot plan cluster structures", failed.getCause());
+        }
     }
 
     public boolean manages(StructureSet.StructureSelectionEntry entry) { return managedEntries.contains(entry); }
     public StructureFamily family(ResourceLocation id) { return families.get(id); }
+
+    /** Complete conservative owner domain, using the same displaced-member bounds as terrain lookup. */
+    public IslandSearch<StructureSelection.Site> searchOwners(int x, int z, int radius, long padding) {
+        var profile = ((design.inherent.skyweavecompat.terrain.ProfiledTerrain)(Object)field).skyweave$profile();
+        int halo = Math.toIntExact(profile.lookupCells() + Math.ceilDiv(padding, profile.spacing()));
+        return new IslandSearch<>(x, z, radius, profile.spacing(), halo,
+                java.util.Comparator.comparingInt(StructureSelection.Site::chunkX).thenComparingInt(StructureSelection.Site::chunkZ));
+    }
+
+    /** Exactly the finite prefix available to generation; no hydrology, layout fit or chunks. */
+    public List<StructureSelection.Site> searchSites(StructureSelection.Owner owner, StructureFamily family) {
+        var choice = choice(owner, family);
+        return choice.ranked().stream().limit(StructureSelection.attemptLimit(family, choice.count())).toList();
+    }
+
+    /** Only a completed native-bound prefix may narrow a query's new-generation variants. */
+    public boolean possibleSearchVariant(StructureSelection.Owner owner, StructureFamily family,
+            StructureSelection.Site site, Set<ResourceLocation> targets) {
+        if (environment == null) return true;
+        var progress = fittedPlans.getIfPresent(owner);
+        var published = progress == null ? null : progress.peek(family.ordinal());
+        if (published == null) return true;
+        var layout = published.layout(family, site);
+        return layout != null && targets.contains(layout.id());
+    }
 
     /** Conservative precheck only: no biome projection, hydrology or layout fitting. Saved starts bypass it. */
     public boolean possibleNewStart(StructureFamily family, int chunkX, int chunkZ) {
         if (family == null) return true;
         var rule = policy.rule(family);
         if (policy.frequencyMultiplier() == 0 || rule.maximumPerCluster() == 0 || rule.targetStartsPer1024Chunks() == 0) return false;
-        return owner(chunkX * 16 + 8, chunkZ * 16 + 8) != null;
+        var owner = owner(chunkX * 16 + 8, chunkZ * 16 + 8);
+        if (owner == null) return false;
+        // Native fitting is restricted to this exact prefix. Checking land alone
+        // sends every unselected lattice point through expensive chunk generation.
+        // This uses exterior/biome metadata only, never hydrology or layout fitting.
+        var choice = choice(owner, family);
+        return StructureSelection.withinAttempts(family, choice.count(), choice.ranked(),
+                new StructureSelection.Site(chunkX, chunkZ));
     }
     public StructurePlacementCategory category(ResourceLocation id, Object policyOwner) {
         return settings.advanced().structurePlacementPolicy() == policyOwner ? categories.get(id) : null;
@@ -229,13 +272,20 @@ public final class StructureDistribution {
         if (environment == null || !hasLayoutPlan(family)) return true;
         var owner = owner(chunkX * 16 + 8, chunkZ * 16 + 8);
         if (owner == null) return false;
-        var layout = plan(owner).layout(family, new StructureSelection.Site(chunkX, chunkZ));
+        var site = new StructureSelection.Site(chunkX, chunkZ);
+        var choice = choice(owner, family);
+        if (!StructureSelection.withinAttempts(family, choice.count(), choice.ranked(), site)) return false;
+        var layout = plan(owner, family).layout(family, site);
         return layout != null && id.equals(layout.id());
     }
 
     public boolean selected(StructureFamily family, int chunkX, int chunkZ) {
         var owner = owner(chunkX * 16 + 8, chunkZ * 16 + 8);
-        return owner != null && plan(owner).sites(family).contains(new StructureSelection.Site(chunkX, chunkZ));
+        if (owner == null) return false;
+        var site = new StructureSelection.Site(chunkX, chunkZ);
+        var choice = choice(owner, family);
+        return StructureSelection.withinAttempts(family, choice.count(), choice.ranked(), site)
+                && plan(owner, family).sites(family).contains(site);
     }
 
     /** Never turn a provisional, pre-binding fit into a cached absence during native lookup. */
@@ -247,8 +297,8 @@ public final class StructureDistribution {
         var choice = choice(owner, family);
         // Fitting cannot select beyond this same ranked prefix. Reject impossible family/site
         // pairs before fitting every earlier family merely to answer an absent-city lookup.
-        int index = choice.ranked().indexOf(site);
-        return index >= 0 && index < StructureSelection.attemptLimit(family, choice.count()) && plan(owner).sites(family).contains(site);
+        return StructureSelection.withinAttempts(family, choice.count(), choice.ranked(), site)
+                && plan(owner, family).sites(family).contains(site);
     }
 
     private Choice choice(StructureSelection.Owner owner, StructureFamily family) {
@@ -269,45 +319,47 @@ public final class StructureDistribution {
         }
     }
 
-    private Plan compute(StructureSelection.Owner owner, StructurePlacementPassContext context) {
+    private Plan extend(StructureSelection.Owner owner, StructurePlacementPassContext context,
+            StructureFamily family, Plan previous) {
         var areas = new EnumMap<StructureFamily, Double>(StructureFamily.class);
         var selected = new EnumMap<StructureFamily, List<StructureSelection.Site>>(StructureFamily.class);
         var fitted = new EnumMap<StructureFamily, List<StructureLayout>>(StructureFamily.class);
-        for (var family : StructureFamily.values()) {
-            var choice = choice(owner, family);
-            areas.put(family, choice.area());
-            int count = choice.count();
-            var ranked = choice.ranked();
-            if (family == StructureFamily.VILLAGES && context != null) {
-                var layouts = new ArrayList<StructureLayout>();
-                for (var site : ranked.stream().limit(StructureSelection.attemptLimit(family, count)).toList()) {
-                    if (layouts.size() == count) break;
-                    var layout = VillageLayoutPlanning.fit(this, context, site, familyEntries.getOrDefault(family, List.of()));
-                    if (layout == null || conflicts(layout, layouts, fitted)) continue;
-                    layouts.add(layout);
-                }
-                selected.put(family, layouts.stream().map(StructureLayout::site).toList());
-                fitted.put(family, List.copyOf(layouts));
-            } else if (hasLayoutPlan(family) && context != null) {
-                var layouts = new ArrayList<StructureLayout>();
-                var villages = selected.getOrDefault(StructureFamily.VILLAGES, List.of());
-                for (var site : ranked.stream().limit(StructureSelection.attemptLimit(family, count)).toList()) {
-                    if (layouts.size() == count) break;
-                    if (family == StructureFamily.OUTPOSTS && StructureSelection.outpostExcluded(site, villages, policy.outpostVillageSeparationChunks())) continue;
-                    var layout = underground(family) || family == StructureFamily.TRAIL_RUINS
-                            ? UndergroundLayoutPlanning.fit(this, context, family, site, familyEntries.getOrDefault(family, List.of()))
-                            : GroundLayoutPlanning.fit(this, context, family, site, familyEntries.getOrDefault(family, List.of()));
-                    if (layout == null || !yungTempleRules.allows(layout, layouts, fitted, context)
-                            || conflicts(layout, layouts, fitted)) continue;
-                    layouts.add(layout);
-                }
-                selected.put(family, layouts.stream().map(StructureLayout::site).toList());
-                fitted.put(family, List.copyOf(layouts));
-            } else selected.put(family, ranked.stream().limit(count).toList());
-        }
+        areas.putAll(previous.eligibleChunks());
+        selected.putAll(previous.sites());
+        fitted.putAll(previous.layouts());
+        var choice = choice(owner, family);
+        areas.put(family, choice.area());
+        int count = choice.count();
+        var ranked = choice.ranked();
+        if (family == StructureFamily.VILLAGES && context != null) {
+            var layouts = new ArrayList<StructureLayout>();
+            for (var site : ranked.stream().limit(StructureSelection.attemptLimit(family, count)).toList()) {
+                if (layouts.size() == count) break;
+                var layout = VillageLayoutPlanning.fit(this, context, site, familyEntries.getOrDefault(family, List.of()));
+                if (layout == null || conflicts(layout, layouts, fitted)) continue;
+                layouts.add(layout);
+            }
+            selected.put(family, layouts.stream().map(StructureLayout::site).toList());
+            fitted.put(family, List.copyOf(layouts));
+        } else if (hasLayoutPlan(family) && context != null) {
+            var layouts = new ArrayList<StructureLayout>();
+            var villages = selected.getOrDefault(StructureFamily.VILLAGES, List.of());
+            for (var site : ranked.stream().limit(StructureSelection.attemptLimit(family, count)).toList()) {
+                if (layouts.size() == count) break;
+                if (family == StructureFamily.OUTPOSTS && StructureSelection.outpostExcluded(site, villages, policy.outpostVillageSeparationChunks())) continue;
+                var layout = underground(family) || family == StructureFamily.TRAIL_RUINS
+                        ? UndergroundLayoutPlanning.fit(this, context, family, site, familyEntries.getOrDefault(family, List.of()))
+                        : GroundLayoutPlanning.fit(this, context, family, site, familyEntries.getOrDefault(family, List.of()));
+                if (layout == null || !yungTempleRules.allows(layout, layouts, fitted, context)
+                        || conflicts(layout, layouts, fitted)) continue;
+                layouts.add(layout);
+            }
+            selected.put(family, layouts.stream().map(StructureLayout::site).toList());
+            fitted.put(family, List.copyOf(layouts));
+        } else selected.put(family, ranked.stream().limit(count).toList());
         // Destination anchors, not ordinary-village source opportunities in void.
         var villages = selected.getOrDefault(StructureFamily.VILLAGES, List.of());
-        selected.computeIfPresent(StructureFamily.OUTPOSTS, (family, candidates) -> candidates.stream()
+        if (family == StructureFamily.OUTPOSTS) selected.computeIfPresent(StructureFamily.OUTPOSTS, (ignored, candidates) -> candidates.stream()
                 .filter(site -> !StructureSelection.outpostExcluded(site, villages, policy.outpostVillageSeparationChunks())).toList());
         return new Plan(owner, areas, selected, fitted);
     }
@@ -319,12 +371,20 @@ public final class StructureDistribution {
     }
 
     /** Unknown or foreign geometry retains native reservation policy. */
-    public Boolean layoutConflict(StructureSelection.Site source, StructureVolume.Box first, StructureVolume.Box second) {
+    public Boolean layoutConflict(StructureSelection.Site source, StructureFamily family,
+            StructureVolume.Box first, StructureVolume.Box second) {
         var owner = owner(source.chunkX() * 16 + 8, source.chunkZ() * 16 + 8);
         if (owner == null || environment == null) return null;
-        var layouts = plan(owner).layouts().values().stream().flatMap(Collection::stream).toList();
+        var layouts = plan(owner, family).layouts().values().stream().flatMap(Collection::stream).toList();
         var a = layouts.stream().filter(value -> value.matches(first)).findFirst().orElse(null);
         var b = layouts.stream().filter(value -> value.matches(second)).findFirst().orElse(null);
+        if (a == null || b == null) {
+            // A retained reservation can belong to a later family, including after
+            // cache eviction. Resolve the full plan only for that ambiguous pair.
+            layouts = plan(owner).layouts().values().stream().flatMap(Collection::stream).toList();
+            a = layouts.stream().filter(value -> value.matches(first)).findFirst().orElse(null);
+            b = layouts.stream().filter(value -> value.matches(second)).findFirst().orElse(null);
+        }
         return a == null || b == null ? null : a.conflicts(b);
     }
 

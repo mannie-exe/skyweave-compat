@@ -35,8 +35,12 @@ inactive selections.
 | `terrain.relative_carvers` | Relative classic carvers and `nativeCarvers` policy | Active preset |
 | `terrain.cave_biomes` | Island-relative cave biome selection | Active preset |
 | `terrain.ancient_cities` | Interior city placement, burial and support | Active preset |
-| `terrain.spawn_landing` | Generated-surface spawn landing | Active preset |
+| `terrain.spawn_landing` | Initial shared spawn on a validated companion island | Active preset |
 | `terrain.structure_location` | Relocated structure lookup | Active preset |
+| `terrain.structure_command` | Guide native structure commands to bounded discovery | Active preset |
+| `minecraft.nether_access` | Close native Nether activation/entry in marked worlds | Active preset |
+| `c2me.structure_search` | Native C2ME storage inventory for saved-start discovery | Active preset, C2ME chunk-I/O rewrite 0.4.0-alpha.0.124+1.21.1 |
+| `hoofprint.zoom` | Fractional map zoom and pointer anchoring | Client, Hoofprint 1.3.0_1.21, Surveyor 1.2.4_1.21 and Connector 2.0.0-beta.17+1.21.1 |
 | `terrain.structure_distribution` | Cluster structure allowances and fitted destinations | Active preset; city allowances additionally need `terrain.ancient_cities` |
 | `lithostitched.island_structures` | Fit qualified Lithostitched custom jigsaw profiles | Lithostitched 1.8.1, Sky Archipelago 1.4 and structure distribution |
 | `yungsapi.island_structures` | Native jigsaw metadata, buried temple support and configured vanilla replacements | YUNG's API 1.21.1-NeoForge-5.1.9, Sky Archipelago 1.4 and structure distribution |
@@ -78,6 +82,8 @@ inactive selections.
 | `distant_horizons.world_cache` | Per-save key and guarded legacy import | DH 3.3.3, Sky Archipelago 1.4; default true |
 | `lighting.lifecycle` | Keep moving lights client-local and remove old world owners | Client, Sable Dynamic Lights 2.0.1, LambDynamicLights 4.8.11+1.21.1, Create 6.0.10 |
 | `lighting.sodium` | Position-aware moving-light lookup in Sodium | Client, Sable Dynamic Lights 2.0.1, LambDynamicLights 4.8.11+1.21.1, Create 6.0.10, Sodium 0.8.13+mc1.21.1; Sable and Iris are not required |
+| `ftbquests.item_alternatives` | Item choices and tag filters through native FTB task matching | Both sides, FTB Quests 2101.1.38 |
+| `ftblibrary.creative_inventory_return` | Match restored inventory screens to their active menus | Client, FTB Library 2101.1.39 |
 | `questlog.interface` | Wrapped conditions, reward preview and scrollbar/input adaptation | Client, Questlog 3.5.0 or 3.5.3 |
 | `questlog.notifications` | First-progress and completion toasts | Client, Questlog 3.5.0 or 3.5.3 |
 | `questlog.reward_validation` | Validate eligibility and choices before grants | Logical server, Questlog 3.5.0 or 3.5.3 |
@@ -380,6 +386,8 @@ update checks](development/terrain.md#cluster-structure-policy).
 | `timeLimitSeconds` | 120 | 5–600 wall seconds |
 | `concurrentChunks` | 2 | 1–2 native requests |
 | `tickBudgetMillis` | 5 | 1–10 milliseconds of per-tick bookkeeping |
+
+`c2me.structure_search`, under **World → C2ME**, enables saved-start discovery through the supported C2ME storage backend. It defaults on with its dependencies. Disabling it while C2ME replaces native storage leaves historical coverage incomplete; it does not change terrain generation. Vanilla storage needs no C2ME adapter.
 
 These are separate bounds. Metadata checks use at most one active batch across successive jobs; only native verification requests hold chunk leases. The tick budget does not interrupt a single native generation operation, so minimum-status requests use the verified asynchronous engine path. Results remain provisional until the supported domain is exhausted. Cancellation and partial results relinquish search leases; shared native generation may finish independently. [Command usage](../README.md#structure-search) distinguishes structure verification from metadata-only island discovery and ordinary synchronous `/locate`.
 

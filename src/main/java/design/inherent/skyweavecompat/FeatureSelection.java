@@ -82,7 +82,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
         return switch (feature) {
             case LITHOSTITCHED_STRUCTURES, YUNG_STRUCTURES -> Feature.STRUCTURE_DISTRIBUTION;
             case YUNG_MINESHAFTS, YUNG_WITCH_HUTS -> Feature.YUNG_STRUCTURES;
-            case ORE_PLACEMENT, CARVERS, CAVE_BIOMES, ANCIENT_CITIES, SPAWN, STRUCTURE_LOCATION, STRUCTURE_DISTRIBUTION,
+            case ORE_PLACEMENT, CARVERS, CAVE_BIOMES, ANCIENT_CITIES, SPAWN, NETHER_ACCESS, C2ME_SEARCH, STRUCTURE_LOCATION, STRUCTURE_COMMAND, STRUCTURE_DISTRIBUTION,
                     WATER_SPAWNS, CLIMATE, DYNAMIC_WATERS, ISLAND_CLOUDS, ISLAND_VOID, ISLAND_SHADER_ENVIRONMENT, VILLAGE_PLACEMENT, PRESSURE, DELIVERY_DISTANCE,
                     DELIVERY_CHUNKS, DELIVERY_LANDING -> Feature.TERRAIN;
             case COLORWHEEL_MATERIALS -> Feature.MATERIAL_IDS;
@@ -97,14 +97,19 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
 
     public static boolean clientOnly(Feature feature) {
         return switch (feature) {
-            case ISLAND_CLOUDS, ISLAND_VOID, ISLAND_SHADER_ENVIRONMENT, CONFECTIONERY_BACKFACES, BUBBLE_GUM_BACKFACES, ORNATE_GRATE_BACKFACES, INDUSTRIAL_GRATING_BACKFACES, MACAW_GLASS, CONSTRUCT_DISTANCE, CONSTRUCT_OCCLUSION, SHADER_PATCHES, TEXT_DISPLAY_LIGHTING, NAMETAG_LIGHTING, TEXT_DISPLAY_SHADOW, NAMETAG_SHADOW, CREATE_BACKFACES, FUSION_BACKFACES, CREATE_WINDOWS, RECHISELED_GLASS, REDSTONE_RENDERING, AUDIO_TIMELINE, LINEAR_PONDER, COLORWHEEL_SAMPLERS, COLORWHEEL_MATERIALS, LIGHTING_LIFECYCLE, SODIUM_LIGHTING, DH_HANDOFF, FRAMEBUFFER, BALLOON, MATERIAL_IDS, MODEL_DATA, SINGLE_BLOCK_PASSES,
-                    QUESTLOG_INTERFACE, QUESTLOG_NOTIFICATIONS -> true;
+            case HOOFPRINT_ZOOM, ISLAND_CLOUDS, ISLAND_VOID, ISLAND_SHADER_ENVIRONMENT, CONFECTIONERY_BACKFACES, BUBBLE_GUM_BACKFACES, ORNATE_GRATE_BACKFACES, INDUSTRIAL_GRATING_BACKFACES, MACAW_GLASS, CONSTRUCT_DISTANCE, CONSTRUCT_OCCLUSION, SHADER_PATCHES, TEXT_DISPLAY_LIGHTING, NAMETAG_LIGHTING, TEXT_DISPLAY_SHADOW, NAMETAG_SHADOW, CREATE_BACKFACES, FUSION_BACKFACES, CREATE_WINDOWS, RECHISELED_GLASS, REDSTONE_RENDERING, AUDIO_TIMELINE, LINEAR_PONDER, COLORWHEEL_SAMPLERS, COLORWHEEL_MATERIALS, LIGHTING_LIFECYCLE, SODIUM_LIGHTING, DH_HANDOFF, FRAMEBUFFER, BALLOON, MATERIAL_IDS, MODEL_DATA, SINGLE_BLOCK_PASSES,
+                    FTB_CREATIVE_RETURN, QUESTLOG_INTERFACE, QUESTLOG_NOTIFICATIONS -> true;
             default -> false;
         };
     }
 
     public static Map<String, String> dependencies(Feature feature) {
         return switch (feature) {
+            case FTB_ITEM_FILTERS -> Map.of("ftbquests", "2101.1.38");
+            case C2ME_SEARCH -> Map.of("c2me_rewrites_chunkio", "0.4.0-alpha.0.124+1.21.1");
+            case NETHER_ACCESS -> Map.of();
+            case HOOFPRINT_ZOOM -> Map.of("hoofprint", "1.3.0_1.21", "surveyor", "1.2.4_1.21", "connector", "2.0.0-beta.17+1.21.1");
+            case FTB_CREATIVE_RETURN -> Map.of("ftblibrary", "2101.1.39");
             case LITHOSTITCHED_STRUCTURES -> Map.of("sky_archipelago", "1.4", "lithostitched", "1.8.1");
             case YUNG_STRUCTURES -> Map.of("sky_archipelago", "1.4", "yungsapi", "1.21.1-NeoForge-5.1.9");
             case YUNG_MINESHAFTS -> Map.of("sky_archipelago", "1.4", "yungsapi", "1.21.1-NeoForge-5.1.9", "bettermineshafts", "1.21.1-NeoForge-5.1.1");
@@ -128,7 +133,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             case RECHISELED_GLASS -> Map.of("rechiseled", "1.2.6");
             case QUESTLOG_INTERFACE, QUESTLOG_NOTIFICATIONS, QUESTLOG_REWARD_VALIDATION -> Map.of("questlog", "3.5.0");
             case TERRAIN, ORE_PLACEMENT, CARVERS, CAVE_BIOMES, ANCIENT_CITIES, SPAWN,
-                    STRUCTURE_LOCATION, STRUCTURE_DISTRIBUTION, WATER_SPAWNS, CLIMATE, ISLAND_CLOUDS, ISLAND_VOID -> Map.of("sky_archipelago", "1.4");
+                    STRUCTURE_LOCATION, STRUCTURE_COMMAND, STRUCTURE_DISTRIBUTION, WATER_SPAWNS, CLIMATE, ISLAND_CLOUDS, ISLAND_VOID -> Map.of("sky_archipelago", "1.4");
             case VILLAGE_CLEARANCE, VILLAGE_PLACEMENT -> Map.of("sky_archipelago", "1.4", "skyvillages", "1.0.6", "architectury", "13.");
             case PRESSURE -> Map.of("sable", "2.0.6");
             case DELIVERY_DISTANCE, DELIVERY_CHUNKS -> Map.of("aeronautics_delivery_quests", "1.1.1");
@@ -168,7 +173,8 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
         for (var feature : Feature.values()) {
             if (!enabled(feature)) continue;
             result.addAll(switch (feature) {
-                case TERRAIN -> List.of("StructureSearchCacheAccess", "GeneratorProfileMixin", "IslandFieldMixin", "ColumnResolverMixin",
+                case FTB_CREATIVE_RETURN -> List.of("client.FtbCreativeReturnMixin");
+                case TERRAIN -> List.of("StructureSearchCacheAccess", "StructureSearchChunksAccess", "StructureSearchStorageMixin", "StructureRegionStorageAccess", "GeneratorProfileMixin", "IslandFieldMixin", "ColumnResolverMixin",
                         "ColumnDataMixin", "InteriorSurfaceMixin", "SurfaceRulesMixin", "SurfacePaletteAccessor", "ClusterPlacementMixin", "ClusterSamplerMixin",
                         "DescriptorFactoryMixin", "OceanShapeMixin", "FringePlanMixin", "FringeColumnMixin", "ShapeDensityMixin", "ShapeDecorationMixin", "TerrainMaterialMixin", "InteriorInterpolationMixin",
                         "GeologicalMaterialMixin", "OreVeinifierAccessor");
@@ -177,6 +183,9 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                 case CAVE_BIOMES -> List.of("CaveBiomeMixin", "ProjectedCaveBiomeMixin", "DeepDarkContextAccessor", "DeepDarkProjectorAccess");
                 case ANCIENT_CITIES -> List.of("AncientCityRoutingMixin", "AncientCityPlacementMixin", "AncientCityHeightMixin", "AncientCityTerrainMixin");
                 case SPAWN -> List.of("SpawnFallbackMixin");
+                case NETHER_ACCESS -> List.of("PortalIgnitionMixin", "PortalCreationMixin", "NetherPortalAccessMixin", "DimensionTravelMixin", "ClosedDimensionRespawnMixin", "ClosedDimensionTeleportMixin", "ClosedDimensionLoginMixin");
+                case STRUCTURE_COMMAND -> List.of("StructureCommandMixin");
+                case C2ME_SEARCH -> List.of("C2meSearchWorkerMixin", "C2meSearchStorageMixin");
                 case STRUCTURE_LOCATION -> List.of(); // Shared with the native replacement policy below.
                 case LITHOSTITCHED_STRUCTURES -> List.of("LithostitchedStructureMixin");
                 case YUNG_STRUCTURES -> List.of("YungStructureMixin", "YungBuriedSupportMixin", "YungReplacementMixin", "YungPolicyStateMixin");
@@ -190,6 +199,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                         "StructurePolicyUndergroundPlanningMixin", "StructurePolicyUndergroundClaimsMixin", "StructurePolicyAnchorCacheMixin", "StructurePolicyWaterPlanningMixin", "StructurePolicyIglooHeightMixin",
                         "StructurePolicyIglooPieceMixin", "StructurePolicyIglooSupportMixin", "StructurePolicyPhysicalClaimsMixin",
                         "StructurePolicyReservationMixin", "StructurePolicyPendingOwnerMixin", "StructurePolicyPyramidPieceMixin");
+                case HOOFPRINT_ZOOM -> List.of("client.HoofprintZoomMixin");
                 case SURVEYOR_STRUCTURES -> List.of("SurveyorStructureMixin");
                 case WATER_SPAWNS -> List.of("WaterAnimalMixin");
                 case CLIMATE -> List.of("SurfaceClimateMixin", "SurfaceTemperatureMixin", "FreezeClimateMixin", "SnowFreezeClimateMixin",
@@ -257,6 +267,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                 case FUSION_BACKFACES -> List.of("client.FusionGlassBackfaceMixin", "client.FusionPaneBackfaceMixin");
                 case CREATE_WINDOWS -> List.of("client.CreateWindowCullingMixin");
                 case RECHISELED_GLASS -> List.of("client.RechiseledGlassCullingMixin");
+                case FTB_ITEM_FILTERS -> List.of();
                 case QUESTLOG_INTERFACE -> List.of("client.QuestDetailsMixin", "client.QuestlogBookmarkMixin");
                 case QUESTLOG_NOTIFICATIONS -> List.of("client.QuestNotificationMixin", "client.QuestSyncMixin");
                 case QUESTLOG_REWARD_VALIDATION -> List.of("questlog.RewardClaimMixin");

@@ -13,16 +13,22 @@ public final class SpawnLanding {
 
     public static BlockPos resolve(ServerLevel level, BlockPos proposed) {
         var requested = new HashSet<Long>();
-        var found = near(level, proposed, requested);
-        if (found != null) return found;
+        BlockPos found;
         // Native fallback can select a fully wet perimeter host or a fractured opening.
         // Inspect nearby accepted metadata before paying for additional generated chunks.
         if (level.getChunkSource().getGenerator() instanceof SkyIslandChunkGenerator generator) {
             var field = ((GeologicalGenerator)(Object)generator).skyweave$field(level.getChunkSource().randomState());
             var settings = generator.resolvedSkyIslandSettings();
+            var original = field.sampleDominantIslandDescriptor(proposed.getX(), proposed.getZ(), settings);
+            var clusters = (ClusterField)(Object)field;
+            var preferred = original == null ? null : clusters.skyweave$owner(original, settings);
             var previews = field.collectIslandPreviewsInRadius(proposed.getX(), proposed.getZ(), 8192, settings).stream()
-                    .sorted(Comparator.comparingDouble(preview -> Math.hypot(preview.x() - (double)proposed.getX(),
-                            preview.z() - (double)proposed.getZ()))).limit(24).toList();
+                    .filter(preview -> preview.family() == org.sathrek.sky_archipelago.worldgen.generator.field.model.IslandFamily.SATELLITE
+                            && !preview.archetype().waterBased() && preview.terrainPlan() != null)
+                    .sorted(Comparator.<org.sathrek.sky_archipelago.worldgen.generator.field.model.IslandPreview>comparingInt(preview ->
+                            preferred != null && preferred.equals(clusters.skyweave$owner(preview.terrainPlan().descriptor(), settings)) ? 0 : 1)
+                            .thenComparingDouble(preview -> Math.hypot(preview.x() - (double)proposed.getX(),
+                                    preview.z() - (double)proposed.getZ()))).limit(24).toList();
             int inspected = 0;
             for (var preview : previews) {
                 int step = Math.max(4, preview.radius() / 3);
@@ -35,20 +41,27 @@ public final class SpawnLanding {
                     var ocean = field.sampleWaterArchetypeColumnProfile(x, z, settings);
                     var river = field.sampleHydrologyColumn(x, z, settings);
                     if (ocean.water() && ocean.fluidSurfaceY() > top || river.wet() && river.fluidSurfaceY() > top) continue;
-                    found = near(level, new BlockPos(x, top + 1, z), requested);
+                    var companion = preview.terrainPlan().descriptor();
+                    found = near(level, new BlockPos(x, top + 1, z), requested, pos -> {
+                        var owner = ((InteriorField)(Object)field).skyweave$planningColumn(
+                                pos.getX(), pos.getZ(), settings, TerrainStage.EXTERIOR).dominantDescriptor();
+                        return companion.equals(owner);
+                    });
                     if (found != null) return found;
                 }
             }
         }
-        throw new IllegalStateException("No supported dry generated landing within the bounded fresh-spawn search at " + proposed);
+        throw new IllegalStateException("No supported dry companion-island landing within the bounded fresh-spawn search at " + proposed);
     }
 
-    private static BlockPos near(ServerLevel level, BlockPos proposed, Set<Long> requested) {
+    private static BlockPos near(ServerLevel level, BlockPos proposed, Set<Long> requested,
+            java.util.function.Predicate<BlockPos> belongs) {
         // Generated surfaces can differ from predicted columns after carving and features.
         for (int radius = 0; radius <= 16; radius += 4) {
             for (int dx = -radius; dx <= radius; dx += 4) for (int dz = -radius; dz <= radius; dz += 4) {
                 if (Math.max(Math.abs(dx), Math.abs(dz)) != radius) continue;
                 int x = proposed.getX() + dx, z = proposed.getZ() + dz;
+                if (!belongs.test(new BlockPos(x, proposed.getY(), z))) continue;
                 long key = net.minecraft.world.level.ChunkPos.asLong(x >> 4, z >> 4);
                 if (!requested.contains(key) && requested.size() >= 32) continue;
                 requested.add(key);

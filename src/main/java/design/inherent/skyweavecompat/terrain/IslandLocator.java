@@ -190,6 +190,11 @@ public final class IslandLocator {
                         && job.search.visited() < end && System.nanoTime() < deadline) {
                     var cell = job.search.next();
                     var matches = job.field.skyweave$members(cell.x(), cell.z(), job.settings).stream()
+                            .filter(island -> {
+                                long dx = (long)island.centerX() - job.x, dz = (long)island.centerZ() - job.z;
+                                return quickMatch(job.filters, dx * dx + dz * dz, (long)job.radius * job.radius,
+                                        name(island.family()), name(island.archetype()));
+                            })
                             .map(island -> match(job, cell, island)).toList();
                     job.search.accept(matches, match -> match.distanceSquared() <= (long)job.radius * job.radius
                             && job.filters.entrySet().stream().allMatch(filter -> value(match, filter.getKey()).equals(filter.getValue())));
@@ -214,6 +219,11 @@ public final class IslandLocator {
         }); } catch (RejectedExecutionException error) {
             job.running = false; state.job = null; job.source.sendFailure(text("busy"));
         }
+    }
+    /** Only descriptor-owned facts can reject before style/biome resolution. */
+    static boolean quickMatch(Map<String, String> filters, long distance, long limit, String family, String archetype) {
+        return distance <= limit && (!filters.containsKey("family") || filters.get("family").equals(family))
+                && (!filters.containsKey("archetype") || filters.get("archetype").equals(archetype));
     }
     private Match match(Job job, ClusterLayout.Cell cell, IslandDescriptor island) {
         var style = job.styles.style(island);

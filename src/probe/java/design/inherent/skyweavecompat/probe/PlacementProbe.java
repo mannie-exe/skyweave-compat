@@ -25,6 +25,11 @@ public final class PlacementProbe {
     private boolean asynchronous;
     private net.minecraft.server.MinecraftServer pendingServer;
     public PlacementProbe() {
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerAboutToStartEvent event) -> {
+            // Structure templates must exist before spawn generation can cache an empty template.
+            try { StructureLocatorProbe.prepare(event.getServer()); }
+            catch (Exception failure) { throw new IllegalStateException("Cannot prepare locator fixture", failure); }
+        });
         NeoForge.EVENT_BUS.addListener((ServerStartedEvent event) -> pendingServer = event.getServer());
         NeoForge.EVENT_BUS.addListener(this::settle);
     }
@@ -198,6 +203,14 @@ public final class PlacementProbe {
 
     private void run(net.minecraft.server.MinecraftServer server) {
         try {
+            if (Boolean.getBoolean("neighbors.probe.quests")) {
+                QuestBehaviorProbe.run(server, Path.of(System.getProperty("neighbors.probe.output")));
+                return;
+            }
+            if (Boolean.getBoolean("neighbors.probe.access")) {
+                AccessProbe.run(server, Path.of(System.getProperty("neighbors.probe.output")));
+                return;
+            }
             if (Boolean.getBoolean("neighbors.probe.structureSearch")) {
                 StructureLocatorProbe.start(server, Path.of(System.getProperty("neighbors.probe.output")));
                 asynchronous = true; return;

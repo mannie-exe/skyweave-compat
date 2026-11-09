@@ -1,22 +1,34 @@
 package design.inherent.skyweavecompat.mixin;
 
 import design.inherent.skyweavecompat.terrain.*;
-import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerLevel;
+import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import org.sathrek.sky_archipelago.worldgen.spawn.SkyIslandSpawnFallback;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(value = SkyIslandSpawnFallback.class, remap = false)
 public abstract class SpawnFallbackMixin {
-    @Redirect(method = "onServerStarted", at = @At(value = "INVOKE",
-            target = "Lnet/minecraft/server/level/ServerLevel;setDefaultSpawnPos(Lnet/minecraft/core/BlockPos;F)V"))
-    private static void generatedLanding(ServerLevel level, BlockPos position, float angle) {
-        var generator = level.getChunkSource().getGenerator();
-        if (generator instanceof GeologicalGenerator adapted && adapted.skyweave$isEnabled()) {
-            position = SpawnLanding.resolve(level, position);
-        }
-        level.setDefaultSpawnPos(position, angle);
+    @Inject(method = "onServerStarted", at = @At("HEAD"), cancellable = true, require = 1)
+    private static void skyweave$preserveInitialSelection(ServerStartedEvent event, CallbackInfo callback) {
+        var level = event.getServer().overworld();
+        if (level == null || level.getGameTime() > 40
+                || !(level.getChunkSource().getGenerator() instanceof GeologicalGenerator generator)
+                || !generator.skyweave$isEnabled()) return;
+        // Upstream can replace the saved companion before our return hook observes the selection flag.
+        if (level.getDataStorage().computeIfAbsent(InitialSpawnState.FACTORY, InitialSpawnState.ID).selected()) callback.cancel();
+    }
+    @Inject(method = "onServerStarted", at = @At("RETURN"), require = 1)
+    private static void skyweave$companionLanding(ServerStartedEvent event, CallbackInfo callback) {
+        var level = event.getServer().overworld();
+        if (level == null || level.getGameTime() > 40
+                || !(level.getChunkSource().getGenerator() instanceof GeologicalGenerator generator)
+                || !generator.skyweave$isEnabled()) return;
+        var selection = level.getDataStorage().computeIfAbsent(InitialSpawnState.FACTORY, InitialSpawnState.ID);
+        if (selection.selected()) return;
+        var position = SpawnLanding.resolve(level, level.getSharedSpawnPos());
+        level.setDefaultSpawnPos(position, 0);
+        selection.markSelected();
     }
 }

@@ -14,7 +14,7 @@ implementation tests to the exact released artifacts.
 | Village clearance/placement | Separate hook selections; neighbor tuning only when relevant | Review Sky Villages + Architectury and Sky Archipelago validator order. Check ordinary/expanded terrain, footprint bounds, allowance, and disabled combinations. |
 | Sable pressure | `DimensionPhysicsMixin`, pressure built-in pack | Review Sable physics profile codec and island-only selection; preserve upstream machine/block weights. |
 | ADQ | Separate distance, chunk-loading, and landing mixins | Review private route lambdas, injection counts, ticket lifetime and cleanup. Landing requires Sky Villages but does not enable its placement adaptations. |
-| Analog Audio | `AnalogAudioCreateMixin` | Review public Create registry erasure and upstream reflective lookup. Retire when released Analog Audio registers the handler correctly. See [procedure](README.md#analog-audio). |
+| Analog Audio | `AnalogAudioCreateMixin` | Review public Create registry erasure and upstream reflective lookup. Retire when released Analog Audio registers the handler correctly. See [procedure](audio.md#create-registration). |
 | Radio timeline | Client clocks, native queue correction and guarded async callbacks | Review the exact bundled media engine, queue positions and session ownership; see [audio](audio.md). |
 | Construct recovery | Server support sampling, YiGD placement metadata and lifecycle/tracking hooks | Review both mods' save, plot, death, claim, disassembly and compass paths; see [recovery](recovery.md). |
 | Linear Bearing | Separate constructor/loot, carriage lifecycle, kinetic links and gyro hooks | Review [contracts and native fixtures](linear-bearing.md), exact constructor shape, repair ownership, Sable frames/handles and native Create accounting. |
@@ -65,6 +65,58 @@ The island locator captures its field, immutable settings, and origin on the ser
 The separate structure command verifies native `STRUCTURE_STARTS` and can save early chunks. For Minecraft, NeoForge or C2ME updates, recheck `ServerChunkCache.getChunkFuture` on both calling threads: the inspected main-thread branch waits, while its worker branch marshals scheduling without that caller-side wait. Qualify `ChunkLevel.byStatus`, ticket add/remove ownership, saved-chunk scanning, result inspection and late callbacks after cancellation. Never replace the qualified path with a synchronous locate loop. Re-run positive/saved-start cases and broad partial searches with and without C2ME; the [discovery contract](terrain-variation.md#structure-discovery) owns coverage, ordering and limits.
 
 Owned profile schema changes need startup/editor parity, a deliberate prior-schema policy, conflict-preserving saves, and a separate saved-world identity decision. Never infer world compatibility from a configuration file parsing successfully.
+
+## Dimension access and initial spawn
+
+`minecraft.nether_access` shares its server-owned decision in `DimensionAccess`.
+Recheck frame ignition before item consumption, direct `PortalShape` creation,
+old-portal destination lookup, entity travel/direct teleports and player login/
+respawn hooks on Minecraft/NeoForge updates. Disabled/unmarked controls retain
+native behavior. The policy keeps the Nether registered and preserves ordinary
+fire, inventory and progress; implementations bypassing those native boundaries
+need separate qualification. The denied-activation response is deliberately a
+no-op extension point, not a prison implementation.
+
+`SpawnFallbackMixin` runs only within upstream's initial-world window and records
+successful shared selection in `InitialSpawnState`. Recheck startup listener order,
+the saved-selection HEAD guard, accepted SATELLITE identity and actual landing
+support/headroom/fluids when Sky Archipelago changes. Older worlds are not
+reallocated. Preserve native personal beds and keep future team/home policy out
+of this shared recovery owner.
+
+## FTB quest item alternatives
+
+`ftbquests.item_alternatives` registers an `ItemFilterAdapter` with the exact
+FTB Quests 2101.1.38 common API after mod construction. It adds no item, packet,
+completion store or new inventory handler. FTB still owns detection, consumption,
+team progress, rewards and matching-stack previews.
+
+Authored selectors use a paper stack with a versioned `minecraft:custom_data`
+entry named `skyweave_compat:quest_items`: `schema: 1` plus either `items` or
+`tag`. Explicit alternatives accept 1–64 unique namespaced IDs; tags use native
+item membership. Unknown fields, future schemas, invalid IDs and oversized lists
+match nothing. Mixed stacks contribute to the native task count, so describe a
+combined quantity rather than promising a full stack of one alternative.
+
+Emit strict component matching as the fallback. With the adapter disabled,
+ordinary paper must not satisfy its definition. Install the adapter on the server
+for matching and on the client for previews; disabling it requires replacing
+these selectors with supported native objectives. Other item stacks and foreign
+filter adapters retain their native behavior.
+
+On an FTB or Minecraft update, recheck adapter registration order, native matcher
+precedence, custom-data stack decoding, tag reloads and display-stack caching.
+Verify mixed quantities, a nonmatching ordinary paper stack, malformed selectors,
+absence/disabled loading and dedicated-server execution. The upstream artifact
+is compile-only and hash checked; it must never be bundled.
+
+## FTB inventory return
+
+`ftblibrary.creative_inventory_return` requires FTB Library 2101.1.39 on the physical client. `BaseScreen.closeGui(boolean)` closes the player's container before restoring its previous screen. An existing creative screen does not rerun its constructor, which normally assigns the creative menu; IPN then observes the survival menu and places its controls against creative geometry. The adapter restores that screen's client-owned creative menu only when creative mode remains active and native closing left the personal inventory menu selected.
+
+A server-owned container has a different contract: its menu was genuinely closed. Returning to its old screen would display a stale menu. The adapter returns to the world instead; it never reactivates the closed server menu or replaces a newly active menu. Ordinary personal inventory returns keep their native behavior. IPN, Quests and Teams are not dependencies of this FTB boundary.
+
+Recheck the exact `closeGui(Z)V → Minecraft.setScreen(Screen)` invocation, creative constructor/init ownership, mode changes and menu closing when updating FTB or Minecraft. Native qualification must include disabled creative failure, enabled Accept/Escape, resize, creative tabs, ordinary survival and a real chest whose contents persist after closing and reopening. Probe observations and visuals are separate evidence. This repair does not alter inventory gestures, toolbar positions or artwork.
 
 ## Island water and environment
 

@@ -1,10 +1,29 @@
-# Skyweave: Compatibility Patches 0.29.1
+# Skyweave: Compatibility Patches 0.30.0
 
-Add the independently replaceable mod-list logo and consolidate maintenance guidance.
+Improve bounded discovery, initial arrival, dimension access and client controls.
+Minecraft remains 1.21.1. Existing worlds and terrain profiles are preserved.
 
-- Declare the native NeoForge logo, with a plain white indexed PNG placeholder.
-- Preserve crisp logo sampling without changing configuration screens or gameplay rendering.
-- Organize private goals and evidence under `.git/goals/` and `.git/captures/`, and update maintained evidence references.
-- Include the post-0.29.0 probe check for actual placed Sky Village buildings; this extends verification without changing their generation.
+- Search managed structure families through their exact generation candidate
+  prefixes, and Sky Villages through their selected sites. Fit ordered family
+  plans on demand while preserving generation priority and results. Keep saved
+  starts independently discoverable through native storage, including C2ME.
+  Partial searches remain explicitly incomplete; results are verified starts.
+- Guide marked-world `/locate structure` users to the bounded structures command.
+  Biome/POI lookups and other native callers retain their behavior.
+- Close Nether entry and portal activation in marked Skyweave worlds, including
+  integrated servers and saved login/respawn recovery. Preserve ordinary fire,
+  existing dimension data and inert ruined-portal salvage.
+- Select the initial shared spawn on a validated nearby companion island. Preserve
+  existing-world spawns and native beds; no custom team/home allocator is added.
+- Extend Hoofprint zoom with fractional, GUI-scale-independent endpoints,
+  pointer anchoring and per-connection view retention. Configure it under Maps.
+- Repair FTB Library's return to creative inventory without restoring a stale
+  server menu or suppressing valid Inventory Profiles Next controls.
+- Add optional native FTB Quests item-list/tag matching for Skyweave's authored
+  alternative requirements. Native FTB owns consumption, team progress and claims.
 
-Minecraft, NeoForge support, terrain generation identity and adaptation defaults are unchanged. Existing worlds do not need a reset for this update. Team spawning, Nether access guards and Hoofprint zoom remain planned work; they are not implemented by this release.
+New stable adaptations default on when their exact supported dependencies and
+physical side qualify; explicit false settings remain authoritative. The prison,
+team start/home policy and IPN artwork remain deferred. No world reset is needed.
+See the configuration and development guides for application timing, native
+verification boundaries and coupled dependency-update checks.

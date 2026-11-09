@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 public final class ClientFlightProbe {
     private int ticks;
     public ClientFlightProbe() {
+        if (Boolean.getBoolean("skyweave_compat.probe.misc")) { new ClientMiscProbe(); return; }
         if (Boolean.getBoolean("skyweave_compat.probe.resources")) {
             new ClientResourcesProbe();
             if (Boolean.getBoolean("skyweave_compat.probe.colorwheel")) new ClientColorwheelProbe();

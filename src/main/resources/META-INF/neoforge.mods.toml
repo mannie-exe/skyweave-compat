@@ -102,6 +102,13 @@ versionRange="[0,)"
 side="BOTH"
 
 [[dependencies.skyweave_compat]]
+modId="ftbquests"
+type="optional"
+versionRange="[0,)"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.skyweave_compat]]
 modId="questlog"
 type="optional"
 versionRange="[0,)"
@@ -239,3 +246,9 @@ modId="bits_n_bobs"
 type="optional"
 versionRange="[0,)"
 side="CLIENT"
+
+[[dependencies.skyweave_compat]]
+modId="c2me_rewrites_chunkio"
+type="optional"
+versionRange="[0,)"
+side="BOTH"

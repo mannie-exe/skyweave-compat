@@ -3,6 +3,13 @@
   "minVersion": "0.8",
   "package": "design.inherent.skyweavecompat.probe.mixin",
   "compatibilityLevel": "JAVA_21",
-  "mixins": ["WaterStageMixin", "ClimateWriteMixin", "SavedStartPrecheckMixin"],
-  "injectors": {"defaultRequire": 1}
+  "mixins": [
+    "WaterStageMixin",
+    "ClimateWriteMixin",
+    "SavedStartPrecheckMixin",
+    "StructureCommandWitnessMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
 }

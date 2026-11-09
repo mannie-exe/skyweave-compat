@@ -55,3 +55,33 @@ online cassette. Measure audible queue positions; decoder progress and a
 released upstream implementation preserves the same timeline and lifecycle.
 
 See [verification](verification.md) for tested artifacts and limits.
+
+## Create registration
+
+`AnalogAudioCreateMixin` corrects one reflective lookup in Analog Audio
+0.1.5-hotfix.1 with Create 6.0.10. Upstream asks the package-private registry
+implementation for `register(Block, MovementBehaviour)`. Java erases those generic
+parameters to `Object`; obtaining the method from Create's public `SimpleRegistry`
+interface also avoids illegal access to its implementation. The adapter preserves
+upstream setup timing, handler construction, registration and error handling.
+
+Loader metadata selects the hook only for that exact pair. Neither mod becomes a
+required or compile-time dependency, and no client classes enter the dedicated
+server path. Disable this feature to retain upstream behavior with other versions; an enabled
+complete but unsupported pair is rejected with a configuration remedy. This adapter changes
+no recipes, resources, weights, radio controls or Sable coordinate handling.
+
+Before changing either dependency, inspect `CreateCompat.lambda$onCommonSetup$1`,
+`SimpleRegistry.register` and the upstream `RadioMovementBehaviour`. Remove the
+hook if upstream fixes registration; otherwise update its exact gate only after
+rechecking the lookup and required injection count. Do not replace the upstream
+handler or broaden GUI behavior as part of this fix.
+
+Build with `./gradlew check build probeJar`, then run
+`python3 tools/probe.py --audio SELECTION --server /path/to/server/game --java /path/to/java`
+for `minimal`, `create`, `analog`, `pair` and `full`. These modes check optional
+class loading, the actual radio registration, a control Create drill handler,
+and dedicated-server callbacks. Use `--mod /path/to/baseline.jar --audio pair`
+for the expected failing control. Reports include exact artifact hashes.
+Client playback, moving sound positions, stopping/disassembly and GUI controls
+require a separate interactive check; successful registration does not prove them.

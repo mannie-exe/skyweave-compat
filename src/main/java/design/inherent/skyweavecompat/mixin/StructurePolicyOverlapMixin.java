@@ -18,7 +18,7 @@ public abstract class StructurePolicyOverlapMixin {
         var scope = StructurePlacementScope.current();
         if (scope == null || scope.planning() || first == null || second == null) return;
         var destination = scope.destination();
-        var conflict = scope.distribution().layoutConflict(new StructureSelection.Site(destination.x, destination.z), box(first), box(second));
+        var conflict = scope.distribution().layoutConflict(new StructureSelection.Site(destination.x, destination.z), scope.family(), box(first), box(second));
         if (conflict != null) result.setReturnValue(conflict);
     }
     private static StructureVolume.Box box(BoundingBox box) {

@@ -5,6 +5,23 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class IslandSearchTest {
+    @Test void nearbyCellsComeFirstWithoutDiscardingTheHalo() {
+        var search = new IslandSearch<Integer>(-1200, 1200, 4800, 2400, 1, Comparator.naturalOrder());
+        assertEquals(new ClusterLayout.Cell(-1, 0), search.next());
+        var visited = new HashSet<ClusterLayout.Cell>();
+        visited.add(new ClusterLayout.Cell(-1, 0));
+        long last = 0;
+        while (!search.complete()) {
+            var cell = search.next();
+            long x = cell.x() + 1L, z = cell.z();
+            long distance = x * x + z * z;
+            assertTrue(distance >= last); last = distance;
+            assertTrue(visited.add(cell));
+        }
+        assertEquals(49, visited.size());
+        assertTrue(visited.contains(new ClusterLayout.Cell(-4, -3)));
+        assertTrue(visited.contains(new ClusterLayout.Cell(2, 3)));
+    }
     @Test void traversalResumesWithoutOmittingOrRepeatingNegativeCells() {
         var search = new IslandSearch<Integer>(-2400, -1, 100, 2400, 1, Comparator.naturalOrder());
         var visited = new LinkedHashSet<ClusterLayout.Cell>();
@@ -52,5 +69,16 @@ class IslandSearchTest {
         assertThrows(IllegalArgumentException.class, () -> IslandLocator.filters("archetype=classic shoreline=coastal"));
         assertThrows(IllegalArgumentException.class, () -> IslandLocator.filters("interior=hollow interior=noise"));
         assertThrows(IllegalArgumentException.class, () -> IslandLocator.filters("unknown=value"));
+    }
+
+    @Test void descriptorPrecheckPreservesBoundaryAndDefersStyleDependentEvidence() {
+        var deferred = Map.of("biome", "minecraft:deep_dark", "exterior", "deep_dark", "fringe", "mixed");
+        assertTrue(IslandLocator.quickMatch(deferred, 100, 100, "satellite", "classic"));
+        assertFalse(IslandLocator.quickMatch(deferred, 101, 100, "satellite", "classic"));
+        var anchors = IslandLocator.filters("archetype=lagoon");
+        assertTrue(IslandLocator.quickMatch(anchors, 100, 100, "anchor_plateau", "lagoon"));
+        assertFalse(IslandLocator.quickMatch(anchors, 0, 100, "satellite", "lagoon"));
+        assertFalse(IslandLocator.quickMatch(anchors, 0, 100, "anchor_plateau", "classic"));
+        assertTrue(IslandLocator.quickMatch(IslandLocator.filters("family=any"), 0, 100, "spire", "classic"));
     }
 }

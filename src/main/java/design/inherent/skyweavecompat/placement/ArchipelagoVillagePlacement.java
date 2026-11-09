@@ -10,6 +10,8 @@ import net.minecraft.world.level.biome.BiomeSource;
 import net.minecraft.world.level.levelgen.RandomState;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.ChunkGeneratorStructureState;
+import design.inherent.skyweavecompat.terrain.IslandSearch;
+import design.inherent.skyweavecompat.terrain.ProfiledTerrain;
 import net.minecraft.world.level.levelgen.structure.placement.RandomSpreadStructurePlacement;
 import org.sathrek.sky_archipelago.config.SkyIslandSettings;
 import org.sathrek.sky_archipelago.worldgen.generator.field.IslandField;
@@ -41,6 +43,23 @@ public final class ArchipelagoVillagePlacement extends RandomSpreadStructurePlac
 
     public VillagePlan.Anchor owner(int x, int z) {
         return VillagePlan.owner(x, z, ((VillageAnchors)(Object)field).skyweave$anchorsNear(x, z, settings));
+    }
+
+    /** The generation contract's conservative owner domain; no chunks or completed terrain. */
+    public IslandSearch<VillagePlan.Site> searchOwners(int x, int z, int radius, long padding) {
+        var profile = ((ProfiledTerrain)(Object)field).skyweave$profile();
+        int halo = Math.toIntExact(profile.lookupCells() + Math.ceilDiv(policy.maximumGap() + 128L + padding, profile.spacing()));
+        return new IslandSearch<>(x, z, radius, profile.spacing(), halo,
+                Comparator.comparingInt(VillagePlan.Site::chunkX).thenComparingInt(VillagePlan.Site::chunkZ));
+    }
+
+    public List<VillagePlan.Site> searchSites(int cellX, int cellZ, int x, int z, int radius, long padding) {
+        var anchor = ((VillageAnchors)(Object)field).skyweave$anchorInCell(cellX, cellZ, settings);
+        if (anchor == null) return List.of();
+        // VillagePlan.select admits centers only within this reach. Include locate offsets and rounding.
+        long reach = radius + (long)anchor.radius() + policy.maximumGap() + 128L + padding;
+        long dx = (long)anchor.x() - x, dz = (long)anchor.z() - z;
+        return dx * dx + dz * dz > reach * reach ? List.of() : sites(anchor);
     }
 
     public List<VillagePlan.Site> sites(VillagePlan.Anchor anchor) {

@@ -12,6 +12,67 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class FeatureSelectionTest {
+    @Test void ftbAlternativesUseOnlyTheOptionalCommonApi() {
+        var feature = Feature.FTB_ITEM_FILTERS;
+        for (boolean client : List.of(false, true)) {
+            var selected = FeatureSelection.select(only(feature), Map.of("ftbquests", "2101.1.38"), client);
+            assertEquals(java.util.Set.of(feature), selected.active());
+            assertTrue(selected.mixins(client).isEmpty());
+            assertFalse(FeatureSelection.select(only(feature), Map.of(), client).enabled(feature));
+            assertFalse(FeatureSelection.select(only(), Map.of("ftbquests", "future"), client).enabled(feature));
+            assertThrows(IllegalStateException.class, () -> FeatureSelection.select(only(feature), Map.of("ftbquests", "future"), client));
+        }
+    }
+    @Test void c2meStorageHooksRequireTheExactOptionalBackendAndTerrain() {
+        var feature = Feature.C2ME_SEARCH;
+        var mods = Map.of("sky_archipelago", "1.4", "c2me_rewrites_chunkio", "0.4.0-alpha.0.124+1.21.1");
+        for (boolean client : List.of(false, true)) {
+            var selected = FeatureSelection.select(only(Feature.TERRAIN, feature), mods, client);
+            assertTrue(selected.enabled(feature));
+            assertTrue(selected.mixins(client).containsAll(List.of("C2meSearchWorkerMixin", "C2meSearchStorageMixin")));
+            assertFalse(FeatureSelection.select(only(Feature.TERRAIN), mods, client).mixins(client).contains("C2meSearchWorkerMixin"));
+            assertFalse(FeatureSelection.select(only(feature), mods, client).enabled(feature));
+            assertFalse(FeatureSelection.select(only(Feature.TERRAIN, feature), Map.of("sky_archipelago", "1.4"), client).enabled(feature));
+        }
+        assertThrows(IllegalStateException.class, () -> FeatureSelection.select(only(Feature.TERRAIN, feature),
+                Map.of("sky_archipelago", "1.4", "c2me_rewrites_chunkio", "future"), false));
+        assertDoesNotThrow(() -> FeatureSelection.select(only(Feature.TERRAIN),
+                Map.of("sky_archipelago", "1.4", "c2me_rewrites_chunkio", "future"), false));
+    }
+    @Test void hoofprintZoomIsPhysicalClientOnlyAndIndependentOfTerrain() {
+        var feature = Feature.HOOFPRINT_ZOOM;
+        var versions = Map.of("hoofprint", "1.3.0_1.21", "surveyor", "1.2.4_1.21", "connector", "2.0.0-beta.17+1.21.1");
+        assertEquals(java.util.Set.of(feature), FeatureSelection.select(only(feature), versions, true).active());
+        assertEquals(List.of("client.HoofprintZoomMixin"), FeatureSelection.select(only(feature), versions, true).mixins(true));
+        assertTrue(FeatureSelection.select(only(feature), versions, false).active().isEmpty());
+        assertTrue(FeatureSelection.select(only(feature), Map.of(), true).active().isEmpty());
+        assertTrue(FeatureSelection.select(only(), Map.of("hoofprint", "future"), true).active().isEmpty());
+        assertThrows(IllegalStateException.class, () -> FeatureSelection.select(only(feature),
+                Map.of("hoofprint", "future", "surveyor", "1.2.4_1.21", "connector", "2.0.0-beta.17+1.21.1"), true));
+    }
+    @Test void accessAndCommandPolicyRequireTerrainOnBothLogicalServerHosts() {
+        var settings = only(Feature.TERRAIN, Feature.NETHER_ACCESS, Feature.STRUCTURE_COMMAND);
+        for (boolean client : new boolean[]{false,true}) {
+            var selected = FeatureSelection.select(settings, Map.of("sky_archipelago","1.4"), client);
+            assertTrue(selected.enabled(Feature.NETHER_ACCESS));
+            assertTrue(selected.enabled(Feature.STRUCTURE_COMMAND));
+            assertTrue(selected.mixins(client).contains("ClosedDimensionLoginMixin"));
+            assertFalse(FeatureSelection.select(only(Feature.NETHER_ACCESS, Feature.STRUCTURE_COMMAND),
+                    Map.of("sky_archipelago","1.4"), client).enabled(Feature.NETHER_ACCESS));
+        }
+    }
+
+    @Test void ftbCreativeReturnIsClientOnlyAndDoesNotRequireQuestOrInventoryMods() {
+        var feature = Feature.FTB_CREATIVE_RETURN;
+        var versions = Map.of("ftblibrary", "2101.1.39");
+        assertEquals(java.util.Set.of(feature), FeatureSelection.select(only(feature), versions, true).active());
+        assertEquals(java.util.List.of("client.FtbCreativeReturnMixin"), FeatureSelection.select(only(feature), versions, true).mixins(true));
+        assertTrue(FeatureSelection.select(only(feature), Map.of(), true).active().isEmpty());
+        assertTrue(FeatureSelection.select(only(feature), Map.of("ftblibrary", "future"), false).active().isEmpty());
+        assertTrue(FeatureSelection.select(only(), Map.of("ftblibrary", "future"), true).active().isEmpty());
+        assertThrows(IllegalStateException.class, () -> FeatureSelection.select(only(feature), Map.of("ftblibrary", "future"), true));
+    }
+
     @Test void hutSupportHookRequiresTheQualifiedOptionalMod() {
         var settings = only(Feature.TERRAIN, Feature.STRUCTURE_DISTRIBUTION, Feature.YUNG_STRUCTURES, Feature.YUNG_WITCH_HUTS);
         var base = Map.of("sky_archipelago", "1.4", "yungsapi", "1.21.1-NeoForge-5.1.9");
