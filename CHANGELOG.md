@@ -2,6 +2,12 @@
 
 Generated from Git history. Player-facing release summaries are in [release notes](RELEASE_NOTES.md).
 
+## v0.30.0 · 2026-11-09
+
+### Features
+
+- Improve discovery and progression adapters ([eb07d40](https://github.com/mannie-exe/skyweave-compat/commit/eb07d40da9b1ca00fd95caa061e59a03fe755a41))
+
 ## v0.29.1 · 2026-11-09
 
 ### Build and verification
