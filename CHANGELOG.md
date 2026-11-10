@@ -2,6 +2,12 @@
 
 Generated from Git history. Player-facing release summaries are in [release notes](RELEASE_NOTES.md).
 
+## v0.32.0 · 2026-11-10
+
+### Fixes
+
+- **terrain:** Fit villages and deduplicate discovery ([7b4f15d](https://github.com/mannie-exe/skyweave-compat/commit/7b4f15d76732b65c3dfaaf169442f2d7b1c7c0e4))
+
 ## v0.31.0 · 2026-11-10
 
 ### Features
