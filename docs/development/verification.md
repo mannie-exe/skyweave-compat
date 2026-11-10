@@ -4,6 +4,66 @@ Evidence below qualifies named artifacts only. Build and native fixture commands
 live in [testing](testing.md); adapter contracts and update checks live in their
 domain guides. A later checkout needs its own relevant checks.
 
+## Wayfinder 0.31.0
+
+Minecraft 1.21.1 / NeoForge 21.1.265 / Java 21 passes the required
+`check build probeJar clientProbeJar` command with 282 JUnit tests and the package,
+upstream, Ponder and tooling checks. Native minimum/full-height receipts identify
+candidate SHA-256 `9339c656f98f50c4ec901ddf8174cf4f3594121bc6302011e87cd2a8ab3d547d`.
+Retained receipts and the task checkpoint live under `.git/captures/wayfinder/`.
+
+- The minimum dedicated fixture contains only Compat and its probe. Native
+  commands land on full blocks and slabs, preserve direction/cooldown, reject
+  hazards/headroom/ceiling ascent, respect a native teleport-hook veto, reject
+  LOD candidates without real support, and exercise real leaves, stairs and scaled
+  player bounds. Full-pack checks additionally use Create casing and actual
+  assembled Sable 2.0.6 craft before/behind the target, plus storage-frame guards.
+- Native authority checks cover non-operators and legacy tags, malformed/off-ray
+  candidates, stale/duplicate replies, permission loss, movement and disconnect.
+  Reconnecting the same UUID rejects packets from its retired player object.
+  Dimension travel cancels work, concurrent admission remains at four jobs,
+  cancelled cold destinations release four leases and drain their requests,
+  and pending server shutdown clears jobs/tickets and stops its owned worker.
+  Denied hotkey starts produce no message or admitted work by default; commands
+  still explain denied access. A separate server-policy fixture permits a
+  non-operator only after an explicit policy change.
+- The real custom-height fixture uses native bounds -128 through 767, with an
+  actual arrival at Y602. DH 3.3.3 imports/readbacks cover X8192, 65536, -8192 and
+  29000000 with a real top at Y651. These are database/height controls, not
+  four client teleports or a survey of arbitrary terrain.
+- Actual full-client G queries arrive at 8192 and 32768 blocks with the native
+  target initially absent client-side. The final 32768 replay interrupts an
+  earlier progressing query with same-JVM reconnect, then completes a fresh
+  query and leaves zero jobs, destination requests and leases. Its maximum
+  observed active server-tick gap is about 72 ms; this is a fixture observation,
+  not a general performance guarantee. Prepared native corridor/LOD data belong
+  to the fixture; product queries do not generate that corridor.
+- TCP tests connect a minimum client to an independently running loopback
+  dedicated server: native operator G arrival, non-operator denial and reconnect
+  pass. A server without Compat negotiates no channel and receives no Wayfinder
+  request. These complement embedded native authority tests; they do not claim
+  a two-person WAN or remote DH-server transfer test.
+- Native client checks cover held input, rebinding/persistence and suppression in
+  chat, inventory and settings. G has no conflict in the selected pack registry.
+  Core-disabled client loading removes the binding/channel. DH-disabled loading
+  preserves native controls and refuses unavailable distant data without movement.
+  Dedicated minimum, all-unsupported-disabled and active-unsupported startup
+  controls qualify class-loading and exact Sable-version rejection.
+
+The full-client replay uses candidate SHA-256
+`bc736fdfd04e2ad0c05c0bfdf69c0eb811428d259d37c23f5e7304f7ad3c2d51`.
+Archive comparison with the 0.31.0 candidate identifies only version metadata,
+English wording and two diagnostic-string class changes; targeting, transport,
+input and lifecycle classes are byte-identical. The final server fixtures use
+0.31.0 itself. No target indicator is implemented, so shader-indicator rendering
+is outside this verification scope.
+
+One full integrated startup failed before querying inside Hoofprint's
+`HoofprintMapStorage.get` / Surveyor terrain-update callback with a
+`ConcurrentModificationException`; the retry loaded and completed. The stack is
+retained separately. This is an upstream observation, not a Wayfinder repair or
+proof of general Hoofprint stability.
+
 ## Discovery and capability integration 0.30.0
 
 The release uses Minecraft 1.21.1, NeoForge 21.1.265 and Java 21. The required

@@ -27,11 +27,15 @@ parser.add_argument('--reopen', action='store_true', help='Reopen generated samp
 parser.add_argument('--ocean-fringes', action='store_true', help='With --perimeter, verify parent ocean materials through native surface/features')
 parser.add_argument('--world-output', type=Path, help='Keep a successful disposable world at a new path for isolated client inspection')
 parser.add_argument('--minimal', action='store_true', help='Generate with only Sky Archipelago and Skyweave: Compatibility Patches, plus the read-only probe')
+parser.add_argument('--wayfinder-dh', action='store_true', help='With --wayfinder, also qualify native DH column reads beyond4096 and at large coordinates')
+parser.add_argument('--wayfinder-high', action='store_true', help='With --wayfinder, use Skyweave build heights in the bounded flat fixture')
+parser.add_argument('--wayfinder-public', action='store_true', help='With --wayfinder, verify explicit non-operator access from a server policy file')
 parser.add_argument('--skylights-only', action='store_true', help='With --interiors, check bounded roof openings without repeating the volume survey')
 parser.add_argument('--dh-stop-after', type=int, default=0, metavar='SECONDS', help='With --dh-pregen, stop the disposable server during generation (1 to 30 seconds)')
 parser.add_argument('--dh-world-key', action='store_true', help='With --dh-pregen, verify opt-in per-save cache identity in the disposable world')
 parser.add_argument('--dynamic-waters', type=Path, help='Exact Dynamic Waters 13.1.0 artifact for the disposable integration fixture')
 mode = parser.add_mutually_exclusive_group()
+mode.add_argument('--wayfinder', action='store_true', help='Exercise native Wayfinder commands, collision landings and server policy')
 mode.add_argument('--perimeter', action='store_true', help='Check granular remnant bounds and native fill')
 mode.add_argument('--hydrology', action='store_true', help='Check native Dynamic Waters planning on actual island terrain')
 mode.add_argument('--variation', choices=['fractured', 'deep_dark'], help='Verify an explicit fractured geometry/ecology fixture through native fill and features')
@@ -104,6 +108,9 @@ parser.add_argument('--disable-climate-adapter', action='store_true', help='Disa
 parser.add_argument('--disable-carver-adapter', action='store_true',
                     help='Disable the relative-carving adaptation in the disposable startup configuration')
 args = parser.parse_args()
+if args.wayfinder_dh and (not args.wayfinder or args.minimal): parser.error('--wayfinder-dh requires --wayfinder with DH installed')
+if args.wayfinder_high and not args.wayfinder: parser.error('--wayfinder-high requires --wayfinder')
+if args.wayfinder_public and (not args.wayfinder or args.wayfinder_dh): parser.error('--wayfinder-public requires --wayfinder without --wayfinder-dh')
 if args.search_fixture and not args.structure_search: parser.error('--search-fixture requires --structure-search')
 if args.quests and args.minimal: parser.error('--quests requires the installed FTB runtime')
 if args.policy_disabled and not args.access: parser.error('--policy-disabled requires --access')
@@ -156,7 +163,7 @@ if args.fluid_ticks < 0 or args.fluid_ticks > 3600:
     parser.error('--fluid-ticks must be between 0 and 3600')
 if args.oceans and not args.ocean_config:
     parser.error('--oceans requires --ocean-config')
-if args.minimal and args.generation != 'adapted' and not any((args.access, args.perimeter, args.hydrology, args.variation, args.structure_search, args.locator, args.lookup, args.coverage, args.structures, args.surface_structures, args.overlap, args.interiors, args.veins, args.water, args.materials, args.oceans, args.biomes, args.surface_climate, args.terrain, args.benchmark)):
+if args.minimal and args.generation != 'adapted' and not any((args.wayfinder, args.access, args.perimeter, args.hydrology, args.variation, args.structure_search, args.locator, args.lookup, args.coverage, args.structures, args.surface_structures, args.overlap, args.interiors, args.veins, args.water, args.materials, args.oceans, args.biomes, args.surface_climate, args.terrain, args.benchmark)):
     parser.error('--minimal requires a terrain, coverage, structure, interior, vein, water or material check')
 if args.reopen and not (args.quests or args.access or args.ocean_fringes or args.structure_search or args.hydrology or args.lookup or args.generation or args.natural or args.structures or args.surface_structures or args.water or args.oceans):
     parser.error('--reopen requires generation, natural villages, structures, water or ocean fringes')
@@ -200,6 +207,10 @@ if args.yung: name = f'yung-{args.yung}-{args.seed}'
 if args.benchmark: name = f'benchmark-{args.seed}'
 if args.lookup: name = f'lookup-{args.seed}'
 if args.access: name = 'access-policy-' + ('disabled-' if args.policy_disabled else 'enabled-') + str(args.seed)
+if args.wayfinder: name = f'wayfinder-{args.seed}'
+if args.wayfinder_dh: name += '-dh'
+if args.wayfinder_high: name += '-high'
+if args.wayfinder_public: name += '-public'
 if args.quests: name = f'quest-behavior-{args.seed}'
 if args.structure_search: name = f'structure-search-{args.seed}-' + args.search_target.replace(':', '-').replace('/', '-').replace('=', '-')
 if args.locator: name = f'locator-{args.seed}'
@@ -264,13 +275,13 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
         if 'skyweave_compat' in ids:
             continue
         if args.minimal or (args.audio and args.audio != 'full'):
-            selected = {'sky_archipelago'}
+            selected = set() if args.wayfinder and args.minimal else {'sky_archipelago'}
             if args.audio in ('create', 'pair'): selected.add('create')
             if args.audio in ('analog', 'pair'): selected.add('analogaudio')
             if not ids & selected:
                 continue
         (run / 'mods' / source.name).symlink_to(source)
-    if args.minimal and len(list((run / 'mods').glob('*.jar'))) != 1:
+    if args.minimal and not args.wayfinder and len(list((run / 'mods').glob('*.jar'))) != 1:
         raise SystemExit('Minimal run requires exactly one installed Sky Archipelago JAR')
     if args.audio and args.audio != 'full':
         expected = {'minimal': 1, 'create': 2, 'analog': 2, 'pair': 3}[args.audio]
@@ -291,6 +302,8 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
             shutil.copytree(server / folder, run / folder)
     (run / 'config').mkdir(exist_ok=True)
     (run / 'config/skyweave').mkdir(exist_ok=True)
+    if args.wayfinder_public:
+        shutil.copy2(ROOT / 'src/probe/resources/wayfinder-public.json', run / 'config/skyweave/skyweave_compat-wayfinder.json')
     if args.search_fixture == 'cap':
         (run / 'config/skyweave/skyweave_compat-search.json').write_text(json.dumps({
             'candidateLimit': 16, 'timeLimitSeconds': 120, 'concurrentChunks': 2, 'tickBudgetMillis': 5}))
@@ -358,6 +371,16 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
         f'generate-structures={str(args.lookup or args.natural or args.structure_search or args.chunk_futures or args.structures or args.surface_structures or args.dh_pregen or args.benchmark).lower()}', 'view-distance=2',
         'max-tick-time=0', '',
     ]))
+    if args.wayfinder_high:
+        fixture_pack = run / 'probe-world/datapacks/wayfinder-heights'
+        dimension = json.loads((ROOT / 'src/main/resources/packs/terrain/data/skyweave_compat/dimension_type/islands_v1.json').read_text())
+        # Qualify actual build/LOD bounds without making the flat fixture an island preset.
+        dimension['effects'] = 'minecraft:overworld'
+        definitions = {'pack.mcmeta': {'pack': {'pack_format': 48, 'description': 'Disposable Wayfinder height contract'}},
+                       'data/minecraft/dimension_type/overworld.json': dimension}
+        for relative, value in definitions.items():
+            destination = fixture_pack / relative; destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_text(json.dumps(value) + '\n')
     if args.search_fixture == 'mixed':
         locator_fixture = run / 'probe-world/datapacks/locator-contract'
         definitions = {
@@ -406,6 +429,10 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
         debug.write_text('structureDebugEnabled=true\nstructureDebugBroadcastEnabled=false\nstructureAttemptPillarsEnabled=false\n')
     launch_args = next((server / 'libraries/net/neoforged/neoforge').glob('*/unix_args.txt'))
     command = [args.java, f'-Xmx{args.heap}',
+               f'-Dneighbors.probe.wayfinder={str(args.wayfinder).lower()}',
+               f'-Dneighbors.probe.wayfinderDh={str(args.wayfinder_dh).lower()}',
+               f'-Dneighbors.probe.wayfinderHigh={str(args.wayfinder_high).lower()}',
+               f'-Dneighbors.probe.wayfinderPublic={str(args.wayfinder_public).lower()}',
                f'-Dneighbors.probe.structureId={args.structure_id or ""}',
                f'-Dneighbors.probe.previousStructures={run / "structure-witnesses.json"}',
                f'-Dneighbors.probe.layoutsOnly={str(args.layouts_only).lower()}',
@@ -600,6 +627,9 @@ if not report.exists():
 data = json.loads(report.read_text())
 if data.get('complete') is False:
     raise SystemExit(f'Native check failed; diagnostics: {report}')
+if args.wayfinder:
+    print('Native Wayfinder:', report)
+    raise SystemExit(0)
 if args.lookup:
     print('Native lookup presence:', report, 'rejected:', data['rejectedWithoutLoad'])
     raise SystemExit(0)

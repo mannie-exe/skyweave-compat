@@ -29,6 +29,7 @@ final class ClientMiscProbe {
         if (!Files.isRegularFile(root.resolve("misc-review-fixture.json")))
             throw new IllegalStateException("Misc probe requires its disposable-profile marker");
         NeoForge.EVENT_BUS.addListener(this::tick);
+        if (Boolean.getBoolean("skyweave_compat.probe.wayfinder")) WayfinderFixture.register();
     }
     private void tick(ClientTickEvent.Post event) {
         var mc = Minecraft.getInstance();
@@ -38,6 +39,16 @@ final class ClientMiscProbe {
                 opened = true;
                 // Keep owned fixture work moving when another agent temporarily uses the desktop.
                 mc.options.pauseOnLostFocus = false;
+                String remote = System.getProperty("skyweave_compat.probe.misc.server");
+                if (remote != null) {
+                    if (!remote.matches("127\\.0\\.0\\.1:[0-9]{1,5}")) throw new IllegalArgumentException("Expected loopback fixture server");
+                    var address = net.minecraft.client.multiplayer.resolver.ServerAddress.parseString(remote);
+                    if (address.getPort()<1 || address.getPort()>65535) throw new IllegalArgumentException("Invalid fixture port");
+                    net.minecraft.client.gui.screens.ConnectScreen.startConnecting(mc.screen,mc,address,
+                            new net.minecraft.client.multiplayer.ServerData("Wayfinder loopback",remote,
+                                    net.minecraft.client.multiplayer.ServerData.Type.OTHER),false,null);
+                    return;
+                }
                 boolean skyweave = Boolean.getBoolean("skyweave_compat.probe.misc.skyweave");
                 String world = skyweave ? "misc-spawn-review" : "misc-review";
                 if (Files.isDirectory(root.resolve("saves/" + world)))
@@ -61,6 +72,7 @@ final class ClientMiscProbe {
     }
     private void apply(Minecraft mc, JsonObject command) throws Exception {
         switch (command.get("operation").getAsString()) {
+            case "wayfinder" -> WayfinderFixture.apply(mc,command);
             case "state" -> { }
             case "spawn-snapshot" -> {
                 var server = mc.getSingleplayerServer();
@@ -226,12 +238,20 @@ final class ClientMiscProbe {
     }
     private JsonObject state(Minecraft mc) throws Exception {
         var row = new JsonObject(); row.addProperty("sequence", sequence); row.addProperty("error", error);
+        if (Boolean.getBoolean("skyweave_compat.probe.wayfinder")) row.add("wayfinder",WayfinderFixture.state(mc));
         var versions = new JsonObject();
         for (var id : new String[]{"hoofprint", "surveyor", "connector", "ftblibrary", "inventoryprofilesnext", "libipn"})
             net.neoforged.fml.ModList.get().getModContainerById(id).ifPresent(mod -> versions.addProperty(id, mod.getModInfo().getVersion().toString()));
         row.add("versions", versions);
         row.addProperty("loaded", mc.player != null && mc.level != null);
         row.addProperty("connectionIdentity", System.identityHashCode(mc.getConnection()));
+        if (mc.getConnection() != null) {
+            var address = mc.getConnection().getConnection().getRemoteAddress();
+            row.addProperty("connectionKind",address.getClass().getName());
+            row.addProperty("connectionAddress",address.toString());
+            if (Boolean.getBoolean("skyweave_compat.probe.wayfinder"))
+                row.addProperty("wayfinderChannel",mc.getConnection().hasChannel(design.inherent.skyweavecompat.wayfinder.WayfinderPacket.TYPE));
+        }
         row.addProperty("resourceReloadDone", resourceReload != null && resourceReload.isDone() && !resourceReload.isCompletedExceptionally());
         row.addProperty("windowActive", mc.isWindowActive());
         row.addProperty("guiScale", mc.getWindow().getGuiScale()); row.addProperty("width", mc.getWindow().getGuiScaledWidth());

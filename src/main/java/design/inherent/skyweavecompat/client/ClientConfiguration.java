@@ -14,6 +14,7 @@ import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 @Mod(value = SkyweaveCompat.ID, dist = Dist.CLIENT)
 public final class ClientConfiguration {
     public ClientConfiguration(ModContainer container, IEventBus modBus) {
+        if (OptionalIntegrations.enabled(Feature.WAYFINDER)) WayfinderClient.register(modBus);
         modBus.addListener(ClientResourceRevision::register);
         if (OptionalIntegrations.enabled(Feature.ISLAND_CLOUDS)) modBus.addListener(IslandSky::register);
         if (OptionalIntegrations.enabled(Feature.CONSTRUCT_OCCLUSION))

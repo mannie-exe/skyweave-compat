@@ -11,6 +11,9 @@ import net.minecraft.server.network.CommonListenerCookie;
 final class ProbePlayers {
     static ServerPlayer login(MinecraftServer server, CommonListenerCookie cookie) {
         var player = new ServerPlayer(server, server.overworld(), cookie.gameProfile(), cookie.clientInformation());
+        return login(server,cookie,player);
+    }
+    static ServerPlayer login(MinecraftServer server, CommonListenerCookie cookie, ServerPlayer player) {
         var connection = new Connection(PacketFlow.SERVERBOUND);
         new EmbeddedChannel(connection);
         net.neoforged.neoforge.network.registration.NetworkRegistry.configureMockConnection(connection);

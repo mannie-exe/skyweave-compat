@@ -3,8 +3,10 @@
 import argparse
 import hashlib
 import json
+import select
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 import tomllib
@@ -21,8 +23,12 @@ def main():
     parser.add_argument('--scenario', choices=['standalone', 'all-disabled', 'terrain-disabled', 'terrain', 'full',
                                              'unsupported-disabled', 'unsupported-enabled', 'questlog', 'questlog-disabled', 'jade', 'macaw', 'macaw-disabled'], required=True)
     parser.add_argument('--mod', type=Path)
+    parser.add_argument('--serve', action='store_true', help='Keep an owned loopback server running; forward console input until stop')
+    parser.add_argument('--without-compat', action='store_true', help='Serve a standalone fixture without the optional server capability')
     parser.add_argument('--enable', action='append', default=[], help='Explicit startup feature key to enable in this disposable fixture')
     args = parser.parse_args()
+    if args.without_compat and (not args.serve or args.scenario != 'standalone'):
+        parser.error('--without-compat requires --serve --scenario standalone')
     server = args.server.expanduser().resolve()
     version = next(line.split('=', 1)[1] for line in (ROOT / 'gradle.properties').read_text().splitlines()
                    if line.startswith('mod_version='))
@@ -48,7 +54,8 @@ def main():
             if prerequisite.is_file():
                 shutil.copy2(prerequisite, run / 'config' / prerequisite.name)
         shutil.copy2(server / 'eula.txt', run / 'eula.txt')
-        shutil.copy2(mod, run / 'mods' / mod.name)
+        if not args.without_compat:
+            shutil.copy2(mod, run / 'mods' / mod.name)
         if args.scenario.startswith('unsupported-'):
             # Our own metadata-only fixture advertises future targets without providing their classes.
             # Disabled adapters must neither reject their versions nor resolve their APIs.
@@ -108,7 +115,18 @@ def main():
                 while process.poll() is None and time.monotonic() < deadline:
                     if 'Done (' in log_path.read_text(errors='replace'):
                         done = True
-                        process.communicate('stop\n', timeout=90)
+                        if args.serve:
+                            print(json.dumps({'ready': True, 'pid': process.pid, 'run': str(run), 'log': str(log_path)}), flush=True)
+                            while process.poll() is None:
+                                if select.select([sys.stdin], [], [], 0.5)[0]:
+                                    line = sys.stdin.readline()
+                                    if not line:
+                                        process.communicate('stop\n', timeout=90)
+                                        break
+                                    process.stdin.write(line)
+                                    process.stdin.flush()
+                        else:
+                            process.communicate('stop\n', timeout=90)
                         break
                     time.sleep(0.5)
             finally:
@@ -129,11 +147,17 @@ def main():
                       seconds=round(time.monotonic() - started, 2), transformed_targets=references,
                       active_lines=[line for line in text.splitlines() if 'Skyweave: Compatibility Patches active adaptations:' in line],
                       generated_config=sorted(p.name for p in (run / 'config').iterdir()))
-        inactive = args.scenario in {'standalone', 'all-disabled', 'terrain-disabled', 'unsupported-disabled', 'questlog-disabled', 'macaw-disabled'}
+        inactive = args.scenario in {'all-disabled', 'terrain-disabled', 'unsupported-disabled', 'questlog-disabled', 'macaw-disabled'}
         report['passed'] = (done and process.returncode == 0 and bool(report['active_lines'])
                             and (not inactive or (not references and any('adaptations: []' in line for line in report['active_lines']))))
         if args.scenario == 'unsupported-enabled':
-            report['passed'] = not done and 'terrain.preset requires sky_archipelago 1.4; found 999.0.0' in text
+            report['passed'] = not done and "Review Wayfinder's coordinate-frame guard for Sable 999.0.0; supported optional version is 2.0.6" in text
+        if args.scenario == 'standalone':
+            expected = ['class/design/inherent/skyweavecompat/mixin/StructureSearchCacheAccess.class',
+                        'class/net/minecraft/server/level/ServerChunkCache.class']
+            report['passed'] = (done and process.returncode == 0 and
+                (not references if args.without_compat else sorted(references) == expected
+                 and any('adaptations: [WAYFINDER]' in line for line in report['active_lines'])))
         (output / f'startup-{args.scenario}.json').write_text(json.dumps(report, indent=2) + '\n')
         print(json.dumps({key: report[key] for key in ['scenario', 'sha256', 'startup', 'exit_code', 'seconds', 'active_lines', 'passed']}, indent=2), flush=True)
         if not report['passed']:

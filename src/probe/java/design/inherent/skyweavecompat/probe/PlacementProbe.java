@@ -9,7 +9,6 @@ import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.levelgen.RandomState;
 import net.minecraft.world.level.levelgen.NoiseGeneratorSettings;
 import net.minecraft.world.level.levelgen.structure.StructureStart;
-import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import org.sathrek.sky_archipelago.worldgen.generator.core.SkyIslandChunkGenerator;
@@ -18,7 +17,6 @@ import org.sathrek.sky_archipelago.worldgen.structure.*;
 import java.nio.file.*;
 import java.util.*;
 
-@Mod("skyweave_compat_probe")
 public final class PlacementProbe {
     private static final ResourceLocation VILLAGE = ResourceLocation.fromNamespaceAndPath("skyvillages", "skyvillage");
     private int settleTicks;

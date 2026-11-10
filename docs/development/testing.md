@@ -10,6 +10,36 @@ Probe JARs are separate from the released mod. Use disposable instances and exac
 artifact/configuration digests; a successful build is not native verification.
 [Verification](verification.md) owns retained results and their limits.
 
+## Wayfinder
+
+`tools/probe.py --wayfinder --minimal --seed 42 --server /path/to/server/game --java /path/to/java`
+uses only Compat and its probe with Minecraft/NeoForge. It exercises native command
+teleports, shapes, hazards, permission and token checks, nearer obstruction and
+cancellation of an actual cold destination request. It inspects owned tickets and
+waits for abandoned native work to drain. The endpoints are embedded native
+players, not remote network clients.
+
+Add `--wayfinder-dh` and omit `--minimal` for the selected full integration set.
+The fixture imports real native chunks through DH's public lighting/import path,
+reads their actual columns at several distances and checks cancellation recovery.
+Column readback does not establish a client ray or teleport. Add `--wayfinder-high`
+for the real Skyweave build-height contract, or use `--wayfinder-public --minimal`
+for explicit non-operator access.
+
+The existing owned `ClientMiscProbe` supports `skyweave_compat.probe.wayfinder=true`.
+Its `wayfinder` controls prepare explicit native terrain, aim using Minecraft's
+actual view vector, inspect the marker, import existing native marker data, and
+observe the real protocol and destination leases. Prepared test chunks and imports
+belong to the fixture, never product preview. `reuse` preserves prepared terrain;
+readiness checks the start and actual target marker, while the real Wayfinder
+query must observe the intervening data. Preserve artifact provenance with each
+run and use physical input for activation, rebinding and GUI/held-key checks.
+For actual TCP qualification, `tools/startup_probe.py --scenario standalone --serve`
+keeps an owned loopback server alive and forwards console input until `stop`.
+Set `skyweave_compat.probe.misc.server=127.0.0.1:PORT` on the owned client to connect
+and reconnect to it. `--without-compat` qualifies the absent-server channel.
+These modes never bind a public address or reuse the installed server save.
+
 ## Shutdown under DH load
 
 ```sh

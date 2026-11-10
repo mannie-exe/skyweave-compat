@@ -159,13 +159,7 @@ final class StructureLocatorProbe {
         assertNoTickets(server, Set.of("skyweave_structure_search"));
     }
     static void assertNoTickets(MinecraftServer server, Set<String> types) throws Exception {
-        var manager = ((design.inherent.skyweavecompat.mixin.StructureSearchCacheAccess)server.overworld().getChunkSource()).skyweave$searchTickets();
-        var field = net.minecraft.server.level.DistanceManager.class.getDeclaredField("tickets"); field.setAccessible(true);
-        for (var value : ((Map<?, ?>)field.get(manager)).values()) for (var entry : (Iterable<?>)value) {
-            var ticket = (net.minecraft.server.level.Ticket<?>)entry;
-            if (types.contains(ticket.getType().toString()))
-                throw new AssertionError("Search retained a ticket");
-        }
+        ProbeTickets.assertAbsent(server,types);
     }
     private static void command(MinecraftServer server, String command) throws Exception { command(server, command, source); }
     private static void command(MinecraftServer server, String command, CommandSourceStack origin) throws Exception {

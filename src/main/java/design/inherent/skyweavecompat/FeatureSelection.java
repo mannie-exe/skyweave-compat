@@ -52,6 +52,9 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                 reasons.put(feature, new Reason(InactiveKind.EXTERNAL, List.of("Linear Bearings Fix 1.0.3")));
                 continue;
             }
+            if (feature == Feature.WAYFINDER && mods.containsKey("sable") && !mods.get("sable").equals("2.0.6"))
+                throw new IllegalStateException("Review Wayfinder's coordinate-frame guard for Sable " + mods.get("sable")
+                        + "; supported optional version is 2.0.6. Disable " + feature.key + " in " + FeatureSettings.FILE + ".");
             for (var entry : required.entrySet()) {
                 String version = mods.get(entry.getKey()), expected = entry.getValue();
                 if (!(expected.endsWith(".") ? version.startsWith(expected) : version.equals(expected))
@@ -80,6 +83,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
 
     public static Feature prerequisite(Feature feature) {
         return switch (feature) {
+            case WAYFINDER_DH -> Feature.WAYFINDER;
             case LITHOSTITCHED_STRUCTURES, YUNG_STRUCTURES -> Feature.STRUCTURE_DISTRIBUTION;
             case YUNG_MINESHAFTS, YUNG_WITCH_HUTS -> Feature.YUNG_STRUCTURES;
             case ORE_PLACEMENT, CARVERS, CAVE_BIOMES, ANCIENT_CITIES, SPAWN, NETHER_ACCESS, C2ME_SEARCH, STRUCTURE_LOCATION, STRUCTURE_COMMAND, STRUCTURE_DISTRIBUTION,
@@ -97,6 +101,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
 
     public static boolean clientOnly(Feature feature) {
         return switch (feature) {
+            case WAYFINDER_DH -> true;
             case HOOFPRINT_ZOOM, ISLAND_CLOUDS, ISLAND_VOID, ISLAND_SHADER_ENVIRONMENT, CONFECTIONERY_BACKFACES, BUBBLE_GUM_BACKFACES, ORNATE_GRATE_BACKFACES, INDUSTRIAL_GRATING_BACKFACES, MACAW_GLASS, CONSTRUCT_DISTANCE, CONSTRUCT_OCCLUSION, SHADER_PATCHES, TEXT_DISPLAY_LIGHTING, NAMETAG_LIGHTING, TEXT_DISPLAY_SHADOW, NAMETAG_SHADOW, CREATE_BACKFACES, FUSION_BACKFACES, CREATE_WINDOWS, RECHISELED_GLASS, REDSTONE_RENDERING, AUDIO_TIMELINE, LINEAR_PONDER, COLORWHEEL_SAMPLERS, COLORWHEEL_MATERIALS, LIGHTING_LIFECYCLE, SODIUM_LIGHTING, DH_HANDOFF, FRAMEBUFFER, BALLOON, MATERIAL_IDS, MODEL_DATA, SINGLE_BLOCK_PASSES,
                     FTB_CREATIVE_RETURN, QUESTLOG_INTERFACE, QUESTLOG_NOTIFICATIONS -> true;
             default -> false;
@@ -105,6 +110,8 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
 
     public static Map<String, String> dependencies(Feature feature) {
         return switch (feature) {
+            case WAYFINDER -> Map.of();
+            case WAYFINDER_DH -> Map.of("distanthorizons", "3.3.3");
             case FTB_ITEM_FILTERS -> Map.of("ftbquests", "2101.1.38");
             case C2ME_SEARCH -> Map.of("c2me_rewrites_chunkio", "0.4.0-alpha.0.124+1.21.1");
             case NETHER_ACCESS -> Map.of();
@@ -174,7 +181,8 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             if (!enabled(feature)) continue;
             result.addAll(switch (feature) {
                 case FTB_CREATIVE_RETURN -> List.of("client.FtbCreativeReturnMixin");
-                case TERRAIN -> List.of("StructureSearchCacheAccess", "StructureSearchChunksAccess", "StructureSearchStorageMixin", "StructureRegionStorageAccess", "GeneratorProfileMixin", "IslandFieldMixin", "ColumnResolverMixin",
+                case WAYFINDER, WAYFINDER_DH -> List.of();
+                case TERRAIN -> List.of("StructureSearchChunksAccess", "StructureSearchStorageMixin", "StructureRegionStorageAccess", "GeneratorProfileMixin", "IslandFieldMixin", "ColumnResolverMixin",
                         "ColumnDataMixin", "InteriorSurfaceMixin", "SurfaceRulesMixin", "SurfacePaletteAccessor", "ClusterPlacementMixin", "ClusterSamplerMixin",
                         "DescriptorFactoryMixin", "OceanShapeMixin", "FringePlanMixin", "FringeColumnMixin", "ShapeDensityMixin", "ShapeDecorationMixin", "TerrainMaterialMixin", "InteriorInterpolationMixin",
                         "GeologicalMaterialMixin", "OreVeinifierAccessor");
@@ -273,6 +281,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                 case QUESTLOG_REWARD_VALIDATION -> List.of("questlog.RewardClaimMixin");
             });
         }
+        if (enabled(Feature.TERRAIN) || enabled(Feature.WAYFINDER)) result.add("StructureSearchCacheAccess");
         if (enabled(Feature.TERRAIN) || enabled(Feature.VILLAGE_PLACEMENT)) result.add("PlacementSaltAccessor");
         if (enabled(Feature.STRUCTURE_LOCATION) || enabled(Feature.YUNG_STRUCTURES)) result.add("StructureLocateCheckMixin");
         if (client && (enabled(Feature.CONSTRUCT_DISTANCE) || enabled(Feature.CONSTRUCT_OCCLUSION)))

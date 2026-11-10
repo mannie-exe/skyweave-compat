@@ -9,6 +9,7 @@ import java.util.List;
 public final class SettingsCatalog {
     public enum Category { INTERFACE, RENDERING, MAPS, SHIPS, MACHINES, INVENTORY, AUDIO, WORLD }
     public enum Group {
+        NAVIGATION(Category.MAPS, "skyweave_compat"),
         FTB_QUESTS(Category.INTERFACE, "ftbquests"),
         FTB_LIBRARY(Category.INVENTORY, "ftblibrary"), JOURNAL(Category.INTERFACE, "questlog"), AUDIO_CLIENT(Category.AUDIO, "analog_audio"),
         DH_CLIENT(Category.MAPS, "distant_horizons"), SABLE_CLIENT(Category.RENDERING, "sable"),
@@ -85,7 +86,7 @@ public final class SettingsCatalog {
             return switch (help) {
                 case "journal" -> Timing.IMMEDIATE;
                 case "hoofprint_zoom" -> Timing.SCREEN_OPEN;
-                case "villages" -> Timing.SERVER_START;
+                case "villages", "wayfinder" -> Timing.SERVER_START;
                 case "generation", "shapes", "interiors", "rivers", "oceans", "ancient_cities", "structures", "watersheds" -> Timing.NEW_WORLD;
                 case "bluemap", "link_gui_client", "link_gui_common" -> Timing.RELOAD;
                 default -> Timing.GAME_RESTART;
@@ -101,6 +102,7 @@ public final class SettingsCatalog {
     }
     public static Group group(Feature feature) {
         return switch (feature) {
+            case WAYFINDER, WAYFINDER_DH -> Group.NAVIGATION;
             case FTB_ITEM_FILTERS -> Group.FTB_QUESTS;
             case ISLAND_CLOUDS, ISLAND_VOID -> Group.ISLAND_SKY;
             case ISLAND_SHADER_ENVIRONMENT -> Group.IRIS;
@@ -159,6 +161,7 @@ public final class SettingsCatalog {
         return Arrays.stream(Group.values()).filter(group -> group.category == category).toList();
     }
     public static final List<FileEntry> FILES = List.of(
+            new FileEntry("skyweave_compat-wayfinder.json", Group.NAVIGATION, "wayfinder", List.of(Feature.WAYFINDER), SectionKind.TUNING),
             new FileEntry("skyweave_compat-hoofprint.json", Group.HOOFPRINT, "hoofprint_zoom", List.of(Feature.HOOFPRINT_ZOOM), SectionKind.PREFERENCES),
             new FileEntry(FeatureSettings.FILE, null, "startup", List.of(), SectionKind.FIXES),
             new FileEntry("createredstonelinkgui-client.toml", Group.GUI_CLIENT, "link_gui_client", List.of(Feature.LINK_GUI_INTERACTIONS), SectionKind.PREFERENCES),

@@ -2,6 +2,8 @@ package design.inherent.skyweavecompat;
 
 /** Independently selectable adaptations. Selection happens before target classes load. */
 public enum Feature {
+    WAYFINDER("navigation.wayfinder"),
+    WAYFINDER_DH("navigation.wayfinder_dh"),
     TERRAIN("terrain.preset"),
     ORE_PLACEMENT("terrain.ore_placement"),
     CARVERS("terrain.relative_carvers"),

@@ -30,6 +30,8 @@ inactive selections.
 
 | Switch | Adaptation | Prerequisites |
 | --- | --- | --- |
+| `navigation.wayfinder` | Native sight teleport and server policy | Minecraft; both sides for the G binding |
+| `navigation.wayfinder_dh` | Progressive distant terrain targeting | Active Wayfinder, physical client, DH 3.3.3 |
 | `terrain.preset` | Expanded preset, geometry, interiors, geology, and local water | Sky Archipelago 1.4 |
 | `terrain.ore_placement` | Relative ore and surface-feature placements | Active preset |
 | `terrain.relative_carvers` | Relative classic carvers and `nativeCarvers` policy | Active preset |
@@ -131,6 +133,33 @@ part of saved generation identity; changed generation choices require a fresh
 world. Ordinary worlds are not converted. Internal terrain helpers form one preset
 feature; its geometry/interior/water settings tune that feature rather than
 providing separate class-loading switches.
+
+## Wayfinder
+
+`navigation.wayfinder` enables the server command and native client G binding.
+`navigation.wayfinder_dh` adds client targeting through the pinned DH integration.
+Both switches default on and apply at process startup; DH is optional.
+
+The **Maps → Skyweave: Compatibility Patches → Wayfinder** editor owns
+`config/skyweave/skyweave_compat-wayfinder.json`. Its values apply when a server
+starts, including an integrated server. Client copies do not override a remote
+server's policy. Minecraft Controls owns key rebinding separately.
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `operatorsOnly` | `true` | Require native operator permission level 2; false explicitly permits other players |
+| `hideHotkeyPermissionMessage` | `true` | Keep denied hotkey presses silent; commands still explain denied access |
+| `cooldownTicks` | `40` | Successful-warp cooldown in server ticks |
+| `stepsPerTick` | `256` | Cells or LOD bands evaluated per query slice |
+| `concurrentRequests` | `4` | Simultaneous server requests; destination chunk work is bounded separately |
+| `requestTimeoutTicks` | `200` | Stalled client reads and destination-load timeout; progressing rays do not expire by distance |
+| `blockedBlocks` | Hazard IDs | Block IDs or `#namespace:tag` entries excluded from footing and body space |
+
+There is no footing whitelist or maximum-distance setting. Missing optional block
+IDs match nothing. The default blacklist covers fluids, fire, magma, cactus,
+berry bushes, wither roses, powder snow, campfires, pointed dripstone, cobwebs and
+portals. Native collision and available body space remain mandatory after policy
+edits. Invalid IDs, duplicate entries and out-of-range work limits fail validation.
 
 ## Village tuning
 

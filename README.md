@@ -6,7 +6,8 @@ Every adaptation has a startup switch. The Skyweave modpack is not required.
 ## Installation
 
 Install this mod with **Java 21 and NeoForge 21.1.264 or later in the 21.1 series**.
-No content mod is required. With no supported targets installed, no adapters activate.
+No content mod is required. Native-terrain Wayfinder is available without optional mods;
+dependency-specific adaptations activate only when their targets qualify.
 Use it on the client for rendering fixes; install it on both sides with matching
 configuration when using the expanded island preset.
 
@@ -19,6 +20,7 @@ See [all switches and supported combinations](docs/configuration.md#adaptation-s
 
 | Optional integration | Supported version | Behavior |
 | --- | --- | --- |
+| Wayfinder | Minecraft 1.21.1; optional client DH 3.3.3 | Operator-only sight teleport, G binding and server-owned landing policy |
 | Sky Archipelago | 1.4 | Expanded island preset, cluster discovery policy and separately selectable placement/climate adaptations |
 | Create | 6.0.10 | Client window-face culling correction; preserves native connected textures |
 | Glass backfaces | Create 6.0.10 or Fusion 1.3.16 | Independent default-on two-sided glass retaining native connected textures |
@@ -120,6 +122,24 @@ adaptations repair the selected Sodium API, keep transient illumination out of
 integrated-server lighting and clear Create light owners when leaving a world. Neither requires the island preset or Iris. These are optional
 repairs, not another lighting engine or a general cabin-occlusion fix. See
 [lighting](docs/development/lighting.md) for dependencies and known limits.
+
+## Wayfinder
+
+Press **G** while looking at terrain, or run `/skyweavecompat wayfinder`.
+Rebind the key in Minecraft Controls. Operator level 2 is required by default;
+the server owns access, hazards and work limits. A successful warp preserves
+view direction and has a two-second cooldown. Press again or use
+`/skyweavecompat wayfinder cancel` to cancel a pending request.
+Denied hotkey presses are silent by default; commands still explain denied access.
+
+There is no configured distance cap. Native loaded terrain works without DH;
+distant targeting requires a compatible client with DH data along the sight ray.
+Missing data is reported rather than guessed. A candidate is checked against
+actual destination collision geometry before teleporting. Unsafe footing,
+obstructed headroom and changed terrain leave the player in place.
+
+See [Wayfinder configuration](docs/configuration.md#wayfinder) and
+[targeting and verification boundaries](docs/development/wayfinder.md).
 
 ## Distant terrain
 

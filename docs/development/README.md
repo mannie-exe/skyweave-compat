@@ -21,6 +21,9 @@ See [DH integration](lod.md) for optional lifecycle and cache fixes, pinned
 implementation boundaries and dependency-update checks. The server and client
 probes are separate artifacts and are never bundled in the mod.
 
+[Wayfinder](wayfinder.md) owns sight targeting, destination validation, packet
+lifetimes and its optional read-only DH data adapter.
+
 See [testing](testing.md) for build, server and client probe procedures.
 
 See the [configuration interface](configuration.md) for settings ownership, safe

@@ -12,6 +12,14 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class FeatureSelectionTest {
+    @Test void wayfinderAdmitsOnlyTheInspectedOptionalSableFrameApi() {
+        for (boolean client : List.of(false,true)) {
+            assertTrue(FeatureSelection.select(only(Feature.WAYFINDER),Map.of(),client).enabled(Feature.WAYFINDER));
+            assertTrue(FeatureSelection.select(only(Feature.WAYFINDER),Map.of("sable","2.0.6"),client).enabled(Feature.WAYFINDER));
+            assertThrows(IllegalStateException.class,() -> FeatureSelection.select(only(Feature.WAYFINDER),Map.of("sable","future"),client));
+            assertDoesNotThrow(() -> FeatureSelection.select(only(),Map.of("sable","future"),client));
+        }
+    }
     @Test void ftbAlternativesUseOnlyTheOptionalCommonApi() {
         var feature = Feature.FTB_ITEM_FILTERS;
         for (boolean client : List.of(false, true)) {
@@ -495,12 +503,23 @@ class FeatureSelectionTest {
         }
     }
 
-    @Test void noDependenciesSelectsNoHooksOnEitherSide() {
+    @Test void noOptionalDependenciesSelectsOnlyNativeWayfinderOnEitherSide() {
         for (boolean client : new boolean[]{true, false}) {
             var selection = FeatureSelection.select(new FeatureSettings(Map.of()), Map.of(), client);
-            assertTrue(selection.active().isEmpty());
-            assertTrue(selection.mixins(client).isEmpty());
+            assertEquals(java.util.Set.of(Feature.WAYFINDER),selection.active());
+            assertEquals(List.of("StructureSearchCacheAccess"),selection.mixins(client));
         }
+    }
+
+    @Test void wayfinderDhRequiresClientAndExplicitlyEnabledNativeFeature() {
+        var bad = Map.of("distanthorizons","unsupported");
+        assertEquals(java.util.Set.of(Feature.WAYFINDER),
+                FeatureSelection.select(only(Feature.WAYFINDER,Feature.WAYFINDER_DH),bad,false).active());
+        assertEquals(java.util.Set.of(Feature.WAYFINDER),
+                FeatureSelection.select(only(Feature.WAYFINDER),bad,true).active());
+        assertThrows(IllegalStateException.class,()->FeatureSelection.select(only(Feature.WAYFINDER,Feature.WAYFINDER_DH),bad,true));
+        assertEquals(java.util.Set.of(Feature.WAYFINDER,Feature.WAYFINDER_DH),FeatureSelection.select(
+                only(Feature.WAYFINDER,Feature.WAYFINDER_DH),Map.of("distanthorizons","3.3.3"),true).active());
     }
 
     @Test void allDisabledIgnoresInstalledVersionsAndLegacyPatches() {
