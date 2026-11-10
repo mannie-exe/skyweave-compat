@@ -8,6 +8,19 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class StructureLayoutTest {
+    @Test void exactReloadEnvelopeIsRecognizedWithoutChangingReservationsOrQuality() {
+        var nativeBounds = new StructureVolume.Box(0, 100, 0, 20, 130, 20);
+        var persisted = new StructureVolume.Box(0, 100, 0, 20, 108, 20);
+        var original = new StructureLayout(ResourceLocation.withDefaultNamespace("village_plains"),
+                new StructureSelection.Site(0,0), List.of(nativeBounds), 6);
+        var qualified = original.withPersistedBounds(persisted).withQuality(.8);
+        assertTrue(qualified.matches(nativeBounds));
+        assertTrue(qualified.matches(persisted));
+        assertFalse(qualified.matches(new StructureVolume.Box(0,100,0,20,109,20)));
+        assertEquals(original.reservationBounds(),qualified.reservationBounds());
+        assertEquals(original.pieces(),qualified.pieces());
+        assertEquals(.8,qualified.quality());
+    }
     @Test void nativeInflatedBoundsIdentifyAPlanAndPortalSpreadRetainsItsOccupiedVolume() {
         var site = new StructureSelection.Site(0, 0);
         var piece = new StructureVolume.Box(0, 0, 0, 4, 4, 4);

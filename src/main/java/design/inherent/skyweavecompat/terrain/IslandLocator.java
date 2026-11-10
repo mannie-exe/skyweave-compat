@@ -84,7 +84,7 @@ public final class IslandLocator {
     }
     private void commands(RegisterCommandsEvent event) {
         event.getDispatcher().register(Commands.literal("skyweavecompat").requires(source -> source.hasPermission(2))
-                .then(Commands.literal("islands")
+                .then(Commands.literal("islands").requires(source -> source.hasPermission(2))
                     .executes(ctx -> page(ctx.getSource(), 1))
                     .then(Commands.literal("search")
                         .then(Commands.argument("radius", IntegerArgumentType.integer(1, 131072))

@@ -19,6 +19,7 @@ import java.util.*;
 
 /** Runtime structure-state view. Registered datapacks and unrelated generators remain unchanged. */
 public final class ArchipelagoVillagePlacement extends RandomSpreadStructurePlacement {
+    private static final int NATIVE_RETRY_CHUNKS = 2;
     private final RandomSpreadStructurePlacement original;
     private final IslandField field;
     private final SkyIslandSettings settings;
@@ -40,6 +41,9 @@ public final class ArchipelagoVillagePlacement extends RandomSpreadStructurePlac
     public VillagePlan.Anchor owner(VillagePlan.Site site) {
         return owner(site.x(), site.z());
     }
+
+    /** Pinned Sky Archipelago SKY placement can retry up to two source chunks away. */
+    public int maximumNativeShift() { return NATIVE_RETRY_CHUNKS * 16; }
 
     public VillagePlan.Anchor owner(int x, int z) {
         return VillagePlan.owner(x, z, ((VillageAnchors)(Object)field).skyweave$anchorsNear(x, z, settings));

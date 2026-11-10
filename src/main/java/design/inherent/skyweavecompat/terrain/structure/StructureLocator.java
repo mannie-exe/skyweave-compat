@@ -64,8 +64,15 @@ public final class StructureLocator {
         final Set<String> targetIds;
         final List<RandomSpreadStructurePlacement> placements;
         final long locateOffset;
+        long sourceShift;
+        Set<String> unboundedTargets = Set.of();
         final Set<ChunkPos> leases = new HashSet<>();
         final Set<String> seen = new HashSet<>();
+        final Map<net.minecraft.world.level.levelgen.structure.StructureStart, String> identities = new LinkedHashMap<>(128, .75f, true) {
+            @Override protected boolean removeEldestEntry(Map.Entry<net.minecraft.world.level.levelgen.structure.StructureStart, String> entry) {
+                return size() > 256;
+            }
+        };
         final ArrayList<Match> matches = new ArrayList<>();
         final long deadline;
         volatile boolean running = true;
@@ -111,7 +118,8 @@ public final class StructureLocator {
     }
     private void commands(RegisterCommandsEvent event) {
         event.getDispatcher().register(Commands.literal("skyweavecompat").requires(source -> source.hasPermission(2))
-                .then(Commands.literal("structures").executes(ctx -> page(ctx.getSource(), 1))
+                .then(Commands.literal("structures").requires(source -> source.hasPermission(2))
+                    .executes(ctx -> page(ctx.getSource(), 1))
                     .then(Commands.literal("search").then(Commands.argument("radius", IntegerArgumentType.integer(1, 131072))
                         .then(Commands.argument("target", StringArgumentType.greedyString()).suggests((ctx, builder) -> {
                             for (var value : suggestions(ctx.getSource())) if (value.startsWith(builder.getRemaining())) builder.suggest(value);
@@ -196,7 +204,8 @@ public final class StructureLocator {
             holders.addAll(chunks.skyweave$searchUnloadingChunks().values());
             for (var holder : holders) {
                 var chunk = holder.getLatestChunk();
-                if (chunk != null && inRange(job, chunk.getPos())) inspect(job, candidate(job, chunk.getPos(), List.of()), chunk, false);
+                // Unsaved aliases need no guessed envelope: inspect their actual physical bounds.
+                if (chunk != null) inspect(job, candidate(job, chunk.getPos(), List.of()), chunk, false);
             }
             if (!job.matches.isEmpty()) {
                 var nearestLoaded = job.matches.getFirst(); source.sendSuccess(() -> result(nearestLoaded), false);
@@ -209,6 +218,9 @@ public final class StructureLocator {
                     source.getServer().execute(() -> {
                         if (!job.running || state.job != job) return;
                         job.candidates = new ArrayList<>(result.candidates()); job.limited |= result.limited();
+                        if (!job.unboundedTargets.isEmpty()) source.sendSuccess(() -> text("unsupported_layouts", job.unboundedTargets.size())
+                                .copy().withStyle(style -> style.withColor(ChatFormatting.YELLOW).withHoverEvent(new HoverEvent(
+                                        HoverEvent.Action.SHOW_TEXT, Component.literal(String.join(", ", job.unboundedTargets.stream().sorted().limit(8).toList()))))), false);
                         for (var candidate : job.candidates) job.scheduled.add(candidate.position());
                     });
                 } catch (Throwable failure) { source.getServer().execute(() -> failed(job, failure)); }
@@ -220,6 +232,32 @@ public final class StructureLocator {
         } catch (IllegalArgumentException failure) { source.sendFailure(text("invalid", failure.getMessage())); return 0; }
     }
     private static Enumeration enumerate(Job job) {
+        var bounds = new StructureSearchBounds(job.level, () -> job.running && System.nanoTime() < job.deadline);
+        var unbounded = new TreeSet<String>();
+        var settings = job.level.getChunkSource().getGenerator()
+                instanceof org.sathrek.sky_archipelago.worldgen.generator.core.SkyIslandChunkGenerator sky
+                ? sky.resolvedSkyIslandSettings() : null;
+        for (var target : job.targets) {
+            var measured = bounds.displacement(target.structure().value());
+            if (measured.isEmpty()) { unbounded.add(target.structure().getRegisteredName()); continue; }
+            long relocation = 0;
+            if (target.placements().isEmpty()) unbounded.add(target.structure().getRegisteredName());
+            for (var placement : target.placements()) {
+                if (placement instanceof ArchipelagoStructurePlacement managed && managed.family() != StructureFamily.VILLAGES)
+                    relocation = Math.max(relocation, managed.distribution().maximumAnchorShift());
+                else if (placement instanceof ArchipelagoVillagePlacement sky)
+                    relocation = Math.max(relocation, sky.maximumNativeShift());
+                else if (!(placement instanceof ArchipelagoStructurePlacement) && placement.getClass() != RandomSpreadStructurePlacement.class)
+                    unbounded.add(target.structure().getRegisteredName());
+                else if (!(placement instanceof ArchipelagoStructurePlacement)
+                        && (settings == null || settings.advanced().customStructureRulesEnabled()
+                        && !settings.advanced().structureWhitelist().isWhitelisted(target.structure().unwrapKey().orElseThrow().location()))
+                        )
+                    unbounded.add(target.structure().getRegisteredName());
+            }
+            job.sourceShift = Math.max(job.sourceShift, Math.addExact(measured.getAsLong(), relocation));
+        }
+        job.unboundedTargets = Set.copyOf(unbounded);
         var grids = new LinkedHashMap<Grid, List<RandomSpreadStructurePlacement>>();
         var owned = new LinkedHashMap<Ownership, List<RandomSpreadStructurePlacement>>();
         var ownedTargets = new HashMap<Ownership, Set<ResourceLocation>>();
@@ -244,7 +282,7 @@ public final class StructureLocator {
         grids.replaceAll((key, placements) -> placements.stream().distinct().toList());
         owned.replaceAll((key, placements) -> placements.stream().distinct().toList());
         var candidates = new HashMap<ChunkPos, Candidate>();
-        long seed = job.level.getSeed(); boolean limited = false;
+        long seed = job.level.getSeed(); boolean limited = !unbounded.isEmpty(), capLimited = false;
         var distributions = owned.keySet().stream().map(Ownership::distribution).distinct().toList();
         for (var distribution : distributions) {
             var cells = distribution.searchOwners(job.x, job.z, job.radius, locateOffset(job) + 16);
@@ -256,7 +294,7 @@ public final class StructureLocator {
                     if (entry.getKey().distribution() != distribution) continue;
                     for (var site : distribution.searchSites(owner, entry.getKey().family())) {
                         var pos = new ChunkPos(site.chunkX(), site.chunkZ());
-                        if (Math.abs((long)pos.getMinBlockX()) >= 30000000 || Math.abs((long)pos.getMinBlockZ()) >= 30000000) continue;
+                        if (!StructureSearchBounds.withinWorld(pos.x, pos.z)) continue;
                         if (!distribution.possibleNewStart(entry.getKey().family(), pos.x, pos.z)) continue;
                         if (!distribution.possibleSearchVariant(owner, entry.getKey().family(), site, ownedTargets.get(entry.getKey()))) continue;
                         var candidate = candidate(job, pos, entry.getValue());
@@ -275,7 +313,7 @@ public final class StructureLocator {
                 var cell = cells.next(); job.clusters++;
                 for (var site : placement.searchSites(cell.x(), cell.z(), job.x, job.z, job.radius, locateOffset(job) + 16)) {
                     var pos = new ChunkPos(site.chunkX(), site.chunkZ());
-                    if (Math.abs((long)pos.getMinBlockX()) >= 30000000 || Math.abs((long)pos.getMinBlockZ()) >= 30000000) continue;
+                    if (!StructureSearchBounds.withinWorld(pos.x, pos.z)) continue;
                     var candidate = candidate(job, pos, List.of(placement));
                     if (candidate.distance() > (long)job.radius * job.radius) continue;
                     if (!candidates.containsKey(pos) && candidates.size() == job.limits.candidateLimit())
@@ -289,9 +327,7 @@ public final class StructureLocator {
             boolean any = false;
             for (var grid : grids.entrySet()) {
                 int spacing = grid.getKey().spacing();
-                long offset = grid.getValue().stream().map(p -> p.getLocatePos(new ChunkPos(0, 0)))
-                        .mapToLong(p -> Math.max(Math.abs((long)p.getX()), Math.abs((long)p.getZ()))).max().orElse(0);
-                long reach = Math.ceilDiv(job.radius + offset + 16, spacing * 16L) + 1;
+                long reach = Math.ceilDiv(job.radius + locateOffset(job) + 16, spacing * 16L) + 1;
                 if (ring > reach) continue;
                 any = true;
                 int cx = Math.floorDiv(Math.floorDiv(job.x, 16), spacing), cz = Math.floorDiv(Math.floorDiv(job.z, 16), spacing);
@@ -300,20 +336,19 @@ public final class StructureLocator {
                     if (!job.running || System.nanoTime() >= job.deadline) return new Enumeration(sorted(candidates), true);
                     var placement = grid.getValue().getFirst();
                     var pos = placement.getPotentialStructureChunk(seed, (cx + dx) * spacing, (cz + dz) * spacing);
-                    if (Math.abs((long)pos.getMinBlockX()) >= 30000000 || Math.abs((long)pos.getMinBlockZ()) >= 30000000) continue;
-                    long nearest = Long.MAX_VALUE;
-                    for (var p : grid.getValue()) nearest = Math.min(nearest, distance(job, p.getLocatePos(pos)));
+                    if (!StructureSearchBounds.withinWorld(pos.x, pos.z)) continue;
+                    long nearest = candidate(job, pos, grid.getValue()).distance();
                     if (nearest > (long)job.radius * job.radius) continue;
                     var old = candidates.get(pos);
                     List<RandomSpreadStructurePlacement> placements = grid.getValue();
                     if (old != null) {
                         var combined = new ArrayList<>(old.placements()); combined.addAll(placements); placements = List.copyOf(combined);
                     }
-                    if (old == null && candidates.size() == job.limits.candidateLimit()) { limited = true; continue; }
+                    if (old == null && candidates.size() == job.limits.candidateLimit()) { limited = true; capLimited = true; continue; }
                     candidates.put(pos, new Candidate(pos, placements, Math.min(nearest, old == null ? Long.MAX_VALUE : old.distance())));
                 }
             }
-            if (!any || limited) break;
+            if (!any || capLimited) break;
         }
         return new Enumeration(sorted(candidates), limited);
     }
@@ -322,14 +357,15 @@ public final class StructureLocator {
         return new Candidate(first.position(), List.copyOf(placements), Math.min(first.distance(), second.distance()));
     }
     private static long locateOffset(Job job) {
-        return job.locateOffset;
+        return job.locateOffset + job.sourceShift;
     }
     private static Candidate candidate(Job job, ChunkPos pos, List<RandomSpreadStructurePlacement> placements) {
-        var effective = placements.isEmpty() ? job.placements : placements;
-        long distance = effective.stream().mapToLong(p -> distance(job, p.getLocatePos(pos)))
-                .min().orElseGet(() -> distance(job, new net.minecraft.core.BlockPos(pos.getMiddleBlockX(), 0, pos.getMiddleBlockZ())));
-        if (placements.isEmpty() && job.targets.stream().anyMatch(t -> t.placements().isEmpty()))
-            distance = Math.min(distance, distance(job, new net.minecraft.core.BlockPos(pos.getMiddleBlockX(), 0, pos.getMiddleBlockZ())));
+        // A type can have multiple source grids/locate offsets. The representative
+        // offset is independent of which source grid delivered its alias.
+        long distance = job.placements.stream().mapToLong(p -> minimumDistance(job, p.getLocatePos(pos)))
+                .min().orElseGet(() -> minimumDistance(job, new net.minecraft.core.BlockPos(pos.getMiddleBlockX(), 0, pos.getMiddleBlockZ())));
+        if (job.targets.stream().anyMatch(t -> t.placements().isEmpty()))
+            distance = Math.min(distance, minimumDistance(job, new net.minecraft.core.BlockPos(pos.getMiddleBlockX(), 0, pos.getMiddleBlockZ())));
         return new Candidate(pos, List.copyOf(placements), distance);
     }
     private static boolean inRange(Job job, ChunkPos pos) {
@@ -408,7 +444,8 @@ public final class StructureLocator {
                 task = storage.skyweave$storedChunks(region).thenAccept(positions -> job.level.getServer().execute(() -> {
                     if (!job.running) return;
                     job.savedRegions++;
-                    for (var pos : positions) if (inRange(job, pos) && !job.scheduled.contains(pos)) job.stored.addLast(pos);
+                    for (var pos : positions) if (StructureSearchBounds.withinWorld(pos.x, pos.z)
+                            && inRange(job, pos) && !job.scheduled.contains(pos)) job.stored.addLast(pos);
                 }));
             } else {
                 job.savedDone = true; job.savedBusy = false; state.metadataPending--; return;
@@ -453,15 +490,18 @@ public final class StructureLocator {
         for (var target : job.targets) {
             var start = chunk.getStartForStructure(target.structure().value());
             if (start == null || !start.isValid()) continue;
-            var placement = target.placements().stream().filter(candidate.placements()::contains).findFirst().orElse(null);
-            // A saved start remains valid even if its old placement no longer matches today's lattice.
-            if (placement == null && !target.placements().isEmpty()) placement = target.placements().getFirst();
-            var position = placement == null ? new net.minecraft.core.BlockPos(start.getChunkPos().getMiddleBlockX(),
-                    0, start.getChunkPos().getMiddleBlockZ()) : placement.getLocatePos(start.getChunkPos());
-            if (position.getY() == 0) position = position.atY(start.getBoundingBox().minY() + 1);
+            var serialization = net.minecraft.world.level.levelgen.structure.pieces.StructurePieceSerializationContext.fromLevel(job.level);
+            var physicalChunk = PhysicalStructureIdentity.referenceChunk(start, serialization);
+            var position = target.placements().stream().map(placement -> placement.getLocatePos(physicalChunk))
+                    .min(Comparator.comparingInt((net.minecraft.core.BlockPos p) -> p.getX())
+                            .thenComparingInt(p -> p.getZ()).thenComparingInt(p -> p.getY()))
+                    .orElseGet(() -> new net.minecraft.core.BlockPos(physicalChunk.getMiddleBlockX(), 0, physicalChunk.getMiddleBlockZ()));
+            if (position.getY() == 0) position = position.atY(PhysicalStructureIdentity.referenceBounds(start, serialization).minY() + 1);
             long distance = distance(job, position);
             if (distance > (long)job.radius * job.radius) continue;
-            String key = target.structure().getRegisteredName() + "/" + start.getChunkPos().toLong();
+            String key = job.identities.computeIfAbsent(start, value -> PhysicalStructureIdentity.of(
+                    target.structure().unwrapKey().orElseThrow().location(), value,
+                    serialization));
             if (job.seen.contains(key)) continue;
             if (job.seen.size() == job.limits.candidateLimit()) { job.limited = true; return; }
             boolean firstResult = job.seen.isEmpty();
@@ -474,6 +514,9 @@ public final class StructureLocator {
     }
     private static long distance(Job job, net.minecraft.core.BlockPos position) {
         long dx = position.getX() - (long)job.x, dz = position.getZ() - (long)job.z; return dx * dx + dz * dz;
+    }
+    private static long minimumDistance(Job job, net.minecraft.core.BlockPos position) {
+        return StructureSearchBounds.minimumDistance(position.getX(), position.getZ(), job.x, job.z, job.sourceShift);
     }
     private static DistanceManager tickets(Job job) { return ((StructureSearchCacheAccess)job.level.getChunkSource()).skyweave$searchTickets(); }
     private static void release(Job job, ChunkPos pos) {

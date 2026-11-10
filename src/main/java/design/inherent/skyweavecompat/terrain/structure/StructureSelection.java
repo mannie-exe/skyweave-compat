@@ -12,14 +12,20 @@ public final class StructureSelection {
 
     /** One budget owner for native fitting and conservative lookup rejection. */
     public static long attemptLimit(StructureFamily family, int allowance) {
+        return attemptLimit(family, allowance, VillageFitSettings.DEFAULT);
+    }
+    public static long attemptLimit(StructureFamily family, int allowance, VillageFitSettings settings) {
         if (allowance < 0) throw new IllegalArgumentException("Negative structure allowance");
-        return allowance * (family == StructureFamily.VILLAGES ? 3L : 8L);
+        return allowance * (family == StructureFamily.VILLAGES ? (long)settings.siteAttemptsPerVillage() : 8L);
     }
 
     /** Shared conservative prefix for generation, native lookup and command prechecks. */
     public static boolean withinAttempts(StructureFamily family, int allowance, List<Site> ranked, Site site) {
+        return withinAttempts(family, allowance, ranked, site, VillageFitSettings.DEFAULT);
+    }
+    public static boolean withinAttempts(StructureFamily family, int allowance, List<Site> ranked, Site site, VillageFitSettings settings) {
         int index = ranked.indexOf(site);
-        return index >= 0 && index < attemptLimit(family, allowance);
+        return index >= 0 && index < attemptLimit(family, allowance, settings);
     }
 
     public static int allowance(long worldSeed, Owner owner, StructureFamily family,

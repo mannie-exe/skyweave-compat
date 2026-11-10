@@ -141,6 +141,22 @@ final class WayfinderProbe {
                 Wayfinder.domain(inside,level).exit()) == null,"Origin inside a target was accepted");
         level.setBlockAndUpdate(far,Blocks.AIR.defaultBlockState());
         report.addProperty("nativeSurfacePrecisionAndInsideRejection",true);
+        var observed = new net.minecraft.world.phys.Vec3(position.getX()+.5,position.getY()+.5,.5);
+        for (int up=0;up<=8;up++) level.setBlockAndUpdate(position.above(up),Blocks.STONE.defaultBlockState());
+        var exclusions = design.inherent.skyweavecompat.wayfinder.WayfinderSettings.DEFAULT.blockedBlocks();
+        check(design.inherent.skyweavecompat.wayfinder.WayfinderGeometry.landing(level,player,position,observed,exclusions,7)==null,
+                "Placement exceeded its configured upward range");
+        var raised = design.inherent.skyweavecompat.wayfinder.WayfinderGeometry.landing(level,player,position,observed,exclusions,8);
+        check(raised != null && raised.y==position.getY()+9,"Eight-block upward lookup did not reach safe support");
+        level.setBlockAndUpdate(position.above(4),Blocks.MAGMA_BLOCK.defaultBlockState());
+        check(design.inherent.skyweavecompat.wayfinder.WayfinderGeometry.landing(level,player,position,observed,exclusions,8)==null,
+                "Upward lookup skipped a blacklisted support");
+        for (int up=0;up<=8;up++) level.setBlockAndUpdate(position.above(up),Blocks.AIR.defaultBlockState());
+        level.setBlockAndUpdate(position.below(),Blocks.STONE.defaultBlockState());
+        check(design.inherent.skyweavecompat.wayfinder.WayfinderGeometry.landing(level,player,position,observed,exclusions,8)==null,
+                "Placement fell back to a lower surface");
+        level.setBlockAndUpdate(position.below(),Blocks.AIR.defaultBlockState());
+        report.addProperty("boundedUpwardLookupAndHazardPolicy",true);
         report.add("nativeShapeLandings",landings); report.addProperty("bodyHazardAndBlacklistPolicy",true);
     }
     private static void reset(MinecraftServer server, float pitch) {
@@ -152,12 +168,22 @@ final class WayfinderProbe {
         server.getCommands().getDispatcher().execute("skyweavecompat wayfinder",player.createCommandSourceStack());
     }
     private static void check(boolean value, String message) { if (!value) throw new AssertionError(message); }
-    private static void response(String key) { check(feedback.contains("skyweave_compat.wayfinder."+key),"Missing "+key+" response: "+feedback); }
+    private static design.inherent.skyweavecompat.wayfinder.WayfinderSettings settings(MinecraftServer server) throws Exception {
+        return (design.inherent.skyweavecompat.wayfinder.WayfinderSettings)field(state(server),"settings");
+    }
+    private static void response(String key) throws Exception {
+        if (settings(player.server).debugMessages())
+            check(feedback.contains("skyweave_compat.wayfinder."+key),"Missing "+key+" response: "+feedback);
+        else check(feedback.isEmpty(),"Quiet Wayfinder emitted feedback: "+feedback);
+    }
+    private static boolean settled(MinecraftServer server) throws Exception {
+        return ((Map<?,?>)field(state(server),"jobs")).get(player.getUUID()) == null;
+    }
     static void tick(MinecraftServer server) {
         if (!active) return;
         try {
             if (++ticks > 1200) throw new AssertionError("Wayfinder fixture exceeded1200ticks");
-            if (step == -1 && ticks > 3 && !feedback.getLast().endsWith("pending")) {
+            if (step == -1 && ticks > 3 && settled(server)) {
                 response("construct"); check(player.getX() < 1,"Unsupported construct moved player");
                 WayfinderSableProbe.verify(server);
                 ProbeTickets.assertAbsent(server,Set.of("skyweave_wayfinder"));
@@ -170,8 +196,28 @@ final class WayfinderProbe {
                 if (net.neoforged.fml.ModList.get().isLoaded("sable")) {
                     report.addProperty("ordinaryTargetBeforeConstructPreserved",true); WayfinderSableProbe.close(server);
                 }
-                response("success"); command(server); response("cooldown"); check(player.getX() > 39,"Cooldown moved player");
-                report.addProperty("successfulCooldown",true); step = 1; changed = ticks;
+                response("success");
+                if (settings(server).cooldownTicks() == 0) {
+                    reset(server,0); command(server); request(server); step = 21; changed = ticks;
+                } else {
+                    command(server); response("cooldown"); check(player.getX() > 39,"Cooldown moved player");
+                    report.addProperty("configuredCooldownEnforced",true); step = 1; changed = ticks;
+                }
+            } else if (step == 21 && player.getX() > 39) {
+                response("success"); check(ticks-changed < 40,"Immediate-repeat fixture waited out the old cooldown");
+                check(((Map<?,?>)field(state(server),"warps")).isEmpty(),"Disabled cooldown retained warp bookkeeping");
+                report.addProperty("noCooldownImmediateRepeat",true);
+                report.addProperty("defaultMessagesSilent",!settings(server).debugMessages());
+                for (int up=1;up<=settings(server).placementLookupHeight();up++)
+                    server.overworld().setBlockAndUpdate(target.above(up),Blocks.STONE.defaultBlockState());
+                reset(server,0); command(server); step = 22; changed = ticks;
+            } else if (step == 22 && player.getX() > 39) {
+                response("success");
+                check(player.getY()==103+settings(server).placementLookupHeight(),"Native upward placement missed the configured height");
+                report.addProperty("nativeUpwardLookupHeight",settings(server).placementLookupHeight());
+                for (int up=1;up<=settings(server).placementLookupHeight();up++)
+                    server.overworld().setBlockAndUpdate(target.above(up),Blocks.AIR.defaultBlockState());
+                step = 1; changed = ticks;
             } else if (step == 1 && ticks - changed > 42) {
                 if (!highChecked && server.overworld().getMaxBuildHeight() > 640) {
                     highChecked = true;
@@ -194,25 +240,27 @@ final class WayfinderProbe {
                 server.overworld().setBlockAndUpdate(target,Blocks.AIR.defaultBlockState());
                 target = new BlockPos(40,102,0); server.overworld().setBlockAndUpdate(target,Blocks.CACTUS.defaultBlockState());
                 reset(server,0); command(server); step = 4; changed = ticks;
-            } else if (step == 4 && ticks - changed > 10 && !feedback.getLast().endsWith("pending")) {
+            } else if (step == 4 && ticks - changed > 10 && settled(server)) {
                 check(player.getX() < 1,"Hazard moved player"); response("unsafe");
                 check(server.overworld().getBlockState(target).is(Blocks.CACTUS),"Hazard fixture disappeared");
                 report.addProperty("nativeHazardRejected",true);
                 server.overworld().setBlockAndUpdate(target,Blocks.STONE.defaultBlockState());
-                server.overworld().setBlockAndUpdate(target.above(2),Blocks.STONE.defaultBlockState());
+                for (int up=1;up<=settings(server).placementLookupHeight()+1;up++)
+                    server.overworld().setBlockAndUpdate(target.above(up),Blocks.STONE.defaultBlockState());
                 command(server); step = 5; changed = ticks;
-            } else if (step == 5 && ticks - changed > 10 && !feedback.getLast().endsWith("pending")) {
+            } else if (step == 5 && ticks - changed > 10 && settled(server)) {
                 check(player.getX() < 1,"Blocked headroom moved player"); response("unsafe"); report.addProperty("nativeHeadroomRejected",true);
-                server.overworld().setBlockAndUpdate(target.above(2),Blocks.AIR.defaultBlockState());
+                for (int up=1;up<=settings(server).placementLookupHeight()+1;up++)
+                    server.overworld().setBlockAndUpdate(target.above(up),Blocks.AIR.defaultBlockState());
                 server.overworld().setBlockAndUpdate(new BlockPos(0,104,0),Blocks.STONE.defaultBlockState());
                 reset(server,-90); command(server); step = 13; changed = ticks;
-            } else if (step == 13 && ticks - changed > 10 && !feedback.getLast().endsWith("pending")) {
+            } else if (step == 13 && ticks - changed > 10 && settled(server)) {
                 response("unsafe"); check(Math.abs(player.getY()-101)<1e-5,"Wayfinder ascended through a ceiling");
                 report.addProperty("ceilingAscentRejected",true);
                 server.overworld().setBlockAndUpdate(new BlockPos(0,104,0),Blocks.AIR.defaultBlockState());
                 reset(server,0);
                 cancelTeleport = true; command(server); step = 20; changed = ticks;
-            } else if (step == 20 && ticks - changed > 10 && !feedback.getLast().endsWith("pending")) {
+            } else if (step == 20 && ticks - changed > 10 && settled(server)) {
                 response("denied"); check(teleportHookSeen && player.getX()<1,"Native teleport veto was bypassed");
                 cancelTeleport = false; report.addProperty("nativeTeleportHookVetoPreserved",true);
                 server.getPlayerList().deop(player.getGameProfile()); command(server);
@@ -230,8 +278,8 @@ final class WayfinderProbe {
                 report.addProperty("legacyTagGrantsNoPermission",true);
                 feedback.clear();
                 Wayfinder.receive(player,WayfinderPacket.signal(WayfinderPacket.START,new UUID(0,0)));
-                check(feedback.isEmpty() && requestOrNull(server) == null,"Denied hotkey must remain silent and acquire no work");
-                report.addProperty("nonOperatorHotkeySilent",true);
+                response("denied"); check(requestOrNull(server) == null,"Denied hotkey acquired work");
+                report.addProperty("nonOperatorHotkeyFollowsDebugPolicy",true);
                 server.getPlayerList().op(player.getGameProfile());
                 // Embedded endpoints qualify server validation, not remote transport.
                 net.neoforged.neoforge.network.registration.NetworkRegistry.configureMockConnection(player.connection.getConnection());

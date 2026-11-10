@@ -64,8 +64,13 @@ final class LayoutPlanning {
     static StructureLayout layout(ResourceLocation id, StructureSelection.Site site, StructureStart start, int padding) {
         var bounds = start.getBoundingBox();
         var scope = StructurePlacementScope.current();
-        return new StructureLayout(id, site, pieces(start), padding, box(bounds), box(RuinedPortalPlacementPolicy.impactBounds(id, bounds)),
+        var layout = new StructureLayout(id, site, pieces(start), padding, box(bounds), box(RuinedPortalPlacementPolicy.impactBounds(id, bounds)),
                 scope == null ? StructureFamily.forId(id.toString()) : scope.family());
+        // Jigsaw expansion padding is an assembly reservation, not a persisted
+        // template envelope. Recognize the exact reload envelope without shrinking
+        // native conflict reservations or matching arbitrary nearby bounds.
+        return scope == null ? layout : layout.withPersistedBounds(
+                box(PhysicalStructureIdentity.referenceBounds(start, scope.pass().templateManager())));
     }
 
     private static StructureVolume.Box box(BoundingBox bounds) {

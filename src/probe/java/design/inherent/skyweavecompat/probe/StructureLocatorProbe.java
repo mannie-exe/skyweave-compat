@@ -45,6 +45,10 @@ final class StructureLocatorProbe {
             command(server, "search 100 family=villages", source.withPermission(0));
             throw new AssertionError("Unprivileged structure search accepted");
         } catch (com.mojang.brigadier.exceptions.CommandSyntaxException expected) { }
+        try {
+            server.getCommands().getDispatcher().execute("skyweavecompat islands search 100", source.withPermission(0));
+            throw new AssertionError("Unprivileged island search accepted");
+        } catch (com.mojang.brigadier.exceptions.CommandSyntaxException expected) { }
         query = "search " + Integer.getInteger("neighbors.probe.searchRadius", 12800) + " "
                 + System.getProperty("neighbors.probe.searchTarget", "structure=ctov:medium/village_plains");
         command(server, query); active = true;
@@ -113,13 +117,14 @@ final class StructureLocatorProbe {
                     assertNoSearchTickets(server);
                 }
                 messages.clear(); command(server, "search 1 family=villages"); phase = 3; phaseTick = ticks;
-            } else if (phase == 3 && has("complete") && ticks - phaseTick >= 20) {
-                var completion = messages.stream().filter(m -> key(m).equals("complete")).findFirst().orElseThrow();
+            } else if (phase == 3 && (has("complete") || has("partial")) && ticks - phaseTick >= 20) {
+                var completion = messages.stream().filter(m -> Set.of("complete","partial").contains(key(m))).findFirst().orElseThrow();
                 if (((Number)((TranslatableContents)completion.getContents()).getArgs()[1]).intValue() == 0
-                        && (!has("empty_complete") || has("page")))
-                    throw new AssertionError("Completed empty search displayed a blank results page");
-                long completions = messages.stream().filter(m -> key(m).equals("complete")).count();
+                        && (!has(key(completion).equals("complete") ? "empty_complete" : "empty_partial") || has("page")))
+                    throw new AssertionError("Empty search displayed a blank page or concealed incomplete coverage");
+                long completions = messages.stream().filter(m -> Set.of("complete","partial").contains(key(m))).count();
                 if (completions != 1) throw new AssertionError("Cancelled callback published stale completion");
+                report.addProperty("emptySearchOutcome",key(completion));
                 messages.clear(); command(server, "search 100 structure=minecraft:stronghold");
                 if (!has("invalid")) throw new AssertionError("Unsupported concentric placement was not qualified");
                 messages.clear(); command(server, "search 100 structure=minecraft:not_registered");
@@ -150,7 +155,12 @@ final class StructureLocatorProbe {
         active = false;
         report.addProperty("elapsedSeconds", (System.nanoTime() - started) / 1e9);
         report.addProperty("maximumTickGapMillis", maxGap / 1e6);
-        if (failure != null) { report.addProperty("complete", false); report.addProperty("error", failure.toString()); failure.printStackTrace(); }
+        if (failure != null) {
+            report.addProperty("complete", false); report.addProperty("error", failure.toString());
+            report.addProperty("failedPhase",phase);
+            report.add("messageKinds",new com.google.gson.Gson().toJsonTree(messages.stream().map(StructureLocatorProbe::key).toList()));
+            failure.printStackTrace();
+        }
         try { Files.writeString(output, new GsonBuilder().setPrettyPrinting().create().toJson(report) + "\n"); }
         catch (java.io.IOException error) { throw new java.io.UncheckedIOException(error); }
         server.halt(false);

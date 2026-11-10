@@ -4,4 +4,7 @@ package design.inherent.skyweavecompat.terrain.structure;
 public interface IslandJigsaw {
     int skyweave$assemblyDepth();
     int skyweave$horizontalReach();
+    java.util.List<net.minecraft.core.Holder<net.minecraft.world.level.levelgen.structure.pools.StructureTemplatePool>>
+            skyweave$possibleRoots(net.minecraft.core.RegistryAccess registries);
+    int skyweave$maximumRootOffset();
 }

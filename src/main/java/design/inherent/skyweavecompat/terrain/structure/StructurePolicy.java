@@ -7,7 +7,10 @@ import java.util.stream.Collectors;
 
 /** Rates describe eligible terrain area, not the surrounding void or registered variant count. */
 public record StructurePolicy(double frequencyMultiplier, int outpostVillageSeparationChunks,
-        Map<String, Rule> families) {
+        Map<String, Rule> families, VillageFitSettings villageFitting) {
+    public StructurePolicy(double frequencyMultiplier, int outpostVillageSeparationChunks, Map<String, Rule> families) {
+        this(frequencyMultiplier, outpostVillageSeparationChunks, families, VillageFitSettings.DEFAULT);
+    }
     public record Rule(double targetStartsPer1024Chunks, int maximumPerCluster) {
         public Rule {
             if (!Double.isFinite(targetStartsPer1024Chunks) || targetStartsPer1024Chunks < 0 || targetStartsPer1024Chunks > 16
@@ -26,6 +29,7 @@ public record StructurePolicy(double frequencyMultiplier, int outpostVillageSepa
         if (families == null || !families.keySet().equals(keys) || families.values().stream().anyMatch(java.util.Objects::isNull))
             throw new IllegalArgumentException("Expected exactly these structure families: " + new java.util.TreeSet<>(keys));
         families = java.util.Collections.unmodifiableMap(new TreeMap<>(families));
+        java.util.Objects.requireNonNull(villageFitting, "Village fitting settings");
     }
 
     public Rule rule(StructureFamily family) { return families.get(family.key); }

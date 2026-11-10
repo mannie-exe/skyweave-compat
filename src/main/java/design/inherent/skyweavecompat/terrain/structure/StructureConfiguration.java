@@ -16,8 +16,8 @@ public final class StructureConfiguration {
     public static StructurePolicy policy() { return policy; }
 
     public static StructurePolicy parse(String text) {
-        var root = ProfileJson.object(text);
-        keys(root, Set.of("frequencyMultiplier", "outpostVillageSeparationChunks", "families"));
+        var root = ProfileJson.object(normalize(text));
+        keys(root, Set.of("frequencyMultiplier", "outpostVillageSeparationChunks", "families", "villageFitting"));
         if (!root.get("families").isJsonObject()) throw new IllegalArgumentException("Expected structure families");
         var rules = new TreeMap<String, StructurePolicy.Rule>();
         for (var entry : root.getAsJsonObject("families").entrySet()) {
@@ -27,9 +27,23 @@ public final class StructureConfiguration {
             rules.put(entry.getKey(), new StructurePolicy.Rule(number(value, "targetStartsPer1024Chunks").getAsDouble(),
                     number(value, "maximumPerCluster").getAsBigDecimal().intValueExact()));
         }
+        var fit = root.getAsJsonObject("villageFitting");
+        keys(fit, Set.of("minimumSupportFraction", "maximumGroundGap", "maximumUnsupportedDepth", "minimumRetainedBuildings",
+                "siteAttemptsPerVillage", "assembliesPerSite", "maximumColumnProbes"));
+        var fitting = new VillageFitSettings(number(fit,"minimumSupportFraction").getAsDouble(), integer(fit,"maximumGroundGap"),
+                integer(fit,"maximumUnsupportedDepth"), number(fit,"minimumRetainedBuildings").getAsDouble(),
+                integer(fit,"siteAttemptsPerVillage"), integer(fit,"assembliesPerSite"), integer(fit,"maximumColumnProbes"));
         return new StructurePolicy(number(root, "frequencyMultiplier").getAsDouble(),
-                number(root, "outpostVillageSeparationChunks").getAsBigDecimal().intValueExact(), rules);
+                number(root, "outpostVillageSeparationChunks").getAsBigDecimal().intValueExact(), rules, fitting);
     }
+
+    /** Newly added settings use defaults without rewriting existing files or explicit family policy. */
+    public static String normalize(String text) {
+        var root = ProfileJson.object(text);
+        if (!root.has("villageFitting")) root.add("villageFitting", JSON.toJsonTree(VillageFitSettings.DEFAULT));
+        return JSON.toJson(root) + "\n";
+    }
+    private static int integer(JsonObject object, String key) { return number(object,key).getAsBigDecimal().intValueExact(); }
 
     private static void keys(JsonObject object, Set<String> expected) {
         if (!object.keySet().equals(expected)) throw new IllegalArgumentException("Expected exactly: " + new java.util.TreeSet<>(expected));

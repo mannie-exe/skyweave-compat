@@ -78,7 +78,7 @@ parser.add_argument('--policy-disabled', action='store_true', help='With --acces
 parser.add_argument('--without-c2me', action='store_true', help='Omit C2ME only in the disposable scheduling fixture')
 parser.add_argument('--lookup-structure', default='minecraft:ancient_city', help='Exact structure ID for the native lookup check')
 parser.add_argument('--structure-id', help='Managed family key (such as villages), vanilla structure name, or exact namespaced supported ID')
-parser.add_argument('--settlement-review', choices=['allowances', 'fits'], help='With --surface-structures, export bounded family allowance or village fit diagnostics')
+parser.add_argument('--settlement-review', choices=['allowances', 'fits', 'census', 'repairs', 'blend', 'search-bounds'], help='With --surface-structures, export bounded family allowance, fitting or search metadata diagnostics')
 parser.add_argument('--sky-neighborhood', action='store_true', help='With --surface-structures, check native close-range Sky Villages and actual host blocks')
 parser.add_argument('--structure-debug', action='store_true', help='Enable native decision logs only in the disposable structure fixture')
 parser.add_argument('--structure-clusters', type=int, default=16, help='Accepted main-island clusters for structure sampling (1..64)')
@@ -122,6 +122,8 @@ if (args.settlement_review or args.sky_neighborhood) and not args.surface_struct
     parser.error('--settlement-review/--sky-neighborhood require --surface-structures')
 if args.settlement_review and args.sky_neighborhood:
     parser.error('Select one settlement diagnostic')
+if args.settlement_review in ('repairs','blend') and args.seed != -6565383426043466991:
+    parser.error('repairs/blend fixtures require the recorded seed -6565383426043466991')
 if args.ocean_fringes and not args.perimeter: parser.error('--ocean-fringes requires --perimeter')
 if args.climate_only and (not args.hydrology or not args.water_witnesses or args.fluid_ticks != 0 or args.reopen):
     parser.error('--climate-only requires --hydrology --water-witnesses --fluid-ticks 0 without --reopen')
@@ -556,6 +558,9 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
                     return [(site['mode'],site['source'],site['bedY'],site['bedSupported'])
                             for site in data['observations'][-1]['sites']]
                 if args.structures or args.surface_structures:
+                    if args.settlement_review == 'census':
+                        return [(row['owner'], [(start['id'], start['site'], start['piecesDigest'])
+                                for start in row['nativeStarts']]) for row in data['selectedVillageSamples']]
                     return [(row['id'], [(sample['chunkX'], sample['chunkZ'], sample['bounds'], sample['piecesDigest'],
                             sample.get('blocks', {}).get('minecraft:reinforced_deepslate'))
                             for sample in row['candidates'] if sample['valid']]) for row in data['structures']]

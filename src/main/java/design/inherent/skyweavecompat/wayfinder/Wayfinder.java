@@ -101,30 +101,27 @@ public final class Wayfinder {
     }
     private static boolean permitted(ServerPlayer player, State state) { return !state.settings.operatorsOnly() || player.hasPermissions(2); }
     private static boolean usable(ServerPlayer player) { return !player.isPassenger() && !player.isVehicle() && !player.isFallFlying() && !player.isSpectator() && player.isAlive(); }
-    private static void message(ServerPlayer player, String key) { player.displayClientMessage(LocatorText.text("wayfinder",key),true); }
-    public static void start(ServerPlayer player) {
-        start(player,false);
+    private static void message(State state, ServerPlayer player, String key) {
+        if (state.settings.debugMessages())
+            player.displayClientMessage(LocatorText.text("wayfinder",key),true);
     }
-    private static void start(ServerPlayer player, boolean hotkey) {
+    public static void start(ServerPlayer player) {
         var state = SERVERS.get(player.server);
         if (state == null || player.server.getPlayerList().getPlayer(player.getUUID()) != player) return;
-        if (!permitted(player,state)) {
-            if (!hotkey || !state.settings.hideHotkeyPermissionMessage()) message(player,"denied");
-            return;
-        }
-        if (!usable(player)) { message(player,"unavailable"); return; }
+        if (!permitted(player,state)) { message(state,player,"denied"); return; }
+        if (!usable(player)) { message(state,player,"unavailable"); return; }
         var old = state.jobs.get(player.getUUID());
         if (old != null) { finish(state,old,"cancelled"); return; }
         if (state.clock - state.warps.getOrDefault(player.getUUID(),Long.MIN_VALUE / 2) < state.settings.cooldownTicks()) {
-            message(player,"cooldown"); return;
+            message(state,player,"cooldown"); return;
         }
-        if (state.jobs.size() >= state.settings.concurrentRequests() || state.requests >= 16) { message(player,"busy"); return; }
+        if (state.jobs.size() >= state.settings.concurrentRequests() || state.requests >= 16) { message(state,player,"busy"); return; }
         Job job;
         try { job = new Job(player,state.clock); }
-        catch (IllegalArgumentException invalid) { message(player,"miss"); return; }
-        catch (RuntimeException unavailable) { message(player,"failed"); return; }
+        catch (IllegalArgumentException invalid) { message(state,player,"miss"); return; }
+        catch (RuntimeException unavailable) { message(state,player,"failed"); return; }
         state.jobs.put(player.getUUID(),job);
-        message(player,"pending");
+        message(state,player,"pending");
         if (job.frames == null) query(state,job);
         else { job.phase = Phase.FRAMES; frames(state,job); }
     }
@@ -154,7 +151,7 @@ public final class Wayfinder {
         catch (RuntimeException unavailable) { finish(state,job,"failed"); }
     }
     public static void receive(ServerPlayer player, WayfinderPacket packet) {
-        if (packet.operation() == WayfinderPacket.START) { start(player,true); return; }
+        if (packet.operation() == WayfinderPacket.START) { start(player); return; }
         var state = SERVERS.get(player.server); if (state == null) return;
         var job = state.jobs.get(player.getUUID());
         if (job == null || job.player != player || !job.id.equals(packet.request()) || !job.running) return;
@@ -204,7 +201,7 @@ public final class Wayfinder {
             if (state.clock - job.touched > (job.phase == Phase.DESTINATION ? state.settings.requestTimeoutTicks() : 100)) {
                 finish(state,job,"incomplete"); continue;
             }
-            if (job.phase != Phase.CLIENT && state.clock %40 == 0) message(job.player,"pending");
+            if (state.clock %40 == 0) message(state,job.player,"pending");
             if (job.phase == Phase.CLIENT || job.phase == Phase.DESTINATION) continue;
             job.touched = state.clock;
             if (job.phase == Phase.FRAMES || job.phase == Phase.FINAL_FRAMES) { frames(state,job); continue; }
@@ -277,7 +274,7 @@ public final class Wayfinder {
         var actual = WayfinderGeometry.surface(job.level,job.player,job.ray,job.target,job.cursor.end());
         var position = actual == null || actual.isInside() || actual.getDirection() == net.minecraft.core.Direction.DOWN
                 ? null : WayfinderGeometry.landing(job.level,job.player,job.target,
-                actual.getLocation(),state.settings.blockedBlocks());
+                actual.getLocation(),state.settings.blockedBlocks(),state.settings.placementLookupHeight());
         if (position == null) { finish(state,job,"unsafe"); return; }
         var hook = net.neoforged.neoforge.event.EventHooks.onEntityTeleportCommand(job.player,position.x,position.y,position.z);
         if (hook.isCanceled() || hook.getTargetX() != position.x || hook.getTargetY() != position.y || hook.getTargetZ() != position.z) {
@@ -285,7 +282,8 @@ public final class Wayfinder {
         }
         if (job.player.teleportTo(job.level,position.x,position.y,position.z,Set.of(),job.player.getYRot(),job.player.getXRot())) {
             job.player.setDeltaMovement(Vec3.ZERO); job.player.setOnGround(true); job.player.fallDistance = 0;
-            state.warps.put(job.player.getUUID(),state.clock); finish(state,job,"success");
+            if (state.settings.cooldownTicks() > 0) state.warps.put(job.player.getUUID(),state.clock);
+            finish(state,job,"success");
         } else finish(state,job,"failed");
     }
     private static void finish(State state, Job job, String outcome) {
@@ -298,7 +296,7 @@ public final class Wayfinder {
         if (job.player.server.getPlayerList().getPlayer(job.player.getUUID()) == job.player) {
             if (job.player.connection.hasChannel(WayfinderPacket.TYPE))
                 PacketDistributor.sendToPlayer(job.player,WayfinderPacket.signal(WayfinderPacket.CANCEL,job.id));
-            message(job.player,outcome);
+            message(state,job.player,outcome);
         }
     }
 }

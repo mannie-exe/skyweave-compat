@@ -40,7 +40,7 @@ public final class GenerationGuard {
         }
         var ops = RegistryOps.create(JsonOps.INSTANCE, server.registryAccess());
         var identity = new JsonObject();
-        identity.addProperty("algorithm", "islands_v1-skyarch-1.4-6");
+        identity.addProperty("algorithm", "islands_v1-skyarch-1.4-7");
         identity.addProperty("largeVeins", "native_reference_depth_v1");
         identity.addProperty("seed", server.getWorldData().worldGenOptions().seed());
         identity.add("villagePolicy", new Gson().toJsonTree(NeighborConfig.settings()));
@@ -57,7 +57,7 @@ public final class GenerationGuard {
             identity.add("dynamicWaters", design.inherent.skyweavecompat.water.WaterIdentity.inputs());
         identity.add("oceans", new Gson().toJsonTree(OceanConfiguration.profile()));
         if (OptionalIntegrations.enabled(Feature.STRUCTURE_DISTRIBUTION)) {
-            identity.addProperty("structureDistribution", "cluster_family_v1");
+            identity.addProperty("structureDistribution", "cluster_family_supported_villages_v2");
             identity.add("structures", new Gson().toJsonTree(design.inherent.skyweavecompat.terrain.structure.StructureConfiguration.policy()));
             if (OptionalIntegrations.enabled(Feature.YUNG_STRUCTURES)) {
                 var replacements = ((design.inherent.skyweavecompat.terrain.structure.YungWorldPolicy)(Object)sky).skyweave$yungReplacements();

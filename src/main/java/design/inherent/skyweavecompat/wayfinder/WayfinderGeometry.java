@@ -10,7 +10,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.*;
 
-/** Native shapes remain authoritative; no heightmap, canopy ascent or alternate-island fallback. */
+/** Native shapes and bounded upward placement in the targeted column. */
 public final class WayfinderGeometry {
     public record Footprint(int minX, int minZ, int maxX, int maxZ) {
         public int chunks() { return (maxX-minX+1)*(maxZ-minZ+1); }
@@ -79,39 +79,48 @@ public final class WayfinderGeometry {
         return AABB.clip(pieces,new Vec3(ray.x(),ray.y(),ray.z()),new Vec3(endpoint.x(),endpoint.y(),endpoint.z()),target);
     }
     public static Vec3 landing(Level level, Entity player, BlockPos target, Vec3 observed, List<String> exclusions) {
-        var state = level.getBlockState(target);
-        if (blocked(state,exclusions)) return null;
-        var shape = state.getCollisionShape(level,target,net.minecraft.world.phys.shapes.CollisionContext.of(player));
-        var pieces = shape.toAabbs();
-        if (pieces.isEmpty() || pieces.size() > 512) return null;
+        return landing(level,player,target,observed,exclusions,0);
+    }
+    public static Vec3 landing(Level level, Entity player, BlockPos target, Vec3 observed, List<String> exclusions, int lookupHeight) {
+        if (lookupHeight < 0 || lookupHeight > 64) throw new IllegalArgumentException("Invalid placement lookup height");
         var dimensions = Body.of(player);
         if (!dimensions.valid() || footprint(player,target) == null) return null;
         double x = centre(observed.x,target.getX(),dimensions.halfX);
         double z = centre(observed.z,target.getZ(),dimensions.halfZ);
-        var heights = pieces.stream().filter(box -> box.minX <= x - target.getX() && box.maxX >= x - target.getX()
-                && box.minZ <= z - target.getZ() && box.maxZ >= z - target.getZ())
-                .map(box -> box.maxY + target.getY()).distinct()
-                .sorted(Comparator.comparingDouble(y -> Math.abs(y - observed.y))).toList();
         int remaining = 4096;
-        for (double y : heights) {
-            if (!Double.isFinite(y) || y < target.getY() || y < level.getMinBuildHeight()
-                    || y + dimensions.height > level.getMaxBuildHeight()) continue;
-            var body = new AABB(x-dimensions.halfX,y+1e-5,z-dimensions.halfZ,
-                    x+dimensions.halfX,y+dimensions.height,z+dimensions.halfZ);
-            if (!(body.minX < body.maxX && body.minY < body.maxY && body.minZ < body.maxZ)) return null;
-            if (!level.getWorldBorder().isWithinBounds(body)) continue;
-            var low = BlockPos.containing(body.minX,body.minY,body.minZ);
-            var high = BlockPos.containing(Math.nextDown(body.maxX),Math.nextDown(body.maxY),Math.nextDown(body.maxZ));
-            long sizeX = (long)high.getX()-low.getX()+1, sizeY = (long)high.getY()-low.getY()+1, sizeZ = (long)high.getZ()-low.getZ()+1;
-            if (sizeX > remaining || sizeY > remaining || sizeZ > remaining || sizeX*sizeY*sizeZ > remaining) return null;
-            remaining -= (int)(sizeX*sizeY*sizeZ);
-            if (!level.noCollision(player,body)) continue;
-            boolean bad = false;
-            for (var pos : BlockPos.betweenClosed(low,high)) {
-                var occupied = level.getBlockState(pos);
-                if (blocked(occupied,exclusions) || !occupied.getFluidState().isEmpty()) { bad = true; break; }
+        for (int offset = 0; offset <= lookupHeight; offset++) {
+            var support = target.above(offset);
+            if (support.getY() >= level.getMaxBuildHeight()) break;
+            var state = level.getBlockState(support);
+            if (blocked(state,exclusions)) return null;
+            var shape = state.getCollisionShape(level,support,net.minecraft.world.phys.shapes.CollisionContext.of(player));
+            var pieces = shape.toAabbs();
+            if (pieces.isEmpty() && !state.getFluidState().isEmpty()) return null;
+            if (pieces.size() > 512 || offset == 0 && pieces.isEmpty()) return null;
+            var heights = pieces.stream().filter(box -> box.minX <= x - support.getX() && box.maxX >= x - support.getX()
+                    && box.minZ <= z - support.getZ() && box.maxZ >= z - support.getZ())
+                    .map(box -> box.maxY + support.getY()).distinct()
+                    .sorted(Comparator.comparingDouble(y -> Math.abs(y - observed.y))).toList();
+            for (double y : heights) {
+                if (!Double.isFinite(y) || y < support.getY() || y < level.getMinBuildHeight()
+                        || y + dimensions.height > level.getMaxBuildHeight()) continue;
+                var body = new AABB(x-dimensions.halfX,y+1e-5,z-dimensions.halfZ,
+                        x+dimensions.halfX,y+dimensions.height,z+dimensions.halfZ);
+                if (!(body.minX < body.maxX && body.minY < body.maxY && body.minZ < body.maxZ)) return null;
+                if (!level.getWorldBorder().isWithinBounds(body)) continue;
+                var low = BlockPos.containing(body.minX,body.minY,body.minZ);
+                var high = BlockPos.containing(Math.nextDown(body.maxX),Math.nextDown(body.maxY),Math.nextDown(body.maxZ));
+                long sizeX = (long)high.getX()-low.getX()+1, sizeY = (long)high.getY()-low.getY()+1, sizeZ = (long)high.getZ()-low.getZ()+1;
+                if (sizeX > remaining || sizeY > remaining || sizeZ > remaining || sizeX*sizeY*sizeZ > remaining) return null;
+                remaining -= (int)(sizeX*sizeY*sizeZ);
+                if (!level.noCollision(player,body)) continue;
+                boolean bad = false;
+                for (var pos : BlockPos.betweenClosed(low,high)) {
+                    var occupied = level.getBlockState(pos);
+                    if (blocked(occupied,exclusions) || !occupied.getFluidState().isEmpty()) { bad = true; break; }
+                }
+                if (!bad) return new Vec3(x,y,z);
             }
-            if (!bad) return new Vec3(x,y,z);
         }
         return null;
     }

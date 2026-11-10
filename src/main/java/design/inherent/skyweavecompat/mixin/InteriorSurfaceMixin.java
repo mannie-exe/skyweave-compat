@@ -18,9 +18,25 @@ import org.sathrek.sky_archipelago.worldgen.generator.terrain.SkyIslandChunkTerr
 import org.sathrek.sky_archipelago.worldgen.generator.surface.SkyIslandSurfacePass;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(value = SkyIslandSurfacePass.class, remap = false)
 public abstract class InteriorSurfaceMixin {
+    @Inject(method = {"blendStructureBaseFootprint", "blendMonumentBaseFootprint"},
+            at = @At("HEAD"), require = 2, allow = 2)
+    private static void foundationSnapshot(CallbackInfo callback,
+            @com.llamalad7.mixinextras.sugar.Local(argsOnly = true) ChunkAccess chunk) {
+        IslandSurfaceScope.captureFoundationSkin(chunk);
+    }
+
+    @WrapOperation(method = {"blendStructureBaseFootprint", "blendMonumentBaseFootprint"}, at = @At(value = "INVOKE",
+            target = "Lorg/sathrek/sky_archipelago/worldgen/generator/surface/SurfaceBlockSelector;forBiome(Lnet/minecraft/core/Holder;Lnet/minecraft/core/BlockPos;)Lorg/sathrek/sky_archipelago/worldgen/generator/surface/SurfaceBlockSelector$SurfaceLayer;"), require = 2, allow = 2)
+    private static SurfaceLayer foundationMaterials(net.minecraft.core.Holder<net.minecraft.world.level.biome.Biome> biome,
+            BlockPos position, Operation<SurfaceLayer> original, @com.llamalad7.mixinextras.sugar.Local(argsOnly=true) ChunkAccess chunk) {
+        return IslandSurfaceScope.foundation(chunk, biome, position, original.call(biome, position));
+    }
+
     @WrapOperation(method = {"buildSurface", "paintOverlaySurface(Lnet/minecraft/world/level/WorldGenLevel;Lnet/minecraft/world/level/chunk/ChunkAccess;IILorg/sathrek/sky_archipelago/worldgen/generator/field/TerrainColumn;Lnet/minecraft/core/BlockPos$MutableBlockPos;Lorg/sathrek/sky_archipelago/worldgen/generator/field/WaterArchetypeColumnProfile;JIZLorg/sathrek/sky_archipelago/worldgen/generator/terrain/SkyIslandChunkTerrainSnapshot;Lorg/sathrek/sky_archipelago/worldgen/generator/surface/IslandSurfaceRules;)I"}, at = @At(value = "INVOKE", target =
             "Lorg/sathrek/sky_archipelago/worldgen/generator/surface/CliffSoil;paint(Lnet/minecraft/world/level/chunk/ChunkAccess;IILorg/sathrek/sky_archipelago/worldgen/generator/field/TerrainColumn;Lorg/sathrek/sky_archipelago/worldgen/generator/surface/SurfaceBlockSelector$SurfaceLayer;JLorg/sathrek/sky_archipelago/worldgen/generator/terrain/SkyIslandChunkTerrainSnapshot;)I"), require = 2, allow = 2)
     private static int fringeSoil(ChunkAccess chunk, int x, int z,

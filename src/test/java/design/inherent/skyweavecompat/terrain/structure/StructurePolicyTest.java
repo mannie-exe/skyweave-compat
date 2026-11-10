@@ -66,6 +66,30 @@ class StructurePolicyTest {
         assertThrows(RuntimeException.class, () -> StructureConfiguration.parse(original.toString().replace("\"frequencyMultiplier\":1.0", "\"frequencyMultiplier\":1.0,\"frequencyMultiplier\":2")));
     }
 
+    @Test void fittingSettingsPreserveExistingPolicyAndHaveMatchingRuntimeEditorValidation() {
+        var authored=JsonParser.parseString(json.toJson(StructurePolicy.DEFAULT)).getAsJsonObject();
+        authored.addProperty("frequencyMultiplier",.75);
+        authored.getAsJsonObject("families").getAsJsonObject("villages").addProperty("maximumPerCluster",2);
+        authored.remove("villageFitting");
+        var loaded=StructureConfiguration.parse(authored.toString());
+        assertEquals(.75,loaded.frequencyMultiplier());assertEquals(2,loaded.rule(StructureFamily.VILLAGES).maximumPerCluster());
+        assertEquals(VillageFitSettings.DEFAULT,loaded.villageFitting());
+        var normalized=StructureConfiguration.normalize(authored.toString());
+        assertEquals(loaded,StructureConfiguration.parse(normalized));
+        for(var invalid:List.of("0.49","1.01","null","\"0.9\"")) {
+            var edited=JsonParser.parseString(normalized).getAsJsonObject();
+            edited.getAsJsonObject("villageFitting").add("minimumSupportFraction",JsonParser.parseString(invalid));
+            assertThrows(RuntimeException.class,()->StructureConfiguration.parse(edited.toString()));
+        }
+        var edited=JsonParser.parseString(normalized).getAsJsonObject();
+        edited.getAsJsonObject("villageFitting").addProperty("siteAttemptsPerVillage",3);
+        var custom=StructureConfiguration.parse(edited.toString());
+        assertEquals(6,StructureSelection.attemptLimit(StructureFamily.VILLAGES,2,custom.villageFitting()));
+        assertEquals(16,StructureSelection.attemptLimit(StructureFamily.SHIPWRECKS,2,custom.villageFitting()));
+        edited.getAsJsonObject("villageFitting").addProperty("maximumColumnProbes",1000000);
+        assertThrows(IllegalArgumentException.class,()->StructureConfiguration.parse(edited.toString()));
+    }
+
     @Test void fractionalAllowancesRetainTheirMeanRatherThanRoundingToZero() {
         int count = 0;
         for (int x = -5000; x < 5000; x++) {

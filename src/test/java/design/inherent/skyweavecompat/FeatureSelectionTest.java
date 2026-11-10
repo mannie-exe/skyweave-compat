@@ -491,7 +491,8 @@ class FeatureSelectionTest {
         var pair = FeatureSelection.dependencies(feature);
         for (boolean client : new boolean[]{false,true}) {
             assertEquals(java.util.Set.of(feature),FeatureSelection.select(only(feature),pair,client).active());
-            assertEquals(List.of("SurveyorStructureMixin"),FeatureSelection.select(only(feature),pair,client).mixins(client));
+            assertEquals(List.of("SurveyorStructureMixin", "SurveyorLayoutMixin", "SurveyorPieceAccess"),
+                    FeatureSelection.select(only(feature),pair,client).mixins(client));
             for (String missing : pair.keySet()) {
                 var incomplete = new HashMap<>(pair);
                 incomplete.remove(missing); incomplete.replaceAll((id,version)->"unsupported");

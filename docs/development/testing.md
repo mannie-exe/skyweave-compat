@@ -59,10 +59,26 @@ no new identity marker. These commands never submit work to the input server.
 Native generation checks must reach the relevant chunk stages. C2ME can leave a failed generation future pending after a critical Mixin error; inspect worker errors promptly rather than treating a timeout as slow terrain. Stop only the owned disposable JVM, preserve the exact error, correct the hook and rerun. A successful Java build does not validate native injection coverage.
 
 For bounded settlement diagnostics, use `tools/probe.py --surface-structures`
-with `--settlement-review allowances` or `--settlement-review fits` and
+with `--settlement-review allowances`, `fits` or `census` and
 `--structure-clusters`. Fitting observes at most two positive clusters and eight
-ranked alternatives per cluster; it never commits a structure. `--sky-neighborhood`
-checks actual Sky Village starts and generated host blocks. These modes use the
+ranked alternatives per cluster; it never commits a structure. Census inspects
+up to four positive allowances, compares cached and reverse-order evicted plans,
+and requests their selected native sources at STRUCTURE_STARTS. Add `--reopen`
+to compare persisted piece digests. It does not realize entire settlements or
+establish a population encounter rate. Uncached fit timing can still benefit from
+warmed terrain/template metadata; it is not cold JVM timing.
+
+`--settlement-review repairs` realizes the four recorded village witnesses and
+checks physical foundation columns, source/reference aliases, a one-block-radius
+source-domain boundary and native road fallbacks. `blend` instruments the actual
+native foundation writer and tests frozen natural-skin selection. These two modes
+require recorded seed `-6565383426043466991`. `search-bounds` qualifies registered
+layout metadata only; it does not verify physical placement or search completeness.
+Use real `--structure-search` jobs for command, permission, pagination,
+cancellation and saved-start coverage. `--search-planning` adds bounded
+native eager/lazy/concurrent/cache-eviction equivalence controls.
+
+`--sky-neighborhood` checks actual Sky Village starts and generated host blocks. These modes use the
 existing `--server`, `--java`, `--shape-config` and `--structure-config` inputs.
 Use `--perimeter --ocean-fringes --reopen` for native shore/reef material checks.
 Keep metadata allowances, fit diagnostics, generated starts and population checks

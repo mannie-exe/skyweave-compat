@@ -31,8 +31,11 @@ final class StructureCoverageProbe {
         }
         String review = System.getProperty("neighbors.probe.settlementReview", "");
         if (!review.isEmpty()) {
-            if (!Set.of("allowances", "fits").contains(review)) throw new IllegalArgumentException("Unknown settlement review: " + review);
-            SettlementReviewProbe.run(server, output, review.equals("fits"));
+            if (review.equals("blend")) { VillageRepairProbe.material(server,output); return; }
+            if (review.equals("repairs")) { VillageRepairProbe.run(server,output); return; }
+            if (review.equals("search-bounds")) { VillageRepairProbe.bounds(server,output); return; }
+            if (!Set.of("allowances", "fits", "census").contains(review)) throw new IllegalArgumentException("Unknown settlement review: " + review);
+            SettlementReviewProbe.run(server, output, review);
             return;
         }
         var level = server.overworld();
@@ -647,7 +650,7 @@ final class StructureCoverageProbe {
         return rows;
     }
 
-    private static String piecesDigest(net.minecraft.world.level.levelgen.structure.StructureStart start,
+    static String piecesDigest(net.minecraft.world.level.levelgen.structure.StructureStart start,
                                       net.minecraft.world.level.levelgen.structure.pieces.StructurePieceSerializationContext context)
             throws java.security.NoSuchAlgorithmException {
         String pieces = start.getPieces().stream().map(piece -> canonical(persistedPiece(piece, context).createTag(context)))

@@ -196,6 +196,23 @@ Sky Archipelago 1.4 fills chunks through `SkyIslandTerrainPass` material plans a
 
 `IslandSurfaceScope` supplies the marked field and settings to native surface helpers and restores prior context on exit. Skin writes preserve cavity air and fluids; structure foundation writes may intentionally fill air. `BiomeMaterials` replaces only upper grass/dirt soil with tagged mangrove mud, after native override selection. `resolveSurfaceStone` uses island-relative geological Y inside this scope. The resolved mud-biome tag is part of generation identity.
 
+Both native structure-base blend helpers use that scope for materials while
+retaining their native write permissions and extent. The completed top
+contributor selects the fringe or water-archetype palette; ordinary columns also
+consult their already-painted natural skin because vanilla surface rules can
+disagree with the generic biome selector. Biome selection uses the completed
+surface height, not the raised foundation height. The first foundation request
+captures all 256 painted columns in its chunk, after native skin painting and
+before foundation fills. Overlapping fills cannot feed their output into another
+structure's palette. The per-call context releases these references on exit.
+Fluid, block-entity, ore and artificial block states are not accepted as natural
+skin; unknown material cases retain the native fallback.
+
+Sky Archipelago updates must preserve the skin-before-foundation ordering,
+both blend-helper palette calls, completed contributor/water metadata and native
+air-only fill protections. A successful palette query alone does not establish
+which helper wrote physical blocks; instrument native writes when requalifying.
+
 Classic carving, biome decoration, structure references, light/postprocessing and
 initial mob population retain Minecraft's chunk-stage machinery. Initial population
 uses `NoiseBasedChunkGenerator.spawnOriginalMobs` and native heightmap/support
@@ -432,6 +449,48 @@ its lazy map publication can otherwise expose missing directions to concurrent
 jigsaw rotation. No generation lock or new rotation implementation is added. Sky Villages retains
 its independent placement owner and allowance.
 
+### Supported village layouts
+
+`VillageLayoutRepair` qualifies structural footing and connector reachability
+inside the native grounding stage, before its final bounds are constructed.
+The same scope applies during read-only planning and native commitment. It uses
+completed solid intervals, including cavities and fragment gaps, without loading
+neighboring chunks. Template geometry is bounded and cached separately from
+per-evaluation terrain columns; no live world is retained in that geometry cache.
+
+Template resource paths classify centers, streets, houses and jobsites; farmland
+also identifies farms. This is a contract with the supported donor packs, not a
+universal classifier for arbitrary templates. Lithostitched delegates expose
+their native element only through the qualified optional bridge. Recheck donor
+paths, alternate palettes, processors and unknown element types on updates.
+
+Supported native jigsaw ports form the retained center-connected component.
+Projected pieces additionally compare terrain at their connection. The original
+assembly supplies the inhabited-building retention denominator across all passes.
+`VillageCommitMixin` scopes that count around native finalization; read-only
+planning uses the same assembly scope. Native trimming still runs; post-trim
+grounding rechecks support and connectivity.
+`VillageRoadEnds` may close a cut road connection using its declared native
+fallback pool. It considers existing junctions, connector compatibility, support
+and piece overlap, with at most eight additions and 64 orientation attempts.
+Encoded copies receive rigid projection; registered pools and the shared empty
+element remain unchanged. A private native parent-piece copy replaces the cut
+junction, and the cap receives its reciprocal junction with native ground-level
+deltas and the parent's liquid policy. Unknown parent subclasses are not copied
+into vanilla pieces. Missing or unsuitable fallbacks do not authorize invented
+roads or supports over void.
+
+`VillageLayoutPlanning` retains the native village category's host/site/generation
+budget for each variant and bounds actual assemblies separately from weighted
+biome eligibility checks. `StructureDistribution` compares the finite ranked site
+prefix, prefers layouts retaining at least 95% of their inhabited buildings, and
+otherwise keeps the best available nonconflicting layout. Added road caps and
+decoration cannot inflate this quality measure. Family allowances and
+weighted draws remain separate from these fit decisions. The configuration guide
+owns support thresholds and work defaults. Updates must recheck native grounding
+locals, trimmer result fields, junction coordinates, template projection,
+declared fallback semantics and agreement between planning and materialization.
+
 Owned portal searches stop at the island body rather than the dimension floor;
 the mountain datum follows island geology. Owned igloos must be drafted at their
 surface anchor before native grounding checks. Their top, rather than the buried
@@ -631,4 +690,42 @@ The optional `surveyor.structure_starts` adaptation skips invalid starts at Surv
 
 The guard changes only the consumer. Native starts, rejected-candidate caches, references and saved chunks remain unchanged; valid starts continue through Surveyor's own recorder. The dependency pair is checked before selecting the string-targeted mixin on either physical side. The Fabric artifact is pinned and hash-checked; the supported NeoForge version string reflects Connector's mapped metadata.
 
-On updates, recheck the mapped `put` descriptor, validity/registry ordering, chunk-load registration and valid-record persistence. Remove this hook when upstream rejects invalid starts before registry lookup. Do not drop native rejected starts to accommodate a map consumer. Native client probe `structure_records` exercises the installed recorder with one rejected and one known valid start; generated observations remain private.
+Its `asMap` view also suppresses aliases of the same physical piece layout for
+each structure type, using `PhysicalStructureIdentity` through a small optional
+summary bridge. Native records and exploration keys remain intact, so existing
+saves benefit without deleting delivery aliases or manual waypoints. The
+fingerprint canonicalizes compound and piece ordering while retaining placement
+content. Verified native postprocessing flags are excluded. Native jigsaw `BB`
+is derived from the retained element, position and rotation on reload, so its
+assembly-only expansion padding is excluded too. Reference coordinates use those
+reconstructed bounds; foreign piece bounds and unknown addon data remain
+significant. Equal outer
+bounds or nearby coordinates do not establish identity. Piece and serialized
+size limits bound fingerprinting; unknown addon fields remain significant.
+
+The structure locator uses the same physical identity and a stable reference
+point. Its candidate domain includes the source-to-layout displacement; filtering
+only source chunks would omit layouts whose markers fall inside the radius.
+`StructureSearchBounds` derives conservative envelopes from qualified native
+jigsaw reach, possible alias roots, rotated template extents and road fallback
+extents. Distinct pool metadata is bounded and inspection observes cancellation.
+Pinned legacy assemblers have separate contracts; the Better Mineshafts bridge
+includes its configured small-tunnel chain length and five main tunnels (the
+entrance starts at depth -1). Unknown layouts or placement contracts produce
+explicit partial coverage rather than a claim that the radius is empty.
+Actual result distance is still tested against the requested radius.
+
+Permission checks belong to each `islands`/`structures` branch as well as any
+shared root: another registration can merge an unrestricted sibling root.
+These searches do not choose safe teleport landings or generate FULL chunks for
+each result. Recheck jigsaw root offsets, aliases, native reach enforcement,
+fallback assembly, template codecs, legacy branch limits, reference rounding,
+world-coordinate bounds and command-tree merging when updating dependencies.
+
+On updates, recheck the mapped `put` and `asMap` descriptors, summary/piece NBT,
+validity/registry ordering, chunk-load registration and valid-record persistence.
+Retire the invalid-start guard when upstream checks registry validity first;
+requalify alias filtering separately. Do not drop native rejected starts to
+accommodate a map consumer. Native client probe `structure_records` exercises
+the installed recorder with one rejected and one known valid start; generated
+observations remain private.

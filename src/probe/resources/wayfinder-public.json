@@ -1,7 +1,8 @@
 {
   "operatorsOnly": false,
-  "hideHotkeyPermissionMessage": true,
+  "debugMessages": true,
   "cooldownTicks": 40,
+  "placementLookupHeight": 8,
   "stepsPerTick": 256,
   "concurrentRequests": 4,
   "requestTimeoutTicks": 200,

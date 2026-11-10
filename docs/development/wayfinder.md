@@ -22,8 +22,10 @@ authority. Responses must match the current token and sight ray. Movement, view
 changes, logout, lost permission and world changes invalidate pending work.
 Session validation compares the current authenticated player object as well as
 the UUID/token; packets from a retired connection cannot control its replacement.
-The server can suppress hotkey permission feedback independently of command
-feedback. This defaults on, without weakening admission or starting denied work.
+One server-owned `debugMessages` switch gates status, pending, result and permission
+feedback for commands and hotkeys. It defaults off. The client sends liveness
+heartbeats without producing its own overlay; the server owns pending feedback.
+An unsupported server leaves the hotkey silent and records a debug-log diagnostic.
 
 A client hit remains a candidate. The server checks nearer loaded terrain, then
 leases at most four destination chunks and resolves the real target shape and
@@ -33,7 +35,13 @@ This does not prove line of sight through uncached or unobserved terrain.
 
 `WayfinderGeometry` keeps hazard membership separate from collision support.
 Optional absent block IDs must not resolve to the registry's default air block.
-There is no support whitelist or upward search for another landing surface.
+There is no support whitelist. The original hit is revalidated before an
+upward-only support lookup in its column. `placementLookupHeight` defaults to
+sixteen blocks; zero restores hit-block-only placement. The first safe support
+wins. Blacklisted supports and fluid-only cells stop the lookup, and the shared
+4,096-cell validation budget spans all attempted heights. It does not search
+downward or accept an inside/underside hit. The existing two-block overlap along
+the sight ray is separate from this vertical lookup.
 Placement uses the actual player bounding box, including native scale changes.
 It bounds collision work to 512 shape pieces and 4,096 body cells per attempt;
 oversized or overly complex landings fail rather than acquiring unbounded chunks.
@@ -73,7 +81,7 @@ terrain reports the compatible-client requirement explicitly.
 
 ## Maintenance and verification
 
-When changing Minecraft or NeoForge, recheck collision clipping, player bounds,
+When changing Minecraft or NeoForge, recheck collision clipping, player bounds, upward lookup bounds,
 teleport-command hooks, native chunk futures/tickets and payload registration.
 When changing DH, inspect provider read-only behavior, section encoding, pooled
 source ownership, raw height representation, wrapper identity and shutdown.

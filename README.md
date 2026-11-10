@@ -46,7 +46,7 @@ See [all switches and supported combinations](docs/configuration.md#adaptation-s
 | FTB Library | 2101.1.39 | Restore inventory screens against the correct active menu |
 | Questlog | 3.5.0, 3.5.3 | Readable conditions, reward previews, first-progress/completion notifications and server claim validation |
 | BlueMap | 5.7 | Opt-in island viewer adaptation on dedicated servers |
-| Surveyor + Sky Archipelago | 1.2.4 + 1.4 | Skip rejected structure starts in map records |
+| Surveyor + Sky Archipelago | 1.2.4 + 1.4 | Skip rejected starts and present physical layout aliases once |
 | Veil + Iris | 4.3.2 + 1.8.14-beta.1+mc1.21.1 | Framebuffer restoration, including offscreen scenes |
 | Iris | 1.8.14-beta.1+mc1.21.1 | Independent neutral lighting and shadow exclusions for text displays and entity nametags |
 | Aeronautics + Iris | 1.3.2 + the Iris version above | Exclude the balloon hot-air overlay from shadow rendering |
@@ -128,9 +128,12 @@ repairs, not another lighting engine or a general cabin-occlusion fix. See
 Press **G** while looking at terrain, or run `/skyweavecompat wayfinder`.
 Rebind the key in Minecraft Controls. Operator level 2 is required by default;
 the server owns access, hazards and work limits. A successful warp preserves
-view direction and has a two-second cooldown. Press again or use
+view direction and has no cooldown by default. Press again or use
 `/skyweavecompat wayfinder cancel` to cancel a pending request.
-Denied hotkey presses are silent by default; commands still explain denied access.
+Status and permission messages are off by default. Enable **Debug messages** in
+Wayfinder policy when diagnosing a query. The optional cooldown uses ticks; zero
+disables it. Placement checks the hit surface first, then up to sixteen blocks above
+it in the same column, without searching downward.
 
 There is no configured distance cap. Native loaded terrain works without DH;
 distant targeting requires a compatible client with DH data along the sight ray.

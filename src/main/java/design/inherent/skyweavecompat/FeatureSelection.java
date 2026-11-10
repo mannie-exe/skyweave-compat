@@ -194,21 +194,21 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                 case NETHER_ACCESS -> List.of("PortalIgnitionMixin", "PortalCreationMixin", "NetherPortalAccessMixin", "DimensionTravelMixin", "ClosedDimensionRespawnMixin", "ClosedDimensionTeleportMixin", "ClosedDimensionLoginMixin");
                 case STRUCTURE_COMMAND -> List.of("StructureCommandMixin");
                 case C2ME_SEARCH -> List.of("C2meSearchWorkerMixin", "C2meSearchStorageMixin");
-                case STRUCTURE_LOCATION -> List.of(); // Shared with the native replacement policy below.
-                case LITHOSTITCHED_STRUCTURES -> List.of("LithostitchedStructureMixin");
+                case STRUCTURE_LOCATION -> List.of("JigsawSearchAccess", "TemplatePoolSearchAccess");
+                case LITHOSTITCHED_STRUCTURES -> List.of("LithostitchedStructureMixin", "VillageDelegateMixin");
                 case YUNG_STRUCTURES -> List.of("YungStructureMixin", "YungBuriedSupportMixin", "YungReplacementMixin", "YungPolicyStateMixin");
                 case YUNG_MINESHAFTS -> List.of("YungMineshaftStructureMixin", "YungMineshaftEntranceMixin", "YungMineshaftSupportMixin", "YungMineshaftFitMixin");
                 case YUNG_WITCH_HUTS -> List.of("YungHutSupportMixin");
                 case STRUCTURE_DISTRIBUTION -> List.of("StructurePolicyStateMixin", "GeneratorStructurePolicyMixin", "StructurePolicyCategoryMixin", "StructurePolicyJigsawMixin", "StructurePolicySizeMixin",
                         "StructurePolicyAttemptMixin", "StructurePolicyHostsMixin", "StructurePolicySitesMixin",
                         "StructurePolicyVillageMixin", "StructurePolicyUndergroundMixin", "StructurePolicyPortalHeightMixin",
-                        "VillageGroundingResultAccess", "StructurePolicyOverlapMixin", "StructurePolicyThrottleMixin",
+                        "VillageGroundingResultAccess", "VillageTemplateAccess", "VillagePaletteAccess", "VillageGroundingMixin", "VillageTrimmerMixin", "VillageCommitMixin", "StructurePolicyOverlapMixin", "StructurePolicyThrottleMixin",
                         "StructurePolicyDiversityMixin", "StructurePolicySiteOverlapMixin", "StructurePolicyNoHostMixin",
                         "StructurePolicyUndergroundPlanningMixin", "StructurePolicyUndergroundClaimsMixin", "StructurePolicyAnchorCacheMixin", "StructurePolicyWaterPlanningMixin", "StructurePolicyIglooHeightMixin",
                         "StructurePolicyIglooPieceMixin", "StructurePolicyIglooSupportMixin", "StructurePolicyPhysicalClaimsMixin",
                         "StructurePolicyReservationMixin", "StructurePolicyPendingOwnerMixin", "StructurePolicyPyramidPieceMixin");
                 case HOOFPRINT_ZOOM -> List.of("client.HoofprintZoomMixin");
-                case SURVEYOR_STRUCTURES -> List.of("SurveyorStructureMixin");
+                case SURVEYOR_STRUCTURES -> List.of("SurveyorStructureMixin", "SurveyorLayoutMixin", "SurveyorPieceAccess");
                 case WATER_SPAWNS -> List.of("WaterAnimalMixin");
                 case CLIMATE -> List.of("SurfaceClimateMixin", "SurfaceTemperatureMixin", "FreezeClimateMixin", "SnowFreezeClimateMixin",
                         "LevelClimateMixin", "ServerClimateMixin", "PortalClimateMixin", "ProjectionClimateContext",

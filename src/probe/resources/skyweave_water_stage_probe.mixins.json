@@ -7,7 +7,8 @@
     "WaterStageMixin",
     "ClimateWriteMixin",
     "SavedStartPrecheckMixin",
-    "StructureCommandWitnessMixin"
+    "StructureCommandWitnessMixin",
+    "FoundationBlendWitnessMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -148,12 +148,22 @@ server's policy. Minecraft Controls owns key rebinding separately.
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | `operatorsOnly` | `true` | Require native operator permission level 2; false explicitly permits other players |
-| `hideHotkeyPermissionMessage` | `true` | Keep denied hotkey presses silent; commands still explain denied access |
-| `cooldownTicks` | `40` | Successful-warp cooldown in server ticks |
+| `debugMessages` | `false` | Show query, result and permission messages for both hotkeys and commands |
+| `cooldownTicks` | `0` | Successful-warp cooldown in server ticks; zero disables it |
+| `placementLookupHeight` | `16` | Search up to this many blocks above the target for safe support, 0–64; zero checks only the target |
 | `stepsPerTick` | `256` | Cells or LOD bands evaluated per query slice |
 | `concurrentRequests` | `4` | Simultaneous server requests; destination chunk work is bounded separately |
 | `requestTimeoutTicks` | `200` | Stalled client reads and destination-load timeout; progressing rays do not expire by distance |
 | `blockedBlocks` | Hazard IDs | Block IDs or `#namespace:tag` entries excluded from footing and body space |
+
+Lookup stays in the targeted column and never searches downward. The original
+hit must remain valid; blacklist, fluid, body-space and build-bound checks still
+apply. A hit on the underside of a block remains ineligible.
+
+The retired permission-warning field is removed when the editor saves. Existing
+files read with debug messages off and lookup height sixteen; other explicit values,
+including a previously configured cooldown, are retained. Set `cooldownTicks` to
+zero to disable an existing cooldown. Loading does not rewrite the file.
 
 There is no footing whitelist or maximum-distance setting. Missing optional block
 IDs match nothing. The default blacklist covers fluids, fire, magma, cactus,
@@ -390,9 +400,34 @@ source positions or failed villages. Zero disables this exclusion. Multiple
 ordinary villages may share a cluster; ordinary villages and Sky Villages are not
 made mutually exclusive.
 
-The policy preserves native layouts and loot. Selected destinations are fitted
-before commitments, with three ranked alternatives per village slot and eight
-per other slot. Owned igloos use an island-relative surface anchor for their top,
+The policy preserves native templates, processors and loot. Selected destinations
+are fitted before commitments. `villageFitting` controls village support and the
+bounded alternatives independently of the family allowance:
+
+| Field | Default | Accepted range |
+| --- | ---: | ---: |
+| `minimumSupportFraction` | 0.90 | 0.50–1 |
+| `maximumGroundGap` | 3 blocks | 0–8 |
+| `maximumUnsupportedDepth` | 2 columns | 0–4 |
+| `minimumRetainedBuildings` | 0.65 | 0.25–1 |
+| `siteAttemptsPerVillage` | 8 | 1–16 |
+| `assembliesPerSite` | 12 | 1–32 |
+| `maximumColumnProbes` | 16,384 | 256–32,768 |
+
+Support measures structural footing rather than the entire piece rectangle.
+Unsupported depth is the number of neighboring footing columns to the nearest
+supported footing; a shallow overhang differs from a deep unsupported strip.
+The retained-building minimum compares inhabited pieces with the original
+assembled layout. Sites prefer well-retained layouts before accepting a more
+trimmed fallback. Biome rejection does not consume an assembly attempt; the
+weighted variant scan has a separate 256-entry bound. Column limits apply to
+each support/closure evaluation, not the whole cluster. Other structure slots
+retain eight ranked alternatives.
+
+These settings affect generation identity. Newly added fields receive defaults
+in memory without rewriting a file or replacing explicit family rates. Changing
+generation settings requires a fresh compatible world; it does not move saved
+buildings. Owned igloos use an island-relative surface anchor for their top,
 ladder and optional basement; their anchor persists through saving. Existing
 city burial and cavern rules remain independently authoritative. Owned desert
 pyramids retain their accepted island height instead of reanchoring to a void

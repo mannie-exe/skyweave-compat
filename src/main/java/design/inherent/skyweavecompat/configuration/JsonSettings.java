@@ -17,7 +17,8 @@ public final class JsonSettings {
     private static String json(Object value) { return new GsonBuilder().setPrettyPrinting().create().toJson(value) + "\n"; }
     private static final List<Definition> DEFINITIONS = new java.util.concurrent.CopyOnWriteArrayList<>(List.of(
             new Definition(design.inherent.skyweavecompat.wayfinder.WayfinderSettings.FILE, "wayfinder",
-                    json(design.inherent.skyweavecompat.wayfinder.WayfinderSettings.DEFAULT), design.inherent.skyweavecompat.wayfinder.WayfinderSettings::parse),
+                    json(design.inherent.skyweavecompat.wayfinder.WayfinderSettings.DEFAULT), design.inherent.skyweavecompat.wayfinder.WayfinderSettings::parse,
+                    design.inherent.skyweavecompat.wayfinder.WayfinderSettings::normalize),
             new Definition(design.inherent.skyweavecompat.maps.MapZoomSettings.FILE, "hoofprint_zoom", json(design.inherent.skyweavecompat.maps.MapZoomSettings.DEFAULT), design.inherent.skyweavecompat.maps.MapZoomSettings::parse),
             new Definition("skyweave_compat-generation.json", "generation", json(GenerationProfile.INITIAL), ProfileJson::generation),
             new Definition(ShapeConfiguration.FILE, "shapes", json(ShapeProfile.INITIAL), ShapeConfiguration::parse, ShapeConfiguration::normalize),
@@ -25,7 +26,8 @@ public final class JsonSettings {
             new Definition("skyweave_compat-oceans.json", "oceans", json(OceanProfile.INITIAL), OceanConfiguration::parse, OceanConfiguration::normalize),
             new Definition(design.inherent.skyweavecompat.terrain.structure.StructureConfiguration.FILE, "structures",
                     json(design.inherent.skyweavecompat.terrain.structure.StructurePolicy.DEFAULT),
-                    design.inherent.skyweavecompat.terrain.structure.StructureConfiguration::parse),
+                    design.inherent.skyweavecompat.terrain.structure.StructureConfiguration::parse,
+                    design.inherent.skyweavecompat.terrain.structure.StructureConfiguration::normalize),
             new Definition(design.inherent.skyweavecompat.terrain.city.CityConfiguration.FILE, "ancient_cities",
                     json(design.inherent.skyweavecompat.terrain.city.CityConfiguration.DEFAULT),
                     design.inherent.skyweavecompat.terrain.city.CityConfiguration::parse),

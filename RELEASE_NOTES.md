@@ -1,28 +1,37 @@
-# Skyweave: Compatibility Patches 0.31.0
+# Skyweave: Compatibility Patches 0.32.0
 
-Add native Wayfinder sight teleportation for operators. Minecraft remains 1.21.1;
-NeoForge remains 21.1.265. Existing worlds and generation identity are preserved.
+Repair island-aware village fitting, foundation materials and structure discovery.
+Minecraft remains 1.21.1; NeoForge remains 21.1.265.
 
-- Press G or use `/skyweavecompat wayfinder` to target ordinary terrain. Rebind
-  through Minecraft Controls; chat and other screens suppress the hotkey.
-- Optionally use Distant Horizons 3.3.3 data beyond native view distance, with
-  progressive bounded reads and no configured distance cap. Missing data stops
-  the query rather than inventing a destination.
-- Validate permission, current connection, sight ray, actual collision support,
-  player bounds and native teleport hooks before arrival. Unsafe or changed
-  destinations leave the player in place. No vehicle or moving-construct warp
-  support is added; Sable 2.0.6 frame guards reject unsupported constructs.
-- Configure access, unsafe blocks/tags, cooldown and bounded query work under
-  Maps → Skyweave: Compatibility Patches → Wayfinder. Operator level 2 and a
-  two-second successful-warp cooldown are the defaults.
-- Keep unauthorized hotkey presses silent by default. Explicit commands still
-  explain denied access; servers can turn off hotkey-warning suppression.
+- Choose structure-base materials from the island surface contributor and its
+  natural painted skin. Sandy shores retain sand and sandstone instead of gaining
+  generic grass/dirt foundations. Native bounded support filling remains active.
+- Check meaningful village footing against completed terrain, retain connected
+  inhabited buildings, and try bounded ranked alternatives before accepting a
+  trimmed settlement. Use compatible supported native road endings where possible.
+- Preserve family rates, weighted village donors, cluster allowances and separate
+  floating Sky Villages. New support and work limits are configurable under the
+  structure policy's Village placement group.
+- Show one locator/map result per physical layout, including source/reference
+  aliases. Distinct neighboring settlements remain separate. Native jigsaw reload
+  padding no longer changes layout identity or reported reference coordinates.
+- Include qualified source-to-layout displacement in radius searches. Unknown
+  placement contracts explicitly report partial coverage. Preserve saved-start
+  discovery, cancellation and readable empty-result feedback.
+- Enforce operator permission on the islands and structures command branches,
+  independently of other commands registered under the shared root.
+- Keep Wayfinder debug feedback off by default for targeting, results and access
+  denial. Replace the separate hotkey-warning setting with this shared policy.
+- Disable the operator warp cooldown by default and search up to 16 blocks above
+  the targeted block for safe footing, with no downward fallback. Both settings
+  remain configurable; existing explicit values are preserved.
 
-Both native Wayfinder and its optional client DH adaptation default on where
-supported. Explicit false switches remain authoritative. Remove the old Wayfinder
-datapack when installing the native replacement; preserve unrelated scoreboard
-and player data. No world reset is required.
+Generation behavior changes and uses a new saved generation identity. Existing
+structures are not relocated or backfilled. Do not bypass an old world's identity
+marker to continue generation under changed rules. Reader-side discovery fixes
+require no deletion of structure starts, map records or personal waypoints.
 
-See the development verification guide for exact native/client coverage and
-remaining upstream observations. No target-indicator HUD or general navigation
-framework is included.
+Native checks cover the recorded unsupported villages and material patch, two
+matched seed samples, persistence, aliases and locator command behavior. These
+bounded samples do not establish a world-wide village encounter rate. See the
+verification guide for exact artifacts, results and remaining limits.

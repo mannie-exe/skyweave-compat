@@ -4,6 +4,68 @@ Evidence below qualifies named artifacts only. Build and native fixture commands
 live in [testing](testing.md); adapter contracts and update checks live in their
 domain guides. A later checkout needs its own relevant checks.
 
+## Village fitting and discovery 0.32.0
+
+The combined release candidate has SHA-256
+`95c2a06c688280b1118a166caa2c6706d4c59a529a5222dcfe77a3666fd858a0`.
+It includes the Wayfinder tuning below. Required Gradle checks pass 297 JUnit
+tests plus package, upstream, Ponder and tool checks. Retained receipts are in
+`.git/captures/village-fitting/` in the development checkout.
+
+The final combined JAR differs from the native village/command/client candidate
+only in NeoForge version metadata. Its Java classes and English resources are
+byte-identical. Earlier receipts identify their own artifacts; the separate
+material fixture also used a task-only candidate whose terrain classes match.
+
+- The four recorded villages retain 105, 131, 68 and 107 pieces. Physical audits
+  cover 105 inhabited buildings and 4,983 footing columns: every building meets
+  the 90% support-within-three-blocks policy and no tested authored floor is
+  missing. Native road-fallback controls preserve registered elements and input
+  pieces, add reciprocal junctions, and reject the proven-void control. These
+  checks do not establish universal walkability for every third-party template.
+- The actual shipwreck foundation writer changes 889 generic grass/dirt/stone
+  writes to 872 sand and 17 sandstone writes. Frozen thin-skin, overlapping-write,
+  context-release, cold-surface and fluid/block-entity palette controls pass.
+  Material selection does not change native fill extent or permission.
+- Across two matched 24-cluster allowance samples, the first four positive
+  village clusters per seed commit eight candidate villages versus five baseline
+  villages. Allowances are identical. The second-seed candidate preserves native
+  piece digests across save/reopen and agrees after warm/reverse-evicted planning.
+  These eight positive clusters do not establish a population encounter rate.
+- The first seed takes 137.0 seconds including startup versus 119.0 for baseline.
+  Its initial per-owner timings can include spawn-warmed caches. The second-seed
+  candidate explicitly evicts fit plans; its 253.1-second total includes reopening.
+  These are bounded fixture costs, not cold JVM or general server benchmarks.
+- Source/reference aliases and reversed discovery order yield one physical match;
+  distinct equal-bounds layouts yield two. Native jigsaw reload retains identity
+  and reconstructed reference bounds. A one-block-radius control includes a layout
+  whose source lies outside the query. All 88 registered village definitions and
+  the remaining managed structure types have qualified metadata envelopes in the
+  selected stack; this does not certify arbitrary addon assemblers.
+- Real family-search jobs retain positive results after saved-start reopening,
+  preserve clickable navigation and cancellation, and explain both complete and
+  partial empty results. Operator checks survive an unrestricted sibling command
+  registration. Unknown layout/placement contracts retain explicit partial coverage.
+- The full native client loads a copied stopped fixture. Local chunks and visible
+  meshes are checked before the jungle/savanna captures. Localized settings search
+  opens the fitting group, reads the seven defaults, disables saving an invalid
+  support fraction, and restores clean draft state at GUI scales four and three.
+
+Combined-artifact minimum and unsupported-disabled dedicated startup pass. The
+combined native client also opens the copied integrated fixture successfully.
+The qualified terrain-only startup and full material fixture are recorded separately.
+New-generation behavior uses the changed saved identity; no existing save was
+silently converted during verification.
+
+Wayfinder's combined-artifact minimum fixture verifies silent default feedback,
+two immediate successful warps without cooldown bookkeeping, and actual upward
+placement with the 16-block default. Explicit range controls cover hazards,
+headroom, shape support, cancellation, permission/session changes and lease
+release. The retired hotkey-warning field is read without rewriting the file;
+explicit cooldown and other retained values remain authoritative. These controls
+extend the broader 0.31.0 transport/client evidence below; they are not another
+WAN multiplayer or arbitrary terrain survey.
+
 ## Wayfinder 0.31.0
 
 Minecraft 1.21.1 / NeoForge 21.1.265 / Java 21 passes the required

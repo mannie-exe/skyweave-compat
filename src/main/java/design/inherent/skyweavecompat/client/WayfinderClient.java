@@ -3,7 +3,6 @@ package design.inherent.skyweavecompat.client;
 import com.mojang.blaze3d.platform.InputConstants;
 import design.inherent.skyweavecompat.Feature;
 import design.inherent.skyweavecompat.OptionalIntegrations;
-import design.inherent.skyweavecompat.terrain.LocatorText;
 import design.inherent.skyweavecompat.wayfinder.*;
 import java.util.*;
 import net.minecraft.client.KeyMapping;
@@ -41,7 +40,7 @@ public final class WayfinderClient {
                     || !level.dimension().location().toString().equals(query.dimension()))
                 throw new IllegalArgumentException("Invalid Wayfinder query");
             // Reuse the server-owned schema; blacklist membership never grants permission.
-            new WayfinderSettings(true,true,40,budget,1,200,query.blocked());
+            new WayfinderSettings(true,false,0,WayfinderSettings.DEFAULT.placementLookupHeight(),budget,1,200,query.blocked());
             LodColumns columns = OptionalIntegrations.enabled(Feature.WAYFINDER_DH) ? WayfinderDhClient.open() : null;
             trace = new WayfinderTrace(ray,Wayfinder.domain(ray,level),columns,query.blocked(),WayfinderFrames.open(level,ray));
         }
@@ -52,10 +51,6 @@ public final class WayfinderClient {
         WayfinderNetwork.client = this::receive;
     }
     public static void register(IEventBus bus) { new WayfinderClient(bus); }
-    private static void message(String key) {
-        var player = Minecraft.getInstance().player;
-        if (player != null) player.displayClientMessage(LocatorText.text("wayfinder",key),true);
-    }
     private void receive(WayfinderPacket packet) {
         if (packet.operation() == WayfinderPacket.CANCEL) {
             if (job != null && job.id.equals(packet.request())) { job.trace.close(); job = null; }
@@ -89,7 +84,7 @@ public final class WayfinderClient {
             if (job != null) cancel(true);
             else if (client.getConnection() != null && client.getConnection().hasChannel(WayfinderPacket.TYPE))
                 PacketDistributor.sendToServer(WayfinderPacket.signal(WayfinderPacket.START,NONE));
-            else message("server_required");
+            else com.mojang.logging.LogUtils.getLogger().debug("Wayfinder is unavailable on this server");
         }
         if (job == null) return;
         if (client.player == null || client.level != job.level || client.getConnection() != job.connection || client.screen != null) {
@@ -99,7 +94,7 @@ public final class WayfinderClient {
         if (eye.distanceToSqr(new Vec3(job.ray.x(),job.ray.y(),job.ray.z())) > .25
                 || !job.ray.sameDirection(view.x,view.y,view.z)) { cancel(true); return; }
         if (++job.ticks % 40 == 0) {
-            PacketDistributor.sendToServer(WayfinderPacket.signal(WayfinderPacket.ALIVE,job.id)); message("pending");
+            PacketDistributor.sendToServer(WayfinderPacket.signal(WayfinderPacket.ALIVE,job.id));
         }
         long before = job.trace.workUnits();
         var result = job.trace.step(job.level,client.player,job.budget);
