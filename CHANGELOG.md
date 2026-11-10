@@ -2,6 +2,16 @@
 
 Generated from Git history. Player-facing release summaries are in [release notes](RELEASE_NOTES.md).
 
+## v0.31.0 · 2026-11-10
+
+### Features
+
+- Add native Wayfinder navigation ([476ecbc](https://github.com/mannie-exe/skyweave-compat/commit/476ecbc4d7d04726e693ec353765b793c891b280))
+
+### Build and verification
+
+- **locator:** Verify native caller cleanup ([8a962af](https://github.com/mannie-exe/skyweave-compat/commit/8a962afd0dc1bc2d6b38a74c32ba302002e880ec))
+
 ## v0.30.0 · 2026-11-09
 
 ### Features
