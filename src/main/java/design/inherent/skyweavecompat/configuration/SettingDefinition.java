@@ -9,17 +9,24 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /** A scalar or text collection definition; contains neither widgets nor a file writer. */
-public record SettingDefinition(String key, Class<?> valueType, Object defaultValue, SettingConstraints constraints) {
+public record SettingDefinition(String key, Class<?> valueType, Object defaultValue, SettingConstraints constraints,
+        java.util.function.Consumer<Object> ownerValidator) {
     private static final Gson JSON = new Gson();
+    private static final java.util.function.Consumer<Object> NO_OWNER_VALIDATION = value -> {};
     public enum Kind { BOOLEAN, INTEGER, LONG, DECIMAL, STRING, CHOICE, STRINGS }
     public enum InputState { EMPTY, INCOMPLETE, INVALID, VALID }
     public record Input(InputState state, Object value, SettingIssue issue) {}
+
+    public SettingDefinition(String key, Class<?> valueType, Object defaultValue, SettingConstraints constraints) {
+        this(key, valueType, defaultValue, constraints, NO_OWNER_VALIDATION);
+    }
 
     public SettingDefinition(String key, Class<?> valueType, Object defaultValue, SettingSpec spec) {
         this(key, valueType, defaultValue, SettingConstraints.from(spec));
     }
 
     public SettingDefinition {
+        java.util.Objects.requireNonNull(ownerValidator);
         if (defaultValue instanceof java.util.Collection<?> values && values.stream().anyMatch(java.util.Objects::isNull))
             throw new SettingIssue.InvalidValue(new SettingIssue("required", key, List.of(), "Missing text entry for " + key));
         if (defaultValue instanceof List<?> list) defaultValue = List.copyOf(list);
@@ -136,6 +143,9 @@ public record SettingDefinition(String key, Class<?> valueType, Object defaultVa
                 validateText((String) item);
             }
         }
+        try { ownerValidator.accept(value); }
+        catch (SettingIssue.InvalidValue invalid) { throw invalid; }
+        catch (RuntimeException invalid) { fail("native_value", String.valueOf(invalid.getMessage())); }
     }
     private void validateText(String text) {
         if (constraints.maximumLength() >= 0 && text.length() > constraints.maximumLength()) fail("length", "Text is too long for " + key);
