@@ -13,6 +13,7 @@ public final class TerrainIntegration {
         ShapeConfiguration.load(directory);
         GenerationConfiguration.load(directory);
         InteriorConfiguration.load(directory);
+        design.inherent.skyweavecompat.climate.ClimateConfiguration.load(directory);
         RiverConfiguration.load(directory);
         OceanConfiguration.load(directory);
         if (design.inherent.skyweavecompat.OptionalIntegrations.enabled(design.inherent.skyweavecompat.Feature.STRUCTURE_DISTRIBUTION)) {

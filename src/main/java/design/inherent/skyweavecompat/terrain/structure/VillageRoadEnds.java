@@ -32,7 +32,7 @@ public final class VillageRoadEnds {
         var templates=scope.pass().templateManager();
         var registry=scope.pass().registryAccess().registryOrThrow(Registries.TEMPLATE_POOL);
         var policy=scope.distribution().villageFitting();
-        var terrain=new VillageLayoutRepair.Terrain(field,settings,policy.maximumColumnProbes());
+        var terrain=new VillageLayoutRepair.Terrain(field,settings,policy.maximumColumnProbes(),policy.maximumGroundGap());
         // The qualified vanilla pool piece codec uses registries and templates, not resources.
         var serialization = new StructurePieceSerializationContext(net.minecraft.server.packs.resources.ResourceManager.Empty.INSTANCE,
                 scope.pass().registryAccess(), templates);

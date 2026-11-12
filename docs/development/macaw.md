@@ -1,9 +1,6 @@
 # Bridge lanterns
 
-`macaw.bridge_lantern_shape` matches the standing flat-bridge and short-chain
-stair-lantern selection outlines to the pack's resource models. It defaults on and
-requires Macaw’s Bridges 3.1.2. Use matching resources and enable the feature on
-client and server. Both variants retain their native empty physical collision.
+`macaw.bridge_lantern_shape` matches the standing flat-bridge and short-chain stair-lantern selection outlines to the pack's resource models. It defaults on and requires Macaw’s Bridges 3.1.2. Use matching resources and enable the feature on client and server. Both variants retain their native empty physical collision.
 
 ## Ownership
 
@@ -15,12 +12,7 @@ Both lantern models extend below the owning cell and slightly past one horizonta
 
 `macaw.bridge_lantern_sable` defaults on with the shape feature and Sable 2.0.6. `SableLanternRayMixin` performs selection at each of Sable's three native `originalClip` calls, before it compares hits from world and construct coordinates. It replaces the final global hook for this combination. Applying the global hook to Sable's combined result could scan millions of columns after an ordinary platform assembly. Preserve Sable's returned coordinate convention; do not convert just one candidate or impose an unrelated player-reach cap.
 
-Flat lanterns occupy x=5.5..10.5, y=-1..7 and z=-1..4 pixels before the native
-quarter-turn. The old outline omitted the one-pixel bottom/front overhang.
-The stair envelope remains unchanged. The native lantern has only `bridge` and
-`stair` light states and four facings; regular, rope and stair support families
-choose those states. Materials and bridge connection variants do not introduce
-additional lantern geometry.
+Flat lanterns occupy x=5.5..10.5, y=-1..7 and z=-1..4 pixels before the native quarter-turn. The old outline omitted the one-pixel bottom/front overhang. The stair envelope remains unchanged. The native lantern has only `bridge` and `stair` light states and four facings; regular, rope and stair support families choose those states. Materials and bridge connection variants do not introduce additional lantern geometry.
 
 The outline is a bounding envelope, like the upstream lantern outline, rather than a voxel copy of every chain opening. Bridge rail geometry can legitimately obstruct low rays. Do not make the lantern selectable through its support to compensate.
 

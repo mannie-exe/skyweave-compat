@@ -12,6 +12,31 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class FeatureSelectionTest {
+    @Test void floeWaterLayersRequireBothOptionalOwnersWithoutRequiringTemperature() {
+        var mods=Map.of("sky_archipelago","1.4","dynamicwaters","13.1.0");
+        var settings=only(Feature.TERRAIN,Feature.DYNAMIC_WATERS,Feature.WATER_SPAWNS);
+        for(boolean client:List.of(false,true)) {
+            assertTrue(FeatureSelection.select(settings,mods,client).mixins(client).contains("water.FloeWaterLevelMixin"));
+            assertFalse(FeatureSelection.select(settings,Map.of("sky_archipelago","1.4"),client).mixins(client).contains("water.FloeWaterLevelMixin"));
+            assertFalse(FeatureSelection.select(only(Feature.TERRAIN,Feature.DYNAMIC_WATERS),mods,client).mixins(client).contains("water.FloeWaterLevelMixin"));
+            assertFalse(FeatureSelection.select(only(Feature.TERRAIN,Feature.WATER_SPAWNS),mods,client).mixins(client).contains("water.FloeWaterLevelMixin"));
+        }
+    }
+    @Test void sableTemperatureCoordinatesAreIndependentOfDynamicWaters() {
+        var mods=Map.of("sky_archipelago","1.4","sable","2.0.6");
+        for(boolean client:List.of(false,true)) {
+            var settings=only(Feature.TERRAIN,Feature.CLIMATE,Feature.SABLE_CLIMATE);
+            var selected=FeatureSelection.select(settings,mods,client);
+            assertTrue(selected.enabled(Feature.SABLE_CLIMATE));
+            assertTrue(selected.mixins(client).contains("SableClimateMixin"));
+            assertFalse(selected.enabled(Feature.DYNAMIC_WATERS));
+            assertFalse(FeatureSelection.select(settings,Map.of("sky_archipelago","1.4"),client).mixins(client).contains("SableClimateMixin"));
+            assertFalse(FeatureSelection.select(only(Feature.TERRAIN,Feature.SABLE_CLIMATE),mods,client).enabled(Feature.SABLE_CLIMATE));
+            assertFalse(FeatureSelection.select(only(Feature.TERRAIN,Feature.CLIMATE),mods,client).mixins(client).contains("SableClimateMixin"));
+            assertThrows(IllegalStateException.class,()->FeatureSelection.select(settings,Map.of("sky_archipelago","1.4","sable","future"),client));
+        }
+    }
+
     @Test void wayfinderAdmitsOnlyTheInspectedOptionalSableFrameApi() {
         for (boolean client : List.of(false,true)) {
             assertTrue(FeatureSelection.select(only(Feature.WAYFINDER),Map.of(),client).enabled(Feature.WAYFINDER));
@@ -501,6 +526,25 @@ class FeatureSelectionTest {
             var future = new HashMap<>(pair); future.put("surveyor","future");
             assertTrue(FeatureSelection.select(only(),future,client).mixins(client).isEmpty());
             assertThrows(IllegalStateException.class,()->FeatureSelection.select(only(feature),future,client));
+        }
+    }
+
+    @Test void pinnedFabricVersionsAcceptOnlyTheTwoObservedLoaderSpellings() {
+        for(var feature:List.of(Feature.SURVEYOR_STRUCTURES,Feature.HOOFPRINT_ZOOM)) {
+            var versions=new HashMap<>(FeatureSelection.dependencies(feature));
+            versions.computeIfPresent("surveyor",(id,version)->"1.2.4+1.21");
+            versions.computeIfPresent("hoofprint",(id,version)->"1.3.0+1.21");
+            assertTrue(FeatureSelection.select(only(feature),versions,true).enabled(feature));
+            if(feature==Feature.SURVEYOR_STRUCTURES)
+                assertTrue(FeatureSelection.select(only(feature),versions,false).enabled(feature));
+            for(String unsupported:List.of("1.2.5+1.21","1.2.4+1.21.1","1.2.4_extra")) {
+                var changed=new HashMap<>(versions);changed.put("surveyor",unsupported);
+                assertThrows(IllegalStateException.class,()->FeatureSelection.select(only(feature),changed,true));
+            }
+            if(feature==Feature.HOOFPRINT_ZOOM) {
+                versions.put("hoofprint","1.3.1+1.21");
+                assertThrows(IllegalStateException.class,()->FeatureSelection.select(only(feature),versions,true));
+            }
         }
     }
 

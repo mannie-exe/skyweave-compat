@@ -264,6 +264,11 @@ final class ClientMiscProbe {
         if (mc.player == null) return row;
         var position = new JsonObject(); position.addProperty("x", mc.player.getX());
         position.addProperty("y", mc.player.getY()); position.addProperty("z", mc.player.getZ()); row.add("position", position);
+        row.addProperty("dimension",mc.level.dimension().location().toString());
+        if(design.inherent.skyweavecompat.OptionalIntegrations.enabled(design.inherent.skyweavecompat.Feature.CLIMATE)) {
+            row.add("climate",new Gson().toJsonTree(design.inherent.skyweavecompat.client.ClimateClient.observe(mc.level,mc.player.blockPosition())));
+            row.addProperty("climateChannel",mc.getConnection().hasChannel(design.inherent.skyweavecompat.climate.ClimatePacket.TYPE));
+        }
         row.addProperty("centerChunkLoaded", mc.level.hasChunkAt(mc.player.blockPosition()));
         row.addProperty("creative", mc.player.isCreative()); row.add("currentMenu", identity(mc.player.containerMenu));
         row.add("inventoryMenu", identity(mc.player.inventoryMenu));

@@ -34,7 +34,15 @@ public abstract class TerrainMaterialMixin {
             WaterArchetypeColumnProfile water, Operation<SkyIslandColumnMaterialPlan> original,
             @Local(argsOnly = true) IslandField field) {
         var plan = original.call(segments, minY, maxY, settings, x, z, seed, river, water);
-        ((GeologicalMaterial)(Object)plan).skyweave$setFrame(((GeologicalField)(Object)field).skyweave$frameAt(x, z, settings));
+        var material=(GeologicalMaterial)(Object)plan;
+        material.skyweave$setContext(((InteriorField)(Object)field).skyweave$contextAt(x,z,settings),
+                ((StyledTerrain)(Object)field).skyweave$styles());
+        if (((ProfiledTerrain)(Object)field).skyweave$profile()!=null && river.terrainModified()) {
+            // Generation already resolved this completed snapshot before creating its material
+            // plan. Carry its accepted bed owner; intrinsic point queries never plan hydrology.
+            var column=field.sampleChunkTerrainSnapshot(new net.minecraft.world.level.ChunkPos(Math.floorDiv(x,16),Math.floorDiv(z,16)),settings).columnDataAt(x,z);
+            material.skyweave$protectBed(column.dominantDescriptor(),river.solidSurfaceY()-InteriorConfiguration.profile().shellThickness()+1);
+        }
         ((GeologicalMaterial)(Object)plan).skyweave$setVeins(((VeinField)(Object)field).skyweave$veins());
         return plan;
     }

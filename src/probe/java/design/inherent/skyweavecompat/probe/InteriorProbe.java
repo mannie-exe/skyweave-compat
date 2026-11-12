@@ -76,6 +76,15 @@ final class InteriorProbe {
                     waterVolume += WaterProbe.columns(field, x, z, settings).stream().mapToInt(TerrainColumn::thickness).sum();
                     // Sample the independent field through snapshot first, then direct column.
                     if ((x - island.centerX() + reach) % 128 == 0 && (z - island.centerZ() + reach) % 128 == 0) {
+                        var context = planning.skyweave$contextAt(x,z,settings);
+                        for(int sy=GenerationProfile.MIN_Y;sy<GenerationProfile.MAX_Y;sy++) {
+                            final int py=sy;
+                            boolean expected=interior.stream().anyMatch(span->span.contains(py));
+                            if((context.solidOwner(sy)!=null)!=expected)
+                                throw new AssertionError("Intrinsic point/interval disagreement at "+x+","+sy+","+z);
+                            if(context.contributions(sy).stream().anyMatch(point->point.occupancy()==IslandContext.Occupancy.UNKNOWN))
+                                throw new AssertionError("Unresolved native contributor at "+x+","+sy+","+z);
+                        }
                         if (!planning.skyweave$planningColumn(x, z, settings, TerrainStage.EXTERIOR).segments().equals(exterior)
                                 || !((InteriorField)(Object)other).skyweave$planningColumn(x, z, settings, TerrainStage.INTERIOR).segments().equals(interior))
                             throw new AssertionError("Planning stage disagrees with resolved column");

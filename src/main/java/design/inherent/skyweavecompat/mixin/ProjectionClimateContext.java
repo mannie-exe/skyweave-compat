@@ -8,4 +8,5 @@ import org.spongepowered.asm.mixin.gen.Accessor;
         "org.sathrek.sky_archipelago.worldgen.generator.core.SkyIslandRiverBiomeProjector$Context"}, remap = false)
 public interface ProjectionClimateContext {
     @Accessor("generator") SkyIslandChunkGenerator skyweave$climateGenerator();
+    @Accessor("randomState") net.minecraft.world.level.levelgen.RandomState skyweave$climateRandom();
 }

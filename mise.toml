@@ -1,0 +1,10 @@
+[tools]
+dprint = "0.51.1"
+
+[tasks."format:markdown"]
+description = "Format Markdown without fixed-width prose wrapping"
+run = "dprint fmt"
+
+[tasks."format:markdown:check"]
+description = "Check Markdown formatting"
+run = "dprint check"

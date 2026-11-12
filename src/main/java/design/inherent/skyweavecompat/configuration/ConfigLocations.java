@@ -13,7 +13,7 @@ public final class ConfigLocations {
             "skyweave_compat-wayfinder.json",
             "skyweave_compat-hoofprint.json", "skyweave_compat-features.properties", "skyweave_compat-common.toml",
             "skyweave_compat-journal-client.toml", "skyweave_compat-generation.json",
-            "skyweave_compat-shapes.json", "skyweave_compat-interiors.json", "skyweave_compat-rivers.json",
+            "skyweave_compat-shapes.json", "skyweave_compat-interiors.json", "skyweave_compat-climate.json", "skyweave_compat-rivers.json",
             "skyweave_compat-oceans.json", "skyweave_compat-structures.json",
             "skyweave_compat-ancient-cities.json", "skyweave_compat-search.json", "skyweave_compat-bluemap.json");
 

@@ -16,17 +16,18 @@ import org.spongepowered.asm.mixin.injection.At;
 @Mixin(targets = "org.sathrek.sky_archipelago.worldgen.generator.core.SkyIslandChunkGenerator$1", remap = false)
 public abstract class ShoreLocatorClimateMixin {
     @Shadow @Final private SkyIslandChunkGenerator this$0;
+    @Shadow @Final private net.minecraft.world.level.levelgen.RandomState val$state;
 
     @WrapOperation(method = "mightMatchQuart", at = @At(value = "INVOKE",
             target = "Lorg/sathrek/sky_archipelago/worldgen/generator/core/ShoreBiomeLocator;uniformCold(Lnet/minecraft/world/level/biome/Biome;I)Ljava/lang/Boolean;"))
     private Boolean uniform(Biome biome, int y, Operation<Boolean> original) {
-        return original.call(biome, ((GeologicalGenerator)(Object)this$0).skyweave$isEnabled() ? 64 : y);
+        return ((GeologicalGenerator)(Object)this$0).skyweave$isEnabled() ? null : original.call(biome,y);
     }
 
     @WrapOperation(method = {"mightMatchQuart", "mightMatch"}, at = @At(value = "INVOKE",
             target = "Lnet/minecraft/world/level/biome/Biome;coldEnoughToSnow(Lnet/minecraft/core/BlockPos;)Z"), require = 2)
     private boolean cold(Biome biome, BlockPos pos, Operation<Boolean> original) {
         return original.call(biome, ((GeologicalGenerator)(Object)this$0).skyweave$isEnabled()
-                ? IslandClimate.temperaturePosition(pos) : pos);
+                ? design.inherent.skyweavecompat.climate.ClimateRuntime.temperaturePosition(this$0,val$state,pos) : pos);
     }
 }

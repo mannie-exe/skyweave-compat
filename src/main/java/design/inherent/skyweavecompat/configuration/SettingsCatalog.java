@@ -87,7 +87,7 @@ public final class SettingsCatalog {
                 case "journal" -> Timing.IMMEDIATE;
                 case "hoofprint_zoom" -> Timing.SCREEN_OPEN;
                 case "villages", "wayfinder" -> Timing.SERVER_START;
-                case "generation", "shapes", "interiors", "rivers", "oceans", "ancient_cities", "structures", "watersheds" -> Timing.NEW_WORLD;
+                case "generation", "shapes", "interiors", "climate", "rivers", "oceans", "ancient_cities", "structures", "watersheds" -> Timing.NEW_WORLD;
                 case "bluemap", "link_gui_client", "link_gui_common" -> Timing.RELOAD;
                 default -> Timing.GAME_RESTART;
             };
@@ -145,7 +145,7 @@ public final class SettingsCatalog {
             case C2ME_SEARCH -> Group.C2ME;
             case HOOFPRINT_ZOOM -> Group.HOOFPRINT;
             case TERRAIN, ORE_PLACEMENT, CARVERS, CAVE_BIOMES, ANCIENT_CITIES, SPAWN,
-                    STRUCTURE_LOCATION, STRUCTURE_COMMAND, STRUCTURE_DISTRIBUTION, WATER_SPAWNS, CLIMATE -> Group.TERRAIN;
+                    STRUCTURE_LOCATION, STRUCTURE_COMMAND, STRUCTURE_DISTRIBUTION, GROUND_SUPPORT, ALTITUDE_HABITATS, WATER_SPAWNS, CLIMATE, SABLE_CLIMATE -> Group.TERRAIN;
             case VILLAGE_CLEARANCE, VILLAGE_PLACEMENT -> Group.VILLAGES;
             case LITHOSTITCHED_STRUCTURES -> Group.LITHOSTITCHED;
             case YUNG_STRUCTURES -> Group.YUNG;
@@ -172,6 +172,7 @@ public final class SettingsCatalog {
             new FileEntry("skyweave_compat-shapes.json", Group.TERRAIN, "shapes", List.of(Feature.TERRAIN), SectionKind.TUNING),
             new FileEntry("skyweave_compat-search.json", Group.TERRAIN, "structure_search", List.of(Feature.TERRAIN), SectionKind.TUNING),
             new FileEntry("skyweave_compat-interiors.json", Group.TERRAIN, "interiors", List.of(Feature.TERRAIN), SectionKind.TUNING),
+            new FileEntry("skyweave_compat-climate.json", Group.TERRAIN, "climate", List.of(Feature.CLIMATE, Feature.CAVE_BIOMES), SectionKind.TUNING),
             new FileEntry("skyweave_compat-rivers.json", Group.TERRAIN, "rivers", List.of(Feature.TERRAIN), SectionKind.TUNING),
             new FileEntry("dynamicwaters-common.toml", Group.WATERSHEDS, "watersheds", List.of(Feature.DYNAMIC_WATERS), SectionKind.TUNING),
             new FileEntry("skyweave_compat-oceans.json", Group.TERRAIN, "oceans", List.of(Feature.TERRAIN), SectionKind.TUNING),

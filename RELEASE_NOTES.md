@@ -1,37 +1,18 @@
-# Skyweave: Compatibility Patches 0.32.0
+# Skyweave: Compatibility Patches 0.33.0
 
-Repair island-aware village fitting, foundation materials and structure discovery.
-Minecraft remains 1.21.1; NeoForge remains 21.1.265.
+Unify island ownership, underground climate and village terrain support on Sky Archipelago 1.4. Minecraft remains 1.21.1; NeoForge remains 21.1.265.
 
-- Choose structure-base materials from the island surface contributor and its
-  natural painted skin. Sandy shores retain sand and sandstone instead of gaining
-  generic grass/dirt foundations. Native bounded support filling remains active.
-- Check meaningful village footing against completed terrain, retain connected
-  inhabited buildings, and try bounded ranked alternatives before accepting a
-  trimmed settlement. Use compatible supported native road endings where possible.
-- Preserve family rates, weighted village donors, cluster allowances and separate
-  floating Sky Villages. New support and work limits are configurable under the
-  structure policy's Village placement group.
-- Show one locator/map result per physical layout, including source/reference
-  aliases. Distinct neighboring settlements remain separate. Native jigsaw reload
-  padding no longer changes layout identity or reported reference coordinates.
-- Include qualified source-to-layout displacement in radius searches. Unknown
-  placement contracts explicitly report partial coverage. Preserve saved-start
-  discovery, cancellation and readable empty-result feedback.
-- Enforce operator permission on the islands and structures command branches,
-  independently of other commands registered under the shared root.
-- Keep Wayfinder debug feedback off by default for targeting, results and access
-  denial. Replace the separate hotkey-warning setting with this shared policy.
-- Disable the operator warp cooldown by default and search up to 16 blocks above
-  the targeted block for safe footing, with no downward fallback. Both settings
-  remain configurable; existing explicit values are preserved.
+- Use actual height-aware solid, water and cavity contributors for native underground-biome depth and island-relative temperature. Keep resource geology, physical positions and thermal altitude distinct.
+- Synchronize bounded server-owned climate context for client weather and the qualified Iris precipitation path. Preserve cold biomes, native fluid/light rules and client lifecycle cleanup.
+- Restore bounded ground-village terrain blending, original natural foundation materials and shallow physical contact. Respect processed output, authored damage, roads, water, cavities and overlapping ownership; verify required contacts after feature closure.
+- Require complete support for inhabited buildings by default and try bounded alternatives without changing family allowances. Unsafe historical layouts may be rejected. Opt-in diagnostics distinguish support failures, missing information and exhausted work.
+- Protect qualified village terrain from conflicting native feature writes while retaining unrelated features. Preserve intentional gaps and reject unexplained source changes.
+- Give special Deep Dark islands a deepslate body, coherent sculk surface, sheltered cavern openings and separately bounded devices. Preserve player farming and brought animals. Ancient Cities remain independently eligible; none is forced on the special variant.
+- Adapt native elevated-water habitat and movement rules, Dynamic Waters floe climate and cached-node heights. Add independent optional Sable parent-world temperature projection and repair dedicated DW/Sable reflection without replacing native force math.
+- Accept the two exact qualified Fabric/Connector version spellings for Surveyor and Hoofprint, retaining strict rejection of other versions.
 
-Generation behavior changes and uses a new saved generation identity. Existing
-structures are not relocated or backfilled. Do not bypass an old world's identity
-marker to continue generation under changed rules. Reader-side discovery fixes
-require no deletion of structure starts, map records or personal waypoints.
+Generation uses a new saved identity. Create a fresh marked world; existing structures are not relocated or backfilled. Do not bypass an old world's identity marker. Update matching client/server binaries and authored configuration together.
 
-Native checks cover the recorded unsupported villages and material patch, two
-matched seed samples, persistence, aliases and locator command behavior. These
-bounded samples do not establish a world-wide village encounter rate. See the
-verification guide for exact artifacts, results and remaining limits.
+Native evidence covers bounded processed foundation contacts, material provenance, alternative village fitting, save/reopen, reordered generation, climate ownership and transport, elevated-water behavior and optional/disabled controls. A packaged Prism client with the full resource stack verifies integrated reopening, both generated BSL/Colorwheel and Complementary/Euphoria shaders, precipitation uniforms and climate forms. Independent read-only implementation review found no blocking defect in its inspected boundaries. See the [verification record](docs/development/verification.md) for exact artifacts and limits.
+
+These checks do not certify every donor road, a worldwide encounter rate or arbitrary modded feature writers. Matched support-enabled/disabled connector checks retain the same observed reachability. Euphoria's existing file watcher can warn about an unrelated BSL output during an explicit in-process rebuild; this does not prevent the tested shaders from rendering.

@@ -69,7 +69,8 @@ final class ClientResourcesProbe {
                     new LevelSettings("Resource repair review", GameType.CREATIVE, false, Difficulty.PEACEFUL,
                             true, new GameRules(), WorldDataConfiguration.DEFAULT), new WorldOptions(42, false, false),
                     registries -> registries.registryOrThrow(Registries.WORLD_PRESET)
-                            .get(ResourceLocation.withDefaultNamespace("flat")).createWorldDimensions(), mc.screen);
+                            .get(ResourceLocation.parse(Boolean.getBoolean("skyweave_compat.probe.resources.skyweave")
+                                    ? "skyweave_compat:islands_v1" : "minecraft:flat")).createWorldDimensions(), mc.screen);
         }
         try {
             var path = root.resolve("resource-review-control.json");
@@ -159,6 +160,8 @@ final class ClientResourcesProbe {
                             modelReport.addProperty("openSky", design.inherent.skyweavecompat.client.IslandSkyExposure.openSky());
                             modelReport.addProperty("skyLight", mc.level.getBrightness(net.minecraft.world.level.LightLayer.SKY, position));
                             modelReport.addProperty("biome", mc.level.getBiome(position).getRegisteredName());
+                            modelReport.add("climate",new com.google.gson.Gson().toJsonTree(
+                                    design.inherent.skyweavecompat.client.ClimateClient.observe(mc.level,position)));
                             modelReport.addProperty("rawAltitudePrecipitation", mc.level.getBiome(position).value().getPrecipitationAt(position).name());
                             modelReport.addProperty("nativeRainAt", mc.level.isRainingAt(position));
                             modelReport.add("fogColor", new com.google.gson.Gson().toJsonTree(com.mojang.blaze3d.systems.RenderSystem.getShaderFogColor()));

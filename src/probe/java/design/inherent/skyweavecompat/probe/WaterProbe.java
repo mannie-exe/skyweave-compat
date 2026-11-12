@@ -175,7 +175,7 @@ final class WaterProbe {
                 if (solid.isEmpty()) continue; // A native narrow shape need not cover its nominal center.
                 if (!columns(field, point.getX(), point.getZ(), settings).isEmpty())
                     throw new AssertionError("Ocean spire center contains planned fluid");
-                var frame = ((GeologicalField)(Object)field).skyweave$frameAt(point.getX(), point.getZ(), settings);
+                var frame = ((GeologicalField)(Object)field).skyweave$originFrameAt(point.getX(), point.getZ(), settings);
                 if (!IslandGeometry.geologicalFrame(members.getFirst()).equals(frame))
                     throw new AssertionError("Ocean spire received an independent geological frame");
                 var row = new JsonObject(); row.addProperty("anchorType", members.getFirst().archetype().name());

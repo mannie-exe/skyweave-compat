@@ -3,8 +3,6 @@ package design.inherent.skyweavecompat.terrain;
 import org.sathrek.sky_archipelago.worldgen.generator.surface.SurfaceBlockSelector.SurfaceLayer;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
@@ -18,22 +16,46 @@ public final class IslandSurfaceScope {
         final SkyIslandSettings settings;
         int x = Integer.MIN_VALUE, z, top;
         SurfaceProvenance surface;
+        IslandContext natural;
+        java.util.List<org.sathrek.sky_archipelago.worldgen.generator.field.TerrainColumn> segments;
+        final IslandStyles styles;
+        org.sathrek.sky_archipelago.worldgen.generator.field.model.IslandDescriptor owner;
+        org.sathrek.sky_archipelago.worldgen.generator.river.RiverColumnSample river;
         org.sathrek.sky_archipelago.worldgen.generator.field.WaterArchetypeColumnProfile water;
         final java.util.Map<ChunkAccess, PaintedSkin[]> painted = new java.util.IdentityHashMap<>();
-        Context(IslandField field, SkyIslandSettings settings) { this.field = field; this.settings = settings; }
+        Context(IslandField field, SkyIslandSettings settings) {
+            this.field = field; this.settings = settings; styles = ((StyledTerrain)(Object)field).skyweave$styles();
+        }
         void column(int x, int z) {
             if (this.x == x && this.z == z) return;
             this.x = x; this.z = z; surface = null;
             var column = field.sampleChunkTerrainSnapshot(new net.minecraft.world.level.ChunkPos(Math.floorDiv(x, 16), Math.floorDiv(z, 16)), settings).columnDataAt(x, z);
             top = column.profile().topY();
             water = column.waterArchetype();
-            var owner = column.dominantDescriptor();
+            owner = column.dominantDescriptor(); river = column.river();
             var interiors = (InteriorField)(Object)field;
+            natural = interiors.skyweave$contextAt(x, z, settings);
+            segments = column.segments();
             // The native resolver chooses the actual top contributor before union/snapshot.
             // Do not repaint a lower overlay using another contributor's top palette.
             if (owner != null && column.profile().exists() && interiors.skyweave$isFringe(owner, x, z, settings)
                     && interiors.skyweave$exteriorOf(owner, x, z, settings).topY() == top)
                 surface = SurfaceProvenance.fringe(owner);
+        }
+
+        IslandContext.Body solidOwner(int y) {
+            int floor=river.terrainModified() ? river.solidSurfaceY()-InteriorConfiguration.profile().shellThickness()+1
+                    : Integer.MAX_VALUE;
+            return natural.solidOwner(y,owner,floor);
+        }
+        int roof(int y) {
+            for (var segment : segments) if (segment.contains(y)) return segment.topY();
+            return Integer.MIN_VALUE;
+        }
+
+        BlockState material(BlockState selected, int x, int y, int z, int roof) {
+            var selectedOwner = solidOwner(y);
+            return DeepDarkMaterials.surface(selected, styles, selectedOwner, x, z, roof-y);
         }
 
         PaintedSkin skin(ChunkAccess chunk, BlockPos position) {
@@ -80,6 +102,12 @@ public final class IslandSurfaceScope {
         if (current.isAir() || !current.getFluidState().isEmpty()) return null;
         context.column(pos.getX(), pos.getZ());
         int top = context.top;
+        var owner = context.solidOwner(pos.getY());
+        if (DeepDarkMaterials.special(context.styles, owner)) {
+            int roof = context.roof(pos.getY());
+            return roof == Integer.MIN_VALUE ? selected
+                    : DeepDarkMaterials.surface(selected, context.styles, owner, pos.getX(), pos.getZ(), roof-pos.getY());
+        }
         if (context.surface != null) selected = context.surface.material(pos.getX(), pos.getZ(), top - pos.getY(), selected);
         var biome = chunk.getNoiseBiome(pos.getX() >> 2, top >> 2, pos.getZ() >> 2);
         return BiomeMaterials.surface(selected, biome, top - pos.getY());
@@ -88,8 +116,9 @@ public final class IslandSurfaceScope {
     public static int referenceY(int x, int y, int z) {
         var context = CURRENT.get();
         if (context == null) return y;
-        var frame = ((GeologicalField)(Object)context.field).skyweave$frameAt(x, z, context.settings);
-        return frame == null ? y : frame.toReference(y);
+        context.column(x,z);
+        var owner = context.solidOwner(y);
+        return owner == null ? y : owner.geology().toReference(y);
     }
 
     /** Capture after skin painting, before either foundation fills or monument cuts. */
@@ -113,8 +142,9 @@ public final class IslandSurfaceScope {
                 : context.water.exists() ? org.sathrek.sky_archipelago.worldgen.generator.surface.SurfaceBlockSelector
                         .forWaterArchetype(surfaceBiome, position.atY(context.top), context.water)
                         : paintedLayer(skin, nativeLayer);
-        return new SurfaceLayer(BiomeMaterials.surface(layer.top(), surfaceBiome, 0),
-                BiomeMaterials.surface(layer.under(), surfaceBiome, 1), BiomeMaterials.surface(layer.deep(), surfaceBiome, 2), layer.soilDepth());
+        return new SurfaceLayer(context.material(BiomeMaterials.surface(layer.top(), surfaceBiome, 0), position.getX(), context.top, position.getZ(), context.top),
+                context.material(BiomeMaterials.surface(layer.under(), surfaceBiome, 1), position.getX(), context.top-1, position.getZ(), context.top),
+                context.material(BiomeMaterials.surface(layer.deep(), surfaceBiome, 2), position.getX(), context.top-2, position.getZ(), context.top), layer.soilDepth());
     }
 
     private static SurfaceLayer paintedLayer(PaintedSkin skin, SurfaceLayer fallback) {
@@ -122,22 +152,11 @@ public final class IslandSurfaceScope {
         // skin can differ from the generic biome selector even without an ocean archetype.
         if (skin == null) return fallback;
         var surface = skin.top();
-        if (!naturalSkin(surface) || surface.equals(fallback.top())) return fallback;
+        if (!NaturalMaterials.skin(surface) || surface.equals(fallback.top())) return fallback;
         var under = skin.under();
         var deep = skin.deep();
-        return new SurfaceLayer(surface, naturalSkin(under) ? under : surface,
-                naturalSkin(deep) ? deep : fallback.deep(), fallback.soilDepth());
-    }
-
-    private static boolean naturalSkin(BlockState state) {
-        return state.getFluidState().isEmpty() && !state.hasBlockEntity() && (state.is(BlockTags.DIRT)
-                || state.is(BlockTags.SAND) || state.is(BlockTags.BASE_STONE_OVERWORLD)
-                || state.is(BlockTags.TERRACOTTA) || state.is(Blocks.SANDSTONE)
-                || state.is(Blocks.RED_SANDSTONE) || state.is(Blocks.GRAVEL)
-                || state.is(Blocks.CALCITE) || state.is(Blocks.TUFF)
-                || state.is(Blocks.MUD) || state.is(Blocks.CLAY)
-                || state.is(Blocks.MOSS_BLOCK) || state.is(Blocks.SNOW_BLOCK)
-                || state.is(Blocks.ICE) || state.is(Blocks.PACKED_ICE) || state.is(Blocks.BLUE_ICE));
+        return new SurfaceLayer(surface, NaturalMaterials.skin(under) ? under : surface,
+                NaturalMaterials.skin(deep) ? deep : fallback.deep(), fallback.soilDepth());
     }
 
     public static SurfaceLayer soilLayer(

@@ -41,7 +41,7 @@ public abstract class OreHeightMixin {
         // Consume exactly the native height sample, including rejected attempts, before geometry lookup.
         int sample = height.sample(random, reference);
         var field = ((GeologicalGenerator)(Object)generator).skyweave$field(context.getLevel().getLevel().getChunkSource().randomState());
-        var frame = ((GeologicalField)(Object)field).skyweave$frameAt(position.getX(), position.getZ(), generator.resolvedSkyIslandSettings());
+        var frame = ((GeologicalField)(Object)field).skyweave$originFrameAt(position.getX(), position.getZ(), generator.resolvedSkyIslandSettings());
         if (frame == null || !frame.containsReference(sample)) {
             result.setReturnValue(Stream.empty());
             return;

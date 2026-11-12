@@ -57,9 +57,25 @@ public abstract class ColumnResolverMixin implements ProfiledTerrain, InteriorRe
 
     @Unique private ColumnData skyweave$carve(int x, int z, SkyIslandSettings settings,
             List<ResolvedContributor> contributors, ColumnData exterior) {
-        if (skyweave$interiors == null || TerrainStage.current() == TerrainStage.EXTERIOR
-                || ((LayeredColumn)(Object)exterior).skyweave$hasExterior()) return exterior;
-        return skyweave$interiors.carve(x, z, settings, exterior, contributors, skyweave$waterProtection);
+        if (skyweave$profile == null) return exterior;
+        ColumnData result = exterior;
+        if (skyweave$interiors != null && TerrainStage.current() != TerrainStage.EXTERIOR
+                && !((LayeredColumn)(Object)exterior).skyweave$hasExterior())
+            result = skyweave$interiors.carve(x, z, settings, exterior, contributors, skyweave$waterProtection);
+        // Never attach position-specific metadata to the shared EMPTY singleton or mutate an
+        // already published native value. Geometry/river fields remain byte-for-byte equivalent.
+        if (!contributors.isEmpty()) {
+            var copy = new ColumnData(result.segments(), result.profile(), result.dominantDescriptor(),
+                    result.waterArchetype(), result.river(), result.overlayExposedSegments());
+            var previous = (LayeredColumn)(Object)result;
+            var layered = (LayeredColumn)(Object)copy;
+            if (previous.skyweave$hasExterior())
+                layered.skyweave$exterior(previous.skyweave$exterior(), previous.skyweave$requiresExactInterior());
+            else if (previous.skyweave$requiresExactInterior()) layered.skyweave$requireExactSampling();
+            layered.skyweave$contributors(contributors);
+            result = copy;
+        }
+        return result;
     }
 
     @WrapOperation(method = "resolveContributorsWithMetrics", at = @At(value = "INVOKE", target =

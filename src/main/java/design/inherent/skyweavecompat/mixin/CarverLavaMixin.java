@@ -19,6 +19,6 @@ public abstract class CarverLavaMixin {
             @Local(argsOnly = true) BlockPos position) {
         var geology = context instanceof GeologicalCarving scoped ? scoped.skyweave$geology() : null;
         if (geology == null) return original.call(anchor, context);
-        return geology.worldHeight(original.call(anchor, geology.reference()), position.getX(), position.getZ(), GenerationProfile.MIN_Y - 1);
+        return geology.pointHeight(original.call(anchor, geology.reference()), position, GenerationProfile.MIN_Y - 1);
     }
 }

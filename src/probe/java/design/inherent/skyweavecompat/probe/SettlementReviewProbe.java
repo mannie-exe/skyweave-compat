@@ -76,10 +76,13 @@ final class SettlementReviewProbe {
             var owner = new Gson().fromJson(cluster.get("owner"), StructureSelection.Owner.class);
             var row = new JsonObject();rows.add(row);row.add("owner", cluster.get("owner"));row.addProperty("allowance", allowance);
             cache.invalidate(owner);
+            int before=level.getChunkSource().getLoadedChunksCount();
             long began = System.nanoTime();
             var plan = (StructureDistribution.Plan)planMethod.invoke(distribution, owner, StructureFamily.VILLAGES);
             expected.put(owner, plan);
             row.addProperty("uncachedFitPlanningMillis", (System.nanoTime() - began) / 1e6);
+            row.addProperty("readOnlyPlanningChunksBefore",before);
+            row.addProperty("readOnlyPlanningChunksAfter",level.getChunkSource().getLoadedChunksCount());
             var layouts = plan.layouts().getOrDefault(StructureFamily.VILLAGES, List.of());
             row.addProperty("fittedStarts", layouts.size());
             began = System.nanoTime();

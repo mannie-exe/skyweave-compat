@@ -202,6 +202,10 @@ public final class PlacementProbe {
 
     private void run(net.minecraft.server.MinecraftServer server) {
         try {
+            if (Boolean.getBoolean("neighbors.probe.cityRecipe")) {
+                CityRecipeProbe.run(server,Path.of(System.getProperty("neighbors.probe.output")));
+                return;
+            }
             if (Boolean.getBoolean("neighbors.probe.quests")) {
                 QuestBehaviorProbe.run(server, Path.of(System.getProperty("neighbors.probe.output")));
                 return;
@@ -286,6 +290,18 @@ public final class PlacementProbe {
                 VillagePoolProbe.run(server, Path.of(System.getProperty("neighbors.probe.output")));
                 return;
             }
+            if (Boolean.getBoolean("neighbors.probe.villageSupport")) {
+                VillageFootprintProbe.run(server, Path.of(System.getProperty("neighbors.probe.output")));
+                return;
+            }
+            if (Boolean.getBoolean("neighbors.probe.naturalInputs")) {
+                NaturalInputProbe.run(server, Path.of(System.getProperty("neighbors.probe.output")));
+                return;
+            }
+            if (Boolean.getBoolean("neighbors.probe.groundVillage")) {
+                GroundVillageProbe.run(server, Path.of(System.getProperty("neighbors.probe.output")));
+                return;
+            }
             if (!System.getProperty("neighbors.probe.yung", "").isEmpty()) {
                 YungProbe.run(server, Path.of(System.getProperty("neighbors.probe.output")));
                 return;
@@ -316,6 +332,18 @@ public final class PlacementProbe {
             }
             if (Boolean.getBoolean("neighbors.probe.surfaceClimate")) {
                 SurfaceClimateProbe.run(server, Path.of(System.getProperty("neighbors.probe.output")));
+                return;
+            }
+            if (Boolean.getBoolean("neighbors.probe.sableClimate")) {
+                SableClimateProbe.run(server, Path.of(System.getProperty("neighbors.probe.output")));
+                return;
+            }
+            if (Boolean.getBoolean("neighbors.probe.habitats")) {
+                HabitatProbe.run(server, Path.of(System.getProperty("neighbors.probe.output")));
+                return;
+            }
+            if (Boolean.getBoolean("neighbors.probe.floeLayers")) {
+                FloeLayerProbe.run(server, Path.of(System.getProperty("neighbors.probe.output")));
                 return;
             }
             if (Boolean.getBoolean("neighbors.probe.biomes")) {

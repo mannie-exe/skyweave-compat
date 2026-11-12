@@ -8,7 +8,12 @@
     "ClimateWriteMixin",
     "SavedStartPrecheckMixin",
     "StructureCommandWitnessMixin",
-    "FoundationBlendWitnessMixin"
+    "FoundationBlendWitnessMixin",
+    "GroundWriteMixin",
+    "GroundOreWriteMixin",
+    "GroundPieceTraceMixin",
+    "VariationFeatureControlsMixin",
+    "GroundFeatureControlsMixin"
   ],
   "injectors": {
     "defaultRequire": 1

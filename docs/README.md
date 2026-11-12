@@ -9,8 +9,6 @@
 - [Questlog](development/questlog.md): journal UX, notification and reward contracts
 - [Publishing](publishing.md): GitHub and Modrinth release setup
 
-[Adapter maintenance](development/adapters.md) and [rendering boundaries](development/rendering.md)
-own optional integration updates and rendering contracts.
+[Adapter maintenance](development/adapters.md) and [rendering boundaries](development/rendering.md) own optional integration updates and rendering contracts.
 
-[Testing and native probes](development/testing.md) owns disposable verification commands;
-[verification](development/verification.md) indexes the evidence for published artifacts.
+[Testing and native probes](development/testing.md) owns disposable verification commands; [verification](development/verification.md) indexes the evidence for published artifacts.

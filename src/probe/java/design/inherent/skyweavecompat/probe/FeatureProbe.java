@@ -58,7 +58,7 @@ final class FeatureProbe {
             int x = geodeAnchor.x() + dx * geodeAnchor.radius() / 6, z = geodeAnchor.z() + dz * geodeAnchor.radius() / 6;
             var column = field.sampleColumn(x, z, settings);
             if (column.thickness() <= deepest) continue;
-            var frame = ((GeologicalField)(Object)field).skyweave$frameAt(x, z, settings);
+            var frame = ((GeologicalField)(Object)field).skyweave$originFrameAt(x, z, settings);
             if (frame == null) continue;
             int y = frame.toWorld(0);
             if (y < column.bottomY() + 24 || y > column.topY() - 24) continue;

@@ -17,4 +17,6 @@ public interface InteriorField {
     boolean skyweave$isFringe(org.sathrek.sky_archipelago.worldgen.generator.field.model.IslandDescriptor host,
             int x, int z, SkyIslandSettings settings);
     ColumnData skyweave$planningColumn(int x, int z, SkyIslandSettings settings, TerrainStage stage);
+    /** Cheap pre-hydrology ownership, retaining every vertically overlapping contributor. */
+    IslandContext skyweave$contextAt(int x, int z, SkyIslandSettings settings);
 }

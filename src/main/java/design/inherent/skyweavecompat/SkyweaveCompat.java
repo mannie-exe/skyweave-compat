@@ -31,7 +31,12 @@ public final class SkyweaveCompat {
             NeoForge.EVENT_BUS.addListener((ServerAboutToStartEvent event) -> NeighborConfig.beginServer());
         }
         if (selection.enabled(Feature.TERRAIN)) {
+            if (selection.enabled(Feature.GROUND_SUPPORT)) {
+                design.inherent.skyweavecompat.terrain.structure.NaturalStructureInputs.register(modBus);
+                design.inherent.skyweavecompat.terrain.structure.GroundSupportProofs.register(modBus);
+            }
             design.inherent.skyweavecompat.terrain.TerrainIntegration.register();
+            if (selection.enabled(Feature.CLIMATE)) design.inherent.skyweavecompat.climate.ClimateRuntime.register(modBus);
         } else {
             // This checks Compat's own save marker without loading or modifying any optional mod.
             NeoForge.EVENT_BUS.addListener((ServerAboutToStartEvent event) -> {

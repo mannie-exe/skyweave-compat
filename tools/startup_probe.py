@@ -25,10 +25,13 @@ def main():
     parser.add_argument('--mod', type=Path)
     parser.add_argument('--serve', action='store_true', help='Keep an owned loopback server running; forward console input until stop')
     parser.add_argument('--without-compat', action='store_true', help='Serve a standalone fixture without the optional server capability')
+    parser.add_argument('--islands', action='store_true', help='With terrain --serve, create an owned Skyweave world for remote-client metadata checks')
     parser.add_argument('--enable', action='append', default=[], help='Explicit startup feature key to enable in this disposable fixture')
     args = parser.parse_args()
     if args.without_compat and (not args.serve or args.scenario != 'standalone'):
         parser.error('--without-compat requires --serve --scenario standalone')
+    if args.islands and (not args.serve or args.scenario != 'terrain'):
+        parser.error('--islands requires --serve --scenario terrain')
     server = args.server.expanduser().resolve()
     version = next(line.split('=', 1)[1] for line in (ROOT / 'gradle.properties').read_text().splitlines()
                    if line.startswith('mod_version='))
@@ -98,10 +101,13 @@ def main():
             lines = feature_file.read_text().splitlines() if feature_file.exists() else []
             lines = [line for line in lines if line.partition('=')[0] not in args.enable]
             feature_file.write_text('\n'.join(lines + [key + '=true' for key in args.enable]) + '\n')
-        # The existing terrain fixture exercises the custom generator. Startup boundaries use vanilla flat.
+        # Startup boundaries stay flat; the explicit served fixture qualifies tracked island metadata.
+        preset='skyweave_compat:islands_v1' if args.islands else 'minecraft:flat'
+        report['worldPreset']=preset
         (run / 'server.properties').write_text(
             'server-ip=127.0.0.1\nserver-port=0\nonline-mode=false\nlevel-name=probe-world\n'
-            'level-type=minecraft:flat\ngenerate-structures=false\nview-distance=2\nsimulation-distance=2\nmax-tick-time=0\n')
+            f'level-type={preset}\ngenerate-structures=false\nview-distance=2\nsimulation-distance=2\nmax-tick-time=0\n'
+            + ('level-seed=42\n' if args.islands else ''))
         command = [args.java, '-Xmx4G', '-Dmixin.debug.export=true', '-Dmixin.debug.verbose=true',
                    '@' + str(launch[0]), 'nogui']
         report['command'] = command

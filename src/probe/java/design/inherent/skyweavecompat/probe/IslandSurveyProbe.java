@@ -103,7 +103,7 @@ final class IslandSurveyProbe {
                     if (owner == null || owner.family() != IslandFamily.ANCHOR_PLATEAU
                             || owner.centerX() != anchor.x() || owner.centerZ() != anchor.z()) continue;
                     columns++; observedColumns++;
-                    var frame = ((GeologicalField)(Object)field).skyweave$frameAt(x, z, settings);
+                    var frame = ((GeologicalField)(Object)field).skyweave$originFrameAt(x, z, settings);
                     int surface = field.sampleColumnProfile(x, z, settings).topY();
                     biomeColumns.merge(level.getBiome(pos.set(x, surface, z)).getRegisteredName(), 1, Integer::sum);
                     // Actual post-feature air cut into predicted terrain, not a density-only cave claim.

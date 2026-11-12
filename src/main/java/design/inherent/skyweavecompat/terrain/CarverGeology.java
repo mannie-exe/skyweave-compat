@@ -11,9 +11,16 @@ public record CarverGeology(SkyIslandChunkGenerator generator, IslandField field
                 LevelHeightAccessor.create(GeologicalFrame.REFERENCE_BOTTOM, GeologicalFrame.REFERENCE_HEIGHT)));
     }
 
-    public int worldHeight(int sampled, int x, int z, int rejected) {
-        var frame = ((GeologicalField)(Object)field).skyweave$frameAt(x, z, generator.resolvedSkyIslandSettings());
+    public int originHeight(int sampled, int x, int z, int rejected) {
+        var frame = ((GeologicalField)(Object)field).skyweave$originFrameAt(x, z, generator.resolvedSkyIslandSettings());
         return frame == null || !frame.containsReference(sampled) ? rejected : frame.toWorld(sampled);
+    }
+
+    public int pointHeight(int sampled, net.minecraft.core.BlockPos position, int rejected) {
+        var context=((InteriorField)(Object)field).skyweave$contextAt(position.getX(),position.getZ(),generator.resolvedSkyIslandSettings());
+        var owner=context.solidOwner(position.getY());
+        if(owner==null)owner=context.owner(position.getY(),0);
+        return owner==null || !owner.geology().containsReference(sampled) ? rejected : owner.geology().toWorld(sampled);
     }
 
     public int canyonHeight(int sampled, int x, int z, int rejected) {

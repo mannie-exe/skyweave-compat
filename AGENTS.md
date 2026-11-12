@@ -2,53 +2,20 @@
 
 Use **Create: Skyweave** for the modpack and **Skyweave: Compatibility Patches** for the adaptation mod. **Skyweave: Resource Patches** is the shared resource-only JAR; **Skyweave: Visual Patches** is the client resource-pack ZIP. Follow the canonical [naming and artifact identity policy](../../Minecraft/create-skyweave/AGENTS.md#naming-and-artifact-identity). Preserve existing machine identities and Java packages/classes unless an authorized rename includes them; display naming does not prove a runtime identity has changed.
 
-Maintain an independently installable mod of optional terrain and compatibility adaptations.
-Keep minimum dependencies and optional adapters explicit.
-Keep Sky Villages floating beside Sky Archipelago terrain. Preserve foreign
-generators and saved-world generation identity; never silently convert worlds.
-Own the incorporated Veil/Iris rendering adapters here; keep static pack resources in the pack.
-Only Minecraft, NeoForge and necessary base libraries may be required.
-Stable adaptations default on when their dependencies and physical side qualify;
-explicit false selections remain authoritative. Pack resources are part of the
-supported visual contract. Feature switches are immutable startup configuration. Disabled adapters must not
-select target mixins, load foreign classes, expose data or constrain target versions.
-Use Java 21, NeoForge and exact upstream dependency pins. Do not bundle upstream
-binaries, templates or decompiled sources.
+Maintain an independently installable mod of optional terrain and compatibility adaptations. Keep minimum dependencies and optional adapters explicit. Keep Sky Villages floating beside Sky Archipelago terrain. Preserve foreign generators and saved-world generation identity; never silently convert worlds. Own the incorporated Veil/Iris rendering adapters here; keep static pack resources in the pack. Only Minecraft, NeoForge and necessary base libraries may be required. Stable adaptations default on when their dependencies and physical side qualify; explicit false selections remain authoritative. Pack resources are part of the supported visual contract. Feature switches are immutable startup configuration. Disabled adapters must not select target mixins, load foreign classes, expose data or constrain target versions. Use Java 21, NeoForge and exact upstream dependency pins. Do not bundle upstream binaries, templates or decompiled sources.
 
-Optional integrations must remain optional at class-loading time and on each
-physical side. Select hooks through loader metadata before resolving foreign
-classes; Sky Villages requires both it and Architectury. Keep client rendering
-out of dedicated-server paths. Verify the minimum installation and the complete
-integration set; add intermediate combinations when a changed dependency boundary
-needs them, rather than assuming one successful full-pack run covers absence.
+Optional integrations must remain optional at class-loading time and on each physical side. Select hooks through loader metadata before resolving foreign classes; Sky Villages requires both it and Architectury. Keep client rendering out of dedicated-server paths. Verify the minimum installation and the complete integration set; add intermediate combinations when a changed dependency boundary needs them, rather than assuming one successful full-pack run covers absence.
 
-Redstone adapters must authorize both custom packets and native menu actions;
-distance alone is insufficient. Preserve signal-strength contracts and keep
-input reads free of world mutations. Restrict relocation to verified block and
-coordinate-frame combinations. Retire version-pinned hooks only after checking
-the corresponding upstream repair; keep loot and wording fixes with their pack.
+Redstone adapters must authorize both custom packets and native menu actions; distance alone is insufficient. Preserve signal-strength contracts and keep input reads free of world mutations. Restrict relocation to verified block and coordinate-frame combinations. Retire version-pinned hooks only after checking the corresponding upstream repair; keep loot and wording fixes with their pack.
 
-Use saved generation identity and the island-relative geological frame as the
-authority for placement and height adaptations. Keep tuning in its owning config,
-not duplicated here. Test clipping, sparsity and resource availability across
-multiple seeds; a spawn island or average distance does not establish all bounds.
-Map/preview adapters must not generate chunks, activate gameplay or rewrite admin
-settings implicitly. Isolate optional web-renderer behavior from terrain generation.
+Use saved generation identity and the island-relative geological frame as the authority for placement and height adaptations. Keep tuning in its owning config, not duplicated here. Test clipping, sparsity and resource availability across multiple seeds; a spawn island or average distance does not establish all bounds. Map/preview adapters must not generate chunks, activate gameplay or rewrite admin settings implicitly. Isolate optional web-renderer behavior from terrain generation.
 
-Keep geometry independent of game APIs and put loader integration in small
-adapters. Worldgen must not load neighboring chunks or depend on visitation order.
-Test boundary conditions, real Mixin application, native generation and cost.
-`./gradlew check build` is required after implementation changes; passing unit
-tests alone does not establish generation behavior.
+Keep geometry independent of game APIs and put loader integration in small adapters. Worldgen must not load neighboring chunks or depend on visitation order. Test boundary conditions, real Mixin application, native generation and cost. `./gradlew check build` is required after implementation changes; passing unit tests alone does not establish generation behavior.
 
-README owns installation and behavior; docs own configuration, development and
-publishing. Use direct prose without marketing. Preserve one owner per fact.
-Remove disposable worlds and inspection files after recording useful evidence.
-Follow the shared [private storage convention](../../Minecraft/create-skyweave/AGENTS.md#work-and-evidence):
-use this repository's `.git/goals/` for goals/design documents and `.git/captures/`
-for retained evidence, both when writing new material and consolidating old runs.
-Do not edit live instances or publish releases without authorization.
+README owns installation and behavior; docs own configuration, development and publishing. Use direct prose without marketing. Preserve one owner per fact. Remove disposable worlds and inspection files after recording useful evidence. Follow the shared [private storage convention](../../Minecraft/create-skyweave/AGENTS.md#work-and-evidence): use this repository's `.git/goals/` for goals/design documents and `.git/captures/` for retained evidence, both when writing new material and consolidating old runs. Do not edit live instances or publish releases without authorization. Follow the modpack's shared [installation ownership policy](../../Minecraft/create-skyweave/AGENTS.md#installation-file-ownership) when distributing configuration. Managed pack rules and explicit seed exceptions retain conflict detection, feature opt-outs and generation-identity protection; inspect native writers before changing a file's ownership.
 
-Use conventional commit subjects with relevant `- [tag]: message` body bullets.
-Keep bullet messages under 40 characters, lowercase except names, without a final
-period. Scale detail to the change.
+Use conventional commit subjects with relevant `- [tag]: message` body bullets. Keep bullet messages under 40 characters, lowercase except names, without a final period. Scale detail to the change.
+
+## Markdown formatting
+
+Keep Markdown prose unwrapped; do not insert line breaks to meet a fixed width. Preserve intentional hard breaks and code blocks. Run `mise run format:markdown` after Markdown edits and `mise run format:markdown:check` to verify. The pinned dprint configuration follows the same policy as empack and cfgate.

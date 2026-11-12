@@ -123,7 +123,7 @@ final class GenerationProbe {
                 var chunk = level.getChunk((location.getX() >> 4) + dx, (location.getZ() >> 4) + dz);
                 int bx = chunk.getPos().getMinBlockX(), bz = chunk.getPos().getMinBlockZ();
                 for (int x = bx; x < bx + 16; x++) for (int z = bz; z < bz + 16; z++) {
-                    GeologicalFrame frame = field == null ? null : ((GeologicalField)(Object)field).skyweave$frameAt(x, z, sky.resolvedSkyIslandSettings());
+                    GeologicalFrame frame = field == null ? null : ((GeologicalField)(Object)field).skyweave$originFrameAt(x, z, sky.resolvedSkyIslandSettings());
                     var predicted = sky == null ? null : sky.getBaseColumn(x, z, level, level.getChunkSource().randomState());
                     for (int y = level.getMinBuildHeight(); y < level.getMaxBuildHeight(); y++) {
                         var state = chunk.getBlockState(mutable.set(x, y, z)); blocks++;

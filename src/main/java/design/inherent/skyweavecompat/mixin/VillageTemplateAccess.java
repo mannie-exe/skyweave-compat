@@ -12,5 +12,8 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 @Mixin(SinglePoolElement.class)
 public interface VillageTemplateAccess {
     @Accessor("template") Either<ResourceLocation, StructureTemplate> skyweave$template();
+    @Invoker("getSettings") net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings skyweave$settings(
+            net.minecraft.world.level.block.Rotation rotation, net.minecraft.world.level.levelgen.structure.BoundingBox bounds,
+            net.minecraft.world.level.levelgen.structure.templatesystem.LiquidSettings liquids, boolean keepJigsaws);
     @Invoker("getTemplate") StructureTemplate skyweave$template(StructureTemplateManager templates);
 }

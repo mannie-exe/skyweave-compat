@@ -169,7 +169,9 @@ public final class StructureDistribution {
         var height = LevelHeightAccessor.create(context.chunk().getMinBuildHeight(), context.chunk().getHeight());
         var empty = new ProtoChunk(new ChunkPos(0, 0), UpgradeData.EMPTY, height,
                 context.registryAccess().registryOrThrow(Registries.BIOME), null);
-        environment = new StructurePlacementPassContext(context.generator(), context.biomeSource(), context.registryAccess(),
+        // Native createStructures uses this projected source. Early LevelEvent binding
+        // must not freeze a raw climate source as a second assembly authority.
+        environment = new StructurePlacementPassContext(context.generator(), generator.projectedBiomeSource(), context.registryAccess(),
                 context.structureState(), null, empty, context.templateManager(), context.settings(), context.islandField(),
                 context.levelSeed(), context.randomState(), empty.getPos(), SectionPos.bottomOf(empty));
     }
@@ -311,20 +313,38 @@ public final class StructureDistribution {
 
     private Choice choice(StructureSelection.Owner owner, StructureFamily family) {
         try { return choices.get(new ChoiceKey(owner, family), () -> {
-            var samples = sampledSites.get(owner, () -> {
-                var collected = new LinkedHashMap<StructureSelection.Site, Sample>();
-                for (var member : ((ClusterField)(Object)field).skyweave$members(owner.cellX(), owner.cellZ(), settings))
-                    sample(member, collected);
-                return Map.copyOf(collected);
-            });
+            var samples = samples(owner);
             var candidates = samples.entrySet().stream().filter(entry -> eligible(family, entry.getKey(), entry.getValue()))
                     .map(Map.Entry::getKey).toList();
             double area = (double)candidates.size() * SAMPLE_SPACING * SAMPLE_SPACING;
+            var ranked=StructureSelection.ranked(seed,owner,family,candidates);
+            if(family==StructureFamily.VILLAGES) {
+                var wet=new HashSet<StructureSelection.Site>();
+                for(var site:ranked) {
+                    var sample=samples.get(site);
+                    var context=((InteriorField)(Object)field).skyweave$contextAt(site.chunkX()*16+8,site.chunkZ()*16+8,settings);
+                    if(context.contributions(sample.topY()+1).stream().anyMatch(value->value.occupancy()==IslandContext.Occupancy.WATER))wet.add(site);
+                }
+                // Preserve the allowance and seeded ordering within both bands. Water
+                // roots must not exhaust the same bounded attempts before dry shores.
+                ranked=ranked.stream().sorted(java.util.Comparator.comparing(wet::contains)).toList();
+                org.sathrek.sky_archipelago.worldgen.benchmark.StructureBenchmarkRecorder.add("skyweaveVillageWetSitesDeferred",wet.size());
+            }
             return new Choice(area, StructureSelection.allowance(seed, owner, family, area, policy),
-                    StructureSelection.ranked(seed, owner, family, candidates));
+                    ranked);
         }); } catch (java.util.concurrent.ExecutionException failed) {
             throw new IllegalStateException("Cannot select cluster structure candidates", failed.getCause());
         }
+    }
+
+    private Map<StructureSelection.Site,Sample> samples(StructureSelection.Owner owner)
+            throws java.util.concurrent.ExecutionException {
+        return sampledSites.get(owner,()->{
+            var collected=new LinkedHashMap<StructureSelection.Site,Sample>();
+            for(var member:((ClusterField)(Object)field).skyweave$members(owner.cellX(),owner.cellZ(),settings))
+                sample(member,collected);
+            return Map.copyOf(collected);
+        });
     }
 
     private Plan extend(StructureSelection.Owner owner, StructurePlacementPassContext context,
@@ -427,8 +447,11 @@ public final class StructureDistribution {
         int y = sample.topY + 1;
         if (underground(family)) y = IslandGeometry.geologicalFrame(sample.member).toWorld(-27);
         int qx = site.chunkX() * 4 + 2, qz = site.chunkZ() * 4 + 2, qy = Math.floorDiv(y, 4);
-        var biome = biomes.getNoiseBiome(qx, qy, qz, random.sampler());
-        if (underground(family) && OptionalIntegrations.enabled(Feature.CAVE_BIOMES))
+        boolean physical=OptionalIntegrations.enabled(Feature.CAVE_BIOMES);
+        var biome = physical && biomes.getClass()==net.minecraft.world.level.biome.MultiNoiseBiomeSource.class
+                ?CaveProjection.select(generator,(net.minecraft.world.level.biome.MultiNoiseBiomeSource)biomes,random.sampler().sample(qx,qy,qz))
+                :biomes.getNoiseBiome(qx, qy, qz, random.sampler());
+        if (physical)
             biome = CaveProjection.physical(generator, random, biomes, biome, qx, qy, qz, random.sampler());
         return allowed.contains(biome);
     }

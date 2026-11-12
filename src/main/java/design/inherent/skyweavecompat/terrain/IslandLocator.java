@@ -231,7 +231,7 @@ public final class IslandLocator {
         long dx = (long)island.centerX() - job.x, dz = (long)island.centerZ() - job.z;
         return new Match(cell.x() + "," + cell.z() + "/" + Long.toUnsignedString(island.seed(), 16),
                 island.centerX(), island.centerY(), island.centerZ(), dx * dx + dz * dz, name(island.archetype()),
-                name(style.kind()), name(IslandInteriors.kind(island, InteriorConfiguration.profile())),
+                name(style.kind()), name(IslandInteriors.kind(island, InteriorConfiguration.profile(),style.kind())),
                 style.kind() == IslandStyles.Kind.DEEP_DARK ? "minecraft:deep_dark" : style.hostBiome(), name(components.shoreline()), name(components.fringe()), name(island.family()));
     }
     private int page(CommandSourceStack source, int page) {

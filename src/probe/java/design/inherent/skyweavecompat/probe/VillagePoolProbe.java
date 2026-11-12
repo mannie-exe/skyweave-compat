@@ -45,6 +45,7 @@ final class VillagePoolProbe {
             if (server.getResourceManager().getResource(ResourceLocation.parse(
                     "skyweave_compat:lithostitched/worldgen_modifier/villages/plains/house.json")).isPresent())
                 composition(server, report);
+            report.add("supportInputs", VillageSupportSurvey.run(server));
             int index = 0;
             for (String id : List.of("kaisyn:village/beach_lighthouse/villager_lighthouse_master",
                     "kaisyn:village/exclusives/mediterranean/villager_bishop",

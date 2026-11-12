@@ -97,7 +97,7 @@ class ShapeProfileTest {
     @Test void styleCacheEvictionAndConcurrentReadsDoNotChangeEligibility() throws Exception {
         var p = ShapeProfile.INITIAL; var f = p.fractures();
         var profile = new ShapeProfile(true, p.strengthVariation(), p.outline(), p.fringe(), new ShapeProfile.Fractures(1,
-                List.of("minecraft:mushroom_fields"), f.cellSize(), f.gapWidth(), f.verticalRange(), f.removalChance(), 0, f.sculkPatchChance()));
+                List.of("minecraft:mushroom_fields"), f.cellSize(), f.gapWidth(), f.verticalRange(), f.removalChance(), 0));
         var styles = new IslandStyles(profile, (x, y, z) -> new org.sathrek.sky_archipelago.worldgen.generator.field.model.BiomeSample(
                 null, false, false, net.minecraft.resources.ResourceLocation.parse(x < 0 ? "minecraft:mushroom_fields" : "minecraft:plains")));
         var samples = java.util.stream.LongStream.range(-200, 200).mapToObj(seed ->

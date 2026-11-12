@@ -51,7 +51,9 @@ public final class CityPlacementScope {
         int x = site.generationChunk().getMiddleBlockX(), z = site.generationChunk().getMiddleBlockZ();
         var outer = ((InteriorField)(Object)request.islandField()).skyweave$exteriorOf(host, x, z, request.settings());
         if (!outer.exists()) return;
-        boolean hollow = IslandInteriors.kind(host, InteriorConfiguration.profile()) == IslandInteriors.Kind.HOLLOW;
+        var styles=((StyledTerrain)(Object)request.islandField()).skyweave$styles();
+        boolean hollow = IslandInteriors.kind(host, InteriorConfiguration.profile(),
+                styles==null?IslandStyles.Kind.NATIVE:styles.style(host).kind()) == IslandInteriors.Kind.HOLLOW;
         int preferred = IslandGeometry.geologicalFrame(host).toWorld(-27);
         if (!hollow) {
             int min = outer.bottomY() + 16, max = outer.topY() - 72;

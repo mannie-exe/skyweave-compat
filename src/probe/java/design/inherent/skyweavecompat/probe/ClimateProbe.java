@@ -41,6 +41,46 @@ final class ClimateProbe {
         result.addProperty("temperateDoesNotFreezeOrSnow", true);
         result.addProperty("coldBiomeStillFreezesAndSnows", true);
         result.addProperty("badlandsAndStonyShoreStayWarm", true);
+        if (level.getChunkSource().getGenerator() instanceof org.sathrek.sky_archipelago.worldgen.generator.core.SkyIslandChunkGenerator generator) {
+            var field = (design.inherent.skyweavecompat.terrain.InteriorField)(Object)
+                    ((design.inherent.skyweavecompat.terrain.GeologicalGenerator)(Object)generator)
+                            .skyweave$field(level.getChunkSource().randomState());
+            var raw = (org.sathrek.sky_archipelago.worldgen.generator.field.IslandField)(Object)field;
+            var anchors = raw.collectIslandPreviewsInRadius(0,0,8000,generator.resolvedSkyIslandSettings());
+            int queries = 0; long began = System.nanoTime();
+            int loaded = level.getChunkSource().getLoadedChunksCount();
+            for (var anchor : anchors) {
+                var context = field.skyweave$contextAt(anchor.x(),anchor.z(),generator.resolvedSkyIslandSettings());
+                for (var body : context.bodies()) {
+                    var at = new BlockPos(anchor.x(),body.climateDatum()+24,anchor.z());
+                    var selected = context.biomeOwner(at.getY());
+                    if(selected==null)selected=context.owner(at.getY(),design.inherent.skyweavecompat.climate.ClimateConfiguration.profile().airReach());
+                    if (selected != body) continue;
+                    int expected=design.inherent.skyweavecompat.climate.ClimateColumn.referenceY(at.getY(),body.climateDatum(),
+                            design.inherent.skyweavecompat.climate.ClimateConfiguration.profile());
+                    check(expected!=64,"Metadata test must distinguish a real thermal result from the missing-data fallback");
+                    check(design.inherent.skyweavecompat.climate.ClimateRuntime.temperaturePosition(generator,level.getChunkSource().randomState(),at).getY() == expected,
+                            "Natural metadata altitude did not retain local hill cooling");
+                    // Read-only remote metadata queries must not request native chunks.
+                    for (int n = 0; n < 100; n++) {
+                        check(design.inherent.skyweavecompat.climate.ClimateRuntime.temperaturePosition(generator,level.getChunkSource().randomState(),at).getY() == expected,
+                                "Warm metadata query changed its altitude");
+                        queries++;
+                    }
+                }
+                if (queries >= 1000) break;
+            }
+            check(queries >= 100,"No actual contributor climate fixture found");
+            check(level.getChunkSource().getLoadedChunksCount() == loaded,"Climate lookup loaded chunks");
+            result.addProperty("naturalDatumQueries",queries);
+            result.addProperty("queryPath","Explicit generator metadata at datum+24; expected reference differs from missing-data64");
+            result.addProperty("naturalDatumQueryNanos",System.nanoTime()-began);
+            result.addProperty("metadataDidNotLoadChunks",true);
+            var point=anchors.stream().filter(anchor->!field.skyweave$contextAt(anchor.x(),anchor.z(),generator.resolvedSkyIslandSettings()).bodies().isEmpty())
+                    .findFirst().orElseThrow();
+            try { result.add("contextCache",ContextCacheProbe.run(level,point.x(),point.z())); }
+            catch(Exception failure) { throw new IllegalStateException("Native context cache check failed",failure); }
+        }
         return result;
     }
 }

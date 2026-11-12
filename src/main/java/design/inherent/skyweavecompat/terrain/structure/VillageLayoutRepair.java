@@ -25,11 +25,11 @@ import org.sathrek.sky_archipelago.worldgen.generator.terrain.SkyIslandChunkTerr
 /** Read-only support and connector qualification, shared by native planning and commitment. */
 public final class VillageLayoutRepair {
     public enum Role { CENTER, ROAD, BUILDING, FARM, DECORATION }
-    private record Geometry(List<FoundationSupport.Foot> feet, boolean farm) {}
+    private record Geometry(List<FoundationSupport.Foot> feet, boolean farm,long plane) {}
     record Node(StructurePiece piece, Role role, List<FoundationSupport.Foot> feet,
             List<StructureTemplate.StructureBlockInfo> ports, boolean projected) {}
     private record Port(int node, StructureTemplate.StructureBlockInfo info) {}
-    private static final Cache<StructureTemplate, Geometry> GEOMETRY = CacheBuilder.newBuilder().weakKeys().maximumSize(512).build();
+    private static final Cache<StructureTemplate.Palette, Geometry> GEOMETRY = CacheBuilder.newBuilder().weakKeys().maximumSize(512).build();
     private static final ThreadLocal<Integer> ORIGINAL_BUILDINGS = new ThreadLocal<>();
     private static final int MAX_PIECES = 2048, MAX_PORTS = 8192;
     private VillageLayoutRepair() {}
@@ -65,18 +65,47 @@ public final class VillageLayoutRepair {
         final int limit;
         final Map<ChunkPos, SkyIslandChunkTerrainSnapshot> snapshots = new HashMap<>();
         final Set<Long> columns = new HashSet<>();
+        final Map<Long,design.inherent.skyweavecompat.terrain.IslandContext> contexts=new HashMap<>();
+        final Map<String,Integer> causes=VillageDecisionTrace.enabled()?new TreeMap<>():null;
+        final List<Object> examples=VillageDecisionTrace.enabled()?new ArrayList<>():null;
+        final int maximumGap;
         boolean exhausted;
-        Terrain(IslandField field, SkyIslandSettings settings, int limit) { this.field=field; this.settings=settings; this.limit=limit; }
+        Terrain(IslandField field, SkyIslandSettings settings, int limit,int maximumGap) {
+            this.field=field;this.settings=settings;this.limit=limit;this.maximumGap=maximumGap;
+        }
         int ground(FoundationSupport.Foot foot) {
             long key=FoundationSupport.key(foot.x(),foot.z());
-            if (!columns.contains(key) && columns.size()==limit) { exhausted=true; return FoundationSupport.MISSING; }
+            if (!columns.contains(key) && columns.size()==limit) { exhausted=true;note(foot,null,"COLUMN_BUDGET");return FoundationSupport.MISSING; }
             columns.add(key);
             var cp=new ChunkPos(Math.floorDiv(foot.x(),16),Math.floorDiv(foot.z(),16));
             var snapshot=snapshots.computeIfAbsent(cp, p -> field.sampleChunkTerrainSnapshot(p,settings));
             int below=foot.y()-1;
             // Actual solid intervals distinguish an island roof, a cave and empty sky.
-            return snapshot.segmentsAt(foot.x(),foot.z()).stream().filter(span -> span.bottomY()<=below)
+            int ground=snapshot.segmentsAt(foot.x(),foot.z()).stream().filter(span -> span.bottomY()<=below)
                     .mapToInt(span -> Math.min(span.topY(),below)).max().orElse(FoundationSupport.MISSING);
+            long gap=(long)below-ground;
+            if(ground==FoundationSupport.MISSING)note(foot,null,"NO_SOLID_BELOW");
+            else if(foot.y()!=Integer.MAX_VALUE && gap>maximumGap)note(foot,ground,"GAP_TOO_DEEP");
+            if(ground==FoundationSupport.MISSING || gap<1 || gap>8)return ground;
+            var context=contexts.computeIfAbsent(key,k->((design.inherent.skyweavecompat.terrain.InteriorField)(Object)field)
+                    .skyweave$contextAt(foot.x(),foot.z(),settings));
+            // No owned context when generation adaptations are disabled: retain the upstream
+            // heuristic, without claiming material-stage qualification for that installation.
+            if(context.bodies().isEmpty())return ground;
+            var kind=VillageSupportEnvelope.gap(context,ground,foot.y());
+            return switch(kind) {
+                case OPEN,CAP -> ground;
+                case WATER,CAVITY,OCCUPIED,UNKNOWN -> {note(foot,ground,kind.name());yield FoundationSupport.MISSING;}
+            };
+        }
+        void resetTrace() {if(causes!=null){causes.clear();examples.clear();}}
+        void note(FoundationSupport.Foot foot,Integer ground,String cause) {
+            if(causes==null)return;
+            causes.merge(cause,1,Integer::sum);
+            if(examples.size()<8) {
+                var row=new LinkedHashMap<String,Object>();row.put("x",foot.x());row.put("z",foot.z());
+                row.put("y",foot.y()==Integer.MAX_VALUE?null:foot.y());row.put("ground",ground);row.put("cause",cause);examples.add(row);
+            }
         }
     }
 
@@ -85,9 +114,11 @@ public final class VillageLayoutRepair {
         var scope=StructurePlacementScope.current();
         if (scope==null || scope.family()!=StructureFamily.VILLAGES) return pieces;
         var policy=scope.distribution().villageFitting();
-        if (pieces.size()>MAX_PIECES) return List.of();
+        if (pieces.size()>MAX_PIECES) {
+            VillageDecisionTrace.emit(original,"layout_support","PIECE_BUDGET",Map.of("pieces",pieces.size(),"limit",MAX_PIECES));return List.of();
+        }
         var templates=scope.pass().templateManager();
-        var terrain=new Terrain(field,settings,policy.maximumColumnProbes());
+        var terrain=new Terrain(field,settings,policy.maximumColumnProbes(),policy.maximumGroundGap());
         var nodes=new ArrayList<Node>(pieces.size());
         var supported=new HashSet<Integer>();
         var assembled = ORIGINAL_BUILDINGS.get();
@@ -95,18 +126,37 @@ public final class VillageLayoutRepair {
         int portCount=0;
         for (var piece:pieces) {
             var node=node(piece,templates);
+            terrain.resetTrace();
             nodes.add(node);
             portCount+=node.ports().size();
-            if (portCount>MAX_PORTS) return List.of();
+            if (portCount>MAX_PORTS) {
+                VillageDecisionTrace.emit(original,"layout_support","PORT_BUDGET",Map.of("ports",portCount,"limit",MAX_PORTS));return List.of();
+            }
             if (node.role()==Role.DECORATION && node.feet().isEmpty()) continue;
             var feet=node.feet();
             if (node.projected()) feet=feet.stream().map(foot -> {
                 int y=terrain.ground(new FoundationSupport.Foot(foot.x(),Integer.MAX_VALUE,foot.z()));
                 return new FoundationSupport.Foot(foot.x(),y==FoundationSupport.MISSING ? foot.y() : y+1,foot.z());
             }).toList();
-            if (FoundationSupport.evaluate(feet,terrain::ground,policy).accepted()) supported.add(nodes.size()-1);
+            boolean complete=policy.requireCompleteBuildingSupport()
+                    && (node.role()==Role.CENTER || node.role()==Role.BUILDING || node.role()==Role.FARM);
+            var evaluated=FoundationSupport.evaluate(feet,terrain::ground,policy,complete);
+            if (evaluated.accepted()) supported.add(nodes.size()-1);
+            else {
+                StructureBenchmarkRecorder.increment("skyweaveVillageUnsupported."+node.role());
+                if(VillageDecisionTrace.enabled())VillageDecisionTrace.emit(original,"piece_support",
+                        terrain.exhausted?"COLUMN_BUDGET":evaluated.columns()==0?"MISSING_FOOTPRINT":terrain.causes.containsKey("UNKNOWN")?"UNKNOWN_TERRAIN":"REJECTED",Map.of(
+                        "piece",nodes.size()-1,"role",node.role(),"template",templateName(node.piece()),"bounds",piece.getBoundingBox().toString(),
+                        "support",Map.of("columns",evaluated.columns(),"supported",evaluated.supported(),"requireComplete",complete,
+                                "unsupportedDepth",evaluated.unsupportedDepth()==Integer.MAX_VALUE?"unresolved":evaluated.unsupportedDepth(),
+                                "maximumGap",policy.maximumGroundGap(),"minimumCoverage",policy.minimumSupportFraction(),
+                                "maximumUnsupportedDepth",policy.maximumUnsupportedDepth()),
+                        "projected",node.projected(),"causes",terrain.causes,"examples",terrain.examples,"exampleLimit",8));
+            }
         }
-        if (terrain.exhausted) return List.of();
+        if (terrain.exhausted) {
+            VillageDecisionTrace.emit(original,"layout_support","COLUMN_BUDGET",Map.of("queried",terrain.columns.size(),"limit",terrain.limit));return List.of();
+        }
         var ports=new HashMap<Long,List<Port>>();
         for (int i=0;i<nodes.size();i++) if (supported.contains(i))
             for (var info:nodes.get(i).ports()) ports.computeIfAbsent(FoundationSupport.key(info.pos().getX(),info.pos().getZ()),k->new ArrayList<>()).add(new Port(i,info));
@@ -127,6 +177,10 @@ public final class VillageLayoutRepair {
             }
         }
         Set<Integer> retained=Set.of();
+        if(supported.stream().noneMatch(index->nodes.get(index).role()==Role.CENTER)) {
+            StructureBenchmarkRecorder.increment("skyweaveVillageFit.no_supported_center");
+            VillageDecisionTrace.emit(original,"layout_support","NO_SUPPORTED_CENTER",Map.of("pieces",nodes.size(),"supportedPieces",supported.size()));
+        }
         for (int i=0;i<nodes.size();i++) if (supported.contains(i) && nodes.get(i).role()==Role.CENTER) {
             var component=new HashSet<Integer>(); var queue=new ArrayDeque<Integer>(); queue.add(i);component.add(i);
             while (!queue.isEmpty()) for (int next:links.getOrDefault(queue.removeFirst(),Set.of())) if(component.add(next))queue.add(next);
@@ -140,8 +194,14 @@ public final class VillageLayoutRepair {
             result.add(nodes.get(i).piece());
             if(nodes.get(i).role()==Role.BUILDING)retainedBuildings++;
         }
-        if (buildings==0 || retainedBuildings==0 || retainedBuildings<buildings*policy.minimumRetainedBuildings()) result.clear();
-        if (!result.isEmpty()) for (int i=0;i<nodes.size();i++) if (!retained.contains(i) && nodes.get(i).role()==Role.DECORATION) {
+        if (buildings==0 || retainedBuildings==0 || retainedBuildings<buildings*policy.minimumRetainedBuildings()) {
+            VillageDecisionTrace.emit(original,"layout_support","RETAINED_BUILDINGS",Map.of("original",buildings,
+                    "retained",retainedBuildings,"requiredFraction",policy.minimumRetainedBuildings()));result.clear();
+        }
+        if (!result.isEmpty()) for (int i=0;i<nodes.size();i++) if (!retained.contains(i) && nodes.get(i).role()==Role.DECORATION
+                && (nodes.get(i).feet().isEmpty() || supported.contains(i))) {
+            // Proximity may retain footless authored decoration; it cannot overturn
+            // an explicit unsupported-foot decision and float a statue into the void.
             var box=nodes.get(i).piece().getBoundingBox(); int x=box.getCenter().getX(),z=box.getCenter().getZ();
             if (retained.stream().anyMatch(index -> { var host=nodes.get(index).piece().getBoundingBox(); return x>=host.minX()-2 && x<=host.maxX()+2 && z>=host.minZ()-2 && z<=host.maxZ()+2; }))
                 result.add(nodes.get(i).piece());
@@ -151,6 +211,14 @@ public final class VillageLayoutRepair {
         return result;
     }
 
+    private static String templateName(StructurePiece piece) {
+        if(!(piece instanceof PoolElementStructurePiece pool))return piece.getClass().getName();
+        var element=pool.getElement();
+        for(int i=0;i<8 && element instanceof VillageDelegate delegate;i++)element=delegate.skyweave$delegate();
+        return element instanceof SinglePoolElement single?((VillageTemplateAccess)single).skyweave$template().left()
+                .map(Object::toString).orElse("inline"):element.getClass().getName();
+    }
+
     static Node node(StructurePiece piece,StructureTemplateManager templates) {
         if (!(piece instanceof PoolElementStructurePiece pool)) return new Node(piece,Role.DECORATION,List.of(),List.of(),false);
         StructurePoolElement element=pool.getElement();
@@ -158,8 +226,14 @@ public final class VillageLayoutRepair {
         if (!(element instanceof SinglePoolElement single)) return new Node(piece,Role.DECORATION,List.of(),List.of(),false);
         var access=(VillageTemplateAccess)single;
         var template=access.skyweave$template(templates);
-        var geometry=GEOMETRY.getIfPresent(template);
-        if(geometry==null) { geometry=geometry(template); GEOMETRY.put(template,geometry); }
+        var palettes=((VillagePaletteAccess)template).skyweave$palettes();
+        if(palettes.isEmpty())return new Node(piece,Role.DECORATION,List.of(),List.of(),false);
+        var palette=access.skyweave$settings(pool.getRotation(),piece.getBoundingBox(),
+                net.minecraft.world.level.levelgen.structure.templatesystem.LiquidSettings.APPLY_WATERLOGGING,false)
+                .getRandomPalette(palettes,pool.getPosition());
+        long plane=(long)single.getGroundLevelDelta()-1;
+        var geometry=GEOMETRY.getIfPresent(palette);
+        if(geometry==null || geometry.plane()!=plane) { geometry=geometry(palette,plane); GEOMETRY.put(palette,geometry); }
         String path=access.skyweave$template().left().map(id->id.getPath()).orElse("");
         var role=role(path,geometry);
         var placement=new StructurePlaceSettings().setRotation(pool.getRotation());
@@ -179,18 +253,10 @@ public final class VillageLayoutRepair {
         return Role.DECORATION;
     }
 
-    private static Geometry geometry(StructureTemplate template) {
-        var columns=new HashMap<Long,FoundationSupport.Foot>(); boolean farm=false;
-        // Palette alternatives share geometry; conservatively include their structural footing.
-        for(var palette:((VillagePaletteAccess)template).skyweave$palettes()) for(var info:palette.blocks()) {
-            var state=info.state(); farm|=state.is(Blocks.FARMLAND);
-            if(!state.blocksMotion() || !state.getFluidState().isEmpty() || state.is(Blocks.JIGSAW) || state.is(Blocks.STRUCTURE_BLOCK)
-                    || state.is(Blocks.STRUCTURE_VOID) || state.is(net.minecraft.tags.BlockTags.LEAVES))continue;
-            var pos=info.pos(); long key=FoundationSupport.key(pos.getX(),pos.getZ()); var old=columns.get(key);
-            if(old==null || pos.getY()<old.y())columns.put(key,new FoundationSupport.Foot(pos.getX(),pos.getY(),pos.getZ()));
-        }
-        int base=columns.values().stream().mapToInt(FoundationSupport.Foot::y).min().orElse(0);
-        return new Geometry(columns.values().stream().filter(foot->foot.y()<=base+2)
-                .sorted(Comparator.comparingInt(FoundationSupport.Foot::x).thenComparingInt(FoundationSupport.Foot::z)).toList(),farm);
+    private static Geometry geometry(StructureTemplate.Palette palette,long plane) {
+        boolean farm=palette.blocks().stream().anyMatch(block->block.state().is(Blocks.FARMLAND));
+        var feet=VillageFootprint.roots(palette.blocks(),plane).stream().map(block->
+                new FoundationSupport.Foot(block.pos().getX(),block.pos().getY(),block.pos().getZ())).toList();
+        return new Geometry(feet,farm,plane);
     }
 }

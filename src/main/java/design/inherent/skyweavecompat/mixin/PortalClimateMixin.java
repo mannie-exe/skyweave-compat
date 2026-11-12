@@ -19,7 +19,8 @@ public abstract class PortalClimateMixin {
             target = "Lnet/minecraft/world/level/levelgen/structure/structures/RuinedPortalStructure;isCold(Lnet/minecraft/core/BlockPos;Lnet/minecraft/core/Holder;)Z"))
     private static boolean portalTemperature(BlockPos position, Holder<Biome> biome, Operation<Boolean> original,
             @Local(argsOnly = true) Structure.GenerationContext context) {
-        return original.call(context.chunkGenerator() instanceof GeologicalGenerator generator && generator.skyweave$isEnabled()
-                ? IslandClimate.temperaturePosition(position) : position, biome);
+        return original.call(context.chunkGenerator() instanceof org.sathrek.sky_archipelago.worldgen.generator.core.SkyIslandChunkGenerator generator
+                ? design.inherent.skyweavecompat.climate.ClimateRuntime.temperaturePosition(generator,context.randomState(),position)
+                : position, biome);
     }
 }

@@ -40,11 +40,71 @@ public abstract class IslandFieldMixin implements ProfiledTerrain, GeologicalFie
     @Override public void skyweave$styles(IslandStyles styles) { skyweave$styles = styles; }
     @Unique private volatile IslandVeins skyweave$veins;
     @Unique private boolean skyweave$veinsConfigured;
-    @Unique private boolean skyweave$interiorsConfigured;
+    @Unique private volatile boolean skyweave$interiorsConfigured;
+    @Unique private volatile IslandInteriors skyweave$interiors;
     @Shadow abstract ColumnData sampleColumnData(int x, int z, SkyIslandSettings settings);
     @Shadow public abstract org.sathrek.sky_archipelago.worldgen.generator.terrain.SkyIslandChunkTerrainSnapshot
             sampleChunkTerrainSnapshot(net.minecraft.world.level.ChunkPos chunk, SkyIslandSettings settings);
     @Shadow private ColumnData resolveBaseColumnData(int x, int z, SkyIslandSettings settings) { throw new AssertionError(); }
+    @Unique private final com.google.common.cache.Cache<IslandContext.Key, IslandContext> skyweave$contexts =
+            com.google.common.cache.CacheBuilder.newBuilder().maximumSize(2048).build();
+
+    @Override public IslandContext skyweave$contextAt(int x, int z, SkyIslandSettings settings) {
+        if (skyweave$profile == null) return IslandContext.EMPTY;
+        var key = new IslandContext.Key(x, z, settings);
+        var cached = skyweave$contexts.getIfPresent(key);
+        if (cached != null) return cached;
+        var column = skyweave$planningColumn(x, z, settings, TerrainStage.EXTERIOR);
+        var bodies = new ArrayList<IslandContext.Body>();
+        if (!skyweave$interiorsConfigured) throw new IllegalStateException("Natural context requested before interiors were bound");
+        var slices = new java.util.HashMap<IslandDescriptor,IslandInteriors.Slice>();
+        for (var contributor : ((LayeredColumn)(Object)column).skyweave$contributors()) {
+            var descriptor = contributor.descriptor();
+            var water = contributor.preparedDensity().waterArchetype();
+            var outer = water.exists()
+                    ? new org.sathrek.sky_archipelago.worldgen.generator.field.TerrainColumn(water.underbellyBottomY(), water.solidSurfaceY())
+                    : contributor.preparedDensity().landBody();
+            if (!outer.exists()) continue;
+            var anchor = descriptor;
+            if (descriptor.family() != IslandFamily.ANCHOR_PLATEAU) {
+                var membership = (ClusterField)this;
+                var cell = membership.skyweave$owner(descriptor, settings);
+                var members = membership.skyweave$members(cell.x(), cell.z(), settings);
+                if (members.isEmpty()) throw new IllegalStateException("Contributor without admitted cluster");
+                anchor = members.getFirst();
+            }
+            var slice = skyweave$interiors.slice(x,z,contributor,null);
+            if (slice != null) slices.put(descriptor,slice);
+            bodies.add(new IslandContext.Body(descriptor, outer, IslandGeometry.geologicalFrame(anchor),
+                    descriptor.centerY() + descriptor.plateauHeight(),
+                    ((FringeColumn)(Object)contributor.horizontal()).skyweave$fragment() != null));
+        }
+        var captured = java.util.Map.copyOf(slices);
+        var allowed = java.util.List.copyOf(column.segments());
+        var result = bodies.isEmpty() ? IslandContext.EMPTY : new IslandContext(bodies,new IslandContext.NaturalSampler() {
+            @Override public IslandContext.Occupancy at(IslandContext.Body body,int y) {
+                var slice=captured.get(body.island());
+                if(slice==null)return body.contains(y)?IslandContext.Occupancy.UNKNOWN:IslandContext.Occupancy.OUTSIDE;
+                boolean exterior=false;
+                for(int i=0;i<allowed.size();i++) if(allowed.get(i).contains(y)) { exterior=true;break; }
+                if(exterior && slice.retains(y))return IslandContext.Occupancy.SOLID;
+                if(slice.waterAt(y))return IslandContext.Occupancy.WATER;
+                return exterior && body.contains(y)?IslandContext.Occupancy.CAVITY:IslandContext.Occupancy.OUTSIDE;
+            }
+            @Override public List<org.sathrek.sky_archipelago.worldgen.generator.field.TerrainColumn> climateDomain(IslandContext.Body body) {
+                var slice=captured.get(body.island());if(slice==null)return null;
+                var domain=new ArrayList<org.sathrek.sky_archipelago.worldgen.generator.field.TerrainColumn>();
+                for(var range:allowed) {
+                    int bottom=Math.max(range.bottomY(),body.exterior().bottomY()),top=Math.min(range.topY(),body.exterior().topY());
+                    if(bottom<=top)domain.add(new org.sathrek.sky_archipelago.worldgen.generator.field.TerrainColumn(bottom,top));
+                }
+                var water=slice.waterDomain();if(water.exists())domain.add(water);
+                return List.copyOf(domain);
+            }
+        });
+        skyweave$contexts.put(key, result);
+        return result;
+    }
     @Override public ColumnData skyweave$planningColumn(int x, int z, SkyIslandSettings settings, TerrainStage stage) {
         if (stage == TerrainStage.COMPLETE) throw new IllegalArgumentException("Planning must select an earlier terrain stage");
         return stage.query(() -> resolveBaseColumnData(x, z, settings));
@@ -52,7 +112,8 @@ public abstract class IslandFieldMixin implements ProfiledTerrain, GeologicalFie
     @Override public synchronized void skyweave$configureInteriors(net.minecraft.world.level.levelgen.RandomState random,
             InteriorProfile profile) {
         if (skyweave$interiorsConfigured) return;
-        ((InteriorResolver)(Object)columnResolver).skyweave$interiors(new IslandInteriors(random, profile, skyweave$styles));
+        skyweave$interiors = new IslandInteriors(random, profile, skyweave$styles);
+        ((InteriorResolver)(Object)columnResolver).skyweave$interiors(skyweave$interiors);
         skyweave$interiorsConfigured = true;
     }
     @Override public List<org.sathrek.sky_archipelago.worldgen.generator.field.TerrainColumn> skyweave$exteriorAt(
@@ -152,7 +213,7 @@ public abstract class IslandFieldMixin implements ProfiledTerrain, GeologicalFie
                 anchor.centerY() + anchor.plateauHeight());
     }
 
-    @Override public GeologicalFrame skyweave$frameAt(int x, int z, SkyIslandSettings settings) {
+    @Override public GeologicalFrame skyweave$originFrameAt(int x, int z, SkyIslandSettings settings) {
         if (skyweave$profile == null) return null;
         var owner = sampleDominantIslandDescriptor(x, z, settings);
         if (owner == null) return null;

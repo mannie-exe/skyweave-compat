@@ -14,6 +14,10 @@ public final class FoundationSupport {
     private FoundationSupport() {}
 
     public static Result evaluate(Collection<Foot> feet, ToIntFunction<Foot> ground, VillageFitSettings settings) {
+        return evaluate(feet,ground,settings,false);
+    }
+    /** Required roots cannot borrow coverage from neighboring columns; roads may retain bounded overhangs. */
+    public static Result evaluate(Collection<Foot> feet, ToIntFunction<Foot> ground, VillageFitSettings settings,boolean requireComplete) {
         var supported = new HashSet<Long>();
         var columns = new HashSet<Long>();
         for (var foot : feet) {
@@ -22,8 +26,10 @@ public final class FoundationSupport {
             long gap = (long)foot.y() - 1 - top;
             if (top != MISSING && gap >= -1 && gap <= settings.maximumGroundGap()) supported.add(key);
         }
-        if (columns.isEmpty() || supported.size() < columns.size() * settings.minimumSupportFraction())
+        if (columns.isEmpty() || supported.size() < columns.size() * settings.minimumSupportFraction()
+                || requireComplete && supported.size()!=columns.size())
             return new Result(false, columns.size(), supported.size(), Integer.MAX_VALUE);
+        if(requireComplete)return new Result(true,columns.size(),supported.size(),0);
         var distance = new HashMap<Long, Integer>();
         var queue = new ArrayDeque<Long>();
         supported.forEach(key -> { distance.put(key, 0); queue.add(key); });

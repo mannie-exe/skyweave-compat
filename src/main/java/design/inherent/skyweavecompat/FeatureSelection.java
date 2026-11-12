@@ -30,6 +30,12 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
 
     public boolean enabled(Feature feature) { return active.contains(feature); }
 
+    /** Connector can report the same pinned Fabric artifact with '+' or normalized '_'. */
+    private static boolean fabricVersionSpelling(String id,String version,String expected) {
+        return id.equals("surveyor") && expected.equals("1.2.4_1.21") && version.equals("1.2.4+1.21")
+                || id.equals("hoofprint") && expected.equals("1.3.0_1.21") && version.equals("1.3.0+1.21");
+    }
+
     public static FeatureSelection select(FeatureSettings settings, Map<String, String> mods, boolean client) {
         var active = EnumSet.noneOf(Feature.class);
         var reasons = new LinkedHashMap<Feature, Reason>();
@@ -58,6 +64,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             for (var entry : required.entrySet()) {
                 String version = mods.get(entry.getKey()), expected = entry.getValue();
                 if (!(expected.endsWith(".") ? version.startsWith(expected) : version.equals(expected))
+                        && !fabricVersionSpelling(entry.getKey(), version, expected)
                         && !(entry.getKey().equals("questlog") && expected.equals("3.5.0") && version.equals("3.5.3")))
                     throw new IllegalStateException("Skyweave: Compatibility Patches " + feature.key + " requires "
                             + entry.getKey() + " " + expected + "; found " + version
@@ -84,13 +91,14 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
     public static Feature prerequisite(Feature feature) {
         return switch (feature) {
             case WAYFINDER_DH -> Feature.WAYFINDER;
-            case LITHOSTITCHED_STRUCTURES, YUNG_STRUCTURES -> Feature.STRUCTURE_DISTRIBUTION;
+            case GROUND_SUPPORT, LITHOSTITCHED_STRUCTURES, YUNG_STRUCTURES -> Feature.STRUCTURE_DISTRIBUTION;
             case YUNG_MINESHAFTS, YUNG_WITCH_HUTS -> Feature.YUNG_STRUCTURES;
             case ORE_PLACEMENT, CARVERS, CAVE_BIOMES, ANCIENT_CITIES, SPAWN, NETHER_ACCESS, C2ME_SEARCH, STRUCTURE_LOCATION, STRUCTURE_COMMAND, STRUCTURE_DISTRIBUTION,
-                    WATER_SPAWNS, CLIMATE, DYNAMIC_WATERS, ISLAND_CLOUDS, ISLAND_VOID, ISLAND_SHADER_ENVIRONMENT, VILLAGE_PLACEMENT, PRESSURE, DELIVERY_DISTANCE,
+                    ALTITUDE_HABITATS, WATER_SPAWNS, CLIMATE, DYNAMIC_WATERS, ISLAND_CLOUDS, ISLAND_VOID, ISLAND_SHADER_ENVIRONMENT, VILLAGE_PLACEMENT, PRESSURE, DELIVERY_DISTANCE,
                     DELIVERY_CHUNKS, DELIVERY_LANDING -> Feature.TERRAIN;
             case COLORWHEEL_MATERIALS -> Feature.MATERIAL_IDS;
             case DYNAMIC_WATERS_SABLE -> Feature.DYNAMIC_WATERS;
+            case SABLE_CLIMATE -> Feature.CLIMATE;
             case LINEAR_PONDER, LINEAR_JADE -> Feature.LINEAR_CARRIAGE;
             case LINKAGE_JADE -> Feature.LINKAGE_INTERACTIONS;
             case LINK_GUI_SABLE -> Feature.LINK_GUI_INTERACTIONS;
@@ -124,6 +132,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             case ISLAND_SHADER_ENVIRONMENT -> Map.of("sky_archipelago", "1.4", "iris", "1.8.14-beta.1+mc1.21.1");
             case DYNAMIC_WATERS -> Map.of("dynamicwaters", "13.1.0", "sky_archipelago", "1.4");
             case DYNAMIC_WATERS_SABLE -> Map.of("dynamicwaters", "13.1.0", "sky_archipelago", "1.4", "sable", "2.0.6");
+            case SABLE_CLIMATE -> Map.of("sky_archipelago", "1.4", "sable", "2.0.6");
             case CONSTRUCT_DISTANCE -> Map.of("ssrd", "1.8.8", "sable", "2.0.6", "iris", "1.8.14-beta.1+mc1.21.1");
             case CONSTRUCT_OCCLUSION -> Map.of("ssrd", "1.8.8", "sable", "2.0.6", "iris", "1.8.14-beta.1+mc1.21.1", "distanthorizons", "3.3.3");
             case MACAW_LANTERN -> Map.of("mcwbridges", "3.1.2");
@@ -140,7 +149,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             case RECHISELED_GLASS -> Map.of("rechiseled", "1.2.6");
             case QUESTLOG_INTERFACE, QUESTLOG_NOTIFICATIONS, QUESTLOG_REWARD_VALIDATION -> Map.of("questlog", "3.5.0");
             case TERRAIN, ORE_PLACEMENT, CARVERS, CAVE_BIOMES, ANCIENT_CITIES, SPAWN,
-                    STRUCTURE_LOCATION, STRUCTURE_COMMAND, STRUCTURE_DISTRIBUTION, WATER_SPAWNS, CLIMATE, ISLAND_CLOUDS, ISLAND_VOID -> Map.of("sky_archipelago", "1.4");
+                    STRUCTURE_LOCATION, STRUCTURE_COMMAND, STRUCTURE_DISTRIBUTION, GROUND_SUPPORT, ALTITUDE_HABITATS, WATER_SPAWNS, CLIMATE, ISLAND_CLOUDS, ISLAND_VOID -> Map.of("sky_archipelago", "1.4");
             case VILLAGE_CLEARANCE, VILLAGE_PLACEMENT -> Map.of("sky_archipelago", "1.4", "skyvillages", "1.0.6", "architectury", "13.");
             case PRESSURE -> Map.of("sable", "2.0.6");
             case DELIVERY_DISTANCE, DELIVERY_CHUNKS -> Map.of("aeronautics_delivery_quests", "1.1.1");
@@ -188,7 +197,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                         "GeologicalMaterialMixin", "OreVeinifierAccessor");
                 case ORE_PLACEMENT -> List.of("OreHeightMixin");
                 case CARVERS -> List.of("TerrainCarverPolicyMixin", "CarvingContextMixin", "CarverHeightMixin", "CarverLavaMixin", "WaterCarverMixin");
-                case CAVE_BIOMES -> List.of("CaveBiomeMixin", "ProjectedCaveBiomeMixin", "DeepDarkContextAccessor", "DeepDarkProjectorAccess");
+                case CAVE_BIOMES -> List.of("DeepDarkFeatureMixin", "DeepDarkPlantMixin", "DeepDarkPieceMixin", "DeepDarkSpawnMixin", "DeepDarkSpreadMixin", "CaveBiomeMixin", "ProjectedCaveBiomeMixin", "DeepDarkContextAccessor", "DeepDarkProjectorAccess", "NativeClimateSourceMixin", "StableClimateTreeMixin", "RawHostClimateMixin", "RawHostCacheMixin");
                 case ANCIENT_CITIES -> List.of("AncientCityRoutingMixin", "AncientCityPlacementMixin", "AncientCityHeightMixin", "AncientCityTerrainMixin");
                 case SPAWN -> List.of("SpawnFallbackMixin");
                 case NETHER_ACCESS -> List.of("PortalIgnitionMixin", "PortalCreationMixin", "NetherPortalAccessMixin", "DimensionTravelMixin", "ClosedDimensionRespawnMixin", "ClosedDimensionTeleportMixin", "ClosedDimensionLoginMixin");
@@ -199,6 +208,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                 case YUNG_STRUCTURES -> List.of("YungStructureMixin", "YungBuriedSupportMixin", "YungReplacementMixin", "YungPolicyStateMixin");
                 case YUNG_MINESHAFTS -> List.of("YungMineshaftStructureMixin", "YungMineshaftEntranceMixin", "YungMineshaftSupportMixin", "YungMineshaftFitMixin");
                 case YUNG_WITCH_HUTS -> List.of("YungHutSupportMixin");
+                case GROUND_SUPPORT -> List.of("NaturalStructureCaptureMixin", "StructureBeardifierAccess", "GroundVillageTerrainMixin", "GroundVillagePieceMixin", "GroundVillageBoulderMixin", "GroundVillageLakeMixin", "GroundVillageDiskMixin", "GroundVillageSimpleBlockMixin", "GroundVillageOreMixin", "GroundVillageTreeMixin", "GroundVillageOutputMixin", "GroundVillageProjectionMixin", "GroundVillageTemplateMixin", "GroundVillageCarvingMixin", "GroundVillageCarverBlockMixin");
                 case STRUCTURE_DISTRIBUTION -> List.of("StructurePolicyStateMixin", "GeneratorStructurePolicyMixin", "StructurePolicyCategoryMixin", "StructurePolicyJigsawMixin", "StructurePolicySizeMixin",
                         "StructurePolicyAttemptMixin", "StructurePolicyHostsMixin", "StructurePolicySitesMixin",
                         "StructurePolicyVillageMixin", "StructurePolicyUndergroundMixin", "StructurePolicyPortalHeightMixin",
@@ -209,14 +219,18 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                         "StructurePolicyReservationMixin", "StructurePolicyPendingOwnerMixin", "StructurePolicyPyramidPieceMixin");
                 case HOOFPRINT_ZOOM -> List.of("client.HoofprintZoomMixin");
                 case SURVEYOR_STRUCTURES -> List.of("SurveyorStructureMixin", "SurveyorLayoutMixin", "SurveyorPieceAccess");
-                case WATER_SPAWNS -> List.of("WaterAnimalMixin");
-                case CLIMATE -> List.of("SurfaceClimateMixin", "SurfaceTemperatureMixin", "FreezeClimateMixin", "SnowFreezeClimateMixin",
+                case ALTITUDE_HABITATS -> List.of("ecology.BatHabitatMixin", "ecology.SlimeHabitatMixin");
+                case WATER_SPAWNS -> List.of("WaterAnimalMixin", "ecology.TurtleHabitatMixin", "ecology.GlowSquidHabitatMixin",
+                        "ecology.DrownedHabitatMixin", "ecology.TurtleTravelHabitatMixin", "ecology.DrownedBeachHabitatMixin",
+                        "ecology.DrownedSwimHabitatMixin");
+                case CLIMATE -> List.of("GenerationClimateMixin", "SurfaceClimateMixin", "SurfaceTemperatureMixin", "FreezeClimateMixin", "SnowFreezeClimateMixin",
                         "LevelClimateMixin", "ServerClimateMixin", "PortalClimateMixin", "ProjectionClimateContext",
                         "ShoreProjectionClimateMixin", "RiverProjectionClimateMixin", "ShoreLocatorClimateMixin");
                 case DYNAMIC_WATERS -> List.of("water.WaterTerrainMixin", "water.WaterSinksMixin", "water.WaterSchedulerMixin",
                         "water.WaterGeneratorMixin", "water.WaterFieldMixin", "water.WaterEnvelopeMixin",
                         "water.WaterBiomeMixin", "water.WaterFlowMixin", "water.WaterOceanFlowMixin", "water.WaterProjectionMixin", "water.WaterStoreMixin", "water.WaterColumnQueryMixin", "water.WaterCutOwnershipMixin");
                 case DYNAMIC_WATERS_SABLE -> List.of("water.WaterSableMixin");
+                case SABLE_CLIMATE -> List.of("SableClimateMixin");
                 case ISLAND_SHADER_ENVIRONMENT -> List.of("client.IslandShaderEnvironmentMixin", "client.ShaderClimateMixin");
                 case ISLAND_CLOUDS -> List.of();
                 case ISLAND_VOID -> List.of("client.IslandVoidFogMixin", "client.IslandVoidSkyMixin");
@@ -286,7 +300,11 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
         if (enabled(Feature.STRUCTURE_LOCATION) || enabled(Feature.YUNG_STRUCTURES)) result.add("StructureLocateCheckMixin");
         if (client && (enabled(Feature.CONSTRUCT_DISTANCE) || enabled(Feature.CONSTRUCT_OCCLUSION)))
             result.addAll(List.of("client.ConstructDrawMixin", "client.ConstructBufferMixin", "client.ConstructProgramMixin"));
-        if (client && enabled(Feature.CLIMATE)) result.add("client.WeatherClimateMixin");
+        if (client && enabled(Feature.CLIMATE)) result.addAll(List.of("client.WeatherClimateMixin", "client.ChunkClimateMixin"));
+        if (enabled(Feature.CLIMATE) && enabled(Feature.DYNAMIC_WATERS))
+            result.addAll(List.of("water.FloeClimateMixin", "water.FloeLifetimeClimateMixin", "water.RiverLogClimateMixin",
+                    "water.BoulderClimateMixin", "water.WaterPlantClimateMixin"));
+        if (enabled(Feature.WATER_SPAWNS) && enabled(Feature.DYNAMIC_WATERS)) result.add("water.FloeWaterLevelMixin");
         if (client && (enabled(Feature.TEXT_DISPLAY_LIGHTING) || enabled(Feature.NAMETAG_LIGHTING)))
             result.addAll(List.of("client.WorldTextPipelineMixin", "client.WorldTextShaderMixin"));
         return List.copyOf(result);

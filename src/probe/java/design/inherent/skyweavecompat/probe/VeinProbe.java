@@ -38,7 +38,7 @@ final class VeinProbe {
         search: for (var anchor : anchors)
             for (int x = anchor.x() - anchor.radius(); x <= anchor.x() + anchor.radius(); x += 32)
                 for (int z = anchor.z() - anchor.radius(); z <= anchor.z() + anchor.radius(); z += 32) {
-                    var frame = ((GeologicalField)(Object)field).skyweave$frameAt(x, z, settings);
+                    var frame = ((GeologicalField)(Object)field).skyweave$originFrameAt(x, z, settings);
                     if (frame == null) continue;
                     for (var segment : field.sampleSolidSegments(x, z, settings))
                         for (int y = segment.bottomY(); y <= segment.topY(); y++) {
@@ -85,7 +85,7 @@ final class VeinProbe {
             var row = new JsonObject(); row.addProperty("material", entry.getKey());
             row.add("position", new Gson().toJsonTree(pos));
             row.addProperty("referenceY", ((GeologicalField)(Object)field)
-                    .skyweave$frameAt(pos.getX(), pos.getZ(), settings).toReference(pos.getY()));
+                    .skyweave$originFrameAt(pos.getX(), pos.getZ(), settings).toReference(pos.getY()));
             row.addProperty("completedChunkMaterial", BuiltInRegistries.BLOCK.getKey(level.getBlockState(pos).getBlock()).toString());
             rows.add(row);
         }

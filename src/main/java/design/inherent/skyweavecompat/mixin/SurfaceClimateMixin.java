@@ -19,7 +19,7 @@ public abstract class SurfaceClimateMixin {
     private static void surface(WorldGenRegion level, StructureManager structures, ChunkAccess chunk,
             SkyIslandSettings settings, IslandField field, SkyIslandSurfacePass.HostBiomeSampler hostBiomes,
             IslandSurfaceRules rules, Operation<Void> original) {
-        SurfaceClimateScope.run(IslandClimate.applies(level),
+        SurfaceClimateScope.run(level,
                 () -> original.call(level, structures, chunk, settings, field, hostBiomes, rules));
     }
 }

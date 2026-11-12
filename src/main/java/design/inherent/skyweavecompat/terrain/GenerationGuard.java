@@ -21,7 +21,14 @@ import java.nio.file.Files;
 import java.util.TreeSet;
 
 public final class GenerationGuard {
+    private static final java.util.Map<MinecraftServer,String> VERIFIED = java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
     private GenerationGuard() {}
+    /** Only the already verified generation policy may bind retained terrain inputs. */
+    public static String fingerprint(MinecraftServer server) {
+        var value=VERIFIED.get(server);
+        if(value==null)throw new IllegalStateException("Natural terrain requires a verified generation identity");
+        return value;
+    }
     public static void verify(MinecraftServer server) {
         var root = server.getWorldPath(LevelResource.ROOT);
         var stem = server.registryAccess().registryOrThrow(Registries.LEVEL_STEM).getOrThrow(LevelStem.OVERWORLD);
@@ -40,7 +47,8 @@ public final class GenerationGuard {
         }
         var ops = RegistryOps.create(JsonOps.INSTANCE, server.registryAccess());
         var identity = new JsonObject();
-        identity.addProperty("algorithm", "islands_v1-skyarch-1.4-7");
+        identity.addProperty("algorithm", "islands_v1-skyarch-1.4-14");
+        identity.addProperty("groundVillageSupport", "natural_snapshot_native_beardifier_v1");
         identity.addProperty("largeVeins", "native_reference_depth_v1");
         identity.addProperty("seed", server.getWorldData().worldGenOptions().seed());
         identity.add("villagePolicy", new Gson().toJsonTree(NeighborConfig.settings()));
@@ -72,20 +80,20 @@ public final class GenerationGuard {
         identity.addProperty("canyonOrigins", "local_surface");
         identity.addProperty("ancientCityPlacement", "interior_union_v1");
         identity.addProperty("ancientCityClearance", "bounded_beard_box_v1");
-        identity.addProperty("deepDarkBand", "native_exterior_lower45_v1");
-        identity.addProperty("physicalCaveBiomes", "native_projection_v1");
+        identity.addProperty("deepDarkBand", "contributor_native_depth_v2");
+        identity.addProperty("physicalCaveBiomes", "height_aware_multinoise_depth_v2");
+        identity.add("climatePolicy", new Gson().toJsonTree(design.inherent.skyweavecompat.climate.ClimateConfiguration.profile()));
         identity.add("ancientCities", new Gson().toJsonTree(design.inherent.skyweavecompat.terrain.city.CityConfiguration.policy()));
         identity.addProperty("spawnLanding", "generated_surface");
-        identity.addProperty("climate", "biome_temperature_at_reference_surface");
+        identity.addProperty("climate", "height_aware_contributor_datum_v1");
         var disabled = new JsonArray();
         for (var feature : java.util.List.of(Feature.ORE_PLACEMENT, Feature.CARVERS, Feature.CAVE_BIOMES,
-                Feature.ANCIENT_CITIES, Feature.SPAWN, Feature.STRUCTURE_LOCATION, Feature.STRUCTURE_DISTRIBUTION,
+                Feature.ANCIENT_CITIES, Feature.ALTITUDE_HABITATS, Feature.WATER_SPAWNS, Feature.SPAWN, Feature.STRUCTURE_LOCATION, Feature.STRUCTURE_DISTRIBUTION, Feature.GROUND_SUPPORT,
                 Feature.LITHOSTITCHED_STRUCTURES, Feature.YUNG_STRUCTURES, Feature.YUNG_MINESHAFTS, Feature.YUNG_WITCH_HUTS, Feature.CLIMATE,
                 Feature.VILLAGE_CLEARANCE, Feature.VILLAGE_PLACEMENT)) {
             if (!OptionalIntegrations.configured(feature)) disabled.add(feature.key);
         }
-        // Default behavior retains the existing identity byte-for-byte. Different generation choices
-        // receive a distinct identity and cannot silently alter an existing save.
+        // Record independently disabled generation choices; existing saves must retain their policy.
         if (!disabled.isEmpty()) identity.add("disabledAdaptations", disabled);
         identity.add("biomes", net.minecraft.world.level.biome.BiomeSource.CODEC.encodeStart(ops, sky.getBiomeSource()).getOrThrow());
         identity.add("islands", SkyIslandGeneratorSettings.CODEC.encodeStart(ops,
@@ -93,7 +101,12 @@ public final class GenerationGuard {
         identity.add("noise", NoiseGeneratorSettings.DIRECT_CODEC.encodeStart(ops, sky.generatorSettings().value()).getOrThrow());
         identity.add("dimension", DimensionType.DIRECT_CODEC.encodeStart(ops, stem.type().value()).getOrThrow());
         try {
-            GenerationIdentity.verify(root, new GsonBuilder().setPrettyPrinting().create().toJson(canonical(identity)) + "\n");
+            var text=new GsonBuilder().setPrettyPrinting().create().toJson(canonical(identity)) + "\n";
+            GenerationIdentity.verify(root, text);
+            try {
+                VERIFIED.put(server,java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                        .digest(text.getBytes(java.nio.charset.StandardCharsets.UTF_8))));
+            } catch(java.security.NoSuchAlgorithmException impossible) { throw new AssertionError(impossible); }
         } catch (IOException exception) {
             throw new IllegalStateException("Could not verify Skyweave world generation identity", exception);
         }

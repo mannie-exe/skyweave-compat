@@ -90,6 +90,22 @@ class StructurePolicyTest {
         assertThrows(IllegalArgumentException.class,()->StructureConfiguration.parse(edited.toString()));
     }
 
+    @Test void completeFootingDefaultPreservesExplicitOptOutAndRejectsCoercedBooleans() {
+        var authored=JsonParser.parseString(json.toJson(StructurePolicy.DEFAULT)).getAsJsonObject();
+        authored.getAsJsonObject("villageFitting").remove("requireCompleteBuildingSupport");
+        authored.getAsJsonObject("villageFitting").addProperty("minimumSupportFraction",.8);
+        var loaded=StructureConfiguration.parse(authored.toString());
+        assertTrue(loaded.villageFitting().requireCompleteBuildingSupport());
+        assertEquals(.8,loaded.villageFitting().minimumSupportFraction());
+        assertFalse(authored.getAsJsonObject("villageFitting").has("requireCompleteBuildingSupport"));
+        authored.getAsJsonObject("villageFitting").addProperty("requireCompleteBuildingSupport",false);
+        assertFalse(StructureConfiguration.parse(authored.toString()).villageFitting().requireCompleteBuildingSupport());
+        for(var invalid:List.of("0","null","\"false\"")) {
+            authored.getAsJsonObject("villageFitting").add("requireCompleteBuildingSupport",JsonParser.parseString(invalid));
+            assertThrows(RuntimeException.class,()->StructureConfiguration.parse(authored.toString()));
+        }
+    }
+
     @Test void fractionalAllowancesRetainTheirMeanRatherThanRoundingToZero() {
         int count = 0;
         for (int x = -5000; x < 5000; x++) {

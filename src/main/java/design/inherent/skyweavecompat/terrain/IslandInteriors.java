@@ -42,6 +42,11 @@ public final class IslandInteriors {
                 : selection < profile.noiseChance() + profile.hollowChance() ? Kind.NOISE : Kind.BASELINE;
     }
 
+    /** Planned body interior; thin local remnants and detached fringe still retain their shell. */
+    public static Kind kind(IslandDescriptor island, InteriorProfile profile, IslandStyles.Kind style) {
+        return style==IslandStyles.Kind.DEEP_DARK?Kind.HOLLOW:kind(island,profile);
+    }
+
     public ColumnData carve(int x, int z, SkyIslandSettings settings, ColumnData exterior,
             List<ResolvedContributor> contributors) {
         return carve(x, z, settings, exterior, contributors, null);
@@ -54,51 +59,85 @@ public final class IslandInteriors {
         for (var segment : exterior.segments()) allowed.set(segment.bottomY() - GenerationProfile.MIN_Y,
                 segment.topY() + 1 - GenerationProfile.MIN_Y);
         var retained = new BitSet(allowed.length());
+        boolean hasInterior = false;
         for (var contributor : contributors) {
-            var descriptor = contributor.descriptor();
-            var kind = kind(descriptor, profile);
-            var water = contributor.preparedDensity().waterArchetype();
-            var body = water.exists() ? new TerrainColumn(water.underbellyBottomY(), water.solidSurfaceY())
-                    : contributor.preparedDensity().landBody();
-            if (!body.exists()) continue;
-            int bottom = Math.max(GenerationProfile.MIN_Y, Math.max(contributor.minY(), body.bottomY()));
-            int top = Math.min(GenerationProfile.MAX_Y - 1, Math.min(contributor.maxY(), body.topY()));
-            if (top < bottom) continue;
-            if (styles != null) {
-                var style = styles.style(descriptor);
-                var horizontal = contributor.horizontal();
-                boolean fringe = ((FringeColumn)(Object)horizontal).skyweave$fragment() != null;
-                if (fringe) kind = Kind.BASELINE;
-                boolean fragmented = !fringe && style.kind() != IslandStyles.Kind.NATIVE;
-                if (fragmented) {
-                    var remnant = FragmentedExterior.sample(descriptor.seed(), horizontal.localX(), horizontal.localZ(), styles.profile().fractures());
-                    if (top - bottom + 1 < profile.shellThickness() * 4
-                            || remnant.conservativeClearance() < profile.shellThickness()) kind = Kind.BASELINE;
-                }
-            }
-            if (kind == Kind.BASELINE) {
+            var slice = slice(x, z, contributor, protection);
+            if (slice == null) continue;
+            hasInterior |= slice.kind != Kind.BASELINE;
+            if (slice.kind == Kind.BASELINE) {
                 var solid = new BitSet(allowed.length());
-                solid.set(bottom - GenerationProfile.MIN_Y, top + 1 - GenerationProfile.MIN_Y);
-                solid.and(allowed);
-                retained.or(solid);
+                solid.set(slice.bottom - GenerationProfile.MIN_Y, slice.top + 1 - GenerationProfile.MIN_Y);
+                solid.and(allowed); retained.or(solid);
                 continue;
             }
-            int protectedFloor = protection == null ? Integer.MIN_VALUE
-                    : protection.floor(descriptor, x, z, new TerrainColumn(bottom, top));
-            int skylightFloor = skylightFloor(descriptor, x, z, bottom, top, kind);
-            for (int y = bottom; y <= top; y++) {
+            for (int y = slice.bottom; y <= slice.top; y++) {
                 int index = y - GenerationProfile.MIN_Y;
-                if (allowed.get(index) && (protectedFloor != Integer.MIN_VALUE && y >= protectedFloor
-                        || water.containsProtectedSealAt(y)
-                        || y < skylightFloor && !removed(descriptor, x, y, z, bottom, top, kind == Kind.HOLLOW))) retained.set(index);
+                if (allowed.get(index) && slice.retains(y)) retained.set(index);
             }
         }
         // Preserve native river/water/overlay metadata; a cavity is not another island.
         var result = new ColumnData(intervals(retained), exterior.profile(), exterior.dominantDescriptor(),
                 exterior.waterArchetype(), exterior.river(), exterior.overlayExposedSegments());
         ((LayeredColumn)(Object)result).skyweave$exterior(exterior.segments(),
-                contributors.stream().anyMatch(contributor -> kind(contributor.descriptor(), profile) != Kind.BASELINE));
+                hasInterior || contributors.stream().anyMatch(contributor -> kind(contributor.descriptor(), profile,
+                        styles==null?IslandStyles.Kind.NATIVE:styles.style(contributor.descriptor()).kind()) != Kind.BASELINE));
         return result;
+    }
+
+    /** Immutable one-contributor cavity decision, before union removes its identity. */
+    public final class Slice {
+        private final IslandDescriptor island;
+        private final int x, z, bottom, top, protectedFloor, skylightFloor;
+        private final Kind kind;
+        private final boolean openings;
+        private final org.sathrek.sky_archipelago.worldgen.generator.field.WaterArchetypeColumnProfile water;
+        private Slice(IslandDescriptor island, int x, int z, int bottom, int top, Kind kind,
+                int protectedFloor, int skylightFloor, boolean openings,
+                org.sathrek.sky_archipelago.worldgen.generator.field.WaterArchetypeColumnProfile water) {
+            this.island=island;this.x=x;this.z=z;this.bottom=bottom;this.top=top;this.kind=kind;
+            this.protectedFloor=protectedFloor;this.skylightFloor=skylightFloor;this.water=water;
+            this.openings=openings;
+        }
+        public boolean retains(int y) {
+            return y>=bottom && y<=top && (kind==Kind.BASELINE
+                    || protectedFloor!=Integer.MIN_VALUE && y>=protectedFloor
+                    || water.containsProtectedSealAt(y)
+                    || y<skylightFloor && !removed(island,x,y,z,bottom,top,kind==Kind.HOLLOW,openings));
+        }
+        public boolean waterAt(int y) { return water.containsWaterAt(y); }
+        public TerrainColumn waterDomain() {
+            return water.water()?new TerrainColumn(water.solidSurfaceY()+1,water.fluidSurfaceY()):TerrainColumn.EMPTY;
+        }
+        public boolean protectedSealAt(int y) { return water.containsProtectedSealAt(y); }
+    }
+
+    /** A null protection reads only intrinsic shape; it never initiates watershed planning. */
+    public Slice slice(int x, int z, ResolvedContributor contributor, BedProtection protection) {
+        var descriptor=contributor.descriptor();
+        var style=styles==null?null:styles.style(descriptor);
+        var kind=kind(descriptor,profile,style==null?IslandStyles.Kind.NATIVE:style.kind());
+        var water=contributor.preparedDensity().waterArchetype();
+        var body=water.exists()?new TerrainColumn(water.underbellyBottomY(),water.solidSurfaceY())
+                :contributor.preparedDensity().landBody();
+        if(!body.exists()) return null;
+        int bottom=Math.max(GenerationProfile.MIN_Y,Math.max(contributor.minY(),body.bottomY()));
+        int top=Math.min(GenerationProfile.MAX_Y-1,Math.min(contributor.maxY(),body.topY()));
+        if(top<bottom) return null;
+        boolean special = false;
+        if(styles!=null) {
+            var horizontal=contributor.horizontal();
+            special = style.kind()==IslandStyles.Kind.DEEP_DARK;
+            boolean fringe=((FringeColumn)(Object)horizontal).skyweave$fragment()!=null;
+            if(fringe)kind=Kind.BASELINE;
+            if(!fringe && style.kind()!=IslandStyles.Kind.NATIVE) {
+                var remnant=FragmentedExterior.sample(descriptor.seed(),horizontal.localX(),horizontal.localZ(),styles.profile().fractures());
+                if(top-bottom+1<profile.shellThickness()*4 || remnant.conservativeClearance()<profile.shellThickness())kind=Kind.BASELINE;
+            }
+        }
+        boolean openings = special || unit(descriptor.seed() ^ 0x329df348abc51d27L) < profile.openingChance();
+        if(kind==Kind.BASELINE) return new Slice(descriptor,x,z,bottom,top,kind,Integer.MIN_VALUE,Integer.MAX_VALUE,openings,water);
+        int floor=protection==null?Integer.MIN_VALUE:protection.floor(descriptor,x,z,new TerrainColumn(bottom,top));
+        return new Slice(descriptor,x,z,bottom,top,kind,floor,skylightFloor(descriptor,x,z,bottom,top,kind,openings),openings,water);
     }
 
     private static List<TerrainColumn> intervals(BitSet bits) {
@@ -111,17 +150,16 @@ public final class IslandInteriors {
         return List.copyOf(segments);
     }
 
-    private boolean removed(IslandDescriptor island, int x, int y, int z, int bottom, int top, boolean hollow) {
+    private boolean removed(IslandDescriptor island, int x, int y, int z, int bottom, int top, boolean hollow, boolean openings) {
         double dx = x - island.centerX(), dz = z - island.centerZ();
         double middle = island.centerY() - island.cliffDepth() * 0.35;
-        boolean openings = unit(island.seed() ^ 0x329df348abc51d27L) < profile.openingChance();
         if (openings && sideEntrance(island, dx, y - middle, dz)) return true;
         return cavity(island, x, y, z, bottom, top, hollow);
     }
 
-    private int skylightFloor(IslandDescriptor island, int x, int z, int bottom, int top, Kind kind) {
+    private int skylightFloor(IslandDescriptor island, int x, int z, int bottom, int top, Kind kind, boolean openings) {
         if (!profile.skylights().enabled() || kind != Kind.HOLLOW && !profile.skylights().noiseInteriors()
-                || unit(island.seed() ^ 0x329df348abc51d27L) >= profile.openingChance()
+                || !openings
                 || !SkylightShape.contains(island.seed(), x - island.centerX(), z - island.centerZ(), profile.skylights()))
             return Integer.MAX_VALUE;
         double middle = island.centerY() - island.cliffDepth() * 0.35;

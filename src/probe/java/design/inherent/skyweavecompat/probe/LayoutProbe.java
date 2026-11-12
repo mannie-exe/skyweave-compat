@@ -47,7 +47,7 @@ final class LayoutProbe {
                 if (!membership.skyweave$owner(island, settings).equals(cell)) throw new AssertionError("Displaced companion changed owners");
                 var dominant = field.sampleDominantIslandDescriptor(island.centerX(), island.centerZ(), settings);
                 if (dominant == null || !members.contains(dominant)) continue;
-                var actual = ((GeologicalField)(Object)field).skyweave$frameAt(island.centerX(), island.centerZ(), settings);
+                var actual = ((GeologicalField)(Object)field).skyweave$originFrameAt(island.centerX(), island.centerZ(), settings);
                 if (!frame.equals(actual)) throw new AssertionError("Companion geological frame follows the wrong cell");
                 supportedCrossing++;
             }

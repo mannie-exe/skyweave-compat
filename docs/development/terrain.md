@@ -1,36 +1,16 @@
 # Island generation
 
-The `skyweave_compat:islands_v1` preset owns the expanded terrain described here.
-The [verification record](verification.md) distinguishes native observations from
-unverified survival balance and vehicle capabilities.
+The `skyweave_compat:islands_v1` preset owns the expanded terrain described here. The [verification record](verification.md) distinguishes native observations from unverified survival balance and vehicle capabilities.
 
 ## Ownership and scope
 
-The preset owns its dimension type, noise settings and embedded Sky Archipelago
-settings. Both height envelopes are `[-128, 768)`. The noise settings retain
-Minecraft 1.21.1's Overworld router and surface definitions with the expanded
-envelope. Sky Archipelago still supplies terrain filling and surface treatment;
-this bypasses the complete vanilla terrain pipeline. Skyweave: Compatibility Patches supplies its own interior
-composition and connects the native large-vein material rule. Classic carving still
-has a separate native aquifer query, described below.
+The preset owns its dimension type, noise settings and embedded Sky Archipelago settings. Both height envelopes are `[-128, 768)`. The noise settings retain Minecraft 1.21.1's Overworld router and surface definitions with the expanded envelope. Sky Archipelago still supplies terrain filling and surface treatment; this bypasses the complete vanilla terrain pipeline. Skyweave: Compatibility Patches supplies its own interior composition and connects the native large-vein material rule. Classic carving still has a separate native aquifer query, described below.
 
-`GeneratorProfileMixin` opts in only when the generator references the versioned
-noise-settings key. It configures each field before returning it to a caller.
-The field, sampler and descriptor factory share an immutable `GenerationProfile`;
-there is no global current-world flag. Other presets retain upstream terrain.
+`GeneratorProfileMixin` opts in only when the generator references the versioned noise-settings key. It configures each field before returning it to a caller. The field, sampler and descriptor factory share an immutable `GenerationProfile`; there is no global current-world flag. Other presets retain upstream terrain.
 
-The marked generator resolves its embedded settings on both dedicated servers and
-singleplayer. Upstream otherwise gives a dedicated server's common TOML priority,
-which would make the same preset produce different settings across runtimes.
-The adapter preserves upstream resolution for every other generator. Missing
-embedded settings fail explicitly rather than falling back to a host's defaults.
+The marked generator resolves its embedded settings on both dedicated servers and singleplayer. Upstream otherwise gives a dedicated server's common TOML priority, which would make the same preset produce different settings across runtimes. The adapter preserves upstream resolution for every other generator. Missing embedded settings fail explicitly rather than falling back to a host's defaults.
 
-`IslandGeometry` retains upstream archetypes, horizontal shape noise and shape
-parameters while separating anchor dimensions from companion radius/orbit ranges.
-The spatial grid indexes candidates; accepted centers are displaced independently
-on X and Z. Companions retain explicit source-cell ownership even when they cross
-a cell boundary. Terrain fills, height queries, structure support and previews
-consume the same accepted descriptors.
+`IslandGeometry` retains upstream archetypes, horizontal shape noise and shape parameters while separating anchor dimensions from companion radius/orbit ranges. The spatial grid indexes candidates; accepted centers are displaced independently on X and Z. Companions retain explicit source-cell ownership even when they cross a cell boundary. Terrain fills, height queries, structure support and previews consume the same accepted descriptors.
 
 Base main-island radii are 270 to 370 blocks before area-preserving horizontal elongation; ordinary companions use radii 40 to 110 and orbits 470 to 680. Separate solid spires retain their smaller dimensions and can accompany land or ocean anchors. Ocean clusters do not receive ordinary land satellites. [Horizontal variation](terrain-variation.md) defines outlines, disturbed edges, and fractured ecology without replacing the native vertical body. Each cluster selects an integer nominal height from 250 to 400. `GenerationProfile.cliffDepth` inverts native 1.4's full-coverage body-depth approximation; it does not replace the native sampler. Parameter rounding and native relief mean the target is not the height of every column or a guarantee of exact island extrema.
 
@@ -50,93 +30,39 @@ The search stays within 8,192 blocks, 24 descriptors, 216 planned positions and 
 
 `skyweave_compat_initial_spawn` records that the shared selection completed. A head guard prevents upstream recovery from replacing it when a fresh save is reopened before 40 ticks; worlds older than that retain their existing spawn without selection. The record is not a player/team assignment, home policy or respawn override. Preserve native beds and saved player positions. On Sky Archipelago updates, recheck startup event ordering, early returns, the 40-tick guard, metadata ownership, actual arrival and save/reopen behavior.
 
-Embedded settings retain biome eligibility, archetypes and structure policy.
-Their serialized spacing is a placeholder: upstream caps that field at 2000,
-while the field and sampler adapters own the real grid. Upstream common TOML,
-DYNAMIC spacing and size/band controls do not override this preset's geometry.
-See [configuration](../configuration.md) for authoritative controls.
+Embedded settings retain biome eligibility, archetypes and structure policy. Their serialized spacing is a placeholder: upstream caps that field at 2000, while the field and sampler adapters own the real grid. Upstream common TOML, DYNAMIC spacing and size/band controls do not override this preset's geometry. See [configuration](../configuration.md) for authoritative controls.
 
 ## Cluster placement
 
-`ClusterPlacementMixin` separates candidate construction from acceptance. A cell
-first draws its activation and native archetype/companion descriptors. Biome
-admission samples the displaced anchor at its surface datum. Ocean exclusion and
-other upstream policy still apply; admission does not assign one biome to an island.
-`IslandGeometry` retains the native shape noise and the configured vertical profile.
+`ClusterPlacementMixin` separates candidate construction from acceptance. A cell first draws its activation and native archetype/companion descriptors. Biome admission samples the displaced anchor at its surface datum. Ocean exclusion and other upstream policy still apply; admission does not assign one biome to an island. `IslandGeometry` retains the native shape noise and the configured vertical profile.
 
-`ClusterLayout` assigns a stable priority to each eligible candidate. It rejects a
-candidate if a higher-priority eligible neighbor has any island support rectangle closer
-than `minimumClusterGap` to one of its rectangles. Exact-gap contact is permitted. Ties
-are resolved by source-cell coordinates. Accepted clusters therefore cannot violate
-the gap, including companion-to-companion approaches. The rule compares candidates,
-never recursively accepted neighbors. It can discard a candidate whose winning
-neighbor is itself rejected elsewhere; this trades some density for a bounded,
-order-independent decision. It is not a maximal packing or a blue-noise guarantee.
+`ClusterLayout` assigns a stable priority to each eligible candidate. It rejects a candidate if a higher-priority eligible neighbor has any island support rectangle closer than `minimumClusterGap` to one of its rectangles. Exact-gap contact is permitted. Ties are resolved by source-cell coordinates. Accepted clusters therefore cannot violate the gap, including companion-to-companion approaches. The rule compares candidates, never recursively accepted neighbors. It can discard a candidate whose winning neighbor is itself rejected elsewhere; this trades some density for a bounded, order-independent decision. It is not a maximal packing or a blue-noise guarantee.
 
-The default uses ±750 independent X/Z offsets with a 2400-block candidate grid.
-Activation precedes biome and clearance rejection, so it is not the realized
-fraction of occupied cells. Larger jitter does not shrink islands or move rejected
-candidates back toward cell centers.
+The default uses ±750 independent X/Z offsets with a 2400-block candidate grid. Activation precedes biome and clearance rejection, so it is not the realized fraction of occupied cells. Larger jitter does not shrink islands or move rejected candidates back toward cell centers.
 
-The conflict neighborhood is bounded by
-`ceil((2*jitter + 2*clusterReach + minimumClusterGap) / spacing)` cells. Point and
-area lookups use `ceil((jitter + reach + ceil(spacing/2)) / spacing)`. With the default maximum elongation, conflict search covers three cells and point/area lookup two. Profile validation limits conflict searches to eight cells.
-Village lookup includes its maximum supported placement reach and retry allowance.
-Native density, column resolution, chunk snapshots, previews and geological lookup
-use the derived bounds; none loads neighboring chunks to decide terrain. Candidate
-and decision caches are separately capped at 8192 entries per field. Eviction may
-repeat deterministic work but cannot change acceptance.
+The conflict neighborhood is bounded by `ceil((2*jitter + 2*clusterReach + minimumClusterGap) / spacing)` cells. Point and area lookups use `ceil((jitter + reach + ceil(spacing/2)) / spacing)`. With the default maximum elongation, conflict search covers three cells and point/area lookup two. Profile validation limits conflict searches to eight cells. Village lookup includes its maximum supported placement reach and retry allowance. Native density, column resolution, chunk snapshots, previews and geological lookup use the derived bounds; none loads neighboring chunks to decide terrain. Candidate and decision caches are separately capped at 8192 entries per field. Eviction may repeat deterministic work but cannot change acceptance.
 
-`ClusterField` provides accepted membership by source cell. A companion's position
-is not its cluster ID. Geological mapping and the native survey use that membership;
-spawn and optional village/delivery consumers query the accepted field.
+`ClusterField` provides accepted membership by source cell. A companion's position is not its cluster ID. Geological mapping and the native survey use that membership; spawn and optional village/delivery consumers query the accepted field.
 
 ![Native descriptor layouts at equal scale](cluster-layout.svg)
 
-The comparison uses the same seed and vertical profile, but changes both horizontal
-placement and the biome admission point. It is not a jitter-only experiment. The
-[verification record](verification.md) reports alignment, density, clearance and
-travel observations. Regenerate the figure with `tools/layout_report.py` from
-native terrain reports; circles represent descriptor radii, not measured shores.
+The comparison uses the same seed and vertical profile, but changes both horizontal placement and the biome admission point. It is not a jitter-only experiment. The [verification record](verification.md) reports alignment, density, clearance and travel observations. Regenerate the figure with `tools/layout_report.py` from native terrain reports; circles represent descriptor radii, not measured shores.
 
-When updating Sky Archipelago, inspect `sampleCluster`, descriptor construction,
-biome admission, cache keys, preview filtering and all three native search loops.
-Verify that the density support bound still contains the generated terrain. A
-matching method signature alone does not preserve these contracts. Changed layout
-requires a new recorded algorithm identity and a fresh world.
+When updating Sky Archipelago, inspect `sampleCluster`, descriptor construction, biome admission, cache keys, preview filtering and all three native search loops. Verify that the density support bound still contains the generated terrain. A matching method signature alone does not preserve these contracts. Changed layout requires a new recorded algorithm identity and a fresh world.
 
 ## Columns and internal cavities
 
 `IslandDensityEvaluator` prepares native land-body or water-archetype intervals. `IslandColumnResolver` uses those intervals and its density classification to produce ordered solid segments before `IslandOverlapResolver` applies the selected overlap policy. These are upstream shape terms, not Minecraft's complete noise-cave router.
 
-The preset explicitly selects `OVERLAP`, retaining all exterior solid intervals.
-`VOID` retains only the highest, while `CRATER` selectively modifies lower islands.
-Cavity subtraction runs after this policy. It cannot make the overlap resolver
-mistake a cavern floor for a separate island and discard it.
+The preset explicitly selects `OVERLAP`, retaining all exterior solid intervals. `VOID` retains only the highest, while `CRATER` selectively modifies lower islands. Cavity subtraction runs after this policy. It cannot make the overlap resolver mistake a cavern floor for a separate island and discard it.
 
-`IslandInteriors` evaluates each contributor separately within the admitted exterior.
-It subtracts only that contributor's selected cavities, then unions the surviving
-rock. A hole in one island cannot erase a different island. `LayeredColumn` retains
-the original exterior intervals alongside the native post-cavity solid segments.
-Native completed `ColumnProfile` values may describe only the upper surviving segment after sidewall cleanup. Biome projection explicitly reads the uncarved exterior; solid-segment,
-base-column, density-sign, top-solid-interval and support queries use actual baseline
-rock. Saved blocks remain authoritative after classic carving, decoration or play.
-`TerrainStage` scopes uncached planning reads to exterior or pre-water interior
-columns. These reads bypass the final-column cache and restore their stage after
-errors. Later planners can inspect earlier terrain without recursively invoking
-themselves or consulting generated neighbor chunks.
+`IslandInteriors` evaluates each contributor separately within the admitted exterior. It subtracts only that contributor's selected cavities, then unions the surviving rock. A hole in one island cannot erase a different island. `LayeredColumn` retains the original exterior intervals alongside the native post-cavity solid segments. Native completed `ColumnProfile` values may describe only the upper surviving segment after sidewall cleanup. Biome projection explicitly reads the uncarved exterior; solid-segment, base-column, density-sign, top-solid-interval and support queries use actual baseline rock. Saved blocks remain authoritative after classic carving, decoration or play. `TerrainStage` scopes uncached planning reads to exterior or pre-water interior columns. These reads bypass the final-column cache and restore their stage after errors. Later planners can inspect earlier terrain without recursively invoking themselves or consulting generated neighbor chunks.
 
-Noise interiors combine intersecting noise bands and larger chambers. Hollow interiors
-use an irregular chamber with three rock pillars. Descriptor-seeded selection also
-admits occasional side passages and, by default, HOLLOW-only skylights. Their bounded seeded oval/warped outlines connect through the cap to an actual retained cavity, preserve water protection and omit columns blocked by pillars. NOISE skylights and the whole roof-opening feature have separate controls; the existing side-passage roll remains independent of roof applicability. Vertical shell protection and a radial
-shoulder limit constrain ordinary cavities; selected openings deliberately bypass that
-shell. These are independently configured interiors, not new upstream exterior enums.
-The selected native exterior remains independent of the interior mode.
+Noise interiors combine intersecting noise bands and larger chambers. Hollow interiors use an irregular chamber with three rock pillars. Descriptor-seeded selection also admits occasional side passages and, by default, HOLLOW-only skylights. Their bounded seeded oval/warped outlines connect through the cap to an actual retained cavity, preserve water protection and omit columns blocked by pillars. NOISE skylights and the whole roof-opening feature have separate controls; the existing side-passage roll remains independent of roof applicability. Vertical shell protection and a radial shoulder limit constrain ordinary cavities; selected openings deliberately bypass that shell. These are independently configured interiors, not new upstream exterior enums. The selected native exterior remains independent of the interior mode.
 
-Surface painting follows the exterior cap and skips cavity air/fluid instead of
-refilling openings. Lush/dripstone projection tests the exterior envelope, including
-interior air and retained lower bodies. Ordinary cave Deep Dark retains native 1.4's fixed Y=-48 biome proxy and lower 45% of the uncarved native exterior. The separately selected [fractured Deep Dark ecology](terrain-variation.md#biomes-and-water) also owns its surface biome without guaranteeing a city. Both stored biome creation and structure eligibility use that same body; a surviving roof cannot replace its depth band. Ancient Cities query their actual proposed/final interior height, without a separate eligibility-only height substitution. `CaveProjection` also serves the generator's physical-biome boundary, using its existing sampler-to-world association. Native land-host resolution otherwise drops cave ownership before final structure validation and outside generation scopes. The adapter reuses native Deep Dark eligibility/projection methods and shares the relative lush/dripstone resolver with biome filling; it does not fabricate a structure scope. Ordinary presets, suppressed projection and samplers not yet associated with a world retain native behavior. Dependency updates must recheck both projector overloads, the generator's physical-source return boundary, native projection methods, sampler association, host-biome suppression, and stored/physical-query agreement. Native biome discovery also has its own candidate search; matching queried cells does not prove that search finds every projected cave biome. Native classic carving is separately configurable and
-can alter the baseline after these queries. Queries never load neighboring chunks.
+Surface painting follows the exterior cap and skips cavity air/fluid instead of refilling openings. `IslandContext` retains every natural exterior contributor at X/Z and resolves ownership at the consumer's physical Y. Its bounded field cache includes the resolved settings; cache eviction recomputes the same sorted ownership. Exterior ownership includes cavity air and is not evidence of a live solid block or a completed watershed. Underground ownership prioritizes intrinsic solid material, then water, then owned cavity air, with stable datum and identity ties. A nearer cavity datum cannot select the biome inside another contributor’s retained rock. Unknown occupancy supplies no underground owner; the special-island air halo applies only when no contributor occupies the point. Classic carvers and later writers can still change actual blocks after this intrinsic decision. Ordinary underground selection replaces only native multi-noise depth with normalized cover inside the selected body; the other five climate coordinates remain native. The special fractured Deep Dark style independently owns its biome. Stored and physical biome queries share `CaveProjection`, using the raw climate source rather than recursively asking the projected source. Foreign non-multi-noise sources retain their own selection. Queries never load neighboring chunks.
+
+Native climate trees retain their previous winning leaf. Equal-distance biome ties can therefore depend on query history. Owned cave selection uses a private native index, bounded to 16,384 parameter rows and attached to its native source's lifetime. A construction-only token marks that tree; its search clears private leaf history before and after each call, including exceptions. Original native trees and nested foreign searches retain their ordinary behavior. The lazy index publishes once through a volatile field and synchronized construction. Surface fallback likewise selects depth zero through this index while preserving the other five coordinates from the physical quart position; it does not resample them at Y64. This boundary applies to exact native multi-noise sources, leaving foreign selector classes alone. The five pinned generator entry points to `HostBiomeCache.resolve` scope the exact owned cache instance. Its raw misses use the same private native index while retaining all six physical climate axes, including raw depth. Nested foreign calls suspend that authority; sharing a source instance does not make a foreign generator owned. Exact native multi-noise sources qualify; custom source overrides keep the original call. Cache size, expiration and native river/shore host resolution remain upstream-owned. Updates must recheck those five invocation sites, raw sampling, native parameter access, RTree construction/search, exact ties, exception cleanup, physical-axis sampling and effective optional selection.
 
 ## Local water
 
@@ -151,7 +77,6 @@ Water proposals precede cavity subtraction. The resolver receives an optional pe
 Snapshot filling and upstream post-carver repair then share the protected INTERIOR boundary through `WaterCutOwnershipMixin`. Unsupported original exteriors still reject cuts. Inert rejected cuts retain the caller's ground in both height fields, because native repair reads `waterLevel` even when `modifies` is false. Native ocean beds/seals remain outside watershed carving. Channels retain the native outlet flag, while lakes keep containment. Bed protection fixes the demonstrated twelve-block cavity-roof interruptions without reducing the shell or raising water to conceal dry strips. Base-column/height queries and stored river biomes consume the completed admitted water column.
 
 Native lowland mode is `VANILLA`: `NONE` rewrites ridge inputs even though its name suggests otherwise. Experimental mountain tunnels are unsupported by this bridge and default off. Global border prewarming is suppressed for marked worlds; bounded on-demand upstream planning and packets remain available. Persisted watershed stamps include the saved owning generator identity and effective generation settings. Flow zones and configured biome vetoes retain ownership; only the automatic ocean-neighbor veto is bypassed for a real island stream's flow query. Supported cases and update seams are recorded in [adapter maintenance](adapters.md).
-
 
 `WaterCarverMixin` protects authored native water, retaining seals and river floors from classic aquifer replacement. Native river postprocessing remains upstream-owned. `WaterPostprocessing` adds flow-frontier updates for selected ocean-profile extensions during filling; read-only queries never schedule updates. Initial sources, actual flow and saved/reloaded fluid behavior need separate verification.
 
@@ -169,24 +94,11 @@ When updating Sky Archipelago, review the native ocean coverage sentinel (outsid
 
 ## Large veins
 
-`IslandVeins` invokes Minecraft's `OreVeinifier` with the preset's toggle,
-ridge and gap definitions bound to the existing `RandomState` noises. It does not
-replace nodes in C2ME's compiled runtime router. Interpolated markers use the noise settings' cell dimensions
-and Minecraft's Y/X/Z interpolation order. Samples and positional randomness use
-island-relative reference depth; the material rule keeps native thresholds, granite/
-copper and tuff/iron composition, and raw-ore blocks. A thread retains at most one
-cell per interpolated noise. Cache state does not affect query order or chunk seams.
+`IslandVeins` invokes Minecraft's `OreVeinifier` with the preset's toggle, ridge and gap definitions bound to the existing `RandomState` noises. It does not replace nodes in C2ME's compiled runtime router. Interpolated markers use the noise settings' cell dimensions and Minecraft's Y/X/Z interpolation order. Samples and positional randomness use island-relative reference depth; the material rule keeps native thresholds, granite/ copper and tuff/iron composition, and raw-ore blocks. A thread retains at most one cell per interpolated noise. Cache state does not affect query order or chunk seams.
 
-Only surviving stone/deepslate is eligible. Air and water cannot acquire vein blocks.
-The same material plan serves fill and base-column queries. Ordinary placed ore
-features run afterward and retain their counts, replacement predicates and mapped
-heights. This adapter does not add large zinc or platinum veins. The preset's
-`ore_veins_enabled` controls this material path; the flag alone was insufficient
-while the custom fill bypassed Minecraft's native vein rule.
+Only surviving stone/deepslate is eligible. Air and water cannot acquire vein blocks. The same material plan serves fill and base-column queries. Ordinary placed ore features run afterward and retain their counts, replacement predicates and mapped heights. This adapter does not add large zinc or platinum veins. The preset's `ore_veins_enabled` controls this material path; the flag alone was insufficient while the custom fill bypassed Minecraft's native vein rule.
 
-When updating Minecraft, review `OreVeinifier`, `RandomState`, `NoiseChunk` marker
-wrapping/interpolation and the vein functions in the preset. Verify native generated
-raw blocks, reference-depth distributions, fill/query agreement and reopening.
+When updating Minecraft, review `OreVeinifier`, `RandomState`, `NoiseChunk` marker wrapping/interpolation and the vein functions in the preset. Verify native generated raw blocks, reference-depth distributions, fill/query agreement and reopening.
 
 ## Surface and generation stages
 
@@ -196,145 +108,105 @@ Sky Archipelago 1.4 fills chunks through `SkyIslandTerrainPass` material plans a
 
 `IslandSurfaceScope` supplies the marked field and settings to native surface helpers and restores prior context on exit. Skin writes preserve cavity air and fluids; structure foundation writes may intentionally fill air. `BiomeMaterials` replaces only upper grass/dirt soil with tagged mangrove mud, after native override selection. `resolveSurfaceStone` uses island-relative geological Y inside this scope. The resolved mud-biome tag is part of generation identity.
 
-Both native structure-base blend helpers use that scope for materials while
-retaining their native write permissions and extent. The completed top
-contributor selects the fringe or water-archetype palette; ordinary columns also
-consult their already-painted natural skin because vanilla surface rules can
-disagree with the generic biome selector. Biome selection uses the completed
-surface height, not the raised foundation height. The first foundation request
-captures all 256 painted columns in its chunk, after native skin painting and
-before foundation fills. Overlapping fills cannot feed their output into another
-structure's palette. The per-call context releases these references on exit.
-Fluid, block-entity, ore and artificial block states are not accepted as natural
-skin; unknown material cases retain the native fallback.
+Both native structure-base blend helpers use that scope for materials while retaining their native write permissions and extent. The completed top contributor selects the fringe or water-archetype palette; ordinary columns also consult their already-painted natural skin because vanilla surface rules can disagree with the generic biome selector. Biome selection uses the completed surface height, not the raised foundation height. The first foundation request captures all 256 painted columns in its chunk, after native skin painting and before foundation fills. Overlapping fills cannot feed their output into another structure's palette. The per-call context releases these references on exit. Fluid, block-entity, ore and artificial block states are not accepted as natural skin; unknown material cases retain the native fallback.
 
-Sky Archipelago updates must preserve the skin-before-foundation ordering,
-both blend-helper palette calls, completed contributor/water metadata and native
-air-only fill protections. A successful palette query alone does not establish
-which helper wrote physical blocks; instrument native writes when requalifying.
+Sky Archipelago updates must preserve the skin-before-foundation ordering, both blend-helper palette calls, completed contributor/water metadata and native air-only fill protections. A successful palette query alone does not establish which helper wrote physical blocks; instrument native writes when requalifying.
 
-Classic carving, biome decoration, structure references, light/postprocessing and
-initial mob population retain Minecraft's chunk-stage machinery. Initial population
-uses `NoiseBasedChunkGenerator.spawnOriginalMobs` and native heightmap/support
-checks; no separate island mob ecology is implemented. Structure spawn overrides
-remain native. Fresh-preset generation is supported; vanilla terrain blending and
-below-zero retrogen are not an old-world migration path.
+`NaturalStructureInputs` captures copied block palettes at the native CARVERS task return, outside optional generator-carver cancellation. Native neighbor FEATURES depends on that completion. A server-only chunk attachment retains exact air, cave air, fluids and painted natural blocks with a schema, verified generation-policy fingerprint, seed, dimension, chunk and build-bound binding. `StructureTerrainView` can consume those inputs without requesting chunks or exposing a mutable level. Missing or mismatched data refuses the read; it never substitutes current feature output or air. Native palette decoding is preceded by strict state/header validation so its recovery-to-air behavior cannot certify missing source material.
+
+The producer belongs to `terrain.village_support`, which requires structure distribution, and runs only for marked generators with structure generation enabled. Source schema 2 also retains a bounded grading intent before any own patch write. An exact layout/cell mismatch refuses replay. This intent is not a rollback journal, client payload or final acceptance receipt.
+
+Before native classic carving, the same adaptation reads already referenced starts through the existing bounded resolver and compiles qualified rigid feet against a copied current-chunk SURFACE input. It preserves only existing natural skin/rock with an intrinsic solid owner, within `maximumGroundGap + 1` cells below those feet. The exact WorldGenRegion/SURFACE gate excludes late terrain; unknown elements and unavailable references grant no protection or acceptance credit. Work exhaustion discards the whole exclusion set, bounded to 65,536 cells. The scoped native `WorldCarver.carveBlock` hook vetoes only those cells; tunnel geometry, deeper caves, aquifers and carving masks remain native. No terrain is added, neighboring chunks advanced or separate placement search started. FEATURES still plans and verifies actual contact against the resulting CARVERS snapshot.
+
+Recheck native carving call order, WorldCarver descriptors, source-reference availability within the declared generation cache and immutable start/piece metadata on updates. The footprint compiler, palette selection, native piece reference and delegated terrain adjustment must agree across both stages. A protected source cap is not a final foundation or whole-layout receipt.
+
+At the native LIGHT task, both generation and loading pyramids require neighboring INITIALIZE_LIGHT completion, closing the radius-one FEATURES readers/writers used here. `GroundSupportProofs` then verifies each prepared foot, its bound source and selected fill states using only its own chunk. Changed requirements invalidate that foot; refusals and stored invalidations never gain credit from a later query or repaired block. A surviving mismatched source guard cannot be bypassed by an earlier verified entry. The copied natural palettes and grading journal retire after verification. Paused CARVERS chunks retain them across saving; FULL chunks retain only the compact server-only per-foot evidence. This is neither a rollback journal nor a whole-layout certificate. Later non-native writers remain observable through read-only current-state inspection, but are not covered by the native FEATURES barrier.
+
+`GroundVillageTerrain` stages preparation inside the native FEATURES body, after HEAD reference delivery and adaptation but before feature stages. It reads only already available CARVERS snapshots. Qualified rigid feet authorize a per-contributor native Beardifier kernel; the pinned Sky Arch adjusted-column density helper supplies its composition through an invoker, rather than a copied implementation. Only bounded positive natural-roof extensions are permitted. Water/seals, cavities and other contributors remain protected. Original painted skin determines the new palette. Incidental replaceable, non-solid decoration in originally-air cells may be cleared; solid foreign blocks, fluids and block entities refuse the patch.
+
+Physical template bounds and the existing `PhysicalStructureIdentity` exclude assembly-only padding and source aliases. Ordered piece identities, terrain adjustment and the canonical first-piece reference remain significant to grading intent. Qualified native placement receives that same reference, avoiding dependence on padding discarded by the native jigsaw loader. The element floor delta used to identify feet remains distinct from the derived piece delta used by the native density kernel. Lithostitched's outer delegated terrain-adjustment override is preserved, including `none`; manual kernel construction would otherwise bypass its native factory mixin.
+
+`VillageProcessors` qualifies nested pinned processor inputs before previewing feet: native leaves and Lithostitched conditional, reference and weighted alternatives, including present CTOV compatibility lists. Unknown children, cycles, list finalizers, changed APIs and exhausted graph budgets refuse qualification. Bounds are 16 nested levels, 4,096 visits and 256 entries per list/rule set. Shared children consume work on every visit. This inspection does not replace native processing. The pinned Lithostitched `SetBlockProcessor` is a qualified leaf: its native state provider uses the seeded positional random source and retains the current position. CTOV roads use this processor, so rejecting it would also exclude their containing conditional/reference graphs. Updates must recheck the private conditional branches, weighted-list supplier, referenced registry lists, CTOV compatibility-list field, set-block state-provider behavior and actual per-block/finalizer contracts.
+
+Early village fitting and native material preparation share the raw lowest-root selector. Both use the palette selected by native placement at that piece’s position and the element’s declared floor, independently of the derived piece ground delta. The fitting geometry cache is weakly keyed by the selected native palette and checks the declared floor; it does not combine alternative palettes or promote low above-floor decoration. `VillageSupportEnvelope` supplies the same bounded natural gap decision to early fitting and material preparation: known water, cavities and overlapping contributors are ineligible. An own nominal cap remains only a candidate until captured blocks prove it open; this is not material acceptance. Village site ranking keeps the original area-based allowance and seeded order within dry/wet bands, trying dry roots before water roots consume the existing bounded attempt budget. The default complete-building policy rejects any center, building or farm whose root lies beyond the shallow-support reach, rather than borrowing its road-style coverage allowance. Native connectivity/trimming and original-building retention checks still run, and finite alternative sites remain eligible. Roads keep the explicit short-overhang policy; a deliberate opt-out restores coverage-based inhabited fitting without granting new fill authority. Processors, final overlaps, void edges and final layout acceptance remain separately qualified.
+
+Lowest authored roots at the declared floor include full-bottom-face blocks and static native fence/wall posts whose support shape reaches the bottom plane. Narrow posts still require a sturdy base; hanging fixtures and arbitrary decorative shapes do not gain footing authority.
+
+Foot positions use the post-grade preview, while shallow completion retains its original captured natural anchor and palette. Own grading may repaint that anchor's expected state; its new roof does not replace the natural source binding. Each gap cell retains both its original captured AIR and its own prepared grading state. Only that exact prepared state, selected final fill or incidental replaceable decoration can survive realization preflight; an unattributed natural-looking block still refuses. The native Gravity processor reads the prepared heightmap only for qualified current-chunk piece scopes. Other height queries remain native. Height memoization belongs to the immutable captured view, with a finite chunk/column/type domain.
+
+Successful region writes during a qualified native piece scope retain bounded same-start output identity. Unknown or ordinary writers remove that credit. A changed base qualifies as `NATIVE_BASE` only when its observed state still matches that same start and is sturdy; arbitrary changed materials never qualify. Proof schema 3 retains the pre-template natural expected source separately and distinguishes verified support from a retired authored-clear requirement. Direct chunk writers and writes outside that scope have no such credit. AIR, fluids, block entities, dynamic support and mismatches grant no support credit. A narrowly qualified later same-start template can retire an earlier foot only when an observation at the end of its actual qualified per-block processor chain sees raw authored AIR remain AIR and the region successfully writes that exact AIR. Unknown/finalizing processors, same-piece mismatches, foreign starts and unobserved AIR do not retire requirements. The retired disposition drops all source/fill authority, verifies the final AIR after feature closure and persists separately from physical contacts; it does not certify village layout or access. Native content features remain native during piece placement; ordinary conflicting forest rocks, lakes, soil disks and simple-block features use the reservation check below.
+
+Overlapping same-start footing requirements resolve only to the observed final writer's own compiled foot at that exact position and state. A non-foot overlay, unknown writer, different start or unmatched processed state supplies no replacement authority. Each original logical foot keeps its identity and natural support binding; the final native foot state is still checked against actual blocks before any fill. This resolves final output order, not whole-layout access or acceptance. A known same-start native dirt path that the accepted support will cover with a solid block completes its vanilla covered-to-dirt transition in the same write plan. Exposed paths, unmatched writes and another start’s required road feet refuse that change. Any same-start road foot at the converted source retains a final dirt requirement; verification does not certify its obsolete path state. This does not establish that a buried road is a usable route.
+
+Captured cap checks distinguish nominal envelope rock from an actual lowered exterior. A nominal SOLID gap qualifies only if captured AIR reaches the owning exterior without an untouched physical roof, cavity, water, unknown occupancy or another contributor. The exact structural footing cell may replace a natural solid cap; that cell is validated against native template output before any support write. A separate roof above the foot remains protected. Cavity floors and competing layers remain protected. This does not redefine global biome or geological ownership.
+
+Native forest rocks, lakes, soil disks and simple-block features preflight their complete possible write envelopes against known ground-village pieces and bounded support shoulders. A conflict refuses the whole feature before randomness or writes; it does not clip individual blocks or disable these features globally. Boulder checks run after the native downward anchor search, before the first draw: three radius-at-most-one blobs with two preceding center shifts in `[-1,0]` fit within anchor `[-3,+1]` on each axis. Lake fluid, air and barrier writes fit within origin `[0,15] × [-4,3] × [0,15]`. Disk bounds use the radius provider’s maximum and the inclusive origin ± half-height columns before radius sampling. Simple-block bounds include origin and the cell above, covering native double plants before their state-provider draw. The preflight collects existing references from all nine destination chunks in the native radius-one FEATURES write area; a feature’s origin chunk alone need not reference a neighboring village. Duplicate structure/start addresses consume the reference budget once. Missing or over-budget known layouts conservatively refuse those candidates. Current-chunk grading and its local piece identities remain separate from this wider protection set. The check never requests a new status or delivers pending references. Native ore veins retain their per-cell replacement contract: `OreFeature.doPlace` refuses a reserved target before the native target test and section write, while unreserved cells continue through native generation. This hook is scoped to the actual feature level; it does not alter the global static ore predicate or silently adopt changed source material. Scattered-ore overrides and other direct writers require separate qualification. Qualified rootless native Straight/Fancy/Forking/MegaJungle trunks with exact Blob/Fancy/Bush/Acacia/MegaJungle foliage and the inspected native decorators receive a conservative whole-tree preflight after their existing height/radius draws but before any root, trunk, leaf or decorator writes. The envelope includes native foliage offsets, short hanging vines and ground dressing, with a bounded vertical reach so an unrelated higher island is not reserved. Authored piece trees retain their native path. Custom root/trunk/foliage/decorator implementations pass through and need their own bounds; this is not a universal tree guard. This does not cover future custom reference delivery, all projected-road heights or unrelated feature writers. Recheck native loops, anchor timing, complete write bounds, optional selection and retained source lifetime when updating Minecraft or Sky Archipelago.
+
+Before classic carving, the ground-support adapter preserves existing natural shallow anchors beneath qualified rigid feet already present in native references. It runs only against current-chunk SURFACE material in a WorldGenRegion and vetoes individual native carver cells; it neither adds terrain nor fills deeper caves. The same processed-foot compiler and existing referenced-start resolver own this boundary. Missing, unsupported or exhausted input grants no reservation. Sky Archipelago can deliver pending relocated references at FEATURES, after this boundary; those starts are not retrospectively protected by the earlier carver hook. Final support preparation must still use actual retained post-carver material rather than assume that every planned natural cap survived. Updates must recheck reference delivery, revocation, native stage ordering and the exact carveBlock boundary.
+
+The post-template pass completes eligible shallow gaps against that prepared input. Current qualification does not certify whole layouts, road access, arbitrary late writers or DH's bypass; those require their own production evidence. Native ordinary-feature and final-contact behavior must remain distinct from a compiled footprint or aggregate count.
+
+Classic carving, biome decoration, structure references, light/postprocessing and initial mob population retain Minecraft's chunk-stage machinery. Initial population uses `NoiseBasedChunkGenerator.spawnOriginalMobs` and native heightmap/support checks; no separate island mob ecology is implemented. Structure spawn overrides remain native. Fresh-preset generation is supported; vanilla terrain blending and below-zero retrogen are not an old-world migration path.
+
+## Sable temperature coordinates
+
+The independently selected `terrain.sable_climate` hook wraps the level-bound temperature-position conversion, before `ClimateRuntime` selects island altitude. Only positions in an existing Sable plot project through the pinned parent transform. The resulting temperature-only marker carries parent X/Z and the chosen reference Y, and remains idempotent across nested helpers. Physical positions passed to freezing, light, collision and water logic are unchanged. Foreign dimensions preserve their native input. No plot climate cache, payload or additional authority is introduced; existing parent chunk metadata and its unavailable fallback remain authoritative.
+
+Recheck Sable's plot-grid/containing/parent-transform contracts and physical-side loading when updating it. Qualify actual occupied plot blocks, moved/rotated transforms, foreign dimensions, explicit disablement and absence of Dynamic Waters separately. Sable snapshots its plot biome when a ship is created and persists it; this temperature bridge preserves that caller-owned biome rather than refreshing plot biomes as ships move. It does not establish correct plot-local sea levels, creature movement or current-parent biome selection. Actual consumer qualification must distinguish the plot biome from the destination biome.
+
+## Dynamic Waters and Sable discovery
+
+`WaterSableMixin` keeps owned-world water-contact currents and position projection separate from upstream physics discovery. Dynamic Waters 13.1.0 reflects over `SubLevelContainer`, whose public methods include a client-only overload. On a dedicated server this fails before its server container method is stored, even when the caller is a foreign dimension. The qualified optional adapter redirects only that class's two `initPhysics` method lookups to `ServerWaterContainer`, a server-only view delegating the exact native container/list operations. Other reflected APIs and foreign-world force calculation remain native. It neither suppresses the loader error nor installs another physics loop.
+
+On dependency updates recheck the two exact lookup names/descriptors, the caller's returned-object/List contract, absence of a native container-class cast, the server Sable container signature and all remaining reflected mass/pose/impulse APIs. Qualify actual initialization and container invocation on a dedicated server, explicit adapter disablement and missing dependencies. Successful startup alone does not establish current forces or frame correctness.
 
 ## Geological frame
 
 `GeologicalFrame` maps reference Y=-64 to the anchor's nominal native-body bottom and reference Y=64 to `centerY + plateauHeight`. `IslandGeometry.geologicalFrame` is the shared descriptor-to-frame owner. Land height follows the native full-coverage approximation; wet height uses the native descriptor budget. The datum is independent of cavities, conservative search bounds and a particular surface column. Underground heights scale with integer floor division; above reference 64, heights retain one-block offsets. Out-of-range reference samples remain outside rather than being clamped. Cave-biome and ore-reporting inverses use the same piecewise mapping.
 
-The frame is shared across an anchor, its shorelines and companions; a shallow
-companion does not acquire a complete compressed ore column. The datum is not the
-actual surface of every column. Relief and erosion remain meaningful: upper iron,
-coal and emerald attempts can land in air, while attempts below the datum remain
-in the deep body where replacement rules permit them. Native counts are unchanged.
+The frame is shared across an anchor, its shorelines and companions; a shallow companion does not acquire a complete compressed ore column. The datum is not the actual surface of every column. Relief and erosion remain meaningful: upper iron, coal and emerald attempts can land in air, while attempts below the datum remain in the deep body where replacement rules permit them. Native counts are unchanged.
 
-`OreHeightMixin` intercepts the existing height modifier only for features in
-`#skyweave_compat:relative_geology`, inside the opted-in generator. It samples
-the original height provider against an explicit reference context. Absolute,
-bottom-relative and top-relative anchors retain their original meaning. It
-consumes the sample even when the target column is void, then maps successful
-samples. Counts, feature order, biome checks, configured veins, replacement rules
-and exposure probabilities remain native. Nether/End and unlisted placements
-are unchanged. Feature-internal checks remain native. Fossils still fit their selected template
-below the local heightmap and reject excessive empty corners. Standalone jungle
-vines use a separate `relative_surface` tag: reference 64 to 100 becomes actual
-column top through top+36, preserving their neighbor-attachment test. Blue ice is
-not moved: its native feature requires water, packed ice and a position below sea
-level, which the disabled global-ocean layer does not provide. Moving its origin
-would not supply that environment. Ocean-specific content is not guaranteed.
+`OreHeightMixin` intercepts the existing height modifier only for features in `#skyweave_compat:relative_geology`, inside the opted-in generator. It samples the original height provider against an explicit reference context. Absolute, bottom-relative and top-relative anchors retain their original meaning. It consumes the sample even when the target column is void, then maps successful samples. Counts, feature order, biome checks, configured veins, replacement rules and exposure probabilities remain native. Nether/End and unlisted placements are unchanged. Feature-internal checks remain native. Fossils still fit their selected template below the local heightmap and reject excessive empty corners. Standalone jungle vines use a separate `relative_surface` tag: reference 64 to 100 becomes actual column top through top+36, preserving their neighbor-attachment test. Blue ice is not moved: its native feature requires water, packed ice and a position below sea level, which the disabled global-ocean layer does not provide. Moving its origin would not supply that environment. Ocean-specific content is not guaranteed.
 
-The tag includes vanilla Overworld ores, underground clay, both fossil placements,
-geological patches, Create zinc and
-Overworld striated deposits, and Propulsion platinum. Mod entries are optional
-registry references; their absence does not invalidate the datapack.
+The tag includes vanilla Overworld ores, underground clay, both fossil placements, geological patches, Create zinc and Overworld striated deposits, and Propulsion platinum. Mod entries are optional registry references; their absence does not invalidate the datapack.
 
-Geodes, Overworld water/lava springs and underground lava lakes use the same
-height-placement adapter. Native rarity/count modifiers, environmental scans,
-surface-distance checks and feature geometry remain intact. Surface-heightmap
-vegetation is not moved through the ore frame. Cave vegetation, dripstone, sculk,
-underground monster rooms, glow lichen and underwater magma use their native
-height providers through the same adapter. Environmental checks remain native.
+Geodes, Overworld water/lava springs and underground lava lakes use the same height-placement adapter. Native rarity/count modifiers, environmental scans, surface-distance checks and feature geometry remain intact. Surface-heightmap vegetation is not moved through the ore frame. Cave vegetation, dripstone, sculk, underground monster rooms, glow lichen and underwater magma use their native height providers through the same adapter. Environmental checks remain native.
 
-Material plans map their deepslate test through the same frame. Terrain fill and
-base-column queries use the same adapter, retaining the native transition noise.
-The preset's deepslate transition is expressed at reference Y=0. Frame lookup uses
-cached terrain descriptors and bounded cell searches; it never loads chunks.
+Material plans map their deepslate test through the same frame. Terrain fill and base-column queries use the same adapter, retaining the native transition noise. The preset's deepslate transition is expressed at reference Y=0. Frame lookup uses cached terrain descriptors and bounded cell searches; it never loads chunks.
 
 ## Carving
 
-Vanilla cave origins sample the reference envelope and map through the geological
-frame at their source chunk's center. Canyon origins instead preserve their native
-10 to 67 height spread relative to the actual local surface at reference Y=64. That fixed origin
-frame is shared by every target chunk carved by the same tunnel. Tunnel lengths,
-branching and shapes remain native. A void origin consumes the native random
-sample and subsequent tunnel decisions below the playable envelope; it cannot
-manufacture a new geological frame at an island edge.
+Vanilla cave origins sample the reference envelope and map through the geological frame at their source chunk's center. Canyon origins instead preserve their native 10 to 67 height spread relative to the actual local surface at reference Y=64. That fixed origin frame is shared by every target chunk carved by the same tunnel. Tunnel lengths, branching and shapes remain native. A void origin consumes the native random sample and subsequent tunnel decisions below the playable envelope; it cannot manufacture a new geological frame at an island edge.
 
-The lava-floor anchor resolves through the frame at each carved block. The real
-carving context retains the full dimension bounds; canyon width arrays and native
-clipping therefore still use valid world coordinates. No neighboring chunks are
-loaded for these lookups. Other generators retain their original provider calls.
-This restores classic carvers within island rock; it does not introduce vanilla's
-noise-cave or aquifer terrain-filling systems.
+The lava-floor anchor resolves through the frame at each carved block. The real carving context retains the full dimension bounds; canyon width arrays and native clipping therefore still use valid world coordinates. No neighboring chunks are loaded for these lookups. Other generators retain their original provider calls. This restores classic carvers within island rock; it does not introduce vanilla's noise-cave or aquifer terrain-filling systems.
 
-There is a narrower unresolved fluid distinction: delegated `applyCarvers` creates
-a native `NoiseChunk`, and `WorldCarver.getCarveState` consults its aquifer above
-the mapped lava floor. Those noise/sea-level inputs still use world coordinates;
-only the explicit lava anchor is mapped. This does not create a full aquifer during
-island filling, but it prevents claiming that all carved fluids are island-relative.
-A future fluid-policy change needs matched low/high island samples, containment and
-exposed-side checks. It must not introduce global water to repair an origin height.
+There is a narrower unresolved fluid distinction: delegated `applyCarvers` creates a native `NoiseChunk`, and `WorldCarver.getCarveState` consults its aquifer above the mapped lava floor. Those noise/sea-level inputs still use world coordinates; only the explicit lava anchor is mapped. This does not create a full aquifer during island filling, but it prevents claiming that all carved fluids are island-relative. A future fluid-policy change needs matched low/high island samples, containment and exposed-side checks. It must not introduce global water to repair an origin height.
 
 ## Cave biomes
 
-During native chunk biome filling, lush and dripstone cave footprints are sampled
-at island-relative reference depth. Projection requires an existing solid column
-and leaves its upper 16 blocks to the original surface biome. It shares the anchor
-geological frame with ore placement; thin companions do not gain an independent
-complete cave-biome column.
+During native chunk biome filling, ordinary lush caves, dripstone caves and Deep Dark use the native multi-noise parameter table with island-relative depth. Depth is zero at the selected natural exterior roof and reaches configurable `bottomDepth` at its bottom. The upper `minimumCaveCover` blocks preserve the surface biome. This is underground selection, not temperature altitude or the cluster's geological ore reference. Thin and overlapping contributors are selected at the query's physical height; cavity air remains in the owning exterior.
 
-The adapter extends Sky Archipelago's existing projection scope and recursion
-protection. Its Deep Dark projection retains priority and upstream behavior.
-Lush/dripstone projection does not extend to direct structure eligibility queries;
-adding structures that require those biomes needs a separate placement review.
-Vanilla cave decoration retains its own ground, ceiling, water and space checks.
+`CaveProjection` preserves the native temperature, humidity, continentalness, erosion and weirdness samples. It changes only depth and accepts native cave-biome results; an ordinary surface result keeps the original shore/river projection. A raw cave result outside an admitted body falls back to a depth-zero surface lookup. The adapter extends upstream recursion suppression and uses the same resolver at stored and physical biome boundaries. Actual decoration retains its native ground, ceiling, water and space checks. Biome assignment alone does not create a cave or prove a structure can fit.
 
 ## Feature coverage and limits
 
-Height-range tags adapt origins, not every algorithm inside a feature. The resolved
-registry and typed selector traversal are checked with the native coverage probe.
-Trees, flowers, crop patches and surface lakes primarily use actual heightmaps,
-soil/fluid predicates and local offsets. Root systems, vegetation patches and
-selectors retain their nested placements. Cave decoration searches real floors,
-ceilings and available space; moving its origin does not guarantee a suitable cave.
-Geodes, springs and underground lakes retain native shape and enclosure rejection.
-Monster rooms retain floor/wall/opening checks. Fossils fit below the local heightmap
-and reject excessive empty corners. No scan range or feature geometry is stretched
-with the geological frame.
+Height-range tags adapt origins, not every algorithm inside a feature. The resolved registry and typed selector traversal are checked with the native coverage probe. Trees, flowers, crop patches and surface lakes primarily use actual heightmaps, soil/fluid predicates and local offsets. Root systems, vegetation patches and selectors retain their nested placements. Cave decoration searches real floors, ceilings and available space; moving its origin does not guarantee a suitable cave. Geodes, springs and underground lakes retain native shape and enclosure rejection. Monster rooms retain floor/wall/opening checks. Fossils fit below the local heightmap and reject excessive empty corners. No scan range or feature geometry is stretched with the geological frame.
 
-Create's `LayeredOreFeature` checks the actual ocean-floor heightmap, replaceability
-and exposure; it has no extra fixed-Y cutoff. Almost Unified rewrites
-`OreConfiguration` targets, not the generic layered feature. Its removal of an
-empty unified feature would need rechecking after mod/config updates. Propulsion's
-three bottom-relative platinum distributions partly sample below reference −64;
-those attempts remain rejected, rather than being clamped into extra ore.
+Create's `LayeredOreFeature` checks the actual ocean-floor heightmap, replaceability and exposure; it has no extra fixed-Y cutoff. Almost Unified rewrites `OreConfiguration` targets, not the generic layered feature. Its removal of an empty unified feature would need rechecking after mod/config updates. Propulsion's three bottom-relative platinum distributions partly sample below reference −64; those attempts remain rejected, rather than being clamped into extra ore.
 
-Oceanless generation excludes ocean hosts and reports sea level at the build floor.
-Icebergs reset their origin to sea level; blue ice also needs water and packed ice.
-Kelp, seagrass, coral and sea pickles need suitable water/substrate. Wandering traders
-provide kelp, sea pickles, coral blocks, packed/blue ice and nautilus shells, but that
-is not a claim of natural habitat or a complete substitute for ocean progression.
-Monuments, guardian farms and sponge access need an explicit pack acquisition policy
-if required. Adding an ocean or replacement recipes remains a separate design choice.
+Oceanless generation excludes ocean hosts and reports sea level at the build floor. Icebergs reset their origin to sea level; blue ice also needs water and packed ice. Kelp, seagrass, coral and sea pickles need suitable water/substrate. Wandering traders provide kelp, sea pickles, coral blocks, packed/blue ice and nautilus shells, but that is not a claim of natural habitat or a complete substitute for ocean progression. Monuments, guardian farms and sponge access need an explicit pack acquisition policy if required. Adding an ocean or replacement recipes remains a separate design choice.
 
-Sky Archipelago's registered `IceSpikeFeatureMixin` replaces vanilla spike placement
-with `SkyIslandIceSpikeFeature.placeWithoutVanillaRoot`. It removes the long root
-loop, so vanilla's fixed Y=50 root cutoff is not an active defect in this stack.
-This also illustrates why a resolved feature class alone does not establish its
-transformed behavior. Other native predicates and future foreign feature classes
-need their own review; tagged origins are not universal height remapping.
+Sky Archipelago's registered `IceSpikeFeatureMixin` replaces vanilla spike placement with `SkyIslandIceSpikeFeature.placeWithoutVanillaRoot`. It removes the long root loop, so vanilla's fixed Y=50 root cutoff is not an active defect in this stack. This also illustrates why a resolved feature class alone does not establish its transformed behavior. Other native predicates and future foreign feature classes need their own review; tagged origins are not universal height remapping.
+
+## Habitat altitude
+
+`terrain.altitude_habitats` adapts bat cover and the two native slime altitude branches. Bat cover uses the selected natural exterior roof. Swamp slimes use altitude relative to the contributor's nominal plateau; underground slimes use normalized body depth. Native biome tags, seasonal/light/random rules, moon checks, difficulty and slime-chunk seed selection remain native. Exterior association does not assert that a live block is solid: actual native floor, light and obstruction checks still run.
+
+`terrain.water_animal_spawns` uses contiguous physical water in an already loaded chunk, bounded to 256 upward cells. It does not call completed hydrology. Missing or excessively deep columns are not admitted as a known surface. Dry turtle sand checks a loaded shore neighborhood within 4 horizontal and 8 vertical blocks; sand and light remain native. Glow squid use natural island cover instead of requiring a 33-block-deep pond. Drowned retain their separate river-biome chance and depth rules; local water supplies their depth and surface-navigation reference. Turtle travel and drowned beach/swim-up goals read a current local surface rather than retaining an unrelated global sea level. Those references do not move collision, home positions, target coordinates or vanilla travel distances.
+
+With Dynamic Waters selected, this same water-height feature retains Y from already cached native river nodes for floe spawning. Native node order, weights, two-node sampling and the 16–64-block annulus remain unchanged within bounded work; unavailable, malformed or exhausted input skips the complete candidate set. No watershed or chunk is generated by this query. A selected node searches at most the native ±20 height band for loaded physical water with an air cell above. Group members use their admitted center's native ±1 band. This replaces the highest-column shortcut, allowing an actual river under a separate floating body without selecting that body's unrelated water. Falling-fluid rejection, climate, density/rate, nearby-entity caps and native insertion remain downstream native checks. An immediate roof or unavailable column is not open water. The adapter changes spawning inputs, not flow, carving, node generation or hydrology ownership. It is independent of `terrain.climate` and absent when either water-height or Dynamic Waters adaptation is disabled.
+
+These repairs apply only to the marked generator. Foreign worlds retain native values. Controlled native spawn predicates, travel/ascent goals, breeding completion, nesting and hatching qualify their named consumers; they do not establish natural population rates, autonomous mating or full long-range routes. Recheck cached native path arrays/region size, node sampling, height bands, group method locals, native heightmap call sites and physical fluid/headroom rules when updating Dynamic Waters.
 
 ## Structures
 
@@ -356,37 +228,15 @@ Burial still measures the host's exterior before structure clearance. The saved 
 
 Accepted layouts continue through the native underground committer and three-dimensional overlap policy. Nearby ground and Sky Villages are not made island-exclusive. Optional native benchmark counters distinguish scope admission, city fit rejection and commit rejection without retaining world references in Compat. Update checks must cover the legacy-core pre-native routing boundary, jigsaw height sampling, native service signatures, envelope sampling, support budgets, biome scopes, canonical delivery, final blocks, locate and reopening.
 
-`StructureLocateCheckMixin` corrects the native `StructureCheck` fallback preview.
-That preview tests a layout at its original source chunk, while the upstream
-planner can relocate it to a valid island. A failed preview could therefore hide
-an existing valid start. For this preset, unknown permitted candidates request
-`STRUCTURE_STARTS` resolution instead. Loaded/saved results and placement
-restrictions stay authoritative; denylisted candidates remain excluded. Floating native water hosts may resolve WATER structures even when the global ocean layer is disabled. This is not unconditional acceptance or a FULL-chunk request.
+`StructureLocateCheckMixin` corrects the native `StructureCheck` fallback preview. That preview tests a layout at its original source chunk, while the upstream planner can relocate it to a valid island. A failed preview could therefore hide an existing valid start. For this preset, unknown permitted candidates request `STRUCTURE_STARTS` resolution instead. Loaded/saved results and placement restrictions stay authoritative; denylisted candidates remain excluded. Floating native water hosts may resolve WATER structures even when the global ocean layer is disabled. This is not unconditional acceptance or a FULL-chunk request.
 
-This increases work for some unsuccessful lookups. Search radius and candidate
-selection stay native; broad searches in sparse worlds can still be expensive.
-Locate coordinates remain upstream's X/Z target and may retain Y=0. They are not
-validated landings. Review `StructureCheck.checkStart/canCreateStructure`, upstream
-category policy and reference registration together when updating dependencies.
+This increases work for some unsuccessful lookups. Search radius and candidate selection stay native; broad searches in sparse worlds can still be expensive. Locate coordinates remain upstream's X/Z target and may retain Y=0. They are not validated landings. Review `StructureCheck.checkStart/canCreateStructure`, upstream category policy and reference registration together when updating dependencies.
 
-Upstream routes vanilla villages through its ground-village planner; outposts and
-portals use surface/small-island routes, while other surface structures can use
-DEFAULT anchoring and specialized adapters. Shipwreck pieces explicitly suppress
-late height re-anchoring after island placement, explaining valid land wrecks
-without a new airship generator. Monuments and ocean ruins use native WATER placement and require a suitable actual water host; disabling the global ocean layer alone is not a rejection rule. A missing start in a bounded search is not proof
-of a missing implementation. Lootr conversion occurs after chunk loading and server
-ticks, not synchronously when a structure's chest block is first placed.
+Upstream routes vanilla villages through its ground-village planner; outposts and portals use surface/small-island routes, while other surface structures can use DEFAULT anchoring and specialized adapters. Shipwreck pieces explicitly suppress late height re-anchoring after island placement, explaining valid land wrecks without a new airship generator. Monuments and ocean ruins use native WATER placement and require a suitable actual water host; disabling the global ocean layer alone is not a rejection rule. A missing start in a bounded search is not proof of a missing implementation. Lootr conversion occurs after chunk loading and server ticks, not synchronously when a structure's chest block is first placed.
 
 ### Cluster structure policy
 
-`terrain/structure/` owns qualified family admission in the marked preset. Compat does not rewrite registered
-structure sets; `StructurePolicyStateMixin` supplies runtime
-random-spread views. The shared `managedFamily` decision also owns attempt scoping,
-so unwrapped rings, mixed sets and disabled city adaptations are not accidentally
-filtered. Native custom-rule opt-outs, explicit whitelists and unsupported category
-changes also keep the whole registered set native. Do not wrap its placement while
-leaving its attempt unowned (or vice versa). Foreign generators retain native placements. [Configuration](../configuration.md#structure-distribution)
-owns rates, caps, units and exceptions.
+`terrain/structure/` owns qualified family admission in the marked preset. Compat does not rewrite registered structure sets; `StructurePolicyStateMixin` supplies runtime random-spread views. The shared `managedFamily` decision also owns attempt scoping, so unwrapped rings, mixed sets and disabled city adaptations are not accidentally filtered. Native custom-rule opt-outs, explicit whitelists and unsupported category changes also keep the whole registered set native. Do not wrap its placement while leaving its attempt unowned (or vice versa). Foreign generators retain native placements. [Configuration](../configuration.md#structure-distribution) owns rates, caps, units and exceptions.
 
 Explicit `skyweave_compat:managed/<family>` structure tags can admit qualified modded profiles to the same allowance. Native IDs retain their family; conflicting tags fail rather than silently reclassifying a structure. Unknown tagged types remain native unless they use vanilla jigsaw or a supported metadata bridge. Family and route maps belong to the generator's detached registry snapshot, not global mutable state. Pack-authored schedule and pool changes are separate resources and may deliberately apply to ordinary worlds as well.
 
@@ -412,277 +262,103 @@ The native underground solver normally fits mineshafts by their anchor alone. Fo
 
 Updates must recheck all twelve native piece classes for absolute versus local state, entrance serialization and movement, the native coverage call sites/budgets and the two unbounded leg methods. `tools/probe.py --yung policy`, `--yung frames` and `--yung supports` exercise registered replacement flags, owned/foreign movement, serialization and both native leg loops with void/solid controls. These are isolated contract fixtures; complete natural layout, persisted-world and survival checks remain separate evidence.
 
-`StructureDistribution` samples accepted cluster members, estimates eligible area,
-then ranks lattice destinations independently of visitation. It uses per-generator,
-bounded caches as memoization, not commitments. Fitted choices retain the weighted
-native variant, immutable piece geometry, adjusted native bounds, portal impact
-bounds and category padding. Ground, village, igloo, water and underground helpers
-reuse their native routing and fit stages. Planning commits no starts, references,
-terrain reservations or blocks; native postprocessing remains part of actual
-materialization.
+`StructureDistribution` samples accepted cluster members, estimates eligible area, then ranks lattice destinations independently of visitation. Encounter allowances and potential roots retain the native eight-chunk lattice. A finer candidate-grid trial did not establish better placement and is not part of production. The bounded per-generator sample cache feeds both generation and lookup. With the cave-biome adaptation selected, eligibility uses the owned physical-frame biome consumer, including surface depth fallback, instead of a history-dependent raw native tree. Early assembly retains the same projected biome source used by native `createStructures`. It uses per-generator, bounded caches as memoization, not commitments. Fitted choices retain the weighted native variant, immutable piece geometry, adjusted native bounds, portal impact bounds and category padding. Ground, village, igloo, water and underground helpers reuse their native routing and fit stages. Planning commits no starts, references, terrain reservations or blocks; native postprocessing remains part of actual materialization.
 
-The distribution binds detached registries, templates and height metadata on level
-load, including saved levels with no new chunks. The structure-pass hook remains a
-fallback. No live chunk, structure manager or level is retained. Queries never
-load neighboring chunks. Fractional admission, bounded alternatives and fitted
-piece conflicts are deterministic. The village committer supplies raw grounded
-unions, while other routes can supply terrain-adjusted or portal-impact bounds;
-matching recognizes all three representations of a fitted layout. Native final delivery and unknown-geometry
-checks remain active. Early two-dimensional footprints do not overrule a fitted
-three-dimensional plan. Native adjusted/reservation bounds remain the collision
-volume except between two ordinary villages, where separate padded buildings
-allow neighboring settlements without treating the empty space between them as
-solid. Portal spread/drip influence remains part of its occupied volume.
+The distribution binds detached registries, templates and height metadata on level load, including saved levels with no new chunks. The structure-pass hook remains a fallback. No live chunk, structure manager or level is retained. Queries never load neighboring chunks. Fractional admission, bounded alternatives and fitted piece conflicts are deterministic. The village committer supplies raw grounded unions, while other routes can supply terrain-adjusted or portal-impact bounds; matching recognizes all three representations of a fitted layout. Native final delivery and unknown-geometry checks remain active. Early two-dimensional footprints do not overrule a fitted three-dimensional plan. Native adjusted/reservation bounds remain the collision volume except between two ordinary villages, where separate padded buildings allow neighboring settlements without treating the empty space between them as solid. Portal spread/drip influence remains part of its occupied volume.
 
-Scoped exact-ID diversity, regional no-host misses, adaptive DEFAULT cost throttles
-and shared anchor claims cannot own managed eligibility. Native anchor cache keys
-do not describe the selected-host scope, so scoped results are recomputed rather
-than reused from unscoped searches. The native physical duplicate-key set and reservation arbiter are
-owned by each generator instead of the process. Native padding, duplicate checks,
-bounded reservation storage and pending takeover rules remain active. Deferred
-revocation callbacks retain a weak owner, including an explicit unowned context.
-Postprocess descriptor/delivery claims reset at server start and after full stop;
-this clears only ephemeral memory, never saved starts, blocks or player data.
-Native reference delivery already follows registry-session identity. Startup also
-initializes vanilla's small OctahedralGroup direction tables before parallel fits:
-its lazy map publication can otherwise expose missing directions to concurrent
-jigsaw rotation. No generation lock or new rotation implementation is added. Sky Villages retains
-its independent placement owner and allowance.
+Scoped exact-ID diversity, regional no-host misses, adaptive DEFAULT cost throttles and shared anchor claims cannot own managed eligibility. Native anchor cache keys do not describe the selected-host scope, so scoped results are recomputed rather than reused from unscoped searches. The native physical duplicate-key set and reservation arbiter are owned by each generator instead of the process. Native padding, duplicate checks, bounded reservation storage and pending takeover rules remain active. Deferred revocation callbacks retain a weak owner, including an explicit unowned context. Postprocess descriptor/delivery claims reset at server start and after full stop; this clears only ephemeral memory, never saved starts, blocks or player data. Native reference delivery already follows registry-session identity. Startup also initializes vanilla's small OctahedralGroup direction tables before parallel fits: its lazy map publication can otherwise expose missing directions to concurrent jigsaw rotation. No generation lock or new rotation implementation is added. Sky Villages retains its independent placement owner and allowance.
 
 ### Supported village layouts
 
-`VillageLayoutRepair` qualifies structural footing and connector reachability
-inside the native grounding stage, before its final bounds are constructed.
-The same scope applies during read-only planning and native commitment. It uses
-completed solid intervals, including cavities and fragment gaps, without loading
-neighboring chunks. Template geometry is bounded and cached separately from
-per-evaluation terrain columns; no live world is retained in that geometry cache.
+`VillageLayoutRepair` qualifies structural footing and connector reachability inside the native grounding stage, before its final bounds are constructed. The same scope applies during read-only planning and native commitment. It uses completed solid intervals, including cavities and fragment gaps, without loading neighboring chunks. Template geometry is bounded and cached separately from per-evaluation terrain columns; no live world is retained in that geometry cache.
 
-Template resource paths classify centers, streets, houses and jobsites; farmland
-also identifies farms. This is a contract with the supported donor packs, not a
-universal classifier for arbitrary templates. Lithostitched delegates expose
-their native element only through the qualified optional bridge. Recheck donor
-paths, alternate palettes, processors and unknown element types on updates.
+A decoration rejected for known unsupported roots cannot return through the nearby-decoration fallback. The existing footless-decoration policy remains separate from positive support evidence.
 
-Supported native jigsaw ports form the retained center-connected component.
-Projected pieces additionally compare terrain at their connection. The original
-assembly supplies the inhabited-building retention denominator across all passes.
-`VillageCommitMixin` scopes that count around native finalization; read-only
-planning uses the same assembly scope. Native trimming still runs; post-trim
-grounding rechecks support and connectivity.
-`VillageRoadEnds` may close a cut road connection using its declared native
-fallback pool. It considers existing junctions, connector compatibility, support
-and piece overlap, with at most eight additions and 64 orientation attempts.
-Encoded copies receive rigid projection; registered pools and the shared empty
-element remain unchanged. A private native parent-piece copy replaces the cut
-junction, and the cap receives its reciprocal junction with native ground-level
-deltas and the parent's liquid policy. Unknown parent subclasses are not copied
-into vanilla pieces. Missing or unsuitable fallbacks do not authorize invented
-roads or supports over void.
+Template resource paths classify centers, streets, houses and jobsites; farmland also identifies farms. This is a contract with the supported donor packs, not a universal classifier for arbitrary templates. Lithostitched delegates expose their native element only through the qualified optional bridge. Recheck donor paths, alternate palettes, processors and unknown element types on updates.
 
-`VillageLayoutPlanning` retains the native village category's host/site/generation
-budget for each variant and bounds actual assemblies separately from weighted
-biome eligibility checks. `StructureDistribution` compares the finite ranked site
-prefix, prefers layouts retaining at least 95% of their inhabited buildings, and
-otherwise keeps the best available nonconflicting layout. Added road caps and
-decoration cannot inflate this quality measure. Family allowances and
-weighted draws remain separate from these fit decisions. The configuration guide
-owns support thresholds and work defaults. Updates must recheck native grounding
-locals, trimmer result fields, junction coordinates, template projection,
-declared fallback semantics and agreement between planning and materialization.
+Fitting distinguishes repairable shallow gaps from unsupported terrain. Complete center/building/farm roots are required by default; roads and decoration retain their configured coverage and overhang policy. Proximity alone is not a final contact receipt. The separately selected ground-support adaptation preserves eligible natural anchors, applies bounded native density grading and completes qualified shallow gaps using their original palette. It verifies actual processed output after the neighboring feature barrier. Water, cavities, foreign materials and unsupported void do not grant fill authority. See [native realization](verification.md#actual-fortified-village-contact) for the original suspended-floor witness and exact repaired scope.
 
-Owned portal searches stop at the island body rather than the dimension floor;
-the mountain datum follows island geology. Owned igloos must be drafted at their
-surface anchor before native grounding checks. Their top, rather than the buried
-laboratory, supplies the contact plane. `SkyweaveIslandAnchor` persists on pieces
-and prevents a second vanilla Y=90 correction during placement. Unmarked pieces
-retain vanilla behavior. Owned desert pyramids also persist their fitted anchor:
-vanilla's later minimum-height scan can encounter a void column at an otherwise
-supported footprint and drop the entire temple below the island. The accepted
-native support/fit remains authoritative; the marker suppresses only that second
-height adjustment, retaining native traps, archaeology and loot. Pyramid admission
-also checks the complete footprint and trap depth against the island body, so an
-unsupported edge cannot become a native foundation pillar extending to the void floor.
+Supported native jigsaw ports form the retained center-connected component. Projected pieces additionally compare terrain at their connection. The original assembly supplies the inhabited-building retention denominator across all passes. `VillageCommitMixin` scopes that count around native finalization; read-only planning uses the same assembly scope. Native trimming still runs; post-trim grounding rechecks support and connectivity. `VillageRoadEnds` may close a cut road connection using its declared native fallback pool. It considers existing junctions, connector compatibility, support and piece overlap, with at most eight additions and 64 orientation attempts. Encoded copies receive rigid projection; registered pools and the shared empty element remain unchanged. A private native parent-piece copy replaces the cut junction, and the cap receives its reciprocal junction with native ground-level deltas and the parent's liquid policy. Unknown parent subclasses are not copied into vanilla pieces. Missing or unsuitable fallbacks do not authorize invented roads or supports over void.
 
-For Sky Archipelago updates, recheck category routing, weighted alternatives,
-catalog footprint requirements, all native pre-anchor/grounding/trimming/fit APIs,
-claims and cache keys, vanilla rotation-cache initialization, budget units, pending delivery/revocation and canonical
-references. For Minecraft updates, also check placement codecs, locate offsets,
-terrain-adjusted bounds, portal impact/height behavior and pyramid/igloo template/NBT and
-deferred-placement contracts. Compare final starts and materialized content across
-query order and reopening; a layout-only positive does not prove loot or placement.
+`VillageLayoutPlanning` retains the native village category's host/site/generation budget for each variant and bounds actual assemblies separately from weighted biome eligibility checks. `StructureDistribution` compares the finite ranked site prefix, prefers layouts retaining at least 95% of their inhabited buildings, and otherwise keeps the best available nonconflicting layout. Added road caps and decoration cannot inflate this quality measure. Family allowances and weighted draws remain separate from these fit decisions. The configuration guide owns support thresholds and work defaults. Updates must recheck native grounding locals, trimmer result fields, junction coordinates, template projection, declared fallback semantics and agreement between planning and materialization.
+
+Owned portal searches stop at the island body rather than the dimension floor; the mountain datum follows island geology. Owned igloos must be drafted at their surface anchor before native grounding checks. Their top, rather than the buried laboratory, supplies the contact plane. `SkyweaveIslandAnchor` persists on pieces and prevents a second vanilla Y=90 correction during placement. Unmarked pieces retain vanilla behavior. Owned desert pyramids also persist their fitted anchor: vanilla's later minimum-height scan can encounter a void column at an otherwise supported footprint and drop the entire temple below the island. The accepted native support/fit remains authoritative; the marker suppresses only that second height adjustment, retaining native traps, archaeology and loot. Pyramid admission also checks the complete footprint and trap depth against the island body, so an unsupported edge cannot become a native foundation pillar extending to the void floor.
+
+For Sky Archipelago updates, recheck category routing, weighted alternatives, catalog footprint requirements, all native pre-anchor/grounding/trimming/fit APIs, claims and cache keys, vanilla rotation-cache initialization, budget units, pending delivery/revocation and canonical references. For Minecraft updates, also check placement codecs, locate offsets, terrain-adjusted bounds, portal impact/height behavior and pyramid/igloo template/NBT and deferred-placement contracts. Compare final starts and materialized content across query order and reopening; a layout-only positive does not prove loot or placement.
 
 ## Climate and villages
 
-Temperature comparisons use reference Y=64 throughout this preset. Climate follows
-biome rather than absolute altitude: a high temperate island does not become snowy
-solely because it is high. Client weather and server freezing share this altitude reference without reconstructing server terrain or exposing its seed.
-Altitude cooling above a mountain is deliberately absent in this preset. The
-adapter remaps temperature-query positions; freezing also selects the actual water-cell biome. Light, fluid, terrain and block coordinates retain their real altitude. It covers Sky Archipelago surface
-selection, ruined-portal cold classification, vanilla snow/freezing predicates,
-precipitation ticks, rain exposure
-and the client's weather rendering/sounds. Native snow rendering was checked
-with shaders enabled and disabled. Surface selectors receive a bounded thread-local context from
-the owning surface pass because their API has no world argument; `finally`
-restores it across nested calls and failures. No biome temperature is mutated.
+Structural footing has three separate authorities. `VillageFootprint` retains raw template floor intent and runs admitted native processor chains against `StructureTerrainView`, a bounded copy of native block-state sections exposed as a read-only `WorldGenLevel`. The element's ground-level delta describes template floor intent; a jigsaw piece's derived delta instead serves terrain adaptation. Missing chunks and unsupported reader operations refuse qualification. A list finalizer or untracked output cannot acquire footing authority.
 
-Surface generation and player-facing biome queries do not use identical sampling.
-Sky Archipelago chooses materials from stored quart biomes at the surface;
-Minecraft's smoothed biome lookup can select a neighboring cell. Upstream explicit
-snow tags and cold-biome rules can also choose snowy ground independently of the
-temperature adaptation. Its river/beach terrain-profile blending does not smooth
-general biome boundaries.
+`VillageFoundation` binds surviving feet to natural roof ownership and captured material before completing eligible shallow air gaps. Water, cavities, unknown ownership and foreign source materials refuse fills. Realization validates actual feet, source blocks and gap contents, shares compatible writes, rejects conflicts and writes only the current chunk. Existing matching fills can be checked without being counted as new writes; WG heightmaps are cleared and rebuilt even on that replay path. A processed footprint or realized column alone does not establish whole-village admission, native stage ordering or protection from later features. Those require the shared layout and lifecycle boundary, with coverage recorded in [verification](verification.md).
+
+Temperature queries map physical altitude to `64 + altitudeScale * (worldY - ownerClimateDatum)`. The datum is the contributor's nominal plateau, not the actual column roof, so elevation above the island baseline can cool while a high temperate island remains temperate. Inside natural geometry, temperature follows the same physical owner as biome selection: solid material takes precedence over water, then cavity ownership. Nearest-datum and canonical descriptor order resolve ties within that occupancy class. Outside retained geometry, `airReach` bounds association; canonical owner order also resolves equal-distance air ties. Thermal capture retains that owner order rather than sorting it by height. Missing tracked context or ownerless air retains the explicit reference-Y64 fallback. Neither climate altitude nor depth changes physical light, fluid, collision, sky access or block coordinates.
+
+`SurfaceClimateScope` carries the real level into native helpers without a level argument, restoring nested state in `finally`. Temperature-only marked positions prevent duplicate adaptation through nested helpers. The qualified boundaries include native initial/recurring snow and freezing, surface palettes, shore/river projection and locate shortcuts, portal cold classification, client weather/Iris precipitation, and Dynamic Waters floe creation/lifetime, group-member admission, river logs, boulder palettes and plant freezing. Group checks retain actual entity placement; legitimate cold water still supports ice. Loading a hook does not prove every optional branch has executed; exact native coverage is recorded separately.
+
+Generation reads immutable pre-hydrology contributor context. Each context lazily retains its compact thermal column once, with native single-owner spans avoiding a density sweep and overlap spans resolving actual occupancy. Unknown geometry or more than 32 intervals refuses the whole column; more than 4096 intervals refuses the whole chunk. Neither publishes a partial or empty success. Runtime server ticks reuse the bounded immutable chunk captures used for tracking; generation workers retain their intrinsic context path. Server chunk publication uses normal chunk tracking, a runtime incarnation UUID and authoritative policy; no world seed is sent. `climate-2` S2C payloads bound dimensions, coordinates, per-column layers and total chunk layers before publication. Server cache weight includes columns and layers. The client stores packed primitive metadata directly on each native loaded chunk; unload clears it. Forget packets also clear weakly tracked old chunk identities when native view-window movement has made them inaccessible to the public chunk lookup. Reset and disconnect clear retained attachments as well as policy. A separate cache cannot evict answers for chunks that remain loaded. Each chunk is bounded to 4096 layers, using at most 32768 bytes of packed layer values plus its 257 column offsets. Client policy clears on disconnect/world unload, and payloads must match both the live connection and runtime incarnation. The client never invokes server generation. A missing optional channel uses the documented fallback rather than pretending synchronization occurred. Recheck tracking order, world replacement and protocol capability when updating NeoForge.
+
+Surface generation and player-facing biome queries do not use identical sampling. Sky Archipelago chooses materials from stored quart biomes at the surface; Minecraft's smoothed biome lookup can select a neighboring cell. Upstream explicit snow tags and cold-biome rules can also choose snowy ground independently of the temperature adaptation. Its river/beach terrain-profile blending does not smooth general biome boundaries.
 
 Native attribution distinguishes genuine snowy surfaces, their material layers extending into neighboring biome cells, and warm water frozen by a cold air-biome receiver. Initial `SnowAndFreezeFeature` placement and recurring `ServerLevel.tickPrecipitation` now use the water cell's biome for freezing. Snow still follows its own surface/air eligibility; the patch neither warms cold habitats nor removes existing snow. [Verification](verification.md#terrain-repair-and-structure-discovery-0280) records the marked controls and remaining coverage limits.
 
-Sky Villages keep their authored start-height spread, shifted from the old
-Y=192 datum to the new anchor surface datum. Only the named structure and the
-opted-in generator receive this adjustment. Horizontal clearance still uses the
-complete generated footprint.
+Sky Villages keep their authored start-height spread, shifted from the old Y=192 datum to the new anchor surface datum. Only the named structure and the opted-in generator receive this adjustment. Horizontal clearance still uses the complete generated footprint.
 
-Each archipelago has an allowance of zero to three villages, with zero common
-and three rare. The logarithmic-series weights are
-`96:24:8:3`, or approximately 73.3%, 18.3%, 6.1% and 2.3%. `VillageDistribution`
-implements the deterministic count draw. `ArchipelagoVillagePlacement` replaces
-only the named village's runtime placement inside the opted-in generator. It
-selects stable random-spread candidates per anchor; it never uses mutable accepted
-counters or chunk visitation order. Companion islands do not receive separate
-quotas. Layout, biome and clearance rejection can reduce the realized count.
+Each archipelago has an allowance of zero to three villages, with zero common and three rare. The logarithmic-series weights are `96:24:8:3`, or approximately 73.3%, 18.3%, 6.1% and 2.3%. `VillageDistribution` implements the deterministic count draw. `ArchipelagoVillagePlacement` replaces only the named village's runtime placement inside the opted-in generator. It selects stable random-spread candidates per anchor; it never uses mutable accepted counters or chunk visitation order. Companion islands do not receive separate quotas. Layout, biome and clearance rejection can reduce the realized count.
 
 The marked preset uses four-chunk spacing and two-chunk separation for candidate coverage near shaped shores. A provisional 144-block footprint receives coarse exterior/host checks before seeded selection; the native complete layout still passes exact clearance. The host must be a substantial body in the assigned cluster, not a detached fringe. Disabling clearance also disables that provisional screen rather than eliminating every site. No fine-grid change is applied to ordinary upstream presets.
 
 Candidates belong to their nearest anchor, with coordinate tie-breaking. Center-biome screening, seeded ranking and a minimum 384-block separation retain the per-anchor allowance. Native Jigsaw checks its actual start-piece biome and may reject or move a layout through bounded retries. A circular inner annulus cannot represent crescent/elliptical shores and is not used as proof of proximity. Original salt, spread type, frequency, exclusion-zone checks and locate behavior retain their owners.
 
-Candidate admission also reserves a 192-block square inside the anchor's nearest-
-center region: 32 blocks for upstream SKY biome retries and 160 for layout extent.
-The final layout must retain the same nearest anchor as its native start. This
-prevents a village assigned to one cluster from consuming space beside another
-cluster with a different allowance. Review these bounds when changing Sky Villages'
-start pool or Jigsaw radius, or Sky Archipelago's source-retry search.
+Candidate admission also reserves a 192-block square inside the anchor's nearest- center region: 32 blocks for upstream SKY biome retries and 160 for layout extent. The final layout must retain the same nearest anchor as its native start. This prevents a village assigned to one cluster from consuming space beside another cluster with a different allowance. Review these bounds when changing Sky Villages' start pool or Jigsaw radius, or Sky Archipelago's source-retry search.
 
 ## Delivery endpoints
 
-When Aeronautics Delivery Quests 1.1.1 is installed, the adapter changes its
-structure-route loading, distance checks and surface finalization only in the
-opted-in preset. RANDOM routing and foreign generators retain native behavior.
+When Aeronautics Delivery Quests 1.1.1 is installed, the adapter changes its structure-route loading, distance checks and surface finalization only in the opted-in preset. RANDOM routing and foreign generators retain native behavior.
 
-The background FULL chunk requests need retained tickets in the installed stack.
-Without them, native futures can complete with an `Unloaded chunk` result that
-ADQ ignores. `DeliveryChunks` holds a 3×3 chunk neighborhood for each endpoint,
-at most 18 unique chunks per generation job, and waits for successful FULL results.
-Loading remains asynchronous, with a 60-second timeout. Tickets are released on
-registration, rejection, load failure or server shutdown. No chunk ticket is
-stored in the world or retained for the accepted quest's lifetime. ADQ's single
-active generation job is part of this version-coupled contract.
-Native generation may request additional neighboring chunks at intermediate
-statuses; 18 is the owned ticket bound, not a total generated-chunk budget.
+The background FULL chunk requests need retained tickets in the installed stack. Without them, native futures can complete with an `Unloaded chunk` result that ADQ ignores. `DeliveryChunks` holds a 3×3 chunk neighborhood for each endpoint, at most 18 unique chunks per generation job, and waits for successful FULL results. Loading remains asynchronous, with a 60-second timeout. Tickets are released on registration, rejection, load failure or server shutdown. No chunk ticket is stored in the world or retained for the accepted quest's lifetime. ADQ's single active generation job is part of this version-coupled contract. Native generation may request additional neighboring chunks at intermediate statuses; 18 is the owned ticket bound, not a total generated-chunk budget.
 
-The origin and route minimum-distance checks use horizontal distance. Native
-locators can report Y=0 before realization and the actual surface Y afterward;
-counting that difference admitted a one-block route as more than 500 blocks long.
-The configured maximum still bounds the sampled search offset, not the final
-located route. Surface retries can move the selected positions by a few blocks.
+The origin and route minimum-distance checks use horizontal distance. Native locators can report Y=0 before realization and the actual surface Y afterward; counting that difference admitted a one-block route as more than 500 blocks long. The configured maximum still bounds the sampled search offset, not the final located route. Surface retries can move the selected positions by a few blocks.
 
-Native valid surface endpoints are returned unchanged. If an endpoint is rejected in the opted-in
-preset and its loaded chunk contains a Sky Village start, the adapter searches
-at most eight blocks around it, in deterministic rings. Every retry uses ADQ's
-original dry-surface test and must remain inside the village's bounding box.
-Void, fluids, leaves and uneven 3×3 surfaces remain rejected by that native test.
+Native valid surface endpoints are returned unchanged. If an endpoint is rejected in the opted-in preset and its loaded chunk contains a Sky Village start, the adapter searches at most eight blocks around it, in deterministic rings. Every retry uses ADQ's original dry-surface test and must remain inside the village's bounding box. Void, fluids, leaves and uneven 3×3 surfaces remain rejected by that native test.
 
-The existing locator can return a start chunk corner beside void even when the
-village has valid nearby ground. This adapter changes endpoint selection, not
-structure placement, cargo, rewards or RANDOM-mode routing. Search is bounded
-and occurs during quest finalization, not terrain generation. Native surface
-queries stay within the retained endpoint neighborhoods; this is not a landing planner.
-If no valid nearby surface exists, ADQ retains its failure behavior.
+The existing locator can return a start chunk corner beside void even when the village has valid nearby ground. This adapter changes endpoint selection, not structure placement, cargo, rewards or RANDOM-mode routing. Search is bounded and occurs during quest finalization, not terrain generation. Native surface queries stay within the retained endpoint neighborhoods; this is not a landing planner. If no valid nearby surface exists, ADQ retains its failure behavior.
 
-The dependency is optional and version-guarded. Review the private methods before
-changing ADQ: each of the surface, chunk-request and distance wrappers requires
-exactly two call sites. Registration and failure entry points own lease cleanup.
-Do not remove surface checks or expand the search into unrelated terrain to make
-a route succeed. A generated vanilla-village offer was accepted and its cargo spawned natively.
-Sky Village cargo placement and delivery completion remain separate play checks.
+The dependency is optional and version-guarded. Review the private methods before changing ADQ: each of the surface, chunk-request and distance wrappers requires exactly two call sites. Registration and failure entry points own lease cleanup. Do not remove surface checks or expand the search into unrelated terrain to make a route succeed. A generated vanilla-village offer was accepted and its cargo spawned natively. Sky Village cargo placement and delivery completion remain separate play checks.
 
 ## Atmosphere
 
-The preset uses a Sable dimension-physics data record under
-`data/skyweave_compat/dimension_physics/islands_v1.json`. A narrow lookup adapter
-selects that profile only for this dimension type. Sable's native loader and
-network packet carry the record; no custom packet or global Overworld override is
-needed. A higher-priority explicit dimension record remains authoritative.
+The preset uses a Sable dimension-physics data record under `data/skyweave_compat/dimension_physics/islands_v1.json`. A narrow lookup adapter selects that profile only for this dimension type. Sable's native loader and network packet carry the record; no custom packet or global Overworld override is needed. A higher-priority explicit dimension record remains authoritative.
 
-The pressure curve starts at 1.5 below the islands, reaches 1.0 at the Y=508 pressure
-reference, 0.8 at Y=600, 0.5 at Y=680 and zero at the exclusive ceiling of Y=768.
-Its cubic interpolation is checked across every integer altitude for bounded,
-monotonic pressure. Gravity, drag and magnetic north retain Sable's defaults.
-Native aircraft behavior still requires separate flight checks; successful data
-loading or interpolation alone cannot validate a ship design.
+The pressure curve starts at 1.5 below the islands, reaches 1.0 at the Y=508 pressure reference, 0.8 at Y=600, 0.5 at Y=680 and zero at the exclusive ceiling of Y=768. Its cubic interpolation is checked across every integer altitude for bounded, monotonic pressure. Gravity, drag and magnetic north retain Sable's defaults. Native aircraft behavior still requires separate flight checks; successful data loading or interpolation alone cannot validate a ship design.
 
 ## Saved worlds
 
-Before levels load, `GenerationGuard` records the seed, algorithm revision,
-geometry parameters, resolved embedded settings, village policy and structure set,
-biome source, noise settings, dimension and the ancient-city eligibility policy
-in `skyweave-generation.json` within a new world's directory. Object keys are
-canonicalized so map iteration cannot change the identity. Reopening with a
-different identity fails before generation. Existing region files without an
-identity are not adopted. Replacing the generator in a marked world is rejected.
+Before levels load, `GenerationGuard` records the seed, algorithm revision, geometry parameters, resolved embedded settings, village policy and structure set, biome source, noise settings, dimension and the ancient-city eligibility policy in `skyweave-generation.json` within a new world's directory. Object keys are canonicalized so map iteration cannot change the identity. Reopening with a different identity fails before generation. Existing region files without an identity are not adopted. Replacing the generator in a marked world is rejected.
 
 The identity records `islands_v1-skyarch-1.4-5` and the `island_watersheds_v4` water bridge when active, resolved river settings and `ancientCityPlacement: interior_union_v1`, including the city policy. Existing worlds are not silently upgraded to different exterior, hydrology or structure rules. Keep their original artifacts and settings or generate a separate world.
 
-There is no conversion or automatic marker rewrite. Restore a world's original
-settings/mod version or create a separate world. Deleting the marker is not a
-migration procedure. Changes to the generation algorithm require reviewing its
-revision and compatibility contract before release.
+There is no conversion or automatic marker rewrite. Restore a world's original settings/mod version or create a separate world. Deleting the marker is not a migration procedure. Changes to the generation algorithm require reviewing its revision and compatibility contract before release.
 
 ## Native checks
 
-`tools/probe.py --terrain --samples 4` compares actual registered-preset density
-samples over four layout seeds. These are predictions before carving/features, with sampled
-volume estimates rather than full island block counts.
+`tools/probe.py --terrain --samples 4` compares actual registered-preset density samples over four layout seeds. These are predictions before carving/features, with sampled volume estimates rather than full island block counts.
 
-`--generation current|adapted|vanilla --seed N` generates two bounded interior
-samples of nine chunks each using the installed server's mod selection. It records
-actual blocks and ore counts by reference depth. For Sky Archipelago generators,
-it also fills standalone native ProtoChunks and compares every block with base-
-column queries. Those isolated chunks cannot race C2ME surface/feature workers.
-Full generated chunks are inspected separately because surface and ore features
-legitimately replace predicted stone and deepslate.
+`--generation current|adapted|vanilla --seed N` generates two bounded interior samples of nine chunks each using the installed server's mod selection. It records actual blocks and ore counts by reference depth. For Sky Archipelago generators, it also fills standalone native ProtoChunks and compares every block with base- column queries. Those isolated chunks cannot race C2ME surface/feature workers. Full generated chunks are inspected separately because surface and ore features legitimately replace predicted stone and deepslate.
 
-`--islands --seed N` samples one deterministic random chunk from each cell of a
-7×7 grid inside twice each of three nearby anchor radii. Counts include only
-columns dominated by that anchor. Weighting each chunk by its stratum's chunk
-count yields a bounded-area estimate, not an exact island inventory. Reports keep
-observed counts and estimates separate, plus reference-depth ore bins, surface
-biomes, headroom, spawn support/clearance, descriptors, timing and end-of-run heap.
-Native cell membership also exports exact companion groups and geological frames.
-An eight-block-or-finer center-line density sample records its longest void gap.
-Descriptor edge gaps and sampled straight routes are approximations, not navigated
-or altitude-safe crossings.
+`--islands --seed N` samples one deterministic random chunk from each cell of a 7×7 grid inside twice each of three nearby anchor radii. Counts include only columns dominated by that anchor. Weighting each chunk by its stratum's chunk count yields a bounded-area estimate, not an exact island inventory. Reports keep observed counts and estimates separate, plus reference-depth ore bins, surface biomes, headroom, spawn support/clearance, descriptors, timing and end-of-run heap. Native cell membership also exports exact companion groups and geological frames. An eight-block-or-finer center-line density sample records its longest void gap. Descriptor edge gaps and sampled straight routes are approximations, not navigated or altitude-safe crossings.
 
-`--biomes --seed N` locates native cave-biome footprints and checks stored chunk
-biomes, surface preservation and actual cave decoration in generated chunks.
+`--biomes --seed N` locates native cave-biome footprints and checks stored chunk biomes, surface preservation and actual cave decoration in generated chunks.
 
 `--water --seed N --fluid-ticks 600` selects bounded native water witnesses and compares initial native query material with loaded fluid sources and observed edge flows. `--river-config` supplies an isolated native river/lake configuration; `--ocean-config` supplies the optional coastal/perimeter settings. A missing eligible fixture is a reported failure, not a pass. Zero ticks checks initial material only. These checks do not certify complete rim containment, all heightmap predicates, world-wide frequency or aquatic spawn populations.
 
 `--interiors` checks raw subtraction against its exterior, forbids later native stages from refilling authored cavities, and records completed native additions/removals separately. Independent fields compare snapshot/direct request order. Section records distinguish raw exterior, interior, completed solid and native fluid intervals.
 
-`--reopen` repeats the generated sample after saving and restarting the same
-throwaway world, requiring unchanged ore counts or natural village observations.
-The village fixture checks all selected sites in a 12,000-block descriptor survey,
-native locate, ownership, complete footprints, fresh reverse-order planning and two
-fully generated villages. Successful reports identify the
-exact mod/probe JAR hashes. Reports and logs live under ignored `build/verification`.
-The runner removes its temporary world. Never pass a live save as a test target.
+`--reopen` repeats the generated sample after saving and restarting the same throwaway world, requiring unchanged ore counts or natural village observations. The village fixture checks all selected sites in a 12,000-block descriptor survey, native locate, ownership, complete footprints, fresh reverse-order planning and two fully generated villages. Successful reports identify the exact mod/probe JAR hashes. Reports and logs live under ignored `build/verification`. The runner removes its temporary world. Never pass a live save as a test target.
 
-Before changing upstream versions, inspect generator caching, descriptor records,
-column/material planning and placement modifier call paths. Rerun native Mixin,
-foreign-preset, bounds, query agreement and reopening checks, then the full resource
-and gameplay surveys. Build success alone does not validate an injection target.
+Before changing upstream versions, inspect generator caching, descriptor records, column/material planning and placement modifier call paths. Rerun native Mixin, foreign-preset, bounds, query agreement and reopening checks, then the full resource and gameplay surveys. Build success alone does not validate an injection target.
 
-API references: [NeoForge 1.21.1 biome modifiers](https://docs.neoforged.net/docs/1.21.1/worldgen/biomemodifier/)
-and [MixinExtras WrapOperation](https://github.com/LlamaLad7/MixinExtras/wiki/WrapOperation).
-Biome modifiers alone cannot provide the required per-generator placement scope.
+API references: [NeoForge 1.21.1 biome modifiers](https://docs.neoforged.net/docs/1.21.1/worldgen/biomemodifier/) and [MixinExtras WrapOperation](https://github.com/LlamaLad7/MixinExtras/wiki/WrapOperation). Biome modifiers alone cannot provide the required per-generator placement scope.
 
 ## Surveyor structure records
 
@@ -690,42 +366,10 @@ The optional `surveyor.structure_starts` adaptation skips invalid starts at Surv
 
 The guard changes only the consumer. Native starts, rejected-candidate caches, references and saved chunks remain unchanged; valid starts continue through Surveyor's own recorder. The dependency pair is checked before selecting the string-targeted mixin on either physical side. The Fabric artifact is pinned and hash-checked; the supported NeoForge version string reflects Connector's mapped metadata.
 
-Its `asMap` view also suppresses aliases of the same physical piece layout for
-each structure type, using `PhysicalStructureIdentity` through a small optional
-summary bridge. Native records and exploration keys remain intact, so existing
-saves benefit without deleting delivery aliases or manual waypoints. The
-fingerprint canonicalizes compound and piece ordering while retaining placement
-content. Verified native postprocessing flags are excluded. Native jigsaw `BB`
-is derived from the retained element, position and rotation on reload, so its
-assembly-only expansion padding is excluded too. Reference coordinates use those
-reconstructed bounds; foreign piece bounds and unknown addon data remain
-significant. Equal outer
-bounds or nearby coordinates do not establish identity. Piece and serialized
-size limits bound fingerprinting; unknown addon fields remain significant.
+Its `asMap` view also suppresses aliases of the same physical piece layout for each structure type, using `PhysicalStructureIdentity` through a small optional summary bridge. Native records and exploration keys remain intact, so existing saves benefit without deleting delivery aliases or manual waypoints. The fingerprint canonicalizes compound and piece ordering while retaining placement content. Verified native postprocessing flags are excluded. Native jigsaw `BB` is derived from the retained element, position and rotation on reload, so its assembly-only expansion padding is excluded too. Reference coordinates use those reconstructed bounds; foreign piece bounds and unknown addon data remain significant. Equal outer bounds or nearby coordinates do not establish identity. Piece and serialized size limits bound fingerprinting; unknown addon fields remain significant.
 
-The structure locator uses the same physical identity and a stable reference
-point. Its candidate domain includes the source-to-layout displacement; filtering
-only source chunks would omit layouts whose markers fall inside the radius.
-`StructureSearchBounds` derives conservative envelopes from qualified native
-jigsaw reach, possible alias roots, rotated template extents and road fallback
-extents. Distinct pool metadata is bounded and inspection observes cancellation.
-Pinned legacy assemblers have separate contracts; the Better Mineshafts bridge
-includes its configured small-tunnel chain length and five main tunnels (the
-entrance starts at depth -1). Unknown layouts or placement contracts produce
-explicit partial coverage rather than a claim that the radius is empty.
-Actual result distance is still tested against the requested radius.
+The structure locator uses the same physical identity and a stable reference point. Its candidate domain includes the source-to-layout displacement; filtering only source chunks would omit layouts whose markers fall inside the radius. `StructureSearchBounds` derives conservative envelopes from qualified native jigsaw reach, possible alias roots, rotated template extents and road fallback extents. Distinct pool metadata is bounded and inspection observes cancellation. Pinned legacy assemblers have separate contracts; the Better Mineshafts bridge includes its configured small-tunnel chain length and five main tunnels (the entrance starts at depth -1). Unknown layouts or placement contracts produce explicit partial coverage rather than a claim that the radius is empty. Actual result distance is still tested against the requested radius.
 
-Permission checks belong to each `islands`/`structures` branch as well as any
-shared root: another registration can merge an unrestricted sibling root.
-These searches do not choose safe teleport landings or generate FULL chunks for
-each result. Recheck jigsaw root offsets, aliases, native reach enforcement,
-fallback assembly, template codecs, legacy branch limits, reference rounding,
-world-coordinate bounds and command-tree merging when updating dependencies.
+Permission checks belong to each `islands`/`structures` branch as well as any shared root: another registration can merge an unrestricted sibling root. These searches do not choose safe teleport landings or generate FULL chunks for each result. Recheck jigsaw root offsets, aliases, native reach enforcement, fallback assembly, template codecs, legacy branch limits, reference rounding, world-coordinate bounds and command-tree merging when updating dependencies.
 
-On updates, recheck the mapped `put` and `asMap` descriptors, summary/piece NBT,
-validity/registry ordering, chunk-load registration and valid-record persistence.
-Retire the invalid-start guard when upstream checks registry validity first;
-requalify alias filtering separately. Do not drop native rejected starts to
-accommodate a map consumer. Native client probe `structure_records` exercises
-the installed recorder with one rejected and one known valid start; generated
-observations remain private.
+On updates, recheck the mapped `put` and `asMap` descriptors, summary/piece NBT, validity/registry ordering, chunk-load registration and valid-record persistence. Retire the invalid-start guard when upstream checks registry validity first; requalify alias filtering separately. Do not drop native rejected starts to accommodate a map consumer. Native client probe `structure_records` exercises the installed recorder with one rejected and one known valid start; generated observations remain private.

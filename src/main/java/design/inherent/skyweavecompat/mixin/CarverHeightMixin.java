@@ -26,6 +26,6 @@ public abstract class CarverHeightMixin {
             return geology.canyonHeight(sample, source.getMiddleBlockX(), source.getMiddleBlockZ(), GenerationProfile.MIN_Y - 1024);
         }
         // A void origin still consumes the native random sample and tunnel decisions, away from playable terrain.
-        return geology.worldHeight(sample, source.getMiddleBlockX(), source.getMiddleBlockZ(), GenerationProfile.MIN_Y - 1024);
+        return geology.originHeight(sample, source.getMiddleBlockX(), source.getMiddleBlockZ(), GenerationProfile.MIN_Y - 1024);
     }
 }

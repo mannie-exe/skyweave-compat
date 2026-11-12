@@ -10,5 +10,9 @@ import org.spongepowered.asm.mixin.Shadow;
 @Mixin(targets = "dev.worldgen.lithostitched.worldgen.poolelement.DelegatingPoolElement", remap = false)
 public abstract class VillageDelegateMixin implements VillageDelegate {
     @Shadow public abstract StructurePoolElement delegate();
+    @Shadow public abstract dev.worldgen.lithostitched.worldgen.poolelement.DelegatingConfig config();
     @Override public StructurePoolElement skyweave$delegate() { return delegate(); }
+    @Override public java.util.Optional<net.minecraft.world.level.levelgen.structure.TerrainAdjustment> skyweave$terrainAdjustment() {
+        return config().overrideTerrainAdaptation();
+    }
 }

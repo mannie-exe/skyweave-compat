@@ -40,7 +40,7 @@ public abstract class WaterProjectionMixin {
         var host = rawBiomeSource().getNoiseBiome(qx, QuartPos.fromBlock(river.originalSurfaceY()), qz, sampler);
         var pos = new BlockPos(x, river.fluidSurfaceY(), z);
         boolean cold = host.value().coldEnoughToSnow(OptionalIntegrations.enabled(Feature.CLIMATE)
-                ? IslandClimate.temperaturePosition(pos) : pos);
+                ? design.inherent.skyweavecompat.climate.ClimateRuntime.temperaturePosition(generator,random,pos) : pos);
         var selected = cold ? Biomes.FROZEN_RIVER : Biomes.RIVER;
         rawBiomeSource().possibleBiomes().stream().filter(biome -> biome.is(selected)).findFirst().ifPresent(result::setReturnValue);
     }

@@ -17,6 +17,7 @@ final class BiomeProbe {
     static void run(MinecraftServer server, Path output) throws Exception {
         var level = server.overworld();
         var generator = (SkyIslandChunkGenerator)level.getChunkSource().getGenerator();
+        var climateIndex=ClimateIndexProbe.run(level,generator,output);
         var random = level.getChunkSource().randomState();
         var settings = generator.resolvedSkyIslandSettings();
         var field = ((GeologicalGenerator)(Object)generator).skyweave$field(random);
@@ -28,26 +29,20 @@ final class BiomeProbe {
         outer: for (var anchor : anchors) for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) {
             int x = ((anchor.x() + dx * anchor.radius() / 2) >> 2) * 4 + 2;
             int z = ((anchor.z() + dz * anchor.radius() / 2) >> 2) * 4 + 2;
-            var column = ((InteriorField)(Object)field).skyweave$planningColumn(x,z,settings,TerrainStage.EXTERIOR)
-                    .profile().terrainColumn();
-            var frame = ((GeologicalField)(Object)field).skyweave$frameAt(x, z, settings);
-            if (frame == null || column.thickness() < 150) continue;
-            // Deep Dark retains the native -48 proxy and lower 45% of the exterior body.
-            // Lush/dripstone use our geological inverse; those are different projection contracts.
-            var dominant = field.sampleDominantIslandDescriptor(x, z, settings);
-            if (dominant != null && dominant.family() == IslandFamily.ANCHOR_PLATEAU
-                    && generator.getBiomeSource().getNoiseBiome(x >> 2, -48 >> 2, z >> 2, random.sampler())
-                    .getRegisteredName().equals("minecraft:deep_dark")) {
-                int deepY = ((column.bottomY() + column.thickness() / 4) >> 2) * 4 + 2;
-                found.putIfAbsent("minecraft:deep_dark", new BlockPos(x, deepY, z));
-            }
-            for (int referenceY : new int[]{-48, -16, 16, 48}) {
-                int y = (frame.toWorld(referenceY) >> 2) * 4 + 2;
-                if (y < column.bottomY() || y > column.topY() - 16) continue;
-                var biome = generator.getBiomeSource().getNoiseBiome(x >> 2, frame.toReference(y) >> 2, z >> 2, random.sampler());
-                String id = biome.getRegisteredName();
-                if (targets.contains(id) && !id.equals("minecraft:deep_dark")) found.putIfAbsent(id, new BlockPos(x, y, z));
-                if (found.size() == targets.size()) break outer;
+            var context = ((InteriorField)(Object)field).skyweave$contextAt(x,z,settings);
+            for (var body : context.bodies()) {
+                if (body.exterior().thickness() < 100) continue;
+                // Search actual projected biome queries in this body's world-space height range.
+                // A fixed-Y proxy can identify a native climate candidate without proving that
+                // the projected/stored biome at the floating island actually contains it.
+                for (int i = 1; i <= 9; i++) {
+                    int y = ((body.exterior().bottomY() + body.exterior().thickness() * i / 10) >> 2) * 4 + 2;
+                    if (y > body.exterior().topY() - 16) continue;
+                    var biome = generator.projectedBiomeSource().getNoiseBiome(x >> 2,y >> 2,z >> 2,random.sampler());
+                    if (targets.contains(biome.getRegisteredName()))
+                        found.putIfAbsent(biome.getRegisteredName(),new BlockPos(x,y,z));
+                    if (found.size() == targets.size()) break outer;
+                }
             }
         }
         var rows = new JsonArray(); var pos = new BlockPos.MutableBlockPos();
@@ -76,8 +71,18 @@ final class BiomeProbe {
             row.add("blocks", new Gson().toJsonTree(blocks)); row.add("caveBiomeCells", new Gson().toJsonTree(caveBiomes)); rows.add(row);
         }
         var report = new JsonObject(); report.addProperty("seed", level.getSeed()); report.add("samples", rows);
+        report.add("climateIndex",climateIndex);
+        var environments=new JsonArray();
+        for(var dimension:server.getAllLevels()) {
+            var environment=new JsonObject();environment.addProperty("dimension",dimension.dimension().location().toString());
+            environment.addProperty("dimensionType",dimension.dimensionTypeRegistration().getRegisteredName());
+            environment.addProperty("islandClimate",design.inherent.skyweavecompat.climate.IslandClimate.applies(dimension));
+            environment.addProperty("generator",dimension.getChunkSource().getGenerator().getClass().getName());environments.add(environment);
+        }
+        report.add("environments",environments);
         var features = FeatureProbe.run(level);
         report.add("featureChecks", features);
+        report.add("climateChecks", ClimateProbe.run(level));
         report.addProperty("targetsFound", found.size());
         boolean matches = rows.asList().stream().allMatch(value -> {
             var row = value.getAsJsonObject();

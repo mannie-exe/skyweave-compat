@@ -1,71 +1,68 @@
 package design.inherent.skyweavecompat.terrain;
 
-import design.inherent.skyweavecompat.mixin.DeepDarkProjectorAccess;
+import design.inherent.skyweavecompat.climate.UndergroundDepth;
 import net.minecraft.core.Holder;
 import net.minecraft.world.level.biome.*;
 import net.minecraft.world.level.levelgen.RandomState;
-import org.sathrek.sky_archipelago.config.SkyIslandSettings;
 import org.sathrek.sky_archipelago.worldgen.generator.core.*;
-import org.sathrek.sky_archipelago.worldgen.generator.field.IslandField;
-import org.sathrek.sky_archipelago.worldgen.generator.field.model.ColumnData;
 
-/** Shared cave ownership for stored biomes and physical-source consumers, without chunk loads. */
+/** Native climate lookup with height-qualified ownership and a separate natural depth input. */
 public final class CaveProjection {
     private CaveProjection() {}
 
     public static Holder<Biome> physical(SkyIslandChunkGenerator generator, RandomState random, BiomeSource source,
             Holder<Biome> original, int qx, int qy, int qz, Climate.Sampler sampler) {
-        try (var ignored = SkyIslandDeepDarkBiomeProjector.suppressProjection()) {
-            var settings = generator.resolvedSkyIslandSettings();
-            var field = ((GeologicalGenerator)(Object)generator).skyweave$field(random);
-            var exterior = exterior(field,settings,qx,qz);
-            var result = fracturedBiome(field, source, exterior, original, qy);
-            if (result.is(Biomes.DEEP_DARK) && result != original) return result;
-            int y = qy * 4 + 2;
-            if (DeepDarkProjectorAccess.skyweave$eligible(exterior.profile(),y)) {
-                var deepDark = source.possibleBiomes().stream().filter(b -> b.is(Biomes.DEEP_DARK)).findFirst().orElse(null);
-                if (deepDark != null) {
-                    var proxy = RiverHostBiomeResolver.resolve(source,qx,-48 >> 2,qz,sampler,settings.rivers());
-                    result = DeepDarkProjectorAccess.skyweave$project(original,proxy,deepDark,exterior.profile(),y);
-                }
-            }
-            return relative(field,settings,exterior,source::getNoiseBiome,result,qx,qy,qz,sampler);
-        }
+        return resolve(generator, random, source, original, qx, qy, qz, sampler);
     }
 
     public static Holder<Biome> relative(SkyIslandChunkGenerator generator, RandomState random, BiomeResolver resolver,
             Holder<Biome> original, int qx, int qy, int qz, Climate.Sampler sampler) {
-        if (original.is(Biomes.DEEP_DARK)) return original;
+        return resolve(generator, random, generator.projectedBiomeSource().climateSource(), original, qx, qy, qz, sampler);
+    }
+
+    private static Holder<Biome> resolve(SkyIslandChunkGenerator generator, RandomState random, BiomeSource source,
+            Holder<Biome> original, int qx, int qy, int qz, Climate.Sampler sampler) {
+        // Only native multi-noise admits replacing one climate coordinate. Foreign 3-D
+        // selectors keep their own behavior instead of being approximated through Y.
+        if (source==null || source.getClass()!=MultiNoiseBiomeSource.class) return original;
+        var multiNoise=(MultiNoiseBiomeSource)source;
         try (var ignored = SkyIslandDeepDarkBiomeProjector.suppressProjection()) {
-            var settings = generator.resolvedSkyIslandSettings();
+            int x = qx * 4 + 2, y = qy * 4 + 2, z = qz * 4 + 2;
             var field = ((GeologicalGenerator)(Object)generator).skyweave$field(random);
-            var exterior = exterior(field,settings,qx,qz);
-            var ecological = fracturedBiome(field, generator.getBiomeSource(), exterior, original, qy);
-            return ecological != original ? ecological : relative(field,settings,exterior,resolver,original,qx,qy,qz,sampler);
+            var context = ((InteriorField)(Object)field).skyweave$contextAt(x, z, generator.resolvedSkyIslandSettings());
+            var body = context.biomeOwner(y);
+            // A special-island air halo may extend into genuinely unowned sky, never
+            // through a different physical contributor or an unknown occupied region.
+            var nearby = body!=null?body:context.contributions(y).isEmpty()?context.owner(y,20):null;
+            var styles = ((StyledTerrain)(Object)field).skyweave$styles();
+            if (nearby != null && styles != null && styles.style(nearby.island()).kind() == IslandStyles.Kind.DEEP_DARK)
+                return source.possibleBiomes().stream().filter(biome -> biome.is(Biomes.DEEP_DARK)).findFirst().orElse(original);
+
+            // Discard upstream fixed-height/bottom-band projection for this owned-world route.
+            var policy = design.inherent.skyweavecompat.climate.ClimateConfiguration.profile();
+            if (body == null || y > body.exterior().topY() - policy.minimumCaveCover())
+                return surfaceFallback(generator,multiNoise,qx,qy,qz,sampler);
+            var point = sampler.sample(qx, qy, qz);
+            long depth = Climate.quantizeCoord((float)UndergroundDepth.sample(y,
+                    body.exterior().bottomY(), body.exterior().topY(), policy.bottomDepth()));
+            var selected = select(generator,multiNoise,new Climate.TargetPoint(point.temperature(), point.humidity(),
+                    point.continentalness(), point.erosion(), depth, point.weirdness()));
+            return selected.is(Biomes.LUSH_CAVES) || selected.is(Biomes.DRIPSTONE_CAVES) || selected.is(Biomes.DEEP_DARK)
+                    ? selected : surfaceFallback(generator,multiNoise,qx,qy,qz,sampler);
         }
     }
 
-    private static Holder<Biome> fracturedBiome(IslandField field, BiomeSource source, ColumnData exterior,
-            Holder<Biome> original, int qy) {
-        var owner = exterior.dominantDescriptor();
-        var styles = ((StyledTerrain)(Object)field).skyweave$styles();
-        if (owner == null || styles == null || styles.style(owner).kind() != IslandStyles.Kind.DEEP_DARK) return original;
-        int y = qy * 4 + 2;
-        if (exterior.segments().stream().noneMatch(column -> y >= column.bottomY() - 4 && y <= column.topY() + 20)) return original;
-        return source.possibleBiomes().stream().filter(biome -> biome.is(Biomes.DEEP_DARK)).findFirst().orElse(original);
+    /** One native-index boundary shared by owned depth queries. */
+    public static Holder<Biome> select(SkyIslandChunkGenerator generator,MultiNoiseBiomeSource source,Climate.TargetPoint point) {
+        return ((design.inherent.skyweavecompat.climate.StableClimateSource)(Object)source).skyweave$stableBiome(point);
     }
 
-    private static ColumnData exterior(IslandField field, SkyIslandSettings settings, int qx, int qz) {
-        return ((InteriorField)(Object)field).skyweave$planningColumn(qx*4+2,qz*4+2,settings,TerrainStage.EXTERIOR);
-    }
-    private static Holder<Biome> relative(IslandField field, SkyIslandSettings settings, ColumnData exterior,
-            BiomeResolver resolver, Holder<Biome> original, int qx, int qy, int qz, Climate.Sampler sampler) {
-        if (original.is(Biomes.DEEP_DARK)) return original;
-        int x=qx*4+2,y=qy*4+2,z=qz*4+2;
-        if (exterior.segments().stream().noneMatch(column -> y>=column.bottomY() && y<=column.topY()-16)) return original;
-        var frame = ((GeologicalField)(Object)field).skyweave$frameAt(x,z,settings);
-        if (frame == null || !frame.containsReference(frame.toReference(y))) return original;
-        var proxy = resolver.getNoiseBiome(qx,frame.toReference(y)>>2,qz,sampler);
-        return proxy.is(Biomes.LUSH_CAVES) || proxy.is(Biomes.DRIPSTONE_CAVES) ? proxy : original;
+    private static Holder<Biome> surfaceFallback(SkyIslandChunkGenerator generator,MultiNoiseBiomeSource source,
+            int qx,int qy,int qz,Climate.Sampler sampler) {
+        // Outside/body-surface selection replaces depth only; even Y-sensitive foreign
+        // parameter data retains the other five physical quart coordinates.
+        var point=sampler.sample(qx,qy,qz);
+        return select(generator,source,new Climate.TargetPoint(point.temperature(),point.humidity(),
+                point.continentalness(),point.erosion(),0,point.weirdness()));
     }
 }

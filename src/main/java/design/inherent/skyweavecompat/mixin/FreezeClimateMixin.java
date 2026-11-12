@@ -16,12 +16,12 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
 public abstract class FreezeClimateMixin {
     @WrapMethod(method = "shouldFreeze(Lnet/minecraft/world/level/LevelReader;Lnet/minecraft/core/BlockPos;Z)Z")
     private boolean freezing(LevelReader level, BlockPos pos, boolean edge, Operation<Boolean> original) {
-        return SurfaceClimateScope.query(IslandClimate.applies(level), () -> original.call(level, pos, edge));
+        return SurfaceClimateScope.query(level, () -> original.call(level, pos, edge));
     }
 
     @WrapMethod(method = "shouldSnow")
     private boolean snow(LevelReader level, BlockPos pos, Operation<Boolean> original) {
-        return SurfaceClimateScope.query(IslandClimate.applies(level), () -> original.call(level, pos));
+        return SurfaceClimateScope.query(level, () -> original.call(level, pos));
     }
 
     @ModifyVariable(method = "warmEnoughToRain", at = @At("HEAD"), argsOnly = true)

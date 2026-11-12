@@ -2,9 +2,14 @@ package design.inherent.skyweavecompat.terrain.structure;
 
 /** Work and support limits, independent of the encounter allowance. */
 public record VillageFitSettings(double minimumSupportFraction, int maximumGroundGap,
-        int maximumUnsupportedDepth, double minimumRetainedBuildings,
+        int maximumUnsupportedDepth, boolean requireCompleteBuildingSupport, double minimumRetainedBuildings,
         int siteAttemptsPerVillage, int assembliesPerSite, int maximumColumnProbes) {
-    public static final VillageFitSettings DEFAULT = new VillageFitSettings(.9, 3, 2, .65, 8, 12, 16384);
+    public static final VillageFitSettings DEFAULT = new VillageFitSettings(.9, 3, 2, true, .65, 8, 12, 16384);
+    public VillageFitSettings(double minimumSupportFraction,int maximumGroundGap,int maximumUnsupportedDepth,
+            double minimumRetainedBuildings,int siteAttemptsPerVillage,int assembliesPerSite,int maximumColumnProbes) {
+        this(minimumSupportFraction,maximumGroundGap,maximumUnsupportedDepth,true,minimumRetainedBuildings,
+                siteAttemptsPerVillage,assembliesPerSite,maximumColumnProbes);
+    }
     public VillageFitSettings {
         if (!Double.isFinite(minimumSupportFraction) || minimumSupportFraction < .5 || minimumSupportFraction > 1
                 || maximumGroundGap < 0 || maximumGroundGap > 8

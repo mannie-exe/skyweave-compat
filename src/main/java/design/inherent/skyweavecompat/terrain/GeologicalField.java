@@ -3,6 +3,7 @@ package design.inherent.skyweavecompat.terrain;
 import org.sathrek.sky_archipelago.config.SkyIslandSettings;
 
 public interface GeologicalField {
-    /** Null in void or in an unadapted field. Companions share their own cluster's anchor frame. */
-    GeologicalFrame skyweave$frameAt(int x, int z, SkyIslandSettings settings);
+    /** Pre-Y placement origin only: one cluster frame preserves the native attempt budget.
+     * Physical point consumers use IslandContext instead. Null in void/unadapted fields. */
+    GeologicalFrame skyweave$originFrameAt(int x, int z, SkyIslandSettings settings);
 }

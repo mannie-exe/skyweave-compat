@@ -18,6 +18,7 @@ public abstract class ShoreProjectionClimateMixin {
             @Coerce Object context, int x, int z) {
         var generator = ((ProjectionClimateContext)context).skyweave$climateGenerator();
         return original.call(biome, ((GeologicalGenerator)(Object)generator).skyweave$isEnabled()
-                ? IslandClimate.temperaturePosition(pos) : pos);
+                ? design.inherent.skyweavecompat.climate.ClimateRuntime.temperaturePosition(generator,
+                    ((ProjectionClimateContext)context).skyweave$climateRandom(),pos) : pos);
     }
 }

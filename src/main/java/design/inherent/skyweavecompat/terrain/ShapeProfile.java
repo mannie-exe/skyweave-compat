@@ -3,16 +3,21 @@ package design.inherent.skyweavecompat.terrain;
 import java.util.List;
 
 /** Exterior choices around the protected native body and independent interiors. */
-public record ShapeProfile(boolean enabled, double strengthVariation, Outline outline, Fringe fringe, Fractures fractures) {
+public record ShapeProfile(boolean enabled, double strengthVariation, Outline outline, Fringe fringe, Fractures fractures,
+        DeepDark deepDark) {
     public static final ShapeProfile INITIAL = new ShapeProfile(true, .15,
             new Outline(.65, 1.96, 26, 102), new Fringe(true, .3, .7, 64, .15, 1.6, 28, .6, .55, 1.2, 6),
             new Fractures(.35, List.of("minecraft:mushroom_fields", "minecraft:badlands",
-                    "minecraft:eroded_badlands", "minecraft:wooded_badlands"), 72, 6, 32, .28, .10, .25));
+                    "minecraft:eroded_badlands", "minecraft:wooded_badlands"), 72, 6, 32, .28, .10), DeepDark.DEFAULT);
+
+    public ShapeProfile(boolean enabled, double strengthVariation, Outline outline, Fringe fringe, Fractures fractures) {
+        this(enabled, strengthVariation, outline, fringe, fractures, DeepDark.DEFAULT);
+    }
 
     public ShapeProfile {
         if (!Double.isFinite(strengthVariation) || strengthVariation < 0 || strengthVariation > .5)
             throw new IllegalArgumentException("Shape strength variation must be between 0 and 0.5");
-        if (outline == null || fringe == null || fractures == null) throw new IllegalArgumentException("Missing shape group");
+        if (outline == null || fringe == null || fractures == null || deepDark == null) throw new IllegalArgumentException("Missing shape group");
     }
     public record Outline(double aspectChance, double maximumAspectRatio, int warpAmplitude, int warpWavelength) {
         public Outline {
@@ -40,10 +45,10 @@ public record ShapeProfile(boolean enabled, double strengthVariation, Outline ou
         }
     }
     public record Fractures(double chance, List<String> biomes, int cellSize, int gapWidth,
-            int verticalRange, double removalChance, double deepDarkChance, double sculkPatchChance) {
+            int verticalRange, double removalChance, double deepDarkChance) {
         public Fractures {
             if (!ShapeProfile.chance(chance) || !ShapeProfile.chance(removalChance) || removalChance > .6
-                    || !ShapeProfile.chance(deepDarkChance) || deepDarkChance > .1 || !ShapeProfile.chance(sculkPatchChance)
+                    || !ShapeProfile.chance(deepDarkChance) || deepDarkChance > .1
                     || cellSize < 32 || cellSize > 128 || gapWidth < 2 || gapWidth > 12 || gapWidth * 4 >= cellSize
                     || verticalRange < 0 || verticalRange > 48 || biomes == null || biomes.size() > 128)
                 throw new IllegalArgumentException("Invalid fractured exterior: cell/gap bounds or probability out of range");
@@ -51,6 +56,16 @@ public record ShapeProfile(boolean enabled, double strengthVariation, Outline ou
             if (biomes.stream().distinct().count() != biomes.size()
                     || biomes.stream().anyMatch(id -> !id.matches("[a-z0-9_.-]+:[a-z0-9_./-]+")))
                 throw new IllegalArgumentException("Fractured biomes must be unique namespaced biome IDs");
+        }
+    }
+    /** Natural cap and independent decoration draws; each device has at most one attempt group per chunk. */
+    public record DeepDark(double sculkCoverage, int surfaceScale, double veinChance, double sensorChance,
+            double catalystChance, double shriekerChance) {
+        public static final DeepDark DEFAULT = new DeepDark(.94, 48, .25, .25, .08, .02);
+        public DeepDark {
+            if (!chance(sculkCoverage) || surfaceScale < 8 || surfaceScale > 128 || !chance(veinChance)
+                    || !chance(sensorChance) || !chance(catalystChance) || !chance(shriekerChance))
+                throw new IllegalArgumentException("Invalid Deep Dark coverage, surface scale (8–128), or decoration chance");
         }
     }
     private static boolean chance(double value) { return Double.isFinite(value) && value >= 0 && value <= 1; }

@@ -29,9 +29,9 @@ public final class StructureConfiguration {
         }
         var fit = root.getAsJsonObject("villageFitting");
         keys(fit, Set.of("minimumSupportFraction", "maximumGroundGap", "maximumUnsupportedDepth", "minimumRetainedBuildings",
-                "siteAttemptsPerVillage", "assembliesPerSite", "maximumColumnProbes"));
+                "siteAttemptsPerVillage", "assembliesPerSite", "maximumColumnProbes", "requireCompleteBuildingSupport"));
         var fitting = new VillageFitSettings(number(fit,"minimumSupportFraction").getAsDouble(), integer(fit,"maximumGroundGap"),
-                integer(fit,"maximumUnsupportedDepth"), number(fit,"minimumRetainedBuildings").getAsDouble(),
+                integer(fit,"maximumUnsupportedDepth"), bool(fit,"requireCompleteBuildingSupport"), number(fit,"minimumRetainedBuildings").getAsDouble(),
                 integer(fit,"siteAttemptsPerVillage"), integer(fit,"assembliesPerSite"), integer(fit,"maximumColumnProbes"));
         return new StructurePolicy(number(root, "frequencyMultiplier").getAsDouble(),
                 number(root, "outpostVillageSeparationChunks").getAsBigDecimal().intValueExact(), rules, fitting);
@@ -41,7 +41,16 @@ public final class StructureConfiguration {
     public static String normalize(String text) {
         var root = ProfileJson.object(text);
         if (!root.has("villageFitting")) root.add("villageFitting", JSON.toJsonTree(VillageFitSettings.DEFAULT));
+        if(root.get("villageFitting").isJsonObject()) {
+            var fit=root.getAsJsonObject("villageFitting");
+            if(!fit.has("requireCompleteBuildingSupport"))fit.addProperty("requireCompleteBuildingSupport",VillageFitSettings.DEFAULT.requireCompleteBuildingSupport());
+        }
         return JSON.toJson(root) + "\n";
+    }
+    private static boolean bool(JsonObject object,String key) {
+        var value=object.get(key);
+        if(!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isBoolean())throw new IllegalArgumentException("Expected boolean for "+key);
+        return value.getAsBoolean();
     }
     private static int integer(JsonObject object, String key) { return number(object,key).getAsBigDecimal().intValueExact(); }
 
