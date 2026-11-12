@@ -27,6 +27,11 @@ class NativeSettingsMetadataTest {
             var definition = field.definition();
             assertDoesNotThrow(() -> definition.parse(edits.defaultValue(field.key())), field.key());
             assertNull(edits.binding(field.key()).issue(), field.key());
+            if (definition.kind() == SettingDefinition.Kind.STRINGS) {
+                var binding = edits.binding(field.key());
+                assertEquals(field.defaultValue(), binding.readElements().get());
+                for (String value : binding.readElements().get()) assertNull(binding.elementIssue(value), field.key());
+            }
             var item = new JsonObject();
             item.addProperty("document", edits.binding(field.key()).id().document());
             item.addProperty("field", field.key()); item.addProperty("type", definition.kind().name());

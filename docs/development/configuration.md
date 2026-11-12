@@ -54,7 +54,7 @@ Properties serialization replaces only edited logical properties, preserving unr
 
 `GenerationProfile` keeps intrinsic record validation separate from `validateAgainst(ShapeProfile)`. Startup parsing and save preflight share that explicit coupled validator, including the eight-neighbor clearance bound. Runtime support-radius arithmetic remains unchanged; candidate validation never temporarily replaces `ShapeConfiguration.profile()`. Plain `ProfileJson.generation` parses intrinsic values only, so a proposed pair can be assembled before coupled validation. New entry points must preserve that final validation boundary.
 
-## Registered scalar forms
+## Registered forms
 
 Only cataloged, actually loaded CLIENT/COMMON files whose resolved local path matches the config root qualify. Remote SERVER config caches are never targets. `RegisteredEdits` discovers scalar bindings through `ModConfigSpec`; field labels reuse explicit spec translations or NeoForge's mod-ID/configuration fallback. Native validators/defaults/ranges and restart types remain authoritative. Single-field files render as their field rather than adding another file heading and sidebar destination. File inspection remains in Status & files. Village cross-field validation reuses the runtime `NeighborRule.Settings` invariant. Unsupported shapes are reported, not silently flattened or guessed. `NativeSettingsMetadataTest` exercises every field/default in the pinned Dynamic Waters spec and emits its discovered types, ranges and choices for the private inventory. That coverage does not qualify live readers or native reload callbacks.
 
@@ -67,6 +67,14 @@ Registered immediate values apply after Save; world/game-restart values retain t
 Application timing describes the actual consumer. Search limits currently load during terrain integration registration; Wayfinder policy is captured per server, and Hoofprint preferences load on map initialization. Generation profiles and climate metadata remain bound to saved generation identity. Dynamic Waters mixes generation, gameplay and presentation fields in one common file; a file-level label alone cannot establish physical ownership or prove that a consumer refreshes live. A local common config or remote server cache is not an administrative connection.
 
 The catalog's current generic TOML forms are embedded rather than redirecting to screens constructed solely for them. A genuine upstream screen can be a future explicit destination when needed; use an honest Edit label and preserve its owner. Do not create another generic modal merely to host a single field.
+
+## Collection controls
+
+`TextCollection` retains session-local row IDs over `SettingsBinding`; the existing edit session owns raw values and persistence. Moving or removing another row preserves identity. External replacement, Revert or Reload invalidates removed IDs instead of redirecting a stale callback to another entry. Schema values alone are serialized; sets expose no ordering controls. Malformed arrays retain their raw draft rather than substituting defaults.
+
+JSON rows use the shared bounded strict string-array reader. Registered TOML rows decode through the native converter, including native quoted-string syntax. `ListValueSpec.testElement` supplies real per-element checks; aggregate-only predicates remain parent validation rather than falsely blaming one row. Owner element validators must be independent of aggregate size constraints. Complete candidate validation remains mandatory before Save. Duplicate rows refresh all implicated entries, while full-document feedback is deferred during typing.
+
+`SettingsControls` retains native `EditBox` instances by field/row identity and prunes removed rows. Structural callbacks request focus after native event dispatch assigns its clicked widget; the request checks the current panel/screen and then restores the surviving row. Measured width changes reflow native horizontal scrolling with public cursor setters, preserving selection and drafts. Recheck both contracts when Minecraft input dispatch or `EditBox` width/cursor behavior changes. The opt-in probe reports `displayPos` reflectively for named-runtime diagnostics only; production controls do not use that reflection.
 
 ## Verification and updates
 

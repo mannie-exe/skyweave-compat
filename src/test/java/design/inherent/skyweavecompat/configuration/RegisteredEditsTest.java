@@ -47,6 +47,29 @@ class RegisteredEditsTest {
         assertEquals(SettingsCatalog.Timing.NEW_WORLD, SettingsCatalog.timing(file.getFileName().toString(), "Generation.mountainRiverDensity"));
         assertEquals(SettingsCatalog.Timing.IMMEDIATE, SettingsCatalog.timing(file.getFileName().toString(), "Visuals.enableRiverParticles"));
     }
+    @Test void collectionRowsDecodeNativeSyntaxAndKeepElementAndAggregateValidationSeparate() throws Exception {
+        var builder = new ModConfigSpec.Builder();
+        builder.defineListAllowEmpty(java.util.List.of("biomes"), java.util.List.of("minecraft:plains"),
+                () -> "minecraft:plains", value -> value instanceof String text && text.startsWith("minecraft:"));
+        var spec = builder.build(); var file = write("dynamicwaters-common.toml", spec);
+        var edits = new RegisteredEdits(directory, file.getFileName().toString(), spec);
+        edits.set("biomes", "['minecraft:river']");
+        var data = new TextCollection(edits.binding("biomes"));
+        assertEquals("minecraft:river", data.rows().getFirst().value()); assertNull(data.error());
+        long row = data.rows().getFirst().id(); data.set(row, "other:bad");
+        assertEquals("native_value", data.issue(row).code()); assertNotNull(edits.binding("biomes").issue());
+        assertEquals(java.util.List.of("other:bad"), edits.binding("biomes").readElements().get());
+
+        var aggregate = new ModConfigSpec.Builder();
+        aggregate.define("names", java.util.List.of("one", "two"), value -> value instanceof java.util.List<?> list && list.size() == 2);
+        var aggregateSpec = aggregate.build(); write("dynamicwaters-common.toml", aggregateSpec);
+        var aggregateEdits = new RegisteredEdits(directory, "dynamicwaters-common.toml", aggregateSpec);
+        var collection = new TextCollection(aggregateEdits.binding("names")); collection.remove(collection.rows().getFirst().id());
+        assertNull(collection.issue(collection.rows().getFirst().id()));
+        assertNotNull(aggregateEdits.binding("names").issue());
+        assertTrue(aggregateEdits.dirty()); // No made-up per-element failure or hidden default repair.
+    }
+
     @Test void enumChoicesAndExternalFileConflictsRetainTheDraft() throws Exception {
         var builder = new ModConfigSpec.Builder(); builder.defineEnum("mode", Mode.FIRST); var spec = builder.build();
         Path file = write("createredstonelinkgui-client.toml", spec);

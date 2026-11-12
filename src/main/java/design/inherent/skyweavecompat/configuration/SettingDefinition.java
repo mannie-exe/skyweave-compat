@@ -1,7 +1,6 @@
 package design.inherent.skyweavecompat.configuration;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonElement;
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
@@ -105,14 +104,7 @@ public record SettingDefinition(String key, Class<?> valueType, Object defaultVa
                 }
                 case CHOICE -> Enum.valueOf((Class) valueType, raw);
                 case STRING -> raw;
-                case STRINGS -> {
-                    // The bounded strict reader also rejects trailing documents and malformed nested input.
-                    var wrapper = JsonEdits.object("{\"value\":" + raw + "}");
-                    var array = wrapper.getAsJsonArray("value");
-                    if (wrapper.size() != 1 || array == null || array.asList().stream().anyMatch(item ->
-                            !item.isJsonPrimitive() || !item.getAsJsonPrimitive().isString())) fail("type", "Expected text entries");
-                    yield array.asList().stream().map(JsonElement::getAsString).toList();
-                }
+                case STRINGS -> JsonEdits.textArray(raw);
             };
             Object nativeValue = value;
             if (value instanceof BigDecimal decimal && kind() == Kind.DECIMAL) {
@@ -122,7 +114,7 @@ public record SettingDefinition(String key, Class<?> valueType, Object defaultVa
             validate(nativeValue);
             return value;
         } catch (SettingIssue.InvalidValue failure) { throw failure; }
-        catch (RuntimeException | java.io.IOException invalid) { throw new SettingIssue.InvalidValue(issue("type", "Invalid " + kind().name().toLowerCase(java.util.Locale.ROOT) + " value for " + key)); }
+        catch (RuntimeException invalid) { throw new SettingIssue.InvalidValue(issue("type", "Invalid " + kind().name().toLowerCase(java.util.Locale.ROOT) + " value for " + key)); }
     }
     public void validate(Object value) {
         if (value == null) fail("required", "Missing value for " + key);
@@ -143,9 +135,18 @@ public record SettingDefinition(String key, Class<?> valueType, Object defaultVa
                 validateText((String) item);
             }
         }
+        validateOwner(value);
+    }
+    private void validateOwner(Object value) {
         try { ownerValidator.accept(value); }
         catch (SettingIssue.InvalidValue invalid) { throw invalid; }
         catch (RuntimeException invalid) { fail("native_value", String.valueOf(invalid.getMessage())); }
+    }
+    /** Element syntax is independent of collection size and duplicate validation. */
+    public SettingIssue elementIssue(String text) {
+        if (kind() != Kind.STRINGS) throw new IllegalArgumentException("Not a text collection");
+        try { validateText(text); validateOwner(List.of(text)); return null; }
+        catch (SettingIssue.InvalidValue invalid) { return invalid.issue(); }
     }
     private void validateText(String text) {
         if (constraints.maximumLength() >= 0 && text.length() > constraints.maximumLength()) fail("length", "Text is too long for " + key);

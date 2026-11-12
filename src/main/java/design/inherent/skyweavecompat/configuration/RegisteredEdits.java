@@ -82,7 +82,19 @@ public final class RegisteredEdits {
     public String warning() { return warning; }
     public SettingsBinding binding(String key) {
         return new SettingsBinding(SettingsCatalog.field(filename, key), field(key).definition(), () -> value(key), value -> set(key, value), this::issues,
-                () -> session.edited(key), () -> localIssue(key));
+                () -> session.edited(key), () -> localIssue(key), () -> elements(key), text -> elementIssue(key, text));
+    }
+    @SuppressWarnings("unchecked")
+    private List<String> elements(String key) {
+        if (!(field(key).defaultValue() instanceof List<?>)) throw new IllegalArgumentException("Not a text collection");
+        return (List<String>) convert(field(key), value(key));
+    }
+    private SettingIssue elementIssue(String key, String text) {
+        var field = field(key);
+        if (!(field.defaultValue() instanceof List<?>)) throw new IllegalArgumentException("Not a text collection");
+        // An aggregate-only native predicate cannot truthfully attribute failure to one row.
+        if (!(field.spec() instanceof ModConfigSpec.ListValueSpec list)) return null;
+        return list.testElement(text) ? null : new SettingIssue("native_value", key, List.of(), "Entry does not satisfy its registered specification");
     }
     private SettingIssue localIssue(String key) {
         var field = field(key);

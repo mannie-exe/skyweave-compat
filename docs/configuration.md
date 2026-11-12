@@ -436,6 +436,8 @@ Each page has one ordered set of purpose groups: Preferences, Fixes, Tuning and 
 
 Forms use one or two columns for explicitly related fields, according to measured control widths. Controls wrap in narrow panes, and numeric and registered text editors retain selection and caret state across reflow. Setting links use measured positions, including the last section when it cannot reach the top. Page position and drafts survive navigation, resizing, details and editor returns. **Status & files** links to the owning pages and provides explicit Reload files.
 
+Text collections share native text inputs with per-entry validation. Ordered lists offer Add, Remove, and move arrows; sets offer no ordering controls. Limits come from the owning schema, including up to 256 Wayfinder unsafe-block entries. Reordering preserves the selected entry and caret. Changes remain drafts until Save; malformed raw values remain available for correction or explicit Reset.
+
 Journal preferences in this overview, startup switches, owned JSON files and embedded TOML fields use **Save changes**, which covers all staged files, including other pages. Separate journal shortcuts retain immediate saving through the same native owner. Reset changes a draft; it does not immediately write. Invalid input remains editable and cannot be saved. Current activation, saved values, and unsaved changes remain distinct; a configured-on adaptation can stay inactive when its dependencies are absent.
 
 | Destination                                           | Editor                            | Application                                          |

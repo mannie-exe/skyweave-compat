@@ -38,7 +38,7 @@ public final class JsonEdits {
     public SettingsBinding binding(String key) {
         var field = field(key);
         if (field == null) throw new IllegalArgumentException("The native codec has no field definition: " + key);
-        return new SettingsBinding(SettingsCatalog.field(definition.filename(), key), field, () -> value(key), value -> set(key, value), this::issues, () -> edited(key), () -> localIssue(key));
+        return new SettingsBinding(SettingsCatalog.field(definition.filename(), key), field, () -> value(key), value -> set(key, value), this::issues, () -> edited(key), () -> localIssue(key), () -> strings(key), field::elementIssue);
     }
     private SettingIssue localIssue(String key) {
         var field = definition.field(key);
@@ -62,8 +62,17 @@ public final class JsonEdits {
     public void reset(String key) { set(key, defaultValue(key)); }
     public List<String> strings(String key) {
         if (kind(key) != Kind.STRINGS) throw new IllegalArgumentException("Not a string list");
-        var array = JsonParser.parseString(value(key)).getAsJsonArray();
-        return array.asList().stream().map(JsonElement::getAsString).toList();
+        return textArray(value(key));
+    }
+    static List<String> textArray(String raw) {
+        try {
+            var wrapper = object("{\"value\":" + raw + "}");
+            var array = wrapper.getAsJsonArray("value");
+            if (wrapper.size() != 1 || array == null || array.asList().stream().anyMatch(item ->
+                    !item.isJsonPrimitive() || !item.getAsJsonPrimitive().isString()))
+                throw new IllegalArgumentException("Expected text entries");
+            return array.asList().stream().map(JsonElement::getAsString).toList();
+        } catch (IOException invalid) { throw new IllegalArgumentException(invalid.getMessage(), invalid); }
     }
     public void strings(String key, List<String> values) { set(key, new Gson().toJson(values)); }
     public boolean dirty() { return session.dirty(); }

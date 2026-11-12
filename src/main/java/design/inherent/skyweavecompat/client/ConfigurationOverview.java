@@ -41,6 +41,8 @@ public final class ConfigurationOverview extends Screen {
     private SettingsPanel navigation, content;
     private Button save;
     private SettingsControls controls;
+    private record FocusRequest(SettingsPanel panel, String key) {}
+    private FocusRequest requestedFocus;
     private record ValidationJob(long after, java.util.function.Supplier<Component> validate) {}
     private final Map<String, ValidationJob> validationJobs = new HashMap<>();
     private net.minecraft.locale.Language language;
@@ -482,7 +484,9 @@ public final class ConfigurationOverview extends Screen {
             if (field.spec().getRange() != null) help = help.copy().append("\n").append(text("bounds", field.spec().getRange().toString()));
             var reset = valueButton(text("reset"), label, 42, () -> { remember(); edits.reset(key); rebuildWidgets(); });
             reset.setTooltip(Tooltip.create(text("default", edits.defaultValue(key))));
-            if (field.choices().isEmpty()) {
+            if (field.definition().kind() == SettingDefinition.Kind.STRINGS) {
+                buildCollection(label, help, edits.binding(key), file, () -> validation(edits));
+            } else if (field.choices().isEmpty()) {
                 content.relatedField(id, relationship(file, key, field.definition()), label, help, controls.field(label, edits.binding(key),
                         () -> validateLater(file, () -> validation(edits)))
                         .toArray(net.minecraft.client.gui.components.AbstractWidget[]::new));
@@ -537,30 +541,22 @@ public final class ConfigurationOverview extends Screen {
                 case BOOLEAN -> content.field(id, label, help, valueButton(on(Boolean.parseBoolean(edits.value(key))), label, 65, () -> {
                     remember(); edits.set(key, Boolean.toString(!Boolean.parseBoolean(edits.value(key)))); rebuildWidgets();
                 }), valueButton(text("reset"), label, 42, () -> { remember(); edits.reset(key); rebuildWidgets(); }));
-                case STRINGS -> {
-                    content.section(id, label); content.row(Component.empty(), help);
-                    var values = new ArrayList<>(edits.strings(key));
-                    int listWidth = Math.max(40, content.fieldWidth() - Math.max(55, font.width(text("remove")) + 12) - 4);
-                    for (int i = 0; i < values.size(); i++) {
-                        final int index = i;
-                        var input = new EditBox(font, 0, 0, listWidth, 20, label.copy().append(" " + (i + 1)));
-                        input.setMaxLength(256); input.setValue(values.get(i)); input.setResponder(value -> {
-                            if (values.get(index).equals(value)) return;
-                            values.set(index, value); edits.strings(key, values); content.summary("validation/" + file, validation(edits));
-                        });
-                        content.field(id + "/" + i, Component.empty(), Component.empty(), input, valueButton(text("remove"), label, 55, () -> {
-                            remember(); values.remove(index); edits.strings(key, values); rebuildWidgets();
-                        }));
-                    }
-                    var add = valueButton(text("add"), label, 65, () -> { remember(); values.add(""); edits.strings(key, values); rebuildWidgets(); });
-                    var field = edits.field(key);
-                    add.active = field == null || field.maximumEntries() < 0 || values.size() < field.maximumEntries();
-                    content.row(Component.empty(), Component.empty(), add, valueButton(text("reset"), label, 42, () -> {
-                        remember(); edits.reset(key); rebuildWidgets();
-                    }));
-                }
+                case STRINGS -> buildCollection(label, help, edits.binding(key), file, () -> validation(edits));
             }
         }
+    }
+    private void buildCollection(Component label, Component help, SettingsBinding binding, String file,
+            java.util.function.Supplier<Component> validation) {
+        String anchor = binding.id().anchor();
+        content.anchorRow(anchor, label, help);
+        var collection = controls.collection(label, binding, content.fieldWidth(), focus -> {
+            remember(); rebuildWidgets();
+            requestedFocus = new FocusRequest(content, focus);
+        }, () -> validateLater(file, validation));
+        for (var row : collection.rows()) content.field(row.id(), Component.empty(), Component.empty(),
+                row.widgets().toArray(net.minecraft.client.gui.components.AbstractWidget[]::new));
+        content.row(anchor + "/actions", Component.empty(), Component.empty(),
+                collection.actions().toArray(net.minecraft.client.gui.components.AbstractWidget[]::new));
     }
     private Component validation(JsonEdits edits) {
         try { edits.candidate(); return Component.empty(); }
@@ -633,6 +629,7 @@ public final class ConfigurationOverview extends Screen {
         else reload.run();
     }
     @Override public void tick() {
+        applyRequestedFocus();
         long now = Util.getMillis();
         var ready = validationJobs.entrySet().stream().filter(entry -> entry.getValue().after <= now).toList();
         for (var entry : ready) {
@@ -658,6 +655,17 @@ public final class ConfigurationOverview extends Screen {
         if (getFocused() == null || !children().contains(getFocused())) super.setInitialFocus();
     }
     @Override public void resize(Minecraft client, int width, int height) { remember(); super.resize(client, width, height); }
+    private void applyRequestedFocus() {
+        var request = requestedFocus; requestedFocus = null;
+        if (request == null || minecraft.screen != this || request.panel() != content) return;
+        setDragging(false); content.setDragging(false);
+        if (getFocused() != content) setFocused(content);
+        content.restoreFocus(request.key());
+    }
+    @Override public boolean keyPressed(int key, int scan, int modifiers) {
+        boolean handled = super.keyPressed(key, scan, modifiers);
+        applyRequestedFocus(); return handled;
+    }
     @Override public boolean mouseClicked(double x, double y, int button) {
         boolean handled = super.mouseClicked(x, y, button);
         // Native dispatch assigns focus after the callback, which may have replaced its widgets.
@@ -678,6 +686,7 @@ public final class ConfigurationOverview extends Screen {
                 }
             }
         }
+        applyRequestedFocus();
         return handled;
     }
     @Override public void onClose() {

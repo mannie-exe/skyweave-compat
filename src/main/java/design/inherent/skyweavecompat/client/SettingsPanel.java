@@ -209,7 +209,7 @@ final class SettingsPanel extends ScrollPanel {
         int actionY = stacked && textHeight > 0 ? y + textHeight + 4 : y + (height - controlHeight) / 2;
         for (int index = 0; index < row.controls.size(); index++) {
             var widget = row.controls.get(index); var at = controlLayout.placements().get(index);
-            widget.setWidth(at.width()); widget.setHeight(at.height());
+            SettingsControls.resize(widget, at.width()); widget.setHeight(at.height());
             positions.add(new Positioned(widget, left + start + at.x(), actionY + at.y(), row.key == null ? null : row.key + "/" + index));
         }
         layout.add(new Layout(row, left, y, height, textWidth, summaryY, stacked)); return height;

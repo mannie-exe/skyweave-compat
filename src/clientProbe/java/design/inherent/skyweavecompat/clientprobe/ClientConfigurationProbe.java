@@ -149,7 +149,21 @@ final class ClientConfigurationProbe {
             if (mc.screen != null) report.addProperty("screenFocusAttached", mc.screen.getFocused() == null || mc.screen.children().contains(mc.screen.getFocused()));
             var rows = new JsonArray();
             if (mc.screen != null) for (var widget : widgets(mc.screen)) {
-                var row = new JsonObject();row.addProperty("label", widget.getMessage().getString());row.addProperty("x",widget.getX());row.addProperty("y",widget.getY());row.addProperty("width",widget.getWidth());row.addProperty("height",widget.getHeight());row.addProperty("active",widget.active);row.addProperty("focused",widget.isFocused());row.addProperty("font",widget.getMessage().getStyle().getFont().toString());if(widget instanceof net.minecraft.client.gui.components.EditBox input){row.addProperty("value",input.getValue());row.addProperty("selection",input.getHighlighted());row.addProperty("cursor",input.getCursorPosition());row.addProperty("identity",System.identityHashCode(input));}rows.add(row);
+                var row = new JsonObject();
+                row.addProperty("label", widget.getMessage().getString());
+                row.addProperty("x", widget.getX()); row.addProperty("y", widget.getY());
+                row.addProperty("width", widget.getWidth()); row.addProperty("height", widget.getHeight());
+                row.addProperty("active", widget.active); row.addProperty("focused", widget.isFocused());
+                row.addProperty("font", widget.getMessage().getStyle().getFont().toString());
+                if (widget instanceof net.minecraft.client.gui.components.EditBox input) {
+                    row.addProperty("value", input.getValue()); row.addProperty("selection", input.getHighlighted());
+                    row.addProperty("cursor", input.getCursorPosition()); row.addProperty("identity", System.identityHashCode(input));
+                    row.addProperty("innerWidth", input.getInnerWidth()); row.addProperty("textWidth", mc.font.width(input.getValue()));
+                    // Read-only fixture observation; product code uses only the native public caret API.
+                    var display = net.minecraft.client.gui.components.EditBox.class.getDeclaredField("displayPos");
+                    display.setAccessible(true); row.addProperty("displayStart", display.getInt(input));
+                }
+                rows.add(row);
             }
             report.add("widgets", rows);
             if (mc.screen instanceof ConfigurationOverview overview) {
