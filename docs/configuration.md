@@ -434,20 +434,20 @@ The selected menu destination and its setting title are yellow. Selecting anothe
 
 Each page has one ordered set of purpose groups: Preferences, Fixes, Tuning and Shader workspace where applicable. The sidebar and content follow the same order; empty groups are omitted. Thin outlines group related controls without filled cards. Mod pages are sorted by their localized names within each system.
 
-Forms use one or two columns according to available width. Setting links use measured positions, including the last section when it cannot reach the top. Page position and drafts survive navigation, resizing, details and editor returns. **Status & files** links to the owning pages and provides explicit Reload files.
+Forms use one or two columns for explicitly related fields, according to measured control widths. Controls wrap in narrow panes, and numeric and registered text editors retain selection and caret state across reflow. Setting links use measured positions, including the last section when it cannot reach the top. Page position and drafts survive navigation, resizing, details and editor returns. **Status & files** links to the owning pages and provides explicit Reload files.
 
-Journal preferences save immediately through their existing helpers. Startup switches, owned JSON files and embedded TOML fields use **Save changes**, which covers all staged files, including other pages. Reset changes a draft; it does not immediately write. Invalid input remains editable and cannot be saved. Current activation, saved values, and unsaved changes remain distinct; a configured-on adaptation can stay inactive when its dependencies are absent.
+Journal preferences in this overview, startup switches, owned JSON files and embedded TOML fields use **Save changes**, which covers all staged files, including other pages. Separate journal shortcuts retain immediate saving through the same native owner. Reset changes a draft; it does not immediately write. Invalid input remains editable and cannot be saved. Current activation, saved values, and unsaved changes remain distinct; a configured-on adaptation can stay inactive when its dependencies are absent.
 
-| Destination                                           | Editor                            | Application                         |
-| ----------------------------------------------------- | --------------------------------- | ----------------------------------- |
-| Adaptation switches                                   | Staged switches and Details       | Full game/server restart            |
-| Journal preferences                                   | Shared immediate controls         | Immediate                           |
-| Village distances                                     | Embedded staged fields            | Next local server start             |
-| Island geometry, interiors, water, oceans, structures | Typed numeric/boolean forms       | Game/server restart and a new world |
-| BlueMap adaptation                                    | Typed fields and map-ID list      | Owning server's BlueMap reload      |
-| Redstone Link GUI client/common                       | Embedded staged enum/range fields | Native timing, after Save           |
+| Destination                                           | Editor                            | Application                                          |
+| ----------------------------------------------------- | --------------------------------- | ---------------------------------------------------- |
+| Adaptation switches                                   | Staged switches and Details       | Full game/server restart                             |
+| Journal preferences                                   | Embedded staged preferences       | Live after Save; separate shortcuts save immediately |
+| Village distances                                     | Embedded staged fields            | Next local server start                              |
+| Island geometry, interiors, water, oceans, structures | Typed numeric/boolean forms       | Game/server restart and a new world                  |
+| BlueMap adaptation                                    | Typed fields and map-ID list      | Owning server's BlueMap reload                       |
+| Redstone Link GUI client/common                       | Embedded staged enum/range fields | Native timing, after Save                            |
 
-Small registered forms are embedded in their owning page. Native specs still validate, serialize and apply them; editing alone does not change runtime values. Application timing is shown per field. Preferences is a navigation purpose, not a promise of immediate saving. Journal preferences keep their existing immediate behavior and are not undone by discarding other drafts. Raw file access lives in Status & files, and opening a page never creates missing configuration. Single-field files do not add a redundant file heading or menu item.
+Small registered forms are embedded in their owning page. Native specs still validate, serialize and apply them; editing alone does not change runtime values. Application timing is shown per field. Preferences is a navigation purpose, not a promise of immediate saving. An immediate journal shortcut changed elsewhere is an external edit; a stale overview draft must be reloaded or reviewed before saving. Raw file access lives in Status & files, and opening a page never creates missing configuration. Single-field files do not add a redundant file heading or menu item.
 
 Owned profile and startup-switch files must be regular UTF-8 files of at most 128 KiB. Startup and editor reads enforce the same limits; duplicate JSON keys are rejected rather than choosing one value.
 

@@ -59,6 +59,25 @@ class RegisteredEditsTest {
         assertTrue(Files.readString(file).contains("outside editor"));
         edits.reload(); assertFalse(edits.dirty()); assertEquals("FIRST", edits.value("mode"));
     }
+    @Test void fieldMetadataAndIssuesUseNativeBoundsInsteadOfAnIndependentRange() throws Exception {
+        var builder = new ModConfigSpec.Builder(); builder.defineInRange("width", 2.0, .25, 4.0);
+        var spec = builder.build(); var file = write("createredstonelinkgui-client.toml", spec);
+        var edits = new RegisteredEdits(directory, file.getFileName().toString(), spec);
+        var field = edits.binding("width");
+        assertEquals(new java.math.BigDecimal("0.25"), field.definition().minimum());
+        assertEquals(new java.math.BigDecimal("4.0"), field.definition().maximum());
+        field.edit().accept("4.1");
+        assertEquals("width", field.issue().field()); assertThrows(Exception.class, edits::candidate);
+        assertThrows(SettingIssue.InvalidValue.class, () -> field.definition().parse("4.1"));
+        field.edit().accept("3.75"); assertNull(field.issue());
+        assertEquals(3.75, edits.candidate().get("width"));
+    }
+    @Test void operationalAndClientJsonChangesDoNotRequireANewWorld() {
+        assertFalse(SettingsCatalog.changesGeneration("skyweave_compat-wayfinder.json", java.util.List.of("cooldownTicks")));
+        assertFalse(SettingsCatalog.changesGeneration("skyweave_compat-search.json", java.util.List.of("timeLimitSeconds")));
+        assertFalse(SettingsCatalog.changesGeneration("skyweave_compat-hoofprint.json", java.util.List.of("zoomStep")));
+        assertTrue(SettingsCatalog.changesGeneration("skyweave_compat-oceans.json", java.util.List.of("admissionChance")));
+    }
 
     private Path write(String name, ModConfigSpec spec) throws Exception {
         var values = CommentedConfig.inMemory(); spec.correct(values);

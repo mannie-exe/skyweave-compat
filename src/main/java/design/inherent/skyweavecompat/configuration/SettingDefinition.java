@@ -9,11 +9,15 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /** A scalar or text collection definition; contains neither widgets nor a file writer. */
-public record SettingDefinition(String key, Class<?> valueType, Object defaultValue, SettingSpec spec) {
+public record SettingDefinition(String key, Class<?> valueType, Object defaultValue, SettingConstraints constraints) {
     private static final Gson JSON = new Gson();
     public enum Kind { BOOLEAN, INTEGER, LONG, DECIMAL, STRING, CHOICE, STRINGS }
     public enum InputState { EMPTY, INCOMPLETE, INVALID, VALID }
     public record Input(InputState state, Object value, SettingIssue issue) {}
+
+    public SettingDefinition(String key, Class<?> valueType, Object defaultValue, SettingSpec spec) {
+        this(key, valueType, defaultValue, SettingConstraints.from(spec));
+    }
 
     public SettingDefinition {
         if (defaultValue instanceof java.util.Collection<?> values && values.stream().anyMatch(java.util.Objects::isNull))
@@ -38,13 +42,29 @@ public record SettingDefinition(String key, Class<?> valueType, Object defaultVa
     public List<String> choices() {
         return kind() == Kind.CHOICE ? Arrays.stream(valueType.getEnumConstants()).map(value -> ((Enum<?>) value).name()).toList() : List.of();
     }
-    public BigDecimal minimum() { return spec == null || spec.minimum().isEmpty() ? null : new BigDecimal(spec.minimum()); }
-    public BigDecimal maximum() { return spec == null || spec.maximum().isEmpty() ? null : new BigDecimal(spec.maximum()); }
-    public BigDecimal step() { return spec == null || spec.step().isEmpty() ? BigDecimal.ONE : new BigDecimal(spec.step()); }
-    public String unit() { return spec == null ? "" : spec.unit(); }
-    public String group() { return spec == null ? "" : spec.group(); }
-    public int maximumEntries() { return spec == null ? -1 : spec.maximumEntries(); }
+    public BigDecimal minimum() { return constraints.minimum(); }
+    public BigDecimal maximum() { return constraints.maximum(); }
+    public BigDecimal step() { return constraints.step(); }
+    public String unit() { return constraints.unit(); }
+    public String group() { return constraints.group(); }
+    public int maximumEntries() { return constraints.maximumEntries(); }
     public String defaultText() { return text(defaultValue); }
+    public String adjust(String raw, int direction) {
+        if (kind() != Kind.INTEGER && kind() != Kind.LONG && kind() != Kind.DECIMAL)
+            throw new IllegalArgumentException("Not a numeric setting");
+        if (direction != -1 && direction != 1) throw new IllegalArgumentException("Expected a single increment");
+        var current = new BigDecimal(parse(raw).toString());
+        long scale = Math.max(0L, Math.max(current.scale(), step().scale()));
+        long whole = Math.max(Math.max(0L, (long) current.precision() - current.scale()),
+                Math.max(0L, (long) step().precision() - step().scale())) + 1;
+        // A compact exponent must not expand into an unbounded integer allocation on a button press.
+        if (scale + whole + 2 > ConfigFile.LIMIT) fail("precision", "Stepped number exceeds configuration size limits");
+        var next = current.add(step().multiply(BigDecimal.valueOf(direction)));
+        if (minimum() != null && next.compareTo(minimum()) < 0) next = minimum();
+        if (maximum() != null && next.compareTo(maximum()) > 0) next = maximum();
+        if (minimum() != null && constraints.exclusiveMinimum() && next.compareTo(minimum()) <= 0) return raw;
+        String text = next.stripTrailingZeros().toPlainString(); parse(text); return text;
+    }
     public static String text(Object value) {
         return value instanceof Enum<?> item ? item.name() : value instanceof java.util.Collection<?> ? JSON.toJson(value) : String.valueOf(value);
     }
@@ -87,7 +107,12 @@ public record SettingDefinition(String key, Class<?> valueType, Object defaultVa
                     yield array.asList().stream().map(JsonElement::getAsString).toList();
                 }
             };
-            validate(value);
+            Object nativeValue = value;
+            if (value instanceof BigDecimal decimal && kind() == Kind.DECIMAL) {
+                if (valueType == float.class || valueType == Float.class) nativeValue = Float.valueOf(decimal.floatValue());
+                else nativeValue = Double.valueOf(decimal.doubleValue());
+            }
+            validate(nativeValue);
             return value;
         } catch (SettingIssue.InvalidValue failure) { throw failure; }
         catch (RuntimeException | java.io.IOException invalid) { throw new SettingIssue.InvalidValue(issue("type", "Invalid " + kind().name().toLowerCase(java.util.Locale.ROOT) + " value for " + key)); }
@@ -98,14 +123,14 @@ public record SettingDefinition(String key, Class<?> valueType, Object defaultVa
             final BigDecimal decimal;
             try { decimal = new BigDecimal(number.toString()); }
             catch (NumberFormatException invalid) { fail("finite", "Expected a finite number for " + key); return; }
-            if (minimum() != null && (decimal.compareTo(minimum()) < 0 || spec.exclusiveMinimum() && decimal.compareTo(minimum()) == 0))
-                fail("minimum", key + " must be " + (spec.exclusiveMinimum() ? "greater than " : "at least ") + minimum());
+            if (minimum() != null && (decimal.compareTo(minimum()) < 0 || constraints.exclusiveMinimum() && decimal.compareTo(minimum()) == 0))
+                fail("minimum", key + " must be " + (constraints.exclusiveMinimum() ? "greater than " : "at least ") + minimum());
             if (maximum() != null && decimal.compareTo(maximum()) > 0) fail("maximum", key + " must be at most " + maximum());
         }
         if (value instanceof String text) validateText(text);
         if (value instanceof java.util.Collection<?> values) {
             if (maximumEntries() >= 0 && values.size() > maximumEntries()) fail("length", key + " allows at most " + maximumEntries() + " entries");
-            if ((valueType == Set.class || spec != null && spec.unique()) && values.stream().distinct().count() != values.size()) fail("unique", "Entries must be unique for " + key);
+            if ((valueType == Set.class || constraints.unique()) && values.stream().distinct().count() != values.size()) fail("unique", "Entries must be unique for " + key);
             for (Object item : values) {
                 if (!(item instanceof String)) fail("type", "Expected text entries for " + key);
                 validateText((String) item);
@@ -113,8 +138,8 @@ public record SettingDefinition(String key, Class<?> valueType, Object defaultVa
         }
     }
     private void validateText(String text) {
-        if (spec != null && spec.maximumLength() >= 0 && text.length() > spec.maximumLength()) fail("length", "Text is too long for " + key);
-        if (spec != null && !spec.pattern().isEmpty() && !Pattern.matches(spec.pattern(), text)) fail("pattern", "Invalid identifier/text for " + key);
+        if (constraints.maximumLength() >= 0 && text.length() > constraints.maximumLength()) fail("length", "Text is too long for " + key);
+        if (!constraints.pattern().isEmpty() && !Pattern.matches(constraints.pattern(), text)) fail("pattern", "Invalid identifier/text for " + key);
     }
     private SettingIssue issue(String code, String message) { return new SettingIssue(code, key, List.of(), message); }
     private void fail(String code, String message) { throw new SettingIssue.InvalidValue(issue(code, message)); }

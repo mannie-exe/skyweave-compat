@@ -25,6 +25,19 @@ public final class RegisteredEdits {
             if (defaultValue() instanceof Enum<?> value) return java.util.Arrays.stream(value.getDeclaringClass().getEnumConstants()).map(Enum::name).toList();
             return List.of();
         }
+        public SettingDefinition definition() {
+            Object initial = defaultValue();
+            Class<?> type = initial instanceof List<?> ? List.class : initial instanceof Enum<?> value ? value.getDeclaringClass() : initial.getClass();
+            var range = spec().getRange();
+            Number minimum = range != null && range.getMin() instanceof Number value ? value : null;
+            Number maximum = range != null && range.getMax() instanceof Number value ? value : null;
+            var constraints = SettingConstraints.nativeRange(minimum, maximum, initial instanceof Integer || initial instanceof Long,
+                    String.join(".", binding.getPath().subList(0, binding.getPath().size() - 1)));
+            if (spec() instanceof ModConfigSpec.ListValueSpec list && list.getSizeRange() != null)
+                constraints = new SettingConstraints(constraints.minimum(), constraints.maximum(), false, constraints.step(), "", constraints.group(),
+                        list.getSizeRange().getMax(), -1, false, "");
+            return new SettingDefinition(key(), type, initial, constraints);
+        }
     }
     private final String filename;
     private final ConfigFile file;
@@ -67,6 +80,30 @@ public final class RegisteredEdits {
     public java.util.Set<String> changedKeys() { return session.changes().keySet(); }
     public void discard() { session.discard(); }
     public String warning() { return warning; }
+    public SettingsBinding binding(String key) {
+        return new SettingsBinding(field(key).definition(), () -> value(key), value -> set(key, value), this::issues,
+                () -> session.edited(key), () -> localIssue(key));
+    }
+    private SettingIssue localIssue(String key) {
+        var field = field(key);
+        try {
+            var value = convert(field, value(key));
+            boolean valid = field.spec().test(value);
+            if (value instanceof List<?> values && field.spec() instanceof ModConfigSpec.ListValueSpec list)
+                valid &= (list.getSizeRange() == null || list.getSizeRange().test(values.size())) && values.stream().allMatch(list::testElement);
+            if (!valid) throw new IllegalArgumentException("Value does not satisfy its registered specification");
+            return null;
+        } catch (RuntimeException invalid) { return new SettingIssue("native_value", key, List.of(), String.valueOf(invalid.getMessage())); }
+    }
+    public List<SettingIssue> issues() {
+        var issues = new ArrayList<SettingIssue>();
+        session.changes().forEach((key, text) -> {
+            var issue = localIssue(key); if (issue != null) issues.add(issue);
+        });
+        if (issues.isEmpty()) try { candidate(); }
+        catch (Exception invalid) { issues.add(new SettingIssue("document", "", List.of(), String.valueOf(invalid.getMessage()))); }
+        return List.copyOf(issues);
+    }
 
     public void reload() throws IOException {
         String text = file.read(); CommentedConfig parsed = parse(text);

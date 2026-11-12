@@ -100,6 +100,9 @@ public final class SettingsCatalog {
         return FILES.stream().filter(entry -> entry.filename().equals(filename))
                 .findFirst().map(entry -> entry.timing(field)).orElse(Timing.GAME_RESTART);
     }
+    public static boolean changesGeneration(String filename, java.util.Collection<String> fields) {
+        return fields.stream().anyMatch(field -> timing(filename, field) == Timing.NEW_WORLD);
+    }
     public static Group group(Feature feature) {
         return switch (feature) {
             case BETTER_VILLAGE_CONFIG -> Group.BETTER_VILLAGE;

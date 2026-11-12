@@ -95,4 +95,29 @@ class SettingDefinitionTest {
         var issue = assertThrows(SettingIssue.InvalidValue.class, () -> definition.validate().accept(value.toString()));
         assertEquals("unique", issue.issue().code()); assertEquals("maps", issue.issue().field());
     }
+    @Test void explicitSteppingClampsAtBoundsWithoutClampingInvalidAuthoredInput() {
+        var field = JsonSettings.find(WayfinderSettings.FILE).field("placementLookupHeight");
+        assertEquals("64", field.adjust("64", 1)); assertEquals("0", field.adjust("0", -1));
+        assertThrows(SettingIssue.InvalidValue.class, () -> field.adjust("65", -1));
+        assertThrows(SettingIssue.InvalidValue.class, () -> field.adjust("-", 1));
+        var decimal = JsonSettings.find("skyweave_compat-climate.json").field("bottomDepth");
+        assertEquals(".01", decimal.adjust(".01", -1));
+        assertEquals("0.11", decimal.adjust(".01", 1));
+        var probability = JsonSettings.find("skyweave_compat-shapes.json").field("outline.aspectChance");
+        var hugeScale = assertThrows(SettingIssue.InvalidValue.class, () -> probability.adjust("1e-1000000000", 1));
+        assertEquals("precision", hugeScale.issue().code());
+    }
+    @Test void decimalBoundsUseTheNativeTypeWhileRetainingAuthoredPrecision() throws Exception {
+        var definition = JsonSettings.find("skyweave_compat-shapes.json");
+        Files.writeString(directory.resolve(definition.filename()), definition.defaults());
+        var edits = new JsonEdits(directory, definition);
+        String boundary = "0.100000000000000001";
+        edits.set("fractures.deepDarkChance", boundary);
+        assertTrue(edits.issues().isEmpty());
+        assertEquals(.1, design.inherent.skyweavecompat.terrain.ShapeConfiguration.parse(edits.candidate()).fractures().deepDarkChance());
+        assertEquals(boundary, edits.value("fractures.deepDarkChance"));
+        edits.set("fractures.deepDarkChance", "0.1000000000000001");
+        assertEquals("maximum", edits.issues().getFirst().code());
+        assertThrows(SettingIssue.InvalidValue.class, edits::candidate);
+    }
 }

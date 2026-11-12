@@ -35,6 +35,15 @@ public final class JsonEdits {
     public JsonSettings.Definition definition() { return definition; }
     public List<String> keys() { return keys; }
     public SettingDefinition field(String key) { kind(key); return definition.field(key); }
+    public SettingsBinding binding(String key) {
+        var field = field(key);
+        if (field == null) throw new IllegalArgumentException("The native codec has no field definition: " + key);
+        return new SettingsBinding(field, () -> value(key), value -> set(key, value), this::issues, () -> edited(key), () -> localIssue(key));
+    }
+    private SettingIssue localIssue(String key) {
+        var field = definition.field(key);
+        return field == null ? null : field.inspect(value(key)).issue();
+    }
     public Kind kind(String key) {
         JsonElement value = at(saved, key);
         if (value == null) throw new IllegalArgumentException("Unknown setting: " + key);
@@ -59,6 +68,7 @@ public final class JsonEdits {
     public void strings(String key, List<String> values) { set(key, new Gson().toJson(values)); }
     public boolean dirty() { return session.dirty(); }
     public boolean edited(String key) { return session.edited(key); }
+    public java.util.Set<String> changedKeys() { return session.changes().keySet(); }
     public void discard() { session.discard(); }
     public void reload() throws IOException {
         String current = file.read();
