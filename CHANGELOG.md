@@ -2,6 +2,12 @@
 
 Generated from Git history. Player-facing release summaries are in [release notes](RELEASE_NOTES.md).
 
+## v0.33.0 · 2026-11-12
+
+### Features
+
+- **terrain:** Unify island climate and village support ([b6ba98a](https://github.com/mannie-exe/skyweave-compat/commit/b6ba98a55c4641e4144be9fe81de627cf47f16b5))
+
 ## v0.32.0 · 2026-11-10
 
 ### Fixes
