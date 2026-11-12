@@ -218,10 +218,10 @@ public final class ConfigurationOverview extends Screen {
                     if (inline == null || inline.fields().size() != 1)
                         entries.add(new Destination(item.id(), Component.translatable(definition.labelKey()), Component.translatable(definition.summaryKey())));
                     var edits = json.get(definition.filename());
-                    if (edits != null) for (String key : edits.keys()) entries.add(new Destination("field/" + definition.filename() + "/" + key,
+                    if (edits != null) for (String key : edits.keys()) entries.add(new Destination(definition.field(key).anchor(),
                             fieldName(edits, key), text("field." + edits.definition().help() + "." + key + ".help")));
                     var nativeEdits = toml.get(definition.filename());
-                    if (nativeEdits != null) for (var field : nativeEdits.fields()) entries.add(new Destination("field/" + definition.filename() + "/" + field.key(),
+                    if (nativeEdits != null) for (var field : nativeEdits.fields()) entries.add(new Destination(definition.field(field.key()).anchor(),
                             registeredName(definition.filename(), field), Component.literal(field.spec().getComment() == null ? field.key() : field.spec().getComment())));
                 } else if (item instanceof SettingsCatalog.ShaderWorkspace) entries.add(new Destination(item.id(), text("shaders.rebuild"), text("shaders.rebuild_help")));
             }
@@ -379,7 +379,7 @@ public final class ConfigurationOverview extends Screen {
         if (FeatureSelection.prerequisite(feature) != null) content.row(text("prerequisite", featureName(FeatureSelection.prerequisite(feature))), Component.empty());
         var copy = valueButton(text("copy_key"), featureName(feature), 78, () -> minecraft.keyboardHandler.setClipboard(feature.key));
         content.row(text("key", feature.key), Component.empty(), copy);
-        addFile(SettingsCatalog.FILES.getFirst());
+        addFile(SettingsCatalog.file(SettingsCatalog.entry(feature).filename()));
     }
     private void buildStatus() {
         content.section("files", text("status_files"));
@@ -388,7 +388,7 @@ public final class ConfigurationOverview extends Screen {
         folder();
         for (var file : SettingsCatalog.FILES) {
             if (file.group() == null) addFile(file);
-            else content.row("file-link/" + file.filename(), Component.literal(file.filename()),
+            else content.row("file-link/" + file.id(), Component.literal(file.filename()),
                     text("section_title", category(file.group().category), modName(file.group())),
                     valueButton(text("view_section"), Component.literal(file.filename()), 90, () -> navigate(SettingsCatalog.page(file.group()), fileAnchor(file))), fileButton(file));
         }
@@ -396,7 +396,7 @@ public final class ConfigurationOverview extends Screen {
     private String fileAnchor(SettingsCatalog.FileEntry file) {
         if (!file.help().equals("journal")) {
             var edits = toml.get(file.filename());
-            return edits != null && edits.fields().size() == 1 ? "field/" + file.filename() + "/" + edits.fields().getFirst().key() : "file/" + file.filename();
+            return edits != null && edits.fields().size() == 1 ? file.field(edits.fields().getFirst().key()).anchor() : "file/" + file.id();
         }
         var owner = SettingsCatalog.page(file.group());
         return sections(owner).stream().filter(section -> section.kind() == SettingsCatalog.SectionKind.PREFERENCES)
@@ -415,7 +415,7 @@ public final class ConfigurationOverview extends Screen {
         Component label = file.group() == null || detail != null ? Component.literal(file.filename()) : Component.translatable(file.labelKey());
         var edits = json.get(file.filename());
         if (JsonSettings.find(file.filename()) != null && detail == null) {
-            content.anchorRow("file/" + file.filename(), label, help);
+            content.anchorRow("file/" + file.id(), label, help);
             if (unavailable.containsKey(file.filename())) {
                 content.row(text("load_failed"), Component.literal(unavailable.get(file.filename())).append(edits == null ? Component.empty() : text("retained_snapshot")));
                 if (edits == null) return;
@@ -424,10 +424,10 @@ public final class ConfigurationOverview extends Screen {
         } else if (file.filename().endsWith(".toml") && detail == null) {
             var nativeEdits = toml.get(file.filename());
             if (nativeEdits == null || nativeEdits.fields().size() != 1)
-                content.anchorRow("file/" + file.filename(), label, Component.translatable(file.summaryKey()));
+                content.anchorRow("file/" + file.id(), label, Component.translatable(file.summaryKey()));
             if (unavailable.containsKey(file.filename())) content.row(text("load_failed"), Component.literal(unavailable.get(file.filename())));
             if (nativeEdits != null) buildRegistered(nativeEdits);
-        } else content.anchorRow("file/" + file.filename(), label, help, open);
+        } else content.anchorRow("file/" + file.id(), label, help, open);
     }
     private static ModConfig registered(String filename) {
         return java.util.stream.Stream.of(ModConfig.Type.CLIENT, ModConfig.Type.COMMON).flatMap(type -> ModConfigs.getConfigSet(type).stream())
@@ -468,7 +468,7 @@ public final class ConfigurationOverview extends Screen {
                 content.heading(Component.translatableWithFallback("skyweave_compat.settings.registered_group." + group, group));
                 lastGroup = group;
             }
-            String key = field.key(), id = "field/" + file + "/" + key;
+            String key = field.key(), id = SettingsCatalog.field(file, key).anchor();
             Component label = registeredName(file, field);
             String description = field.spec().getComment();
             var timing = switch (field.spec().restartType()) {
@@ -483,7 +483,7 @@ public final class ConfigurationOverview extends Screen {
             var reset = valueButton(text("reset"), label, 42, () -> { remember(); edits.reset(key); rebuildWidgets(); });
             reset.setTooltip(Tooltip.create(text("default", edits.defaultValue(key))));
             if (field.choices().isEmpty()) {
-                content.relatedField(id, relationship(file, key, field.definition()), label, help, controls.field(id, label, edits.binding(key),
+                content.relatedField(id, relationship(file, key, field.definition()), label, help, controls.field(label, edits.binding(key),
                         () -> validateLater(file, () -> validation(edits)))
                         .toArray(net.minecraft.client.gui.components.AbstractWidget[]::new));
             } else {
@@ -508,16 +508,16 @@ public final class ConfigurationOverview extends Screen {
         for (String key : edits.keys()) {
             String nextGroup = key.contains(".") ? key.substring(0, key.indexOf('.')) : "";
             if (!nextGroup.equals(group) && !nextGroup.isEmpty())
-                content.section("json-group/" + file + "/" + nextGroup,
+                content.section("json-group/" + SettingsCatalog.file(file).id() + "/" + nextGroup,
                         text("field." + edits.definition().help() + "." + nextGroup));
             group = nextGroup;
-            String id = "field/" + file + "/" + key;
+            String id = SettingsCatalog.field(file, key).anchor();
             Component label = fieldName(edits, key);
             Component help = text("field." + edits.definition().help() + "." + key + ".help");
             switch (edits.kind(key)) {
                 case NUMBER, STRING -> {
                     if (edits.field(key) != null) {
-                        content.relatedField(id, relationship(file, key, edits.field(key)), label, withUnits(help, edits.field(key)), controls.field(id, label, edits.binding(key),
+                        content.relatedField(id, relationship(file, key, edits.field(key)), label, withUnits(help, edits.field(key)), controls.field(label, edits.binding(key),
                                 () -> validateLater(file, () -> validation(edits)))
                                 .toArray(net.minecraft.client.gui.components.AbstractWidget[]::new));
                         break;

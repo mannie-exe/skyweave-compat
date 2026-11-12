@@ -20,6 +20,8 @@ A clicked destination uses vanilla `ChatFormatting.YELLOW` in the navigation and
 
 Native pointer dispatch assigns focus after invoking a button callback. A callback can rebuild the widgets, leaving focus on a detached control. The overview repairs that root ownership after dispatch. Preserve this distinction: a widget's focused flag alone does not establish keyboard routing. `ClientResourceRevision` invalidates measurements after resource/font reloads without changing gameplay state.
 
+Document and field identity come from `SettingsCatalog.FileEntry.id` and `SettingId`, independently of the trusted filename, localization key, page, or position. JSON/registered bindings expose this same identity; navigation anchors and retained scalar controls use it. One document can move between pages without inventing another owner. Backend path lookup still uses the admitted catalog. A well-formed ID alone grants no permission and does not admit an arbitrary file.
+
 ## File ownership
 
 | Owner                        | Files and authority                                                                                           |

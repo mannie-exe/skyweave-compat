@@ -38,7 +38,7 @@ public final class JsonEdits {
     public SettingsBinding binding(String key) {
         var field = field(key);
         if (field == null) throw new IllegalArgumentException("The native codec has no field definition: " + key);
-        return new SettingsBinding(field, () -> value(key), value -> set(key, value), this::issues, () -> edited(key), () -> localIssue(key));
+        return new SettingsBinding(SettingsCatalog.field(definition.filename(), key), field, () -> value(key), value -> set(key, value), this::issues, () -> edited(key), () -> localIssue(key));
     }
     private SettingIssue localIssue(String key) {
         var field = definition.field(key);

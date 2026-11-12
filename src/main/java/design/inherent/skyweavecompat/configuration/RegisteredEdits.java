@@ -81,7 +81,7 @@ public final class RegisteredEdits {
     public void discard() { session.discard(); }
     public String warning() { return warning; }
     public SettingsBinding binding(String key) {
-        return new SettingsBinding(field(key).definition(), () -> value(key), value -> set(key, value), this::issues,
+        return new SettingsBinding(SettingsCatalog.field(filename, key), field(key).definition(), () -> value(key), value -> set(key, value), this::issues,
                 () -> session.edited(key), () -> localIssue(key));
     }
     private SettingIssue localIssue(String key) {

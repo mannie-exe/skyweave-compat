@@ -64,7 +64,7 @@ public final class SettingsCatalog {
     public sealed interface Item permits Fix, Preference, File, ShaderWorkspace { String id(); }
     public record Fix(Feature feature) implements Item { public String id() { return "feature/" + feature.key; } }
     public record Preference(String key) implements Item { public String id() { return "preference/" + key; } }
-    public record File(FileEntry entry) implements Item { public String id() { return "file/" + entry.filename(); } }
+    public record File(FileEntry entry) implements Item { public String id() { return "file/" + entry.id(); } }
     public record ShaderWorkspace() implements Item { public String id() { return "shaders/rebuild"; } }
     public static List<Page> pages(Category category) {
         return groups(category).stream().map(group -> group.label).distinct()
@@ -78,8 +78,12 @@ public final class SettingsCatalog {
         return new FeatureEntry(feature, group(feature), "skyweave_compat.configuration.feature." + feature.key,
                 "skyweave_compat.settings.summary." + feature.key, FeatureSettings.FILE, Timing.GAME_RESTART);
     }
-    public record FileEntry(String filename, Group group, String help, List<Feature> owners, SectionKind section) {
-        public FileEntry { owners = List.copyOf(owners); }
+    public record FileEntry(String filename, String id, Group group, String help, List<Feature> owners, SectionKind section) {
+        public FileEntry {
+            owners = List.copyOf(owners);
+            SettingId.validateDocument(id);
+        }
+        public SettingId field(String key) { return new SettingId(id, key); }
         public String labelKey() { return "skyweave_compat.settings.file." + help + ".title"; }
         public String summaryKey() { return "skyweave_compat.settings.file." + help; }
         public Timing timing() {
@@ -165,24 +169,35 @@ public final class SettingsCatalog {
         return Arrays.stream(Group.values()).filter(group -> group.category == category).toList();
     }
     public static final List<FileEntry> FILES = List.of(
-            new FileEntry("skyweave_compat-wayfinder.json", Group.NAVIGATION, "wayfinder", List.of(Feature.WAYFINDER), SectionKind.TUNING),
-            new FileEntry("skyweave_compat-wayfinder-client.toml", Group.NAVIGATION, "wayfinder_client", List.of(Feature.WAYFINDER), SectionKind.PREFERENCES),
-            new FileEntry("skyweave_compat-hoofprint.json", Group.HOOFPRINT, "hoofprint_zoom", List.of(Feature.HOOFPRINT_ZOOM), SectionKind.PREFERENCES),
-            new FileEntry(FeatureSettings.FILE, null, "startup", List.of(), SectionKind.FIXES),
-            new FileEntry("createredstonelinkgui-client.toml", Group.GUI_CLIENT, "link_gui_client", List.of(Feature.LINK_GUI_INTERACTIONS), SectionKind.PREFERENCES),
-            new FileEntry("createredstonelinkgui-common.toml", Group.LINK_GUI, "link_gui_common", List.of(Feature.LINK_GUI_RELOCATION), SectionKind.TUNING),
-            new FileEntry("skyweave_compat-journal-client.toml", Group.JOURNAL, "journal", List.of(Feature.QUESTLOG_INTERFACE, Feature.QUESTLOG_NOTIFICATIONS), SectionKind.PREFERENCES),
-            new FileEntry("skyweave_compat-common.toml", Group.VILLAGES, "villages", List.of(Feature.VILLAGE_CLEARANCE, Feature.VILLAGE_PLACEMENT), SectionKind.TUNING),
-            new FileEntry("skyweave_compat-generation.json", Group.TERRAIN, "generation", List.of(Feature.TERRAIN), SectionKind.TUNING),
-            new FileEntry("skyweave_compat-shapes.json", Group.TERRAIN, "shapes", List.of(Feature.TERRAIN), SectionKind.TUNING),
-            new FileEntry("skyweave_compat-search.json", Group.TERRAIN, "structure_search", List.of(Feature.TERRAIN), SectionKind.TUNING),
-            new FileEntry("skyweave_compat-interiors.json", Group.TERRAIN, "interiors", List.of(Feature.TERRAIN), SectionKind.TUNING),
-            new FileEntry("skyweave_compat-climate.json", Group.TERRAIN, "climate", List.of(Feature.CLIMATE, Feature.CAVE_BIOMES), SectionKind.TUNING),
-            new FileEntry("skyweave_compat-rivers.json", Group.TERRAIN, "rivers", List.of(Feature.TERRAIN), SectionKind.TUNING),
-            new FileEntry("dynamicwaters-common.toml", Group.WATERSHEDS, "watersheds", List.of(Feature.DYNAMIC_WATERS), SectionKind.TUNING),
-            new FileEntry("skyweave_compat-oceans.json", Group.TERRAIN, "oceans", List.of(Feature.TERRAIN), SectionKind.TUNING),
-            new FileEntry("skyweave_compat-structures.json", Group.TERRAIN, "structures", List.of(Feature.STRUCTURE_DISTRIBUTION), SectionKind.TUNING),
-            new FileEntry("skyweave_compat-ancient-cities.json", Group.TERRAIN, "ancient_cities", List.of(Feature.ANCIENT_CITIES), SectionKind.TUNING),
-            new FileEntry("skyweave_compat-bluemap.json", Group.BLUEMAP, "bluemap", List.of(Feature.BLUEMAP), SectionKind.TUNING));
+            new FileEntry("skyweave_compat-wayfinder.json", "skyweave_compat:wayfinder", Group.NAVIGATION, "wayfinder", List.of(Feature.WAYFINDER), SectionKind.TUNING),
+            new FileEntry("skyweave_compat-wayfinder-client.toml", "skyweave_compat:wayfinder_client", Group.NAVIGATION, "wayfinder_client", List.of(Feature.WAYFINDER), SectionKind.PREFERENCES),
+            new FileEntry("skyweave_compat-hoofprint.json", "skyweave_compat:hoofprint", Group.HOOFPRINT, "hoofprint_zoom", List.of(Feature.HOOFPRINT_ZOOM), SectionKind.PREFERENCES),
+            new FileEntry(FeatureSettings.FILE, "skyweave_compat:features", null, "startup", List.of(), SectionKind.FIXES),
+            new FileEntry("createredstonelinkgui-client.toml", "skyweave_compat:link_gui_client", Group.GUI_CLIENT, "link_gui_client", List.of(Feature.LINK_GUI_INTERACTIONS), SectionKind.PREFERENCES),
+            new FileEntry("createredstonelinkgui-common.toml", "skyweave_compat:link_gui_common", Group.LINK_GUI, "link_gui_common", List.of(Feature.LINK_GUI_RELOCATION), SectionKind.TUNING),
+            new FileEntry("skyweave_compat-journal-client.toml", "skyweave_compat:journal", Group.JOURNAL, "journal", List.of(Feature.QUESTLOG_INTERFACE, Feature.QUESTLOG_NOTIFICATIONS), SectionKind.PREFERENCES),
+            new FileEntry("skyweave_compat-common.toml", "skyweave_compat:sky_villages", Group.VILLAGES, "villages", List.of(Feature.VILLAGE_CLEARANCE, Feature.VILLAGE_PLACEMENT), SectionKind.TUNING),
+            new FileEntry("skyweave_compat-generation.json", "skyweave_compat:generation", Group.TERRAIN, "generation", List.of(Feature.TERRAIN), SectionKind.TUNING),
+            new FileEntry("skyweave_compat-shapes.json", "skyweave_compat:shapes", Group.TERRAIN, "shapes", List.of(Feature.TERRAIN), SectionKind.TUNING),
+            new FileEntry("skyweave_compat-search.json", "skyweave_compat:search", Group.TERRAIN, "structure_search", List.of(Feature.TERRAIN), SectionKind.TUNING),
+            new FileEntry("skyweave_compat-interiors.json", "skyweave_compat:interiors", Group.TERRAIN, "interiors", List.of(Feature.TERRAIN), SectionKind.TUNING),
+            new FileEntry("skyweave_compat-climate.json", "skyweave_compat:climate", Group.TERRAIN, "climate", List.of(Feature.CLIMATE, Feature.CAVE_BIOMES), SectionKind.TUNING),
+            new FileEntry("skyweave_compat-rivers.json", "skyweave_compat:rivers", Group.TERRAIN, "rivers", List.of(Feature.TERRAIN), SectionKind.TUNING),
+            new FileEntry("dynamicwaters-common.toml", "skyweave_compat:dynamic_waters", Group.WATERSHEDS, "watersheds", List.of(Feature.DYNAMIC_WATERS), SectionKind.TUNING),
+            new FileEntry("skyweave_compat-oceans.json", "skyweave_compat:oceans", Group.TERRAIN, "oceans", List.of(Feature.TERRAIN), SectionKind.TUNING),
+            new FileEntry("skyweave_compat-structures.json", "skyweave_compat:structures", Group.TERRAIN, "structures", List.of(Feature.STRUCTURE_DISTRIBUTION), SectionKind.TUNING),
+            new FileEntry("skyweave_compat-ancient-cities.json", "skyweave_compat:ancient_cities", Group.TERRAIN, "ancient_cities", List.of(Feature.ANCIENT_CITIES), SectionKind.TUNING),
+            new FileEntry("skyweave_compat-bluemap.json", "skyweave_compat:bluemap", Group.BLUEMAP, "bluemap", List.of(Feature.BLUEMAP), SectionKind.TUNING));
+    public static FileEntry file(String filename) {
+        return FILES.stream().filter(file -> file.filename().equals(filename)).findFirst().orElse(null);
+    }
+    public static FileEntry document(String id) {
+        return FILES.stream().filter(file -> file.id().equals(id)).findFirst().orElse(null);
+    }
+    public static SettingId field(String filename, String key) {
+        var file = file(filename);
+        if (file == null) throw new IllegalArgumentException("Unknown configuration owner");
+        return file.field(key);
+    }
     private SettingsCatalog() {}
 }

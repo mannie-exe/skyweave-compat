@@ -41,7 +41,8 @@ final class SettingsControls {
         decorate(input, issue.get());
         return input;
     }
-    List<AbstractWidget> field(String id, Component label, SettingsBinding binding, Runnable changed) {
+    List<AbstractWidget> field(Component label, SettingsBinding binding, Runnable changed) {
+        String id = binding.id().anchor();
         var definition = binding.definition();
         var steppers = new ArrayList<Button>();
         var input = text(id, label, binding.read(), binding.edit(), definition.constraints().maximumLength(), binding::issue,
