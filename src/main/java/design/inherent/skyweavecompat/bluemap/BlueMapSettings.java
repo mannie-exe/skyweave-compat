@@ -12,7 +12,7 @@ import java.util.Set;
 
 /** Explicit map selection and bounded browser resources; not world-generation settings. */
 public record BlueMapSettings(
-        @SettingSpec(maximumEntries=128, maximumLength=256, unique=true) Set<String> maps,
+        @SettingSpec(maximumEntries=128, maximumLength=256, unique=true, nonBlank=true) Set<String> maps,
         @SettingSpec(minimum="1000", maximum="8000", unit="blocks") int detailDistance,
         @SettingSpec(minimum="1", maximum="48", unit="tiles") int tileRadius,
         @SettingSpec(minimum="1", maximum="8", unit="requests") int concurrentRequests,
@@ -23,7 +23,6 @@ public record BlueMapSettings(
     public BlueMapSettings {
         RecordSettings.validate(BlueMapSettings.class, maps, detailDistance, tileRadius, concurrentRequests, geometryMiB);
         maps = Set.copyOf(maps);
-        if (maps.stream().anyMatch(String::isBlank)) throw new IllegalArgumentException("BlueMap map IDs must not be blank");
     }
 
     public static BlueMapSettings load(Path directory) throws IOException {

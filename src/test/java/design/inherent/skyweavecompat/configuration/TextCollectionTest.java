@@ -59,6 +59,22 @@ class TextCollectionTest {
         assertThrows(IllegalArgumentException.class, () -> data.move(first, 1));
         data.set(second, "alpha"); assertEquals("unique", data.issue(first).code());
     }
+    @Test void blueMapBlankIdsHaveTheSameFieldAndRowInvariantAsTheRuntimeConstructor() {
+        var definitions = RecordSettings.fields(design.inherent.skyweavecompat.bluemap.BlueMapSettings.DEFAULT);
+        var maps = definitions.stream().filter(field -> field.key().equals("maps")).findFirst().orElseThrow();
+        for (String blank : List.of("", " ", "\t", "\n", "\u2003")) {
+            var row = maps.elementIssue(blank);
+            assertNotNull(row); assertEquals("required",row.code()); assertEquals("maps",row.field());
+            var full = assertThrows(SettingIssue.InvalidValue.class, () -> maps.parse(new Gson().toJson(List.of(blank))));
+            assertEquals(row,full.issue());
+            var runtime = assertThrows(SettingIssue.InvalidValue.class, () -> new design.inherent.skyweavecompat.bluemap.BlueMapSettings(Set.of(blank),4000,31,4,256));
+            assertEquals(row,runtime.issue());
+        }
+        assertNull(maps.elementIssue("overworld"));
+        assertEquals(List.of(),maps.parse("[]"));
+        // Preserve String.isBlank semantics, rather than silently widening an existing rule.
+        assertNull(maps.elementIssue("\u00a0"));
+    }
     @Test void externalReplacementOrMalformedRawValuesCannotRedirectStaleRows() {
         var fixture = fixture(List.class, 8, false, List.of("alpha", "beta")); var data = fixture.rows();
         long old = data.rows().getFirst().id(); data.set(old, "changed"); fixture.session().discard();

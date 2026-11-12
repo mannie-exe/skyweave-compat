@@ -149,6 +149,7 @@ public record SettingDefinition(String key, Class<?> valueType, Object defaultVa
         catch (SettingIssue.InvalidValue invalid) { return invalid.issue(); }
     }
     private void validateText(String text) {
+        if (constraints.nonBlank() && text.isBlank()) fail("required", "Text must not be blank for " + key);
         if (constraints.maximumLength() >= 0 && text.length() > constraints.maximumLength()) fail("length", "Text is too long for " + key);
         if (!constraints.pattern().isEmpty() && !Pattern.matches(constraints.pattern(), text)) fail("pattern", "Invalid identifier/text for " + key);
     }

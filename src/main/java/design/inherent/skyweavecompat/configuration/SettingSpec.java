@@ -18,5 +18,6 @@ public @interface SettingSpec {
     int maximumEntries() default -1;
     int maximumLength() default -1;
     boolean unique() default false;
+    boolean nonBlank() default false;
     String pattern() default "";
 }
