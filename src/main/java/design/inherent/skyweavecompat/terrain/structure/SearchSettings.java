@@ -15,17 +15,15 @@ public record SearchSettings(
         @SettingSpec(minimum="1", maximum="10", unit="milliseconds", group="scheduling") int tickBudgetMillis) {
     public static final String FILE = "skyweave_compat-search.json";
     public static final SearchSettings DEFAULT = new SearchSettings(65536, 600, 2, 5);
-    private static volatile SearchSettings active = DEFAULT;
     public SearchSettings {
         RecordSettings.validate(SearchSettings.class, candidateLimit, timeLimitSeconds, concurrentChunks, tickBudgetMillis);
     }
-    public static SearchSettings active() { return active; }
     public static SearchSettings parse(String text) { return ProfileJson.record(text, SearchSettings.class); }
-    public static void load(Path directory) {
+    public static SearchSettings load(Path directory) {
         var path = directory.resolve(FILE);
         try {
             if (!Files.exists(path)) Files.writeString(path, new GsonBuilder().setPrettyPrinting().create().toJson(DEFAULT) + "\n", StandardOpenOption.CREATE_NEW);
-            active = parse(ConfigFile.read(path));
+            return parse(ConfigFile.read(path));
         } catch (java.io.IOException | RuntimeException failure) { throw new IllegalStateException("Cannot load " + path, failure); }
     }
 }

@@ -127,7 +127,7 @@ Both `islands` and `structures` show periodic progress while running. Players se
 
 Verification can generate and save early chunk metadata. It requests `STRUCTURE_STARTS`, with at most two native requests at once, and does not deliberately generate full terrain. Time/candidate exhaustion returns **partial** results, not proof of absence or of the nearest possible structure. Only an exhausted supported search domain is complete. Unsupported placements, including concentric-ring strongholds, are reported explicitly. In marked worlds, the default-on structure-command policy replaces `/locate structure` lookup with an editable bounded-command suggestion. `/locate biome`, `/locate poi`, exploration maps and direct native callers retain their behavior; synchronous callers can still be expensive. Disabling the policy or using an unmarked world preserves native structure commands.
 
-Search budgets live in `config/skyweave/skyweave_compat-search.json` and apply after restart. They do not change terrain identity. See [search limits](docs/configuration.md#structure-search) and [maintenance](docs/development/terrain-variation.md#structure-discovery).
+Search budgets live in `config/skyweave/skyweave_compat-search.json`; publish changes with `/skyweavecompat settings reload search` on the owning server. New searches use the updated budgets. They do not change terrain identity. See [search limits](docs/configuration.md#structure-search) and [maintenance](docs/development/terrain-variation.md#structure-discovery).
 
 ## Configuration
 

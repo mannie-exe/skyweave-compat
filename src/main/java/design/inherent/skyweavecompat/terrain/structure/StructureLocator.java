@@ -5,6 +5,12 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import design.inherent.skyweavecompat.mixin.StructureSearchCacheAccess;
 import design.inherent.skyweavecompat.mixin.StructureSearchChunksAccess;
 import design.inherent.skyweavecompat.terrain.LocatorText;
+import design.inherent.skyweavecompat.configuration.SettingsPolicy;
+import design.inherent.skyweavecompat.configuration.SettingsReload;
+import design.inherent.skyweavecompat.configuration.ConfigFile;
+import design.inherent.skyweavecompat.configuration.ConfigLocations;
+import net.neoforged.fml.loading.FMLPaths;
+import net.neoforged.neoforge.event.server.ServerAboutToStartEvent;
 import design.inherent.skyweavecompat.terrain.LocatorOwner;
 import design.inherent.skyweavecompat.placement.ArchipelagoVillagePlacement;
 import net.minecraft.ChatFormatting;
@@ -37,8 +43,10 @@ import java.util.concurrent.*;
 public final class StructureLocator {
     private static final TicketType<UUID> TICKET = TicketType.create("skyweave_structure_search", UUID::compareTo);
     private static final int TICKET_LEVEL = ChunkLevel.byStatus(ChunkStatus.STRUCTURE_STARTS);
-    private final Map<MinecraftServer, State> servers = new IdentityHashMap<>();
+    private static final Map<MinecraftServer, State> servers = new IdentityHashMap<>();
     private static final class State {
+        final SettingsPolicy<SearchSettings> policy;
+        State(MinecraftServer server, SearchSettings settings) { policy = new SettingsPolicy<>(settings, () -> SettingsReload.requireThread(server)); }
         final ThreadPoolExecutor worker = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS,
                 new ArrayBlockingQueue<>(4), task -> {
                     var thread = new Thread(task, "Skyweave structure requests"); thread.setDaemon(true); return thread;
@@ -101,34 +109,57 @@ public final class StructureLocator {
         volatile boolean limited;
         String outcome = "progress", failureReason = "";
         long nextProgress;
-        Job(CommandSourceStack source, int radius, List<Target> targets) {
+        Job(CommandSourceStack source, int radius, List<Target> targets, SearchSettings limits) {
             owner = new LocatorOwner(source); level = source.getLevel(); this.radius = radius; this.targets = targets;
             targetIds = targets.stream().map(t -> t.structure().getRegisteredName()).collect(java.util.stream.Collectors.toUnmodifiableSet());
             placements = targets.stream().flatMap(t -> t.placements().stream()).distinct().toList();
             locateOffset = Math.max(8, placements.stream().map(p -> p.getLocatePos(new ChunkPos(0, 0)))
                     .mapToLong(p -> Math.max(Math.abs((long)p.getX()), Math.abs((long)p.getZ()))).max().orElse(8));
             x = net.minecraft.util.Mth.floor(source.getPosition().x); z = net.minecraft.util.Mth.floor(source.getPosition().z);
-            limits = SearchSettings.active();
+            this.limits = limits;
             long now = System.nanoTime(); deadline = now + TimeUnit.SECONDS.toNanos(limits.timeLimitSeconds());
             nextProgress = now + TimeUnit.SECONDS.toNanos(2);
         }
     }
     public static void register() {
         var locator = new StructureLocator();
+        NeoForge.EVENT_BUS.addListener((ServerAboutToStartEvent event) -> servers.put(event.getServer(),
+                new State(event.getServer(), SearchSettings.load(ConfigLocations.ownedDirectory(FMLPaths.CONFIGDIR.get())))));
+        SettingsReload.register("search", StructureLocator::reloadPolicy);
         NeoForge.EVENT_BUS.addListener(locator::commands);
         NeoForge.EVENT_BUS.addListener(locator::tick);
         NeoForge.EVENT_BUS.addListener((LevelEvent.Unload event) -> {
             if (!(event.getLevel() instanceof ServerLevel level)) return;
-            var state = locator.servers.get(level.getServer());
+            var state = servers.get(level.getServer());
             if (state != null && state.job != null && state.job.level == level) locator.stop(state.job, "cancelled", false);
         });
         NeoForge.EVENT_BUS.addListener((ServerStoppedEvent event) -> {
-            var state = locator.servers.remove(event.getServer());
+            var state = servers.remove(event.getServer());
             if (state != null) {
                 if (state.job != null) locator.stop(state.job,"cancelled",false);
+                state.policy.close();
                 state.worker.shutdownNow();state.requests.shutdownNow();
             }
         });
+    }
+    public static SettingsPolicy.Snapshot<SearchSettings> readPolicy(CommandSourceStack source) {
+        SettingsReload.requireThread(source.getServer());
+        var state = servers.get(source.getServer());
+        if (state == null) throw new IllegalStateException("Structure search is unavailable in this server context");
+        return state.policy.read(() -> source.hasPermission(2));
+    }
+    public static SettingsPolicy.Snapshot<SearchSettings> applyPolicy(CommandSourceStack source,
+            SettingsPolicy.Revision expected, SearchSettings candidate) {
+        SettingsReload.requireThread(source.getServer());
+        var state = servers.get(source.getServer());
+        if (state == null) throw new IllegalStateException("Structure search is unavailable in this server context");
+        return state.policy.prepare(expected,candidate,() -> source.hasPermission(2)).apply(() -> source.hasPermission(2));
+    }
+    private static boolean reloadPolicy(CommandSourceStack source) throws java.io.IOException {
+        var before = readPolicy(source);
+        var file = ConfigLocations.file(FMLPaths.CONFIGDIR.get(), SearchSettings.FILE);
+        var candidate = SearchSettings.parse(ConfigFile.read(file));
+        return applyPolicy(source,before.revision(),candidate).revision() != before.revision();
     }
     private void commands(RegisterCommandsEvent event) {
         event.getDispatcher().register(Commands.literal("skyweavecompat").requires(source -> source.hasPermission(2))
@@ -198,10 +229,11 @@ public final class StructureLocator {
         try {
             if (!(source.getLevel().getChunkSource().getGenerator() instanceof design.inherent.skyweavecompat.terrain.GeologicalGenerator generator)
                     || !generator.skyweave$isEnabled()) return fail(source, "unsupported");
-            var state = servers.computeIfAbsent(source.getServer(), ignored -> new State());
+            var state = servers.get(source.getServer());
+            if (state == null) return fail(source,"unsupported");
             if (state.job != null && state.job.running) return fail(source, "busy");
             var selection = targets(source, selector);
-            var job = new Job(source, radius, selection.targets());
+            var job = new Job(source, radius, selection.targets(), state.policy.current());
             job.limited = selection.unsupported() > 0;
             if (Math.abs((long)job.x) > 29999983 || Math.abs((long)job.z) > 29999983)
                 throw new IllegalArgumentException("Search origin is outside Minecraft's coordinate bounds");
@@ -413,7 +445,7 @@ public final class StructureLocator {
             if(job.boundsReady && job.ready.size()<=32 && !job.savedDone && !job.savedBusy && state.metadataPending==0
                     && System.nanoTime()<until)
                 saved(state, job);
-            while (state.nativePending < job.limits.concurrentChunks() && !job.ready.isEmpty() && System.nanoTime() < until)
+            while (state.nativePending < Math.min(job.limits.concurrentChunks(), state.policy.current().concurrentChunks()) && !job.ready.isEmpty() && System.nanoTime() < until)
                 request(state, job, job.ready.removeFirst());
         } catch (RuntimeException failure) { failed(job, failure); return; }
         if(job.enumerationDone && job.incoming.isEmpty() && job.loaded.isEmpty() && job.savedDone && job.ready.isEmpty() && job.pending==0) {

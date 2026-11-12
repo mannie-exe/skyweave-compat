@@ -22,7 +22,6 @@ public final class TerrainIntegration {
         }
         design.inherent.skyweavecompat.terrain.city.CityConfiguration.load(directory);
         IslandLocator.register();
-        design.inherent.skyweavecompat.terrain.structure.SearchSettings.load(directory);
         design.inherent.skyweavecompat.terrain.structure.StructureLocator.register();
         NeoForge.EVENT_BUS.addListener((ServerAboutToStartEvent event) -> GenerationGuard.verify(event.getServer()));
     }

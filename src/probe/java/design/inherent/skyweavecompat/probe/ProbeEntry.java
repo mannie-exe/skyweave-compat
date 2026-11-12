@@ -13,6 +13,7 @@ public final class ProbeEntry {
     private MinecraftServer pending;
     public ProbeEntry() {
         SideLoadingProbe.install();
+        if (Boolean.getBoolean("neighbors.probe.settingsPolicy")) { new SettingsPolicyProbe(); return; }
         if (Boolean.getBoolean("neighbors.probe.inspectSableDiscovery"))
             NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStoppingEvent event)->SideLoadingProbe.inspectPhysics(event.getServer()));
         if (!Boolean.getBoolean("neighbors.probe.wayfinder")) { new PlacementProbe(); return; }

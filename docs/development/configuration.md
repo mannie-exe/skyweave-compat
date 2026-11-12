@@ -64,9 +64,19 @@ If writing fails while the file remains at its baseline, restore only edited nat
 
 Registered immediate values apply after Save; world/game-restart values retain their native timing. Journal controls in the overview stage through the same registered editor. Separate journal shortcuts save immediately through their shared owner; their changes are detected as conflicts with an open overview draft. Putting a field under Preferences does not itself choose its persistence or restart policy.
 
-Application timing describes the actual consumer. Search limits currently load during terrain integration registration; Wayfinder policy is captured per server, and Hoofprint preferences load on map initialization. Generation profiles and climate metadata remain bound to saved generation identity. Dynamic Waters mixes generation, gameplay and presentation fields in one common file; a file-level label alone cannot establish physical ownership or prove that a consumer refreshes live. A local common config or remote server cache is not an administrative connection.
+Application timing describes the actual consumer. Wayfinder and structure-search limits load per server and publish through their explicit policy reload services; Hoofprint preferences load on map initialization. Generation profiles and climate metadata remain bound to saved generation identity. Dynamic Waters mixes generation, gameplay and presentation fields in one common file; a file-level label alone cannot establish physical ownership or prove that a consumer refreshes live. A local common config or remote server cache is not an administrative connection.
 
 The catalog's current generic TOML forms are embedded rather than redirecting to screens constructed solely for them. A genuine upstream screen can be a future explicit destination when needed; use an honest Edit label and preserve its owner. Do not create another generic modal merely to host a single field.
+
+## Runtime policy ownership
+
+`SettingsPolicy` holds immutable effective values for one owner-thread context. Its opaque revision identities cannot be reused across another instance or after close. Preparation grants no permission: reads, preparation, and publication check actual authorization; publication also rejects stale revisions and consumes the proposal once. An equal candidate is a no-op with the same revision. The runtime policy does not write files or claim persistence success.
+
+Wayfinder and `StructureLocator` own these policies in their actual per-server state, close them at lifecycle cleanup, and expose permission-level-2 read/application entry points. `SearchSettings.load` returns a parsed value rather than updating a process-global active policy. `SettingsReload` registers only authored wayfinder/search destinations. Native command execution reads the bounded trusted file, validates the complete record, and publishes on the owning server thread; failure leaves effective values intact. File watchers alone do not publish these policies.
+
+New jobs capture their immutable policy. Existing Wayfinder work/timeout/lookup limits and search candidate/deadline/bookkeeping limits remain captured. Native request admission respects the smaller captured/current cap without clearing outstanding counters or cancelling shared generation. Wayfinder also rechecks current access and the union of captured/current hazard exclusions before landing. Keep local-file persistence and runtime publication receipts separate when invoking these services from another editor or transport.
+
+Dependency checks must cover actual command registration and source permissions, server-thread execution, no-op revisions, stopped/replaced integrated servers, stale proposals, active-job limits, and lease drainage. Minimum installation evidence must inventory all generated launch classpaths and actual loaded mods; a fixture’s mods directory alone does not establish optional absence. Production side/version admission still belongs to FeatureSelection.
 
 ## Collection controls
 

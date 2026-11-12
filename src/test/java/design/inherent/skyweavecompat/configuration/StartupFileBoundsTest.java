@@ -13,22 +13,17 @@ import static org.junit.jupiter.api.Assertions.*;
 class StartupFileBoundsTest {
     @TempDir Path directory;
 
-    @Test void oversizedValidStartupJsonIsRefusedWithoutChangingTheActivePolicyOrFile() throws Exception {
-        var original=SearchSettings.active();var path=directory.resolve(SearchSettings.FILE);
-        try {
-            var policy=new SearchSettings(123,600,1,2);
-            Files.writeString(path,new Gson().toJson(policy));SearchSettings.load(directory);
-            assertEquals(policy,SearchSettings.active());
-            var oversized=" ".repeat(ConfigFile.LIMIT)+new Gson().toJson(SearchSettings.DEFAULT);
-            Files.writeString(path,oversized);
-            assertThrows(IOException.class,()->new ConfigFile(directory,SearchSettings.FILE).read());
-            var failure=assertThrows(IllegalStateException.class,()->SearchSettings.load(directory));
-            assertInstanceOf(IOException.class,failure.getCause());
-            assertEquals(policy,SearchSettings.active());
-            assertEquals(oversized,Files.readString(path));
-        } finally {
-            Files.writeString(path,new Gson().toJson(original));SearchSettings.load(directory);
-        }
+    @Test void oversizedValidStartupJsonIsRefusedWithoutRewritingTheFile() throws Exception {
+        var path=directory.resolve(SearchSettings.FILE);
+        var policy=new SearchSettings(123,600,1,2);
+        Files.writeString(path,new Gson().toJson(policy));
+        assertEquals(policy,SearchSettings.load(directory));
+        var oversized=" ".repeat(ConfigFile.LIMIT)+new Gson().toJson(SearchSettings.DEFAULT);
+        Files.writeString(path,oversized);
+        assertThrows(IOException.class,()->new ConfigFile(directory,SearchSettings.FILE).read());
+        var failure=assertThrows(IllegalStateException.class,()->SearchSettings.load(directory));
+        assertInstanceOf(IOException.class,failure.getCause());
+        assertEquals(oversized,Files.readString(path));
     }
 
     @Test void startupSwitchesUseTheSameFileBoundAsTheirEditor() throws Exception {

@@ -66,7 +66,7 @@ final class StructureLocatorProbe {
                 && !Set.of("family=villages","family=desert_temples","family=jungle_temples").contains(familyQuery))
             throw new IllegalArgumentException("Selector fixture requires a village or temple family");
         if(System.getProperty("neighbors.probe.searchFixture", "").equals("time")
-                && design.inherent.skyweavecompat.terrain.structure.SearchSettings.active().timeLimitSeconds()>10)
+                && design.inherent.skyweavecompat.terrain.structure.StructureLocator.readPolicy(source).value().timeLimitSeconds()>10)
             throw new IllegalArgumentException("Time-exhaustion fixture requires a5–10second policy");
         report.addProperty("complete",false);report.addProperty("fixturePhase","admitting first request");
         writeSnapshot();
@@ -139,7 +139,7 @@ final class StructureLocatorProbe {
             }
             if(focusPending && has("result")) { focusOnNativeResult(server,now);return; }
             long queries=System.getProperty("neighbors.probe.searchFixture", "").equals("selectors")?7:2;
-            long fixtureSeconds=60+queries*(design.inherent.skyweavecompat.terrain.structure.SearchSettings.active().timeLimitSeconds()+30L);
+            long fixtureSeconds=60+queries*(design.inherent.skyweavecompat.terrain.structure.StructureLocator.readPolicy(source).value().timeLimitSeconds()+30L);
             if (now - started > java.util.concurrent.TimeUnit.SECONDS.toNanos(fixtureSeconds))
                 throw new AssertionError("Search fixture exceeded its policy-derived bounded duration");
             if (has("failed")) throw new AssertionError("Search failed: " + messages);

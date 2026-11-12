@@ -141,6 +141,21 @@ Existing policy files containing `debugMessages` or `hideHotkeyPermissionMessage
 
 There is no footing whitelist or maximum-distance setting. Missing optional block IDs match nothing. The default blacklist covers fluids, fire, magma, cactus, berry bushes, wither roses, powder snow, campfires, pointed dripstone, cobwebs and portals. Native collision and available body space remain mandatory after policy edits. Invalid IDs, duplicate entries and out-of-range work limits fail validation.
 
+## Server policy reload
+
+After editing the owning server’s policy file, an operator or server console can run:
+
+```mcfunction
+/skyweavecompat settings reload wayfinder
+/skyweavecompat settings reload search
+```
+
+These permission-level-2 commands validate the complete existing file and publish a new policy on that server. Invalid or unreadable files leave the active policy unchanged. They accept no file paths. The search command is available with the terrain adaptation; Wayfinder has its own admission switch.
+
+New requests use the published policy. Existing jobs retain their captured work limits and deadlines; reduced concurrency limits new native requests while outstanding work drains. Wayfinder rechecks current permission and both captured/current hazard exclusions before landing. Identical reloads leave the effective revision unchanged. Startup loading still reads the policy normally.
+
+The configuration screen edits local files. Saving a client-side copy does not publish policy to a connected server; use the owning server’s reload command. Operational policies do not alter saved terrain identity.
+
 ## Village tuning
 
 `config/skyweave/skyweave_compat-common.toml` is registered only when a village adaptation is active. NeoForge's client config screen edits its distances. The startup feature file owns activation, including `villages.clearance`; the tuning file does not contain a second enable switch.
@@ -353,7 +368,7 @@ All fields are required, validated at startup and editable through the existing 
 
 ## Structure search
 
-`config/skyweave/skyweave_compat-search.json` configures operator discovery under **World → Sky Archipelago → Structure search**. It uses the shared validated JSON editor, requires a restart, and is excluded from saved generation identity. Changing a search budget does not require a fresh world.
+`config/skyweave/skyweave_compat-search.json` configures operator discovery under **World → Sky Archipelago → Structure search**. It uses the shared validated JSON editor and is excluded from saved generation identity. Publish changes with the owning server’s [policy reload command](#server-policy-reload); existing searches keep their captured candidate/time budgets. Changing a search budget does not require a fresh world.
 
 | Field              | Default | Range                                     |
 | ------------------ | ------- | ----------------------------------------- |
