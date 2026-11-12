@@ -15,6 +15,8 @@ import org.sathrek.sky_archipelago.worldgen.generator.river.RiverColumnPlan;
 
 /** Translates upstream watershed cuts into the existing solid/fluid column contract. */
 public final class IslandWaterColumns {
+    /** Existing channel admission's local rise budget also bounds supported dry watershed banks. */
+    private static final int MAX_LOCAL_RISE = 2;
     private final SkyIslandChunkGenerator generator;
     private final RandomState random;
     private final LevelHeightAccessor envelope;
@@ -66,7 +68,7 @@ public final class IslandWaterColumns {
         // Preserve the shell above a cavity and reject unsupported routes instead of
         // constructing a foundation down through empty sky. The watershed owns the cut.
         RiverColumnPlan river;
-        if (cut.waterLevel > cut.targetY && (cut.isLake || cut.waterLevel <= top.topY() + 2)) {
+        if (cut.waterLevel > cut.targetY && (cut.isLake || cut.waterLevel <= top.topY() + MAX_LOCAL_RISE)) {
             river = cut.isLake
                     ? RiverColumnPlan.lake(top.topY(), cut.targetY, cut.waterLevel,
                             cut.distanceFromCenter, cut.channelSlope, 0, 0)
@@ -88,10 +90,15 @@ public final class IslandWaterColumns {
     }
 
     public static boolean supported(HydrologyManager.RiverCarving cut, TerrainColumn top, int maximumY) {
-        return cut.modifies && (cut.isMountainRiver || cut.isLake) && !cut.isPillar
-                && (cut.cavernRoofY == -999 || cut.cavernRoofY == maximumY)
-                && cut.targetY >= minimumBed(top)
-                && cut.targetY <= top.topY() && cut.waterLevel < maximumY;
+        if (!top.exists() || !cut.modifies || cut.isPillar
+                || cut.cavernRoofY != -999 && cut.cavernRoofY != maximumY
+                || cut.targetY < minimumBed(top) || cut.targetY >= maximumY || cut.waterLevel >= maximumY)
+            return false;
+        if (cut.isWatershedWall)
+            return cut.isWatershed && !cut.isLake && cut.wallTopY == cut.targetY
+                    && minimumBed(top) <= top.topY() && cut.waterLevel <= cut.targetY
+                    && cut.targetY <= (long)top.topY() + MAX_LOCAL_RISE;
+        return (cut.isMountainRiver || cut.isLake) && cut.targetY <= top.topY();
     }
 
     /** A native no-op also needs inert heights: post-carver repair reads waterLevel when modifies is false. */

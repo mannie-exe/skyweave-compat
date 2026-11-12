@@ -1,5 +1,6 @@
 package design.inherent.skyweavecompat.terrain.structure;
 
+import design.inherent.skyweavecompat.configuration.ConfigFile;
 import com.google.gson.GsonBuilder;
 import design.inherent.skyweavecompat.configuration.ProfileJson;
 import java.nio.file.*;
@@ -7,7 +8,7 @@ import java.nio.file.*;
 /** Operational search limits, deliberately excluded from terrain identity. */
 public record SearchSettings(int candidateLimit, int timeLimitSeconds, int concurrentChunks, int tickBudgetMillis) {
     public static final String FILE = "skyweave_compat-search.json";
-    public static final SearchSettings DEFAULT = new SearchSettings(65536, 120, 2, 5);
+    public static final SearchSettings DEFAULT = new SearchSettings(65536, 600, 2, 5);
     private static volatile SearchSettings active = DEFAULT;
     public SearchSettings {
         if (candidateLimit < 16 || candidateLimit > 65536 || timeLimitSeconds < 5 || timeLimitSeconds > 600
@@ -20,7 +21,7 @@ public record SearchSettings(int candidateLimit, int timeLimitSeconds, int concu
         var path = directory.resolve(FILE);
         try {
             if (!Files.exists(path)) Files.writeString(path, new GsonBuilder().setPrettyPrinting().create().toJson(DEFAULT) + "\n", StandardOpenOption.CREATE_NEW);
-            active = parse(Files.readString(path));
+            active = parse(ConfigFile.read(path));
         } catch (java.io.IOException | RuntimeException failure) { throw new IllegalStateException("Cannot load " + path, failure); }
     }
 }

@@ -41,7 +41,8 @@ public final class IslandLocator {
         boolean complete() { return visited == total; }
     }
     private static final class Job {
-        final CommandSourceStack source;
+        final LocatorOwner owner;
+        final net.minecraft.server.level.ServerLevel level;
         final ResourceKey<Level> dimension;
         final ClusterField field;
         final IslandStyles styles;
@@ -56,7 +57,7 @@ public final class IslandLocator {
         Snapshot snapshot;
         Job(CommandSourceStack source, ClusterField field, IslandStyles styles, SkyIslandSettings settings,
                 int radius, Map<String, String> filters, GenerationProfile profile) {
-            this.source = source; dimension = source.getLevel().dimension(); this.field = field;
+            owner = new LocatorOwner(source); level=source.getLevel(); dimension = level.dimension(); this.field = field;
             this.styles = styles; this.settings = settings; this.radius = radius; this.filters = filters;
             x = net.minecraft.util.Mth.floor(source.getPosition().x); z = net.minecraft.util.Mth.floor(source.getPosition().z);
             search = new IslandSearch<>(x, z, radius, profile.spacing(), profile.lookupCells(),
@@ -128,8 +129,7 @@ public final class IslandLocator {
     }
     private Job owned(CommandSourceStack source) {
         var state = servers.get(source.getServer()); var job = state == null ? null : state.job;
-        return job != null && (job.source.getEntity() instanceof net.minecraft.server.level.ServerPlayer
-                ? job.source.getEntity() == source.getEntity() : job.source.getTextName().equals(source.getTextName()))
+        return job != null && job.owner.owns(source)
                 && job.dimension.equals(source.getLevel().dimension()) ? job : null;
     }
     private int status(CommandSourceStack source) {
@@ -161,23 +161,24 @@ public final class IslandLocator {
         var job = state == null ? null : state.job;
         if (job == null) return;
         if (!validOwner(server, job)) {
+            job.owner.success(server,null,() -> text("cancelled"));
             cancel(state); return;
         }
         if (!job.running) return;
         if (!job.inFlight) launch(server, state, job);
         if (System.nanoTime() >= job.nextProgress) {
-            boolean player = job.source.getEntity() instanceof net.minecraft.server.level.ServerPlayer;
+            boolean player = job.owner.player();
             job.nextProgress = System.nanoTime() + TimeUnit.SECONDS.toNanos(player ? 2 : 10);
             var snapshot = job.snapshot;
             var message = text("progress", snapshot.visited(), snapshot.total(), snapshot.matches());
-            if (player) ((net.minecraft.server.level.ServerPlayer)job.source.getEntity()).displayClientMessage(message, true);
-            else job.source.sendSuccess(() -> message, false);
+            var recipient=job.owner.current(server,job.dimension);
+            if (recipient!=null && recipient.getEntity() instanceof net.minecraft.server.level.ServerPlayer current)
+                current.displayClientMessage(message,true);
+            else job.owner.success(server,job.dimension,() -> message);
         }
     }
     private static boolean validOwner(MinecraftServer server, Job job) {
-        return !(job.source.getEntity() instanceof net.minecraft.server.level.ServerPlayer player)
-                || server.getPlayerList().getPlayer(player.getUUID()) == player
-                    && player.serverLevel().dimension().equals(job.dimension) && player.hasPermissions(2);
+        return server.getLevel(job.dimension)==job.level && job.owner.current(server,job.dimension)!=null;
     }
     private void launch(MinecraftServer server, State state, Job job) {
         job.inFlight = true;
@@ -208,16 +209,16 @@ public final class IslandLocator {
                 job.inFlight = false;
                 job.snapshot = snapshot;
                 if (result != null) {
-                    job.source.sendFailure(text("failed", result.toString())); state.job = null;
+                    job.owner.failure(server,job.dimension,text("failed",result.toString())); state.job = null;
                 } else if (snapshot.complete()) {
                     job.running = false;
-                    job.source.sendSuccess(() -> text("complete", snapshot.visited(), snapshot.total(), snapshot.matches()), false);
-                    page(job.source, 1);
+                    job.owner.success(server,job.dimension,() -> text("complete",snapshot.visited(),snapshot.total(),snapshot.matches()));
+                    var recipient=job.owner.current(server,job.dimension);if(recipient!=null)page(recipient,1);
                 }
                 // The next server tick schedules the next bounded worker slice.
             });
         }); } catch (RejectedExecutionException error) {
-            job.running = false; state.job = null; job.source.sendFailure(text("busy"));
+            job.running = false; state.job = null; job.owner.failure(server,job.dimension,text("busy"));
         }
     }
     /** Only descriptor-owned facts can reject before style/biome resolution. */

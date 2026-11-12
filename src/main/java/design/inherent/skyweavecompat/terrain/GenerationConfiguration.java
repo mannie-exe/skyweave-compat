@@ -1,5 +1,6 @@
 package design.inherent.skyweavecompat.terrain;
 
+import design.inherent.skyweavecompat.configuration.ConfigFile;
 import com.google.gson.*;
 import java.io.IOException;
 import java.nio.file.*;
@@ -45,7 +46,7 @@ public final class GenerationConfiguration {
                 Files.createDirectories(directory);
                 Files.writeString(path, JSON.toJson(GenerationProfile.INITIAL) + "\n", StandardOpenOption.CREATE_NEW);
             }
-            profile = parse(Files.readString(path));
+            profile = parse(ConfigFile.read(path));
         } catch (IOException | RuntimeException failure) {
             throw new IllegalStateException("Cannot load " + path + ": " + failure.getMessage(), failure);
         }

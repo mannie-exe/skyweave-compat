@@ -26,7 +26,7 @@ public final class SettingsCatalog {
         GRAVES(Category.INVENTORY, "yigd"), AUDIO(Category.AUDIO, "analog_audio"),
         DELIVERY(Category.SHIPS, "delivery"), QUESTLOG_SERVER(Category.INTERFACE, "questlog"),
         HOOFPRINT(Category.MAPS, "hoofprint"), DH(Category.MAPS, "distant_horizons"), BLUEMAP(Category.MAPS, "bluemap"), SURVEYOR(Category.MAPS, "surveyor"),
-        C2ME(Category.WORLD, "c2me"), TERRAIN(Category.WORLD, "sky_archipelago"), LITHOSTITCHED(Category.WORLD, "lithostitched"), YUNG(Category.WORLD, "yungsapi"), YUNG_MINESHAFTS(Category.WORLD, "bettermineshafts"), YUNG_WITCH_HUTS(Category.WORLD, "betterwitchhuts"), WATERSHEDS(Category.WORLD, "dynamic_waters"), ISLAND_SKY(Category.RENDERING, "sky_archipelago"), VILLAGES(Category.WORLD, "sky_villages"),
+        BETTER_VILLAGE(Category.WORLD, "bettervillage"), C2ME(Category.WORLD, "c2me"), TERRAIN(Category.WORLD, "sky_archipelago"), LITHOSTITCHED(Category.WORLD, "lithostitched"), YUNG(Category.WORLD, "yungsapi"), YUNG_MINESHAFTS(Category.WORLD, "bettermineshafts"), YUNG_WITCH_HUTS(Category.WORLD, "betterwitchhuts"), WATERSHEDS(Category.WORLD, "dynamic_waters"), ISLAND_SKY(Category.RENDERING, "sky_archipelago"), VILLAGES(Category.WORLD, "sky_villages"),
         PRESSURE(Category.SHIPS, "sable"), WATER_SHIPS(Category.SHIPS, "dynamic_waters");
         public final Category category;
         public final String label;
@@ -84,11 +84,11 @@ public final class SettingsCatalog {
         public String summaryKey() { return "skyweave_compat.settings.file." + help; }
         public Timing timing() {
             return switch (help) {
-                case "journal" -> Timing.IMMEDIATE;
+                case "journal", "wayfinder_client", "link_gui_client", "link_gui_common" -> Timing.IMMEDIATE;
                 case "hoofprint_zoom" -> Timing.SCREEN_OPEN;
                 case "villages", "wayfinder" -> Timing.SERVER_START;
                 case "generation", "shapes", "interiors", "climate", "rivers", "oceans", "ancient_cities", "structures", "watersheds" -> Timing.NEW_WORLD;
-                case "bluemap", "link_gui_client", "link_gui_common" -> Timing.RELOAD;
+                case "bluemap" -> Timing.RELOAD;
                 default -> Timing.GAME_RESTART;
             };
         }
@@ -102,6 +102,7 @@ public final class SettingsCatalog {
     }
     public static Group group(Feature feature) {
         return switch (feature) {
+            case BETTER_VILLAGE_CONFIG -> Group.BETTER_VILLAGE;
             case WAYFINDER, WAYFINDER_DH -> Group.NAVIGATION;
             case FTB_ITEM_FILTERS -> Group.FTB_QUESTS;
             case ISLAND_CLOUDS, ISLAND_VOID -> Group.ISLAND_SKY;
@@ -162,6 +163,7 @@ public final class SettingsCatalog {
     }
     public static final List<FileEntry> FILES = List.of(
             new FileEntry("skyweave_compat-wayfinder.json", Group.NAVIGATION, "wayfinder", List.of(Feature.WAYFINDER), SectionKind.TUNING),
+            new FileEntry("skyweave_compat-wayfinder-client.toml", Group.NAVIGATION, "wayfinder_client", List.of(Feature.WAYFINDER), SectionKind.PREFERENCES),
             new FileEntry("skyweave_compat-hoofprint.json", Group.HOOFPRINT, "hoofprint_zoom", List.of(Feature.HOOFPRINT_ZOOM), SectionKind.PREFERENCES),
             new FileEntry(FeatureSettings.FILE, null, "startup", List.of(), SectionKind.FIXES),
             new FileEntry("createredstonelinkgui-client.toml", Group.GUI_CLIENT, "link_gui_client", List.of(Feature.LINK_GUI_INTERACTIONS), SectionKind.PREFERENCES),

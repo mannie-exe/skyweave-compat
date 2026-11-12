@@ -1,0 +1,58 @@
+{
+  "seed": -1980885823227676047,
+  "waterY": 374,
+  "points": [
+    {
+      "x": -1649,
+      "z": 871,
+      "note": "controlled stacked geometry; assert actual admitted bed/water plane and lower owners, not the original waterline height"
+    },
+    {
+      "x": -1648,
+      "z": 871,
+      "note": "controlled stacked geometry; assert actual admitted bed/water plane and lower owners, not the original waterline height"
+    },
+    {
+      "x": -1650,
+      "z": 872,
+      "note": "controlled stacked geometry; assert actual admitted bed/water plane and lower owners, not the original waterline height"
+    },
+    {
+      "x": -1649,
+      "z": 872,
+      "note": "controlled stacked geometry; assert actual admitted bed/water plane and lower owners, not the original waterline height"
+    },
+    {
+      "x": -1648,
+      "z": 872,
+      "note": "controlled stacked geometry; assert actual admitted bed/water plane and lower owners, not the original waterline height"
+    },
+    {
+      "x": -1647,
+      "z": 872,
+      "note": "controlled stacked geometry; assert actual admitted bed/water plane and lower owners, not the original waterline height"
+    },
+    {
+      "x": -1649,
+      "z": 873,
+      "note": "controlled stacked geometry; assert actual admitted bed/water plane and lower owners, not the original waterline height"
+    },
+    {
+      "x": -1648,
+      "z": 873,
+      "note": "controlled stacked geometry; assert actual admitted bed/water plane and lower owners, not the original waterline height"
+    },
+    {
+      "x": -1656,
+      "z": 872,
+      "note": "controlled stacked geometry; assert actual admitted bed/water plane and lower owners, not the original waterline height"
+    },
+    {
+      "x": -1648,
+      "z": 864,
+      "note": "controlled stacked geometry; assert actual admitted bed/water plane and lower owners, not the original waterline height"
+    }
+  ],
+  "verifyBedAndLowerMaterial": true,
+  "requireLowerSolidOwners": 2
+}

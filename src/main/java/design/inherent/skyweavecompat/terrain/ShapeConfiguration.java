@@ -1,5 +1,6 @@
 package design.inherent.skyweavecompat.terrain;
 
+import design.inherent.skyweavecompat.configuration.ConfigFile;
 import com.google.gson.GsonBuilder;
 import design.inherent.skyweavecompat.configuration.ProfileJson;
 import java.io.IOException;
@@ -19,7 +20,7 @@ public final class ShapeConfiguration {
         var path = directory.resolve(FILE);
         try {
             if (!Files.exists(path)) Files.writeString(path, JSON.toJson(ShapeProfile.INITIAL) + "\n", StandardOpenOption.CREATE_NEW);
-            profile = parse(Files.readString(path));
+            profile = parse(ConfigFile.read(path));
         } catch (IOException | RuntimeException error) {
             throw new IllegalStateException("Cannot load " + path + ": " + error.getMessage(), error);
         }

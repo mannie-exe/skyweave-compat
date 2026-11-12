@@ -6,6 +6,28 @@ import org.sathrek.sky_archipelago.worldgen.generator.field.TerrainColumn;
 import static org.junit.jupiter.api.Assertions.*;
 
 class IslandWaterColumnsTest {
+    private static HydrologyManager.RiverCarving wall(int target) {
+        var cut=new HydrologyManager.RiverCarving();
+        cut.modifies=true;cut.isWatershed=true;cut.isWatershedWall=true;
+        cut.targetY=target;cut.wallTopY=target;cut.sealFloorY=373;cut.waterLevel=-129;cut.cavernRoofY=768;
+        return cut;
+    }
+
+    @Test void reportedSupportedSandbarIsAdmittedWithoutInventingAFluidLevel() {
+        var cut=wall(374);
+        assertTrue(IslandWaterColumns.fitToSupport(cut,new TerrainColumn(319,373),768));
+        assertEquals(374,cut.targetY);
+        assertEquals(-129,cut.waterLevel,"The native dry-wall sentinel is not a requested water plane");
+    }
+
+    @Test void wallsCannotBridgeAThinCavityRoofOrBuildAnUnboundedColumn() {
+        assertFalse(IslandWaterColumns.fitToSupport(wall(374),new TerrainColumn(368,373),768));
+        assertFalse(IslandWaterColumns.fitToSupport(wall(376),new TerrainColumn(319,373),768));
+        assertFalse(IslandWaterColumns.fitToSupport(wall(386),new TerrainColumn(319,373),768));
+        assertFalse(IslandWaterColumns.fitToSupport(wall(768),new TerrainColumn(740,767),768));
+        var unrelated=wall(374);unrelated.isWatershed=false;
+        assertFalse(IslandWaterColumns.fitToSupport(unrelated,new TerrainColumn(319,373),768));
+    }
     private static HydrologyManager.RiverCarving lake(int bed, int water) {
         var cut = new HydrologyManager.RiverCarving();
         cut.modifies = true;

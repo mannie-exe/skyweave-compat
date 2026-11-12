@@ -41,6 +41,17 @@ public final class WayfinderGeometry {
         if ((long)(highX-lowX+1)*(highZ-lowZ+1) > 4) return null;
         return new Footprint(lowX,lowZ,highX,highZ);
     }
+    /** Constant-time union along a monotonic ray, retaining the existing four-chunk lease bound. */
+    public static Footprint footprint(Entity entity,SightRay ray,SightRay.Interval interval) {
+        if(interval==null)return null;
+        var a=ray.at(Math.nextUp(interval.enter()));var b=ray.at(Math.nextDown(interval.exit()));
+        var first=footprint(entity,BlockPos.containing(a.x(),a.y(),a.z()));
+        var last=footprint(entity,BlockPos.containing(b.x(),b.y(),b.z()));
+        if(first==null || last==null)return null;
+        var union=new Footprint(Math.min(first.minX,last.minX),Math.min(first.minZ,last.minZ),
+                Math.max(first.maxX,last.maxX),Math.max(first.maxZ,last.maxZ));
+        return (long)(union.maxX-union.minX+1)*(union.maxZ-union.minZ+1)<=4?union:null;
+    }
     private static double centre(double observed, int cell, double half) {
         return fitsWithinCell(half) ? Math.clamp(observed,cell+half+1e-5,cell+1-half-1e-5) : cell+.5;
     }

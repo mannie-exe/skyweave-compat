@@ -2,6 +2,7 @@ package design.inherent.skyweavecompat;
 
 /** Independently selectable adaptations. Selection happens before target classes load. */
 public enum Feature {
+    BETTER_VILLAGE_CONFIG("bettervillage.configuration_writes"),
     WAYFINDER("navigation.wayfinder"),
     WAYFINDER_DH("navigation.wayfinder_dh"),
     TERRAIN("terrain.preset"),

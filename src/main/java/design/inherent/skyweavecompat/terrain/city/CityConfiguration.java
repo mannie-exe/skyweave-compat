@@ -1,5 +1,6 @@
 package design.inherent.skyweavecompat.terrain.city;
 
+import design.inherent.skyweavecompat.configuration.ConfigFile;
 import com.google.gson.*;
 import design.inherent.skyweavecompat.configuration.JsonEdits;
 import java.io.IOException;
@@ -35,7 +36,7 @@ public final class CityConfiguration {
             Files.createDirectories(directory);
             if (!Files.exists(path)) Files.writeString(path, new GsonBuilder().setPrettyPrinting().create().toJson(DEFAULT) + "\n",
                     StandardOpenOption.CREATE_NEW);
-            policy = parse(Files.readString(path));
+            policy = parse(ConfigFile.read(path));
         } catch (IOException | RuntimeException failure) {
             throw new IllegalStateException("Cannot load " + path + ": " + failure.getMessage(), failure);
         }

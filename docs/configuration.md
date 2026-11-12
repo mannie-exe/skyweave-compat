@@ -20,6 +20,7 @@ All switches default to `true`; explicit `false` selections remain authoritative
 
 | Switch                                 | Adaptation                                                                                        | Prerequisites                                                                                                                               |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bettervillage.configuration_writes`   | Preserve unchanged property bytes                                                                 | Better Villages 3.3.1 and Library Ferret 4.0.0; either side                                                                                 |
 | `navigation.wayfinder`                 | Native sight teleport and server policy                                                           | Minecraft; both sides for the G binding                                                                                                     |
 | `navigation.wayfinder_dh`              | Progressive distant terrain targeting                                                             | Active Wayfinder, physical client, DH 3.3.3                                                                                                 |
 | `terrain.preset`                       | Expanded preset, geometry, interiors, geology, and local water                                    | Sky Archipelago 1.4                                                                                                                         |
@@ -120,12 +121,13 @@ The island preset is never chosen automatically. Generation-related switches are
 
 `navigation.wayfinder` enables the server command and native client G binding. `navigation.wayfinder_dh` adds client targeting through the pinned DH integration. Both switches default on and apply at process startup; DH is optional.
 
-The **Maps → Skyweave: Compatibility Patches → Wayfinder** editor owns `config/skyweave/skyweave_compat-wayfinder.json`. Its values apply when a server starts, including an integrated server. Client copies do not override a remote server's policy. Minecraft Controls owns key rebinding separately. For multiplayer diagnostics, the current implementation requires `debugMessages` on the dedicated server and a server restart. Changing it in a client editor only affects future integrated-server sessions; it does not toggle remote feedback. Wayfinder currently rejects Spectator mode, riding and fall-flying even for operators.
+The **Maps → Skyweave: Compatibility Patches** page separates live **Debug messages** from server **Wayfinder policy**. `config/skyweave/skyweave_compat-wayfinder-client.toml` is a local client preference: messages default off and change immediately on save, including while connected to a dedicated server. Only the requesting operator receives diagnostic states. It grants no permission and does not change server work limits. Minecraft Controls owns key rebinding.
+
+`config/skyweave/skyweave_compat-wayfinder.json` owns access, cooldown, placement and work limits. These values apply when a local server starts, including an integrated server. A client copy never administers a remote server. Spectator mode, riding and fall-flying remain ineligible. An explicit command without a compatible client retains native command feedback; an accidental non-operator G remains silent.
 
 | Setting                 | Default    | Meaning                                                                                            |
 | ----------------------- | ---------- | -------------------------------------------------------------------------------------------------- |
 | `operatorsOnly`         | `true`     | Require native operator permission level 2; false explicitly permits other players                 |
-| `debugMessages`         | `false`    | Show query, result and permission messages for both hotkeys and commands                           |
 | `cooldownTicks`         | `0`        | Successful-warp cooldown in server ticks; zero disables it                                         |
 | `placementLookupHeight` | `16`       | Search up to this many blocks above the target for safe support, 0–64; zero checks only the target |
 | `stepsPerTick`          | `256`      | Cells or LOD bands evaluated per query slice                                                       |
@@ -135,7 +137,7 @@ The **Maps → Skyweave: Compatibility Patches → Wayfinder** editor owns `conf
 
 Lookup stays in the targeted column and never searches downward. The original hit must remain valid; blacklist, fluid, body-space and build-bound checks still apply. A hit on the underside of a block remains ineligible.
 
-The retired permission-warning field is removed when the editor saves. Existing files read with debug messages off and lookup height sixteen; other explicit values, including a previously configured cooldown, are retained. Set `cooldownTicks` to zero to disable an existing cooldown. Loading does not rewrite the file.
+Existing policy files containing `debugMessages` or `hideHotkeyPermissionMessage` require a deliberate one-time edit before starting. Remove those retired fields from the server policy while preserving all access and work values. To retain a personal visibility choice, set `debugMessages` in the client TOML instead; `true` enables local operator feedback. Loading does not rewrite or migrate either file. Old and new optional protocol versions do not negotiate: use matching Compat builds for the hotkey and live statuses, or the native loaded-terrain command path.
 
 There is no footing whitelist or maximum-distance setting. Missing optional block IDs match nothing. The default blacklist covers fluids, fire, magma, cactus, berry bushes, wither roses, powder snow, campfires, pointed dripstone, cobwebs and portals. Native collision and available body space remain mandatory after policy edits. Invalid IDs, duplicate entries and out-of-range work limits fail validation.
 
@@ -283,7 +285,7 @@ The Iris adaptation supplies precipitation through the same island-relative temp
 | `deepDark.veinChance`, `sensorChance`                   | 0.25, 0.25                                                  | Independent per-chunk chances, at most one of each with bounded placement attempts        |
 | `deepDark.catalystChance`, `shriekerChance`             | 0.08, 0.02                                                  | Independent per-chunk chances; shriekers retain native Warden summoning                   |
 
-These are selection settings, not measured worldwide frequencies. Deep Dark selection samples native underground climate eligibility; it does not turn every existing cave patch into a surface island or guarantee an Ancient City. Its natural body is deepslate with a coherent sculk cap and a bounded HOLLOW cavern using the interior shell/opening controls. Thin remnants retain rock where a cavity shell cannot fit. Ordinary fractured terrain retains its separately selected interior. Cap coverage and device chances are independent; changing coverage does not add more sensors or shriekers. The complete `deepDark` group replaces the retired sculk-patch setting, and stale or partial files fail strict validation. Set `enabled` false to disable outline/exterior modifiers, or `fringe.enabled` false to keep outlines without the fringe. Neither disables ordinary configured interiors. Every admitted ordinary non-spire land host receives Mixed or Disintegrating treatment by default; the latter adds broader, more extensive breakup with quiet sectors, without consuming its core. Fragment radii vary by cell and diminish outward; deterministic thinning increases their average separation. See [sampling and ownership](development/terrain-variation.md).
+These are selection settings, not measured worldwide frequencies. Deep Dark selection samples native underground climate eligibility; it does not turn every existing cave patch into a surface island or guarantee an Ancient City. Its natural body is deepslate with a coherent sculk cap and a bounded HOLLOW cavern using the interior shell/opening controls. Fractured HOLLOW interiors retain the original body’s chamber through the remnant transform: cuts expose that chamber, while surviving parent roofs, floors and outer shoulders retain their shell. Thin cut remnants are not given a new enclosing lining. Ordinary fractured terrain retains its separately selected interior. Cap coverage and device chances are independent; changing coverage does not add more sensors or shriekers. The complete `deepDark` group replaces the retired sculk-patch setting, and stale or partial files fail strict validation. Set `enabled` false to disable outline/exterior modifiers, or `fringe.enabled` false to keep outlines without the fringe. Neither disables ordinary configured interiors. Every admitted ordinary non-spire land host receives Mixed or Disintegrating treatment by default; the latter adds broader, more extensive breakup with quiet sectors, without consuming its core. Fragment radii vary by cell and diminish outward; deterministic thinning increases their average separation. See [sampling and ownership](development/terrain-variation.md).
 
 ## Ocean habitats
 
@@ -356,7 +358,7 @@ All fields are required, validated at startup and editable through the existing 
 | Field              | Default | Range                                     |
 | ------------------ | ------- | ----------------------------------------- |
 | `candidateLimit`   | 65536   | 16–65536 retained candidates              |
-| `timeLimitSeconds` | 120     | 5–600 wall seconds                        |
+| `timeLimitSeconds` | 600     | 5–600 wall seconds                        |
 | `concurrentChunks` | 2       | 1–2 native requests                       |
 | `tickBudgetMillis` | 5       | 1–10 milliseconds of per-tick bookkeeping |
 
@@ -447,6 +449,8 @@ Journal preferences save immediately through their existing helpers. Startup swi
 
 Small registered forms are embedded in their owning page. Native specs still validate, serialize and apply them; editing alone does not change runtime values. Application timing is shown per field. Preferences is a navigation purpose, not a promise of immediate saving. Journal preferences keep their existing immediate behavior and are not undone by discarding other drafts. Raw file access lives in Status & files, and opening a page never creates missing configuration. Single-field files do not add a redundant file heading or menu item.
 
+Owned profile and startup-switch files must be regular UTF-8 files of at most 128 KiB. Startup and editor reads enforce the same limits; duplicate JSON keys are rejected rather than choosing one value.
+
 External edits refuse a stale save and retain the draft. Reload requires explicit discard of pending edits. All staged files are validated before saving begins; independent files are not one transaction. If a later write fails, feedback lists committed files and the failed file, keeping unapplied drafts. A failed read keeps any previously captured snapshot available with a warning.
 
 This interface edits local installation files. A local common config does not administer a connected server. Terrain changes retain saved-world identity checks: saving never converts or regenerates a world. Shader assembly keeps its existing rebuild control under Rendering → Iris.
@@ -464,3 +468,7 @@ A text display's native brightness override controls its lightmap. Its `shadow` 
 ## Redstone Link GUI
 
 Under **Machines and signals → Redstone Link GUI**, inline fields provide the client click mode and common relocation range. These are upstream settings, separate from Skyweave: Compatibility Patches startup switches. Default `clickMode="SHIFT_SLOT"` requires an empty hand and Shift + right-click on a frequency slot; default `moveRange=24` applies to the relocation tool. Keep the common value consistent on both sides. Client settings are personal; common settings are not server-to-client configuration sync.
+
+### Better Villages configuration writes
+
+`bettervillage.configuration_writes` defaults on when Better Villages 3.3.1 and Library Ferret 4.0.0 are present, on either physical side. It preserves the existing bytes when Better Villages saves an unchanged properties map, avoiding timestamp-only installation conflicts. Changed values, missing files, added defaults and native error handling retain the original writer. Other Library Ferret consumers are unaffected. Recheck the configuration identifier, property encoding, save side effects and exact dependency versions before updating this hook.

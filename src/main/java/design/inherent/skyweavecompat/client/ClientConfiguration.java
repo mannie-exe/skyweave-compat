@@ -14,7 +14,11 @@ import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 @Mod(value = SkyweaveCompat.ID, dist = Dist.CLIENT)
 public final class ClientConfiguration {
     public ClientConfiguration(ModContainer container, IEventBus modBus) {
-        if (OptionalIntegrations.enabled(Feature.WAYFINDER)) WayfinderClient.register(modBus);
+        if (OptionalIntegrations.enabled(Feature.WAYFINDER)) {
+            WayfinderClient.register(modBus);
+            container.registerConfig(ModConfig.Type.CLIENT,WayfinderPreferences.SPEC,
+                    design.inherent.skyweavecompat.configuration.ConfigLocations.registeredName(WayfinderPreferences.FILE));
+        }
         if (OptionalIntegrations.enabled(Feature.CLIMATE)) ClimateClient.register();
         modBus.addListener(ClientResourceRevision::register);
         if (OptionalIntegrations.enabled(Feature.ISLAND_CLOUDS)) modBus.addListener(IslandSky::register);
@@ -38,7 +42,7 @@ public final class ClientConfiguration {
         if (OptionalIntegrations.enabled(Feature.QUESTLOG_INTERFACE)
                 || OptionalIntegrations.enabled(Feature.QUESTLOG_NOTIFICATIONS)) {
             container.registerConfig(ModConfig.Type.CLIENT, JournalPreferences.SPEC,
-                    design.inherent.skyweavecompat.configuration.ConfigLocations.registeredName("skyweave_compat-journal-client.toml"));
+                    design.inherent.skyweavecompat.configuration.ConfigLocations.registeredName(JournalPreferences.FILE));
         }
     }
 }

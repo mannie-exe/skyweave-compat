@@ -1,5 +1,6 @@
 package design.inherent.skyweavecompat.maps;
 
+import design.inherent.skyweavecompat.configuration.ConfigFile;
 import com.google.gson.GsonBuilder;
 import design.inherent.skyweavecompat.configuration.ConfigLocations;
 import design.inherent.skyweavecompat.configuration.ProfileJson;
@@ -37,7 +38,7 @@ public record MapZoomSettings(double zoomMinimum, double zoomMaximum, double zoo
             Files.createDirectories(path.getParent());
             if (!Files.exists(path)) Files.writeString(path, new GsonBuilder().setPrettyPrinting().create().toJson(DEFAULT) + "\n",
                     StandardOpenOption.CREATE_NEW);
-            lastValid = parse(Files.readString(path));
+            lastValid = parse(ConfigFile.read(path));
         } catch (java.io.IOException | RuntimeException failure) {
             // Keep the invalid file for the configuration editor rather than losing it or crashing the map.
             com.mojang.logging.LogUtils.getLogger().warn("Cannot read map zoom preferences {}; retaining last valid values", path, failure);

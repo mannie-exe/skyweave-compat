@@ -28,6 +28,7 @@ final class ClientConfigurationProbe {
     private String lastError;
     private Boolean keyAccepted;
     private JsonObject nativeKey;
+    private boolean wayfinderObserver;
     ClientConfigurationProbe() {
         if (!Files.isRegularFile(root.resolve("config-review-fixture.json"))) throw new IllegalStateException("Configuration probe requires its disposable-fixture marker");
         NeoForge.EVENT_BUS.addListener(this::tick);
@@ -47,7 +48,7 @@ final class ClientConfigurationProbe {
         var mc = Minecraft.getInstance();
         if (++ticks % 10 != 0 || mc.getOverlay() != null) return;
         try {
-            if (!opened && !Boolean.getBoolean("skyweave_compat.probe.resources") && !Boolean.getBoolean("skyweave_compat.probe.redstone") && !Boolean.getBoolean("skyweave_compat.probe.configuration.journal") && mc.screen instanceof TitleScreen) { opened = true; open(); }
+            if (!opened && !Boolean.getBoolean("skyweave_compat.probe.misc") && !Boolean.getBoolean("skyweave_compat.probe.resources") && !Boolean.getBoolean("skyweave_compat.probe.redstone") && !Boolean.getBoolean("skyweave_compat.probe.configuration.journal") && mc.screen instanceof TitleScreen) { opened = true; open(); }
             Path control = root.resolve("config-review-control.json");
             if (Files.isRegularFile(control) && Files.size(control) < 16384) {
                 var command = JsonParser.parseString(Files.readString(control)).getAsJsonObject();
@@ -56,6 +57,24 @@ final class ClientConfigurationProbe {
                     sequence = seq; lastError = null;
                     switch (command.get("operation").getAsString()) {
                         case "open" -> open();
+                        case "wayfinder" -> {
+                            if(!wayfinderObserver || mc.player==null
+                                    || !Files.isRegularFile(root.resolve("misc-review-fixture.json")))
+                                throw new IllegalStateException("Expected a connected marked Wayfinder fixture");
+                            WayfinderFixture.apply(mc,command);
+                        }
+                        case "connect" -> {
+                            String address=command.get("address").getAsString();
+                            if(!Files.isRegularFile(root.resolve("misc-review-fixture.json"))
+                                    || !address.matches("127\\.0\\.0\\.1:[0-9]{1,5}"))
+                                throw new IllegalArgumentException("Expected a marked loopback fixture");
+                            var target=net.minecraft.client.multiplayer.resolver.ServerAddress.parseString(address);
+                            if(target.getPort()<1 || target.getPort()>65535)throw new IllegalArgumentException("Invalid loopback port");
+                            if(!wayfinderObserver){WayfinderFixture.register();wayfinderObserver=true;}
+                            net.minecraft.client.gui.screens.ConnectScreen.startConnecting(new TitleScreen(),mc,target,
+                                    new net.minecraft.client.multiplayer.ServerData("Wayfinder loopback",address,
+                                            net.minecraft.client.multiplayer.ServerData.Type.OTHER),false,null);
+                        }
                         case "click" -> {
                             var found = widgets(mc.screen).stream().filter(w -> w.getMessage().getString().equals(command.get("label").getAsString())).toList();
                             int index = command.has("index") ? command.get("index").getAsInt() : 0;
@@ -83,6 +102,7 @@ final class ClientConfigurationProbe {
                         case "resize" -> org.lwjgl.glfw.GLFW.glfwSetWindowSize(mc.getWindow().getWindow(), command.get("width").getAsInt(), command.get("height").getAsInt());
                         case "text" -> { for (char character : command.get("value").getAsString().toCharArray()) mc.screen.charTyped(character, 0); }
                         case "snapshot" -> {}
+                        case "journal-write-and-toggle" -> journalWriter();
                         case "quit" -> mc.stop();
                         default -> throw new IllegalArgumentException("Unknown configuration fixture action");
                     }
@@ -90,6 +110,24 @@ final class ClientConfigurationProbe {
             }
             write(lastError);
         } catch (Exception failure) { lastError = failure.toString(); write(lastError); }
+    }
+    private void journalWriter() throws Exception {
+        if(!OptionalIntegrations.enabled(Feature.QUESTLOG_INTERFACE))throw new IllegalStateException("Journal writer fixture requires its real optional owner");
+        var path=design.inherent.skyweavecompat.configuration.ConfigLocations.file(FMLPaths.CONFIGDIR.get(),
+                design.inherent.skyweavecompat.questlog.client.JournalPreferences.FILE);
+        var original=Files.readString(path);var external=original.replace("conditionSymbols = true","conditionSymbols = false");
+        if(external.equals(original))throw new IllegalStateException("Expected fresh native journal defaults");
+        Files.writeString(path,external);
+        var result=new JsonObject();result.addProperty("externalSymbolChoice",false);
+        try {design.inherent.skyweavecompat.questlog.client.JournalPreferences.toggleImages();result.addProperty("toggleAccepted",true);}
+        catch(RuntimeException refused){result.addProperty("toggleAccepted",false);result.addProperty("refusal",refused.getMessage());}
+        var actual=new com.electronwill.nightconfig.toml.TomlParser().parse(Files.readString(path));
+        result.addProperty("savedImages",(Boolean)actual.get("itemImages"));
+        result.addProperty("savedSymbols",(Boolean)actual.get("conditionSymbols"));
+        result.addProperty("nativeImages",design.inherent.skyweavecompat.questlog.client.JournalPreferences.ITEM_IMAGES.get());
+        result.addProperty("nativeSymbols",design.inherent.skyweavecompat.questlog.client.JournalPreferences.CONDITION_SYMBOLS.get());
+        result.addProperty("externalChoicePreserved",Boolean.FALSE.equals(actual.get("conditionSymbols")));
+        ProbeStateFiles.write(root.resolve("journal-writer-observation.json"),new GsonBuilder().setPrettyPrinting().create().toJson(result));
     }
     private static ArrayList<AbstractWidget> widgets(GuiEventListener listener) {
         var found = new ArrayList<AbstractWidget>();
@@ -101,6 +139,7 @@ final class ClientConfigurationProbe {
         try {
             var mc = Minecraft.getInstance(); var report = new JsonObject();
             report.addProperty("pid", ProcessHandle.current().pid()); report.addProperty("sequence", sequence); report.addProperty("screen", mc.screen == null ? "none" : mc.screen.getClass().getName());
+            if(wayfinderObserver && mc.player!=null)report.add("wayfinder",WayfinderFixture.state(mc));
             report.addProperty("width", mc.getWindow().getGuiScaledWidth()); report.addProperty("height", mc.getWindow().getGuiScaledHeight()); report.addProperty("scale", mc.options.guiScale().get());
             if (error != null) report.addProperty("error", error);
             report.addProperty("controlDown", net.minecraft.client.gui.screens.Screen.hasControlDown());

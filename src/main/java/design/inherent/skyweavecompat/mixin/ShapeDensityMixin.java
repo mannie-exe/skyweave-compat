@@ -59,7 +59,9 @@ public abstract class ShapeDensityMixin {
         if (minimum > maximum) throw new IllegalStateException("No remnant height fits island " + island.seed());
         int shift = minimum + (int)Math.floor(fragment.heightChoice() * (maximum - minimum + 1));
         var body = prepared.landBody();
-        result.setReturnValue(new IslandDensityEvaluator.PreparedDensity(prepared.waterArchetype(),
-                new TerrainColumn(body.bottomY() + shift, body.topY() + shift)));
+        var shifted = new IslandDensityEvaluator.PreparedDensity(prepared.waterArchetype(),
+                new TerrainColumn(body.bottomY() + shift, body.topY() + shift));
+        ((ParentLandBody)(Object)shifted).skyweave$parentLandBody(new ParentLandBody.Frame(body, shift));
+        result.setReturnValue(shifted);
     }
 }

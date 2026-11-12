@@ -1,5 +1,6 @@
 package design.inherent.skyweavecompat.terrain;
 
+import design.inherent.skyweavecompat.configuration.ConfigFile;
 import com.google.gson.*;
 import com.mojang.serialization.JsonOps;
 import design.inherent.skyweavecompat.configuration.JsonEdits;
@@ -81,7 +82,7 @@ public final class RiverConfiguration {
         try {
             Files.createDirectories(directory);
             if (!Files.exists(path)) Files.writeString(path, definition().defaults(), StandardOpenOption.CREATE_NEW);
-            settings = parse(Files.readString(path));
+            settings = parse(ConfigFile.read(path));
             JsonSettings.register(definition());
         } catch (IOException | RuntimeException error) {
             throw new IllegalStateException("Cannot load " + path + ": " + error.getMessage(), error);

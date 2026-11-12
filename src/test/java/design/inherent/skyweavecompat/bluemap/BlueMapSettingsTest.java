@@ -8,6 +8,11 @@ class BlueMapSettingsTest {
         {"maps":["world"],"detailDistance":4000,"tileRadius":31,"concurrentRequests":4,"geometryMiB":256}
         """;
 
+    @Test void startupAndEditorCannotDisagreeAboutDuplicateObjectKeys() {
+        var duplicate=VALID.replace("\"maps\":[\"world\"]","\"maps\":[],\"maps\":[\"world\"]");
+        assertThrows(RuntimeException.class,()->BlueMapSettings.parse(duplicate));
+    }
+
     @Test void boundedSelectionRejectsMalformedPolicies() {
         assertTrue(BlueMapSettings.DEFAULT.maps().isEmpty());
         assertTrue(BlueMapSettings.parse(VALID).maps().contains("world"));

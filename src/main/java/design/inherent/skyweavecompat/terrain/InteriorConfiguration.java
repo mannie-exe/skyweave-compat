@@ -1,5 +1,6 @@
 package design.inherent.skyweavecompat.terrain;
 
+import design.inherent.skyweavecompat.configuration.ConfigFile;
 import com.google.gson.*;
 import java.nio.file.*;
 import java.io.IOException;
@@ -21,7 +22,7 @@ public final class InteriorConfiguration {
         Path path = directory.resolve(FILE);
         try {
             if (!Files.exists(path)) Files.writeString(path, JSON.toJson(InteriorProfile.INITIAL) + "\n", StandardOpenOption.CREATE_NEW);
-            profile = parse(Files.readString(path));
+            profile = parse(ConfigFile.read(path));
         } catch (IOException | RuntimeException failure) {
             throw new IllegalStateException("Cannot load " + path + ": " + failure.getMessage(), failure);
         }

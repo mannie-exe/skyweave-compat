@@ -27,6 +27,7 @@ final class WayfinderFixture {
         NeoForge.EVENT_BUS.addListener(WayfinderFixture::serverTick);
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.ClientTickEvent.Post event) -> {
             var mc = Minecraft.getInstance();
+            if(dh)WayfinderRemoteFixture.tick(mc);
             if (dh && !generating && preparation.equals("waiting for DH") && mc.level != null
                     && WayfinderDhFixture.ready(mc,distance)) preparation = "ready";
         });
@@ -68,6 +69,24 @@ final class WayfinderFixture {
                 });
             }
             case "command" -> mc.getConnection().sendCommand("skyweavecompat wayfinder");
+            case "coarse-pause", "coarse-transfer" -> {
+                dh=design.inherent.skyweavecompat.OptionalIntegrations.enabled(design.inherent.skyweavecompat.Feature.WAYFINDER_DH);
+                if(!dh)throw new IllegalStateException("Expected the selected native DH fixture");
+                if(control.get("action").getAsString().equals("coarse-pause"))WayfinderRemoteFixture.pause(mc);
+                else WayfinderRemoteFixture.start(mc,control);
+            }
+            case "column" -> {
+                dh=design.inherent.skyweavecompat.OptionalIntegrations.enabled(design.inherent.skyweavecompat.Feature.WAYFINDER_DH);
+                if(!dh)throw new IllegalStateException("The real optional DH reader is not active");
+                WayfinderDhFixture.query(mc,control.get("x").getAsInt(),control.get("z").getAsInt(),
+                        control.has("bottom")?control.get("bottom").getAsDouble():mc.level.getMinBuildHeight(),
+                        control.has("top")?control.get("top").getAsDouble():mc.level.getMaxBuildHeight());
+            }
+            case "fly" -> {
+                if(!mc.player.getAbilities().mayfly)throw new IllegalStateException("Fixture requires native Creative flight permission");
+                mc.player.getAbilities().flying=true;mc.player.onUpdateAbilities();
+                mc.player.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+            }
             case "cancel" -> mc.getConnection().sendCommand("skyweavecompat wayfinder cancel");
             case "bind" -> {
                 var binding = Arrays.stream(mc.options.keyMappings).filter(key -> key.getName().equals("key.skyweave_compat.wayfinder")).findFirst().orElseThrow();
@@ -131,7 +150,7 @@ final class WayfinderFixture {
             serverState = snapshot;
         } catch (Throwable error) { preparation = error.toString(); generating = false; error.printStackTrace(); }
     }
-    private static Field field(Class<?> type, String name) throws Exception {
+    static Field field(Class<?> type, String name) throws Exception {
         var field = type.getDeclaredField(name); field.setAccessible(true); return field;
     }
     static JsonObject state(Minecraft mc) throws Exception {
@@ -141,8 +160,11 @@ final class WayfinderFixture {
             row.add("clientEye",new Gson().toJsonTree(mc.player.getEyePosition()));
             row.add("clientView",new Gson().toJsonTree(mc.player.getViewVector(1)));
         }
-        if (mc.level != null) row.addProperty("nativeTargetLoaded",mc.level.getChunkSource().getChunk(
-                distance >> 4,0,net.minecraft.world.level.chunk.status.ChunkStatus.FULL,false) != null);
+        if (mc.level != null) {
+            row.addProperty("nativeLoadedChunks",mc.level.getChunkSource().getLoadedChunksCount());
+            row.addProperty("nativeTargetLoaded",mc.level.getChunkSource().getChunk(
+                    distance >> 4,0,net.minecraft.world.level.chunk.status.ChunkStatus.FULL,false) != null);
+        }
         var keys = new JsonArray();
         for (var key : mc.options.keyMappings) if (key.getKey().getValue()==org.lwjgl.glfw.GLFW.GLFW_KEY_G
                 || key.getName().equals("key.skyweave_compat.wayfinder")) {
@@ -153,6 +175,8 @@ final class WayfinderFixture {
         if (dh) {
             row.addProperty("dhPreparation",WayfinderDhFixture.observation());
             row.addProperty("dhTargetColumn",WayfinderDhFixture.targetColumn());
+            row.add("dhColumnQuery",WayfinderDhFixture.queryState());
+            row.add("dhParentTransfer",WayfinderRemoteFixture.state());
         }
         var handler = WayfinderNetwork.client;
         for (var captured : handler.getClass().getDeclaredFields()) {
@@ -164,10 +188,20 @@ final class WayfinderFixture {
                 var trace = (design.inherent.skyweavecompat.wayfinder.WayfinderTrace)field(job.getClass(),"trace").get(job);
                 row.addProperty("queryDistance",trace.distance()); row.addProperty("workUnits",trace.workUnits());
                 row.add("requestRay",new Gson().toJsonTree(field(job.getClass(),"ray").get(job)));
+                if(dh) {
+                    var reader=field(trace.getClass(),"lod").get(trace);
+                    if(reader instanceof design.inherent.skyweavecompat.wayfinder.dh.DhWayfinderColumns columns) {
+                        row.addProperty("dataReads",columns.readCount());
+                        row.addProperty("retainedSources",((Map<?,?>)field(columns.getClass(),"sources").get(columns)).size());
+                        row.addProperty("retainedColumns",((Map<?,?>)field(columns.getClass(),"columns").get(columns)).size());
+                    }
+                }
             }
         }
         var message = field(net.minecraft.client.gui.Gui.class,"overlayMessageString").get(mc.gui);
         if (message instanceof net.minecraft.network.chat.Component text) row.addProperty("feedback",text.getString());
+        row.addProperty("feedbackTicks",field(net.minecraft.client.gui.Gui.class,"overlayMessageTime").getInt(mc.gui));
+        if(mc.player!=null)row.addProperty("operator",mc.player.hasPermissions(2));
         return row;
     }
 }

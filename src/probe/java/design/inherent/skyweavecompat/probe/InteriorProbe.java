@@ -18,6 +18,9 @@ final class InteriorProbe {
     private InteriorProbe() {}
 
     static void run(MinecraftServer server, Path output) throws Exception {
+        if (Boolean.getBoolean("neighbors.probe.fracturedHollow")) {
+            FracturedHollowProbe.run(server, output); return;
+        }
         var level = server.overworld();
         var generator = (SkyIslandChunkGenerator)level.getChunkSource().getGenerator();
         var settings = generator.resolvedSkyIslandSettings();
@@ -201,8 +204,7 @@ final class InteriorProbe {
                             + "; center interior=" + planning.skyweave$planningColumn(island.centerX(), island.centerZ(), settings, TerrainStage.INTERIOR));
             }
         }
-        // Fractured cells with insufficient clearance deliberately suppress interiors.
-        // Keep a negative witness rather than demanding a skylight through protected rock.
+        // Original parent caps survive; an internal cell bisector no longer implies a solid lining.
         for (var island : openings) {
             if (island.archetype().waterBased() || styles.style(island).kind() == IslandStyles.Kind.NATIVE
                     || IslandInteriors.kind(island, profile) != IslandInteriors.Kind.HOLLOW
@@ -212,11 +214,10 @@ final class InteriorProbe {
             var interior = planning.skyweave$planningColumn(island.centerX(), island.centerZ(), settings, TerrainStage.INTERIOR);
             if (exterior.dominantDescriptor() == null || exterior.dominantDescriptor().seed() != island.seed()
                     || exterior.segments().isEmpty()) continue;
-            if (!exterior.segments().equals(interior.segments()))
-                throw new AssertionError("Protected fractured center was excavated: " + island);
-            var row = new JsonObject(); row.addProperty("kind", "PROTECTED_FRACTURE");
+            var row = new JsonObject(); row.addProperty("kind", "FRACTURED_PARENT_INTERIOR");
             row.add("island", new Gson().toJsonTree(island)); row.add("style", new Gson().toJsonTree(styles.style(island)));
-            row.addProperty("openColumns", 0); row.addProperty("nativeRoofWitnesses", 0); rows.add(row);
+            row.addProperty("openColumns", exterior.segments().equals(interior.segments())?0:1);
+            row.addProperty("nativeRoofWitnesses", 0); rows.add(row);
             break;
         }
         return rows;

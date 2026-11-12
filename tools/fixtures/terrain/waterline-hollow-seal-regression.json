@@ -1,0 +1,68 @@
+{
+  "seed": -1980885823227676047,
+  "waterY": 374,
+  "points": [
+    {
+      "x": -1649,
+      "z": 871,
+      "expectedNonAir": true,
+      "note": "original saved waterline gap"
+    },
+    {
+      "x": -1648,
+      "z": 871,
+      "expectedNonAir": true,
+      "note": "original saved waterline gap"
+    },
+    {
+      "x": -1650,
+      "z": 872,
+      "expectedNonAir": true,
+      "note": "original saved waterline gap"
+    },
+    {
+      "x": -1649,
+      "z": 872,
+      "expectedNonAir": true,
+      "note": "original saved waterline gap"
+    },
+    {
+      "x": -1648,
+      "z": 872,
+      "expectedNonAir": true,
+      "note": "original saved waterline gap",
+      "expectedWet": false
+    },
+    {
+      "x": -1647,
+      "z": 872,
+      "expectedNonAir": true,
+      "note": "original saved waterline gap"
+    },
+    {
+      "x": -1649,
+      "z": 873,
+      "expectedNonAir": true,
+      "note": "original saved waterline gap"
+    },
+    {
+      "x": -1648,
+      "z": 873,
+      "expectedNonAir": true,
+      "note": "original saved waterline gap"
+    },
+    {
+      "x": -1656,
+      "z": 872,
+      "expectedWet": true,
+      "note": "wet control"
+    },
+    {
+      "x": -1648,
+      "z": 864,
+      "expectedWet": true,
+      "note": "wet control"
+    }
+  ],
+  "verifyBedAndLowerMaterial": true
+}

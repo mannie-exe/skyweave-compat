@@ -32,6 +32,12 @@ public final class ConfigFile {
 
     public Path path() { return path; }
 
+    /** Startup and screen-open consumers share the editor's regular-file and byte limits. */
+    public static String read(Path path) throws IOException {
+        if(path.getFileName()==null)throw new IOException("Expected a configuration filename");
+        return new ConfigFile(path.toAbsolutePath().getParent(),path.getFileName().toString()).read();
+    }
+
     public String read() throws IOException {
         if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(directory)
                 || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(path))

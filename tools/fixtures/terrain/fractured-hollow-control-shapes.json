@@ -1,0 +1,42 @@
+{
+  "enabled": true,
+  "strengthVariation": 0.15,
+  "outline": {
+    "aspectChance": 0.65,
+    "maximumAspectRatio": 1.96,
+    "warpAmplitude": 26,
+    "warpWavelength": 102
+  },
+  "fringe": {
+    "enabled": false,
+    "minimumSmoothFraction": 0.3,
+    "maximumSmoothFraction": 0.7,
+    "falloffDistance": 64,
+    "disintegratingChance": 0.15,
+    "disintegratingScale": 1.6,
+    "fragmentScale": 28,
+    "fragmentDepthRatio": 0.6,
+    "density": 0.55,
+    "falloffExponent": 1.2,
+    "undersideAccent": 6
+  },
+  "fractures": {
+    "chance": 0.5,
+    "biomes": [
+      "minecraft:plains"
+    ],
+    "cellSize": 72,
+    "gapWidth": 6,
+    "verticalRange": 32,
+    "removalChance": 0.28,
+    "deepDarkChance": 0
+  },
+  "deepDark": {
+    "sculkCoverage": 0.94,
+    "surfaceScale": 48,
+    "veinChance": 0.25,
+    "sensorChance": 0.25,
+    "catalystChance": 0.08,
+    "shriekerChance": 0.02
+  }
+}

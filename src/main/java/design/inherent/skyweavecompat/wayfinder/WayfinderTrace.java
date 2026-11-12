@@ -6,8 +6,9 @@ import net.minecraft.world.level.Level;
 
 /** One explicit sight query; each step consumes a bounded number of cells or LOD bands. */
 public final class WayfinderTrace implements AutoCloseable {
-    public enum Outcome { PENDING, HIT, MISS, MISSING, CANCELLED, CONSTRUCT, FAILED }
-    public record Result(Outcome outcome, SightRay.Point hit) {
+    public enum Outcome { PENDING, HIT, MISS, MISSING, INCOMPLETE, CANCELLED, CONSTRUCT, FAILED }
+    public record Result(Outcome outcome, SightRay.Point hit, WayfinderRegion region) {
+        public Result(Outcome outcome,SightRay.Point hit){this(outcome,hit,null);}
         static Result of(Outcome outcome) { return new Result(outcome,null); }
     }
     private final SightRay ray;
@@ -46,10 +47,13 @@ public final class WayfinderTrace implements AutoCloseable {
             }
             if (lod == null) return finish(Result.of(Outcome.MISSING));
             if (column == null) {
-                column = lod.poll(cursor.x(),cursor.z());
+                // Do not demand unknown depth beyond a nearer observed hit, including vertical rays.
+                double startY=ray.at(cursor.distance()).y(),endY=ray.at(cursor.cellExit()).y();
+                column = lod.poll(cursor.x(),cursor.z(),Math.min(startY,endY),Math.max(startY,endY));
                 if (column.state() == LodColumns.State.PENDING) { column = null; return result; }
                 if (column.state() != LodColumns.State.READY) return finish(Result.of(switch (column.state()) {
                     case MISSING -> Outcome.MISSING;
+                    case INCOMPLETE -> Outcome.INCOMPLETE;
                     case CLOSED -> Outcome.CANCELLED;
                     default -> Outcome.FAILED;
                 }));
@@ -59,16 +63,18 @@ public final class WayfinderTrace implements AutoCloseable {
                 workUnits++;
                 var band = column.bands().get(nextBand++);
                 if (!band.air()) {
-                    var intersect = ray.intersect(cursor.x(),band.bottom(),cursor.z(),cursor.x()+1.,band.top(),cursor.z()+1.);
+                    int width=1<<column.detail(),x=Math.floorDiv(cursor.x(),width)*width,z=Math.floorDiv(cursor.z(),width)*width;
+                    var intersect = ray.intersect(x,band.bottom(),z,(double)x+width,band.top(),(double)z+width);
                     if (intersect != null && intersect.exit() > cursor.distance()) {
                         double entry = Math.max(cursor.distance(),intersect.enter());
-                        if (entry < cursor.columnExit()) firstHit = Math.min(firstHit,entry);
+                        if (entry < cursor.cellExit()) firstHit = Math.min(firstHit,entry);
                     }
                 }
             } else {
                 workUnits++;
-                if (Double.isFinite(firstHit)) return finish(new Result(Outcome.HIT,ray.at(firstHit + 1e-6)));
-                cursor.advanceColumn(); column = null;
+                if (Double.isFinite(firstHit)) return finish(new Result(Outcome.HIT,ray.at(firstHit + 1e-6),
+                        column.detail()==0?null:WayfinderRegion.containing(cursor.x(),cursor.z(),column.detail())));
+                cursor.advance(); column = null;
             }
         }
         return result;

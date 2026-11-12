@@ -202,6 +202,10 @@ public final class PlacementProbe {
 
     private void run(net.minecraft.server.MinecraftServer server) {
         try {
+            if(Boolean.getBoolean("neighbors.probe.configurationWriters")) {
+                ConfigurationWriterProbe.run(Path.of(System.getProperty("neighbors.probe.output")));
+                server.halt(false);return;
+            }
             if (Boolean.getBoolean("neighbors.probe.cityRecipe")) {
                 CityRecipeProbe.run(server,Path.of(System.getProperty("neighbors.probe.output")));
                 return;

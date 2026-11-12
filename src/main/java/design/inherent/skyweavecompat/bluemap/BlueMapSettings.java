@@ -1,5 +1,7 @@
 package design.inherent.skyweavecompat.bluemap;
 
+import design.inherent.skyweavecompat.configuration.ConfigFile;
+import design.inherent.skyweavecompat.configuration.ProfileJson;
 import com.google.gson.*;
 import java.io.IOException;
 import java.nio.file.*;
@@ -27,11 +29,11 @@ public record BlueMapSettings(Set<String> maps, int detailDistance, int tileRadi
             Files.writeString(file, new GsonBuilder().setPrettyPrinting().create().toJson(DEFAULT) + "\n",
                     StandardOpenOption.CREATE_NEW);
         }
-        return parse(Files.readString(file));
+        return parse(ConfigFile.read(file));
     }
 
     public static BlueMapSettings parse(String text) {
-        var value = JsonParser.parseString(text).getAsJsonObject();
+        var value = ProfileJson.object(text);
         var numbers = Set.of("detailDistance", "tileRadius", "concurrentRequests", "geometryMiB");
         var fields = new HashSet<>(numbers); fields.add("maps");
         if (!value.keySet().equals(fields)) throw new IllegalArgumentException("Expected exactly " + fields);

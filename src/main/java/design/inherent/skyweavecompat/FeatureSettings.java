@@ -1,7 +1,9 @@
 package design.inherent.skyweavecompat;
 
+import design.inherent.skyweavecompat.configuration.ConfigFile;
 import java.io.IOException;
 import java.io.Reader;
+import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -49,14 +51,14 @@ public record FeatureSettings(Map<Feature, Boolean> values) {
                 // Retain an existing village-filter opt-out when first introducing startup switches.
                 Path village = configDirectory.resolve("skyweave_compat-common.toml");
                 if (Files.isRegularFile(village) && java.util.regex.Pattern.compile("(?m)^\\s*enabled\\s*=\\s*false\\s*(?:#.*)?$")
-                        .matcher(Files.readString(village)).find())
+                        .matcher(ConfigFile.read(village)).find())
                     initial = initial.replace("villages.clearance=true", "villages.clearance=false");
                 Files.writeString(path, initial, StandardCharsets.UTF_8, StandardOpenOption.CREATE_NEW);
             } catch (java.nio.file.FileAlreadyExistsException race) {
                 // Another loader invocation supplied the authoritative file.
             }
         }
-        try (var reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) { return read(reader); }
+        return read(new StringReader(ConfigFile.read(path)));
     }
 
     public static String defaults() {

@@ -118,6 +118,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
 
     public static Map<String, String> dependencies(Feature feature) {
         return switch (feature) {
+            case BETTER_VILLAGE_CONFIG -> Map.of("bettervillage", "3.3.1", "libraryferret", "4.0.0");
             case WAYFINDER -> Map.of();
             case WAYFINDER_DH -> Map.of("distanthorizons", "3.3.3");
             case FTB_ITEM_FILTERS -> Map.of("ftbquests", "2101.1.38");
@@ -189,11 +190,12 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
         for (var feature : Feature.values()) {
             if (!enabled(feature)) continue;
             result.addAll(switch (feature) {
+                case BETTER_VILLAGE_CONFIG -> List.of("BetterVillageConfigMixin");
                 case FTB_CREATIVE_RETURN -> List.of("client.FtbCreativeReturnMixin");
                 case WAYFINDER, WAYFINDER_DH -> List.of();
                 case TERRAIN -> List.of("StructureSearchChunksAccess", "StructureSearchStorageMixin", "StructureRegionStorageAccess", "GeneratorProfileMixin", "IslandFieldMixin", "ColumnResolverMixin",
                         "ColumnDataMixin", "InteriorSurfaceMixin", "SurfaceRulesMixin", "SurfacePaletteAccessor", "ClusterPlacementMixin", "ClusterSamplerMixin",
-                        "DescriptorFactoryMixin", "OceanShapeMixin", "FringePlanMixin", "FringeColumnMixin", "ShapeDensityMixin", "ShapeDecorationMixin", "TerrainMaterialMixin", "InteriorInterpolationMixin",
+                        "DescriptorFactoryMixin", "OceanShapeMixin", "FringePlanMixin", "FringeColumnMixin", "ShapeDensityMixin", "PreparedDensityMixin", "ShapeDecorationMixin", "TerrainMaterialMixin", "InteriorInterpolationMixin",
                         "GeologicalMaterialMixin", "OreVeinifierAccessor");
                 case ORE_PLACEMENT -> List.of("OreHeightMixin");
                 case CARVERS -> List.of("TerrainCarverPolicyMixin", "CarvingContextMixin", "CarverHeightMixin", "CarverLavaMixin", "WaterCarverMixin");

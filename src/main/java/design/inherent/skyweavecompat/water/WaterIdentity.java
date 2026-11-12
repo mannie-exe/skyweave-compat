@@ -9,7 +9,7 @@ import net.neoforged.neoforge.common.ModConfigSpec;
 
 /** Generation inputs only; audio, render options and force multipliers do not change terrain identity. */
 public final class WaterIdentity {
-    public static final String ALGORITHM = "island_watersheds_v4";
+    public static final String ALGORITHM = "island_watersheds_v5";
     private WaterIdentity() {}
     public static JsonObject inputs() {
         var result = new JsonObject();

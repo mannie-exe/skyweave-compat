@@ -125,8 +125,10 @@ public final class RegisteredEdits {
         validate(parsed); return values(parsed);
     }
     private void checkNative() throws IOException {
-        for (var field : fields) if (!Objects.equals(field.binding().getRaw(), saved.get(field.key())))
-            throw new IOException("Registered values changed outside this editor. Reload to review them.");
+        if(!nativeMatchesFile())throw new IOException("File and registered values differ. Let the owning mod reload, then reload this editor to review them.");
+    }
+    public boolean nativeMatchesFile() {
+        return fields.stream().allMatch(field -> Objects.equals(field.binding().getRaw(),saved.get(field.key())));
     }
     public void check() throws IOException { candidate(); file.check(baseline); checkNative(); }
     @SuppressWarnings({"unchecked", "rawtypes"})

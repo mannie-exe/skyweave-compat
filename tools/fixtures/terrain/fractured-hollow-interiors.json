@@ -1,0 +1,20 @@
+{
+  "noiseChance": 0,
+  "hollowChance": 1,
+  "shellThickness": 12,
+  "noiseHorizontalScale": 64,
+  "noiseVerticalScale": 32,
+  "passageWidth": 0.075,
+  "chamberThreshold": 0.48,
+  "hollowRadius": 0.58,
+  "hollowHeight": 0.24,
+  "openingChance": 0.35,
+  "nativeCarvers": true,
+  "skylights": {
+    "enabled": true,
+    "noiseInteriors": false,
+    "radius": 6.0,
+    "warp": 0.25,
+    "aspectVariation": 0.25
+  }
+}

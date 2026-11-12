@@ -20,6 +20,38 @@ public final class HydrologyProbe {
     private static JsonObject regressionFixture;
     private static final Map<String, JsonObject> generationStages = new HashMap<>();
     private static final Map<String, JsonArray> climateWrites = new HashMap<>();
+    private static volatile Map<Long,JsonArray> terrainWrites;
+
+    public static void recordTerrainWrite(net.minecraft.world.level.chunk.ChunkAccess chunk,
+            net.minecraft.core.BlockPos pos,net.minecraft.world.level.block.state.BlockState previous) {
+        var tracked=terrainWrites;
+        if(tracked==null)synchronized(HydrologyProbe.class) {
+            tracked=terrainWrites;
+            if(tracked==null) {
+                try {
+                    var fixture=JsonParser.parseString(Files.readString(Path.of(
+                            System.getProperty("neighbors.probe.waterWitnesses")))).getAsJsonObject();
+                    var positions=new HashMap<Long,JsonArray>();
+                    if(fixture.getAsJsonArray("points").size()>16)throw new IllegalArgumentException("Too many traced water positions");
+                    for(var entry:fixture.getAsJsonArray("points")) {
+                        var p=entry.getAsJsonObject();int y=p.has("waterY")?p.get("waterY").getAsInt():fixture.get("waterY").getAsInt();
+                        positions.put(net.minecraft.core.BlockPos.asLong(p.get("x").getAsInt(),y,p.get("z").getAsInt()),new JsonArray());
+                    }
+                    tracked=Map.copyOf(positions);terrainWrites=tracked;
+                } catch(java.io.IOException error) {throw new java.io.UncheckedIOException(error);}
+            }
+        }
+        var writes=tracked.get(pos.asLong());if(writes==null)return;
+        var actual=chunk.getBlockState(pos);if(previous.equals(actual))return;
+        synchronized(writes) {
+            if(writes.size()>=32)return;
+            var row=new JsonObject();row.addProperty("before",previous.toString());row.addProperty("after",actual.toString());
+            row.addProperty("status",chunk.getPersistedStatus().toString());
+            row.addProperty("stack",StackWalker.getInstance().<String>walk(frames->frames.limit(24)
+                    .map(Object::toString).collect(java.util.stream.Collectors.joining("\n"))));
+            writes.add(row);
+        }
+    }
 
     /** Bounded witness attribution; this observer is selected only by the probe runner. */
     public static synchronized void recordClimateWrite(net.minecraft.core.BlockPos pos,
@@ -80,10 +112,14 @@ public final class HydrologyProbe {
     static void start(MinecraftServer server, Path output, int ticks) throws Exception {
         long started = System.nanoTime();
         var regression = witnessStages(server);
-        if (Boolean.getBoolean("neighbors.probe.climateOnly")) {
-            if (regression == null || ticks != 0) throw new IllegalArgumentException("Climate-only check requires exact witnesses and zero fluid ticks");
+        if (Boolean.getBoolean("neighbors.probe.climateOnly") || Boolean.getBoolean("neighbors.probe.waterWitnessesOnly")) {
+            if (regression == null || Boolean.getBoolean("neighbors.probe.climateOnly") && ticks != 0)
+                throw new IllegalArgumentException("Witness-only check requires exact witnesses; climate-only requires zero ticks");
             var report = new JsonObject(); report.addProperty("complete", true);
-            report.addProperty("stage", "exact native climate witnesses, generation and precipitation only");
+            report.addProperty("stage",Boolean.getBoolean("neighbors.probe.climateOnly")
+                    ?"exact native climate witnesses, generation and precipitation only"
+                    :"exact native water witnesses, generation and material checks");
+            for(var name:List.of("generated","generatedLakes","outlets"))report.add(name,new JsonArray());
             report.addProperty("elapsedSeconds", (System.nanoTime() - started) / 1e9);
             Files.writeString(output, new GsonBuilder().setPrettyPrinting().create().toJson(report) + "\n");
         } else run(server, output);
@@ -123,15 +159,20 @@ public final class HydrologyProbe {
                 site.addProperty("afterTicks", level.getBlockState(pos).toString());
                 if (state.is(net.minecraft.tags.FluidTags.WATER) && !state.isSource()) falls++;
             }
-            if (tickReport.getAsJsonArray("outlets").isEmpty() || falls == 0) throw new AssertionError("No naturally flowing island outlet: " + tickReport.get("outlets"));
+            if (!Boolean.getBoolean("neighbors.probe.waterWitnessesOnly")
+                    && (tickReport.getAsJsonArray("outlets").isEmpty() || falls == 0))
+                throw new AssertionError("No naturally flowing island outlet: " + tickReport.get("outlets"));
             tickReport.addProperty("fluidTicks", elapsed); tickReport.addProperty("flowingOutlets", falls);
             if(tickReport.has("regressionSites"))for(var entry:tickReport.getAsJsonArray("regressionSites")) {
                 var site=entry.getAsJsonObject();var pos=new net.minecraft.core.BlockPos(site.get("x").getAsInt(),site.get("waterY").getAsInt(),site.get("z").getAsInt());
                 boolean wet=level.getFluidState(pos).is(net.minecraft.tags.FluidTags.WATER);site.addProperty("wetAfterTicks",wet);
                 if(site.has("expectedWet")) {
-                    if(site.get("expectedWet").getAsBoolean()&&!wet)throw new AssertionError("Regression lake dried after ticks: "+pos);
+                    if(site.get("expectedWet").getAsBoolean()!=wet)throw new AssertionError("Water policy changed after ticks: "+pos);
                     if(lowSources(level.getChunkAt(pos),pos.getX(),pos.getZ())!=0)throw new AssertionError("Unsupported low source shelf returned after ticks: "+pos);
                 }
+                if(site.has("expectedNonAir") && site.get("expectedNonAir").getAsBoolean() && level.getBlockState(pos).isAir())
+                    throw new AssertionError("Waterline hole returned after ticks: "+pos);
+                site.addProperty("blockAfterTicks",level.getBlockState(pos).toString());
             }
             tickReport.addProperty("complete", true);
         } catch (Throwable error) { tickReport.addProperty("error", error.toString()); error.printStackTrace(); }
@@ -153,6 +194,13 @@ public final class HydrologyProbe {
                     net.minecraft.world.level.chunk.status.ChunkStatus.CARVERS,net.minecraft.world.level.chunk.status.ChunkStatus.FEATURES,net.minecraft.world.level.chunk.status.ChunkStatus.FULL)) {
                 var chunk=level.getChunk(Math.floorDiv(x,16),Math.floorDiv(z,16),status);
                 stages.add(status.toString(),witnessSample(chunk,x,waterY,z));
+                if(fixture.has("verifyBedAndLowerMaterial") && fixture.get("verifyBedAndLowerMaterial").getAsBoolean()
+                        && status==net.minecraft.world.level.chunk.status.ChunkStatus.NOISE
+                        && chunk.getPersistedStatus()==status)
+                    row.add("nativeBedProof",bedAndLowerMaterial(server,x,z,chunk,true));
+                if(fixture.has("verifyBedAndLowerMaterial") && fixture.get("verifyBedAndLowerMaterial").getAsBoolean()
+                        && status==net.minecraft.world.level.chunk.status.ChunkStatus.FULL)
+                    row.add("nativeFullBedProof",bedAndLowerMaterial(server,x,z,chunk,false));
             }
             var full=level.getChunk(Math.floorDiv(x,16),Math.floorDiv(z,16));
             var pos = new net.minecraft.core.BlockPos(x, waterY, z);
@@ -185,7 +233,13 @@ public final class HydrologyProbe {
                 row.add("generationStages", traced == null ? new JsonObject() : traced.deepCopy());
                 row.add("climateWrites", climateWrites.getOrDefault(x + "," + waterY + "," + z, new JsonArray()).deepCopy());
             }
+            if(terrainWrites!=null) {
+                var writes=terrainWrites.get(pos.asLong());
+                if(writes!=null)synchronized(writes){row.add("terrainWrites",writes.deepCopy());}
+            }
             boolean wet=full.getFluidState(new net.minecraft.core.BlockPos(x,waterY,z)).is(net.minecraft.tags.FluidTags.WATER);
+            if(point.has("expectedNonAir") && point.get("expectedNonAir").getAsBoolean() && full.getBlockState(pos).isAir())
+                throw new AssertionError("Unrealized sandbar or waterline at "+pos);
             if (point.has("expectedBlock")) {
                 String block = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(full.getBlockState(pos).getBlock()).toString();
                 if (!point.get("expectedBlock").getAsString().equals(block))
@@ -223,6 +277,14 @@ public final class HydrologyProbe {
         var interior = ((InteriorField)(Object)field).skyweave$planningColumn(x, z, settings, TerrainStage.INTERIOR);
         var row = new JsonObject();
         var gson = new Gson();
+        var context=((InteriorField)(Object)field).skyweave$contextAt(x,z,settings);
+        var contributors=new JsonArray();
+        for(var body:context.bodies()) {
+            var owner=new JsonObject();owner.addProperty("seed",body.island().seed());
+            owner.addProperty("datum",body.climateDatum());owner.add("exterior",gson.toJsonTree(body.exterior()));
+            contributors.add(owner);
+        }
+        row.add("contributors",contributors);
         row.add("preWaterSegments", gson.toJsonTree(interior.segments()));
         if (!interior.segments().isEmpty()) {
             var top = interior.segments().getFirst();
@@ -247,6 +309,80 @@ public final class HydrologyProbe {
         row.add("completedRiver", completed);
         row.add("completedSegments", gson.toJsonTree(field.sampleSolidSegments(x, z, settings)));
         return row;
+    }
+
+    /** Fresh native NOISE material, not a synthetic fill or a later cave/carver assertion. */
+    private static JsonObject bedAndLowerMaterial(MinecraftServer server,int x,int z,
+            net.minecraft.world.level.chunk.ChunkAccess chunk,boolean inspectLower) {
+        var level=server.overworld();var generator=(SkyIslandChunkGenerator)level.getChunkSource().getGenerator();
+        var random=level.getChunkSource().randomState();var settings=generator.resolvedSkyIslandSettings();
+        var field=((GeologicalGenerator)(Object)generator).skyweave$field(random);
+        var boundary=(InteriorField)(Object)field;
+        var original=boundary.skyweave$planningColumn(x,z,settings,TerrainStage.INTERIOR);
+        var result=new JsonObject();result.addProperty("qualified",false);
+        if(original.segments().isEmpty())return result;
+        var top=original.segments().getFirst();
+        var envelope=net.minecraft.world.level.LevelHeightAccessor.create(generator.getMinY(),generator.getGenDepth());
+        var cut=HydrologyManager.calculateRiverCarving(x,z,top.topY(),generator.getSeaLevel(),generator,envelope,random);
+        if(!cut.modifies || !design.inherent.skyweavecompat.water.IslandWaterColumns.supported(cut,top,envelope.getMaxBuildHeight()))return result;
+        int seal=InteriorConfiguration.profile().shellThickness(),floor=cut.targetY-seal+1;
+        var completed=field.sampleSolidSegments(x,z,settings);
+        var context=boundary.skyweave$contextAt(x,z,settings);
+        int bedChecks=0,lowerChecks=0,cavityChecks=0;var owners=new HashSet<Long>();
+        for(int y=inspectLower?level.getMinBuildHeight():floor;y<=cut.targetY;y++) {
+            final int py=y;
+            boolean before=original.segments().stream().anyMatch(span->span.contains(py));
+            boolean after=completed.stream().anyMatch(span->span.contains(py));
+            var state=chunk.getBlockState(new net.minecraft.core.BlockPos(x,y,z));
+            boolean material=!state.isAir() && state.getFluidState().isEmpty();
+            if(y>=floor) {
+                if(!after || !material)throw new AssertionError("Native river bed seal missing at "+x+","+y+","+z);
+                bedChecks++;
+            } else {
+                if(before!=after || before && !material)throw new AssertionError("Water cut changed lower solid material at "+x+","+y+","+z);
+                if(before) {
+                    var owner=context.solidOwner(y);if(owner!=null)owners.add(owner.island().seed());
+                }
+                var contributions=context.contributions(y);
+                if(!contributions.isEmpty() && contributions.stream().allMatch(value->value.occupancy()==IslandContext.Occupancy.CAVITY)) {
+                    if(!state.isAir())throw new AssertionError("Water cut filled lower natural cavity at "+x+","+y+","+z);
+                    cavityChecks++;
+                }
+                lowerChecks++;
+            }
+        }
+        // Exercise production guards against invalid proposals using this actual native support interval.
+        int refused=0;var guardCases=new JsonArray();
+        for(int control=0;control<4;control++) {
+            var wall=new HydrologyManager.RiverCarving();wall.modifies=true;wall.isWatershed=true;wall.isWatershedWall=true;
+            wall.targetY=top.topY()+(control==0?3:1);wall.wallTopY=wall.targetY;
+            wall.waterLevel=control==3?wall.targetY+1:Integer.MIN_VALUE;wall.cavernRoofY=envelope.getMaxBuildHeight();
+            var support=control==1?org.sathrek.sky_archipelago.worldgen.generator.field.TerrainColumn.EMPTY
+                    :control==2?new org.sathrek.sky_archipelago.worldgen.generator.field.TerrainColumn(top.topY()-seal+2,top.topY()):top;
+            if(design.inherent.skyweavecompat.water.IslandWaterColumns.fitToSupport(wall,support,envelope.getMaxBuildHeight()))
+                throw new AssertionError("Invalid wall proposal accepted by native support guard: "+control);
+            var guard=new JsonObject();guard.addProperty("case",List.of("excessive-rise","empty-support","thin-roof","water-above-dry-wall").get(control));
+            guard.add("support",new Gson().toJsonTree(support));guard.add("proposal",new Gson().toJsonTree(wall));
+            guard.addProperty("accepted",false);guardCases.add(guard);
+            refused++;
+        }
+        var shallow=new HydrologyManager.RiverCarving();shallow.modifies=true;shallow.isLake=true;
+        shallow.targetY=top.topY();shallow.waterLevel=top.topY()+1;shallow.cavernRoofY=envelope.getMaxBuildHeight();
+        if(!design.inherent.skyweavecompat.water.IslandWaterColumns.fitToSupport(shallow,top,envelope.getMaxBuildHeight()))
+            throw new AssertionError("A supported one-cell water proposal lost its native support admission");
+        result.addProperty("qualified",true);result.addProperty("bedY",cut.targetY);result.addProperty("sealFloorY",floor);
+        result.addProperty("bedMaterialChecks",bedChecks);result.addProperty("lowerMaterialChecks",lowerChecks);
+        result.addProperty("lowerCavityAirChecks",cavityChecks);result.addProperty("lowerSolidOwners",owners.size());
+        result.addProperty("invalidProposalGuardChecks",refused);
+        result.add("proposalGuards",guardCases);result.addProperty("shallowWaterGuardAccepted",true);
+        result.addProperty("actualNativeOneCellWater",cut.waterLevel==cut.targetY+1 && field.sampleHydrologyColumn(x,z,settings).wet());
+        boolean nativeWet=field.sampleHydrologyColumn(x,z,settings).wet();
+        if(nativeWet && !chunk.getFluidState(new net.minecraft.core.BlockPos(x,cut.waterLevel,z)).is(net.minecraft.tags.FluidTags.WATER))
+            throw new AssertionError("Admitted native water plane missing at "+x+","+cut.waterLevel+","+z);
+        result.addProperty("nativeWaterPlaneChecked",nativeWet);
+        result.addProperty("scope",(inspectLower?"Fresh native NOISE lower material and seal":"Native FULL seal only; lower carver/feature material is not asserted")
+                +". Invalid proposals exercise the production guard; they are not fabricated native planner output.");
+        return result;
     }
     private static int lowSources(net.minecraft.world.level.chunk.ChunkAccess chunk,int x,int z) {
         int sources=0;

@@ -10,8 +10,10 @@ import net.minecraft.resources.ResourceLocation;
 /** One bounded protocol; only QUERY carries server policy, never client-granted authority. */
 public record WayfinderPacket(int operation, UUID request, double x, double y, double z,
         double dx, double dy, double dz, String dimension, int steps, int waitTicks, List<String> blocked) implements CustomPacketPayload {
-    public static final int START = 0, QUERY = 1, HIT = 2, CANCEL = 3, ALIVE = 4, MISSING = 5, MISS = 6, FAILED = 7, INCOMPLETE = 8, CONSTRUCT = 9;
-    public static final Type<WayfinderPacket> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath("skyweave_compat", "wayfinder"));
+    public static final int START = 0, QUERY = 1, HIT = 2, CANCEL = 3, ALIVE = 4, MISSING = 5, MISS = 6, FAILED = 7, INCOMPLETE = 8, CONSTRUCT = 9, BEGIN = 10;
+    // NeoForge rejects a version mismatch for the same ID even when optional. A distinct
+    // current ID lets older peers remain connected without pretending to support this protocol.
+    public static final Type<WayfinderPacket> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath("skyweave_compat", "wayfinder_v2"));
     public static final StreamCodec<RegistryFriendlyByteBuf, WayfinderPacket> CODEC = StreamCodec.of(
             (buffer, packet) -> packet.write(buffer), WayfinderPacket::read);
 
@@ -21,7 +23,7 @@ public record WayfinderPacket(int operation, UUID request, double x, double y, d
     }
     private static WayfinderPacket read(RegistryFriendlyByteBuf buffer) {
         int operation = buffer.readUnsignedByte();
-        if (operation > CONSTRUCT) throw new DecoderException("Unknown Wayfinder operation");
+        if (operation > BEGIN) throw new DecoderException("Unknown Wayfinder operation");
         UUID id = buffer.readUUID();
         double x = buffer.readDouble(), y = buffer.readDouble(), z = buffer.readDouble();
         double dx = buffer.readDouble(), dy = buffer.readDouble(), dz = buffer.readDouble();

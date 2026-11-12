@@ -494,7 +494,8 @@ public final class ConfigurationOverview extends Screen {
         }
     }
     private Component validation(RegisteredEdits edits) {
-        try { edits.candidate(); return Component.empty(); }
+        try { edits.candidate(); return edits.nativeMatchesFile()?Component.empty():
+                text("native_reload_pending").withStyle(net.minecraft.ChatFormatting.YELLOW); }
         catch (Exception invalid) { return failure("invalid", invalid).withStyle(net.minecraft.ChatFormatting.RED); }
     }
     private void buildJson(JsonEdits edits) {

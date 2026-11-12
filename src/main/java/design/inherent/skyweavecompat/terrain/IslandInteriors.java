@@ -42,7 +42,7 @@ public final class IslandInteriors {
                 : selection < profile.noiseChance() + profile.hollowChance() ? Kind.NOISE : Kind.BASELINE;
     }
 
-    /** Planned body interior; thin local remnants and detached fringe still retain their shell. */
+    /** Planned body interior; fractured HOLLOW pieces retain the parent's shell rather than a new cell lining. */
     public static Kind kind(IslandDescriptor island, InteriorProfile profile, IslandStyles.Kind style) {
         return style==IslandStyles.Kind.DEEP_DARK?Kind.HOLLOW:kind(island,profile);
     }
@@ -89,20 +89,25 @@ public final class IslandInteriors {
         private final IslandDescriptor island;
         private final int x, z, bottom, top, protectedFloor, skylightFloor;
         private final Kind kind;
+        private final ParentLandBody.Frame frame;
         private final boolean openings;
         private final org.sathrek.sky_archipelago.worldgen.generator.field.WaterArchetypeColumnProfile water;
         private Slice(IslandDescriptor island, int x, int z, int bottom, int top, Kind kind,
                 int protectedFloor, int skylightFloor, boolean openings,
-                org.sathrek.sky_archipelago.worldgen.generator.field.WaterArchetypeColumnProfile water) {
+                org.sathrek.sky_archipelago.worldgen.generator.field.WaterArchetypeColumnProfile water,
+                ParentLandBody.Frame frame) {
             this.island=island;this.x=x;this.z=z;this.bottom=bottom;this.top=top;this.kind=kind;
             this.protectedFloor=protectedFloor;this.skylightFloor=skylightFloor;this.water=water;
             this.openings=openings;
+            this.frame=frame;
         }
         public boolean retains(int y) {
             return y>=bottom && y<=top && (kind==Kind.BASELINE
                     || protectedFloor!=Integer.MIN_VALUE && y>=protectedFloor
                     || water.containsProtectedSealAt(y)
-                    || y<skylightFloor && !removed(island,x,y,z,bottom,top,kind==Kind.HOLLOW,openings));
+                    || y<skylightFloor && !removed(island,x,frame==null?y:frame.parentY(y),z,
+                            frame==null?bottom:frame.parent().bottomY(),frame==null?top:frame.parent().topY(),
+                            kind==Kind.HOLLOW,openings));
         }
         public boolean waterAt(int y) { return water.containsWaterAt(y); }
         public TerrainColumn waterDomain() {
@@ -124,20 +129,29 @@ public final class IslandInteriors {
         int top=Math.min(GenerationProfile.MAX_Y-1,Math.min(contributor.maxY(),body.topY()));
         if(top<bottom) return null;
         boolean special = false;
+        ParentLandBody.Frame frame = null;
         if(styles!=null) {
             var horizontal=contributor.horizontal();
             special = style.kind()==IslandStyles.Kind.DEEP_DARK;
             boolean fringe=((FringeColumn)(Object)horizontal).skyweave$fragment()!=null;
             if(fringe)kind=Kind.BASELINE;
             if(!fringe && style.kind()!=IslandStyles.Kind.NATIVE) {
-                var remnant=FragmentedExterior.sample(descriptor.seed(),horizontal.localX(),horizontal.localZ(),styles.profile().fractures());
-                if(top-bottom+1<profile.shellThickness()*4 || remnant.conservativeClearance()<profile.shellThickness())kind=Kind.BASELINE;
+                if(kind==Kind.HOLLOW) {
+                    frame=((ParentLandBody)(Object)contributor.preparedDensity()).skyweave$parentLandBody();
+                    if(frame==null)throw new IllegalStateException("Fractured HOLLOW contributor lost its parent body");
+                } else {
+                    var remnant=FragmentedExterior.sample(descriptor.seed(),horizontal.localX(),horizontal.localZ(),styles.profile().fractures());
+                    if(top-bottom+1<profile.shellThickness()*4 || remnant.conservativeClearance()<profile.shellThickness())kind=Kind.BASELINE;
+                }
             }
         }
         boolean openings = special || unit(descriptor.seed() ^ 0x329df348abc51d27L) < profile.openingChance();
-        if(kind==Kind.BASELINE) return new Slice(descriptor,x,z,bottom,top,kind,Integer.MIN_VALUE,Integer.MAX_VALUE,openings,water);
+        if(kind==Kind.BASELINE) return new Slice(descriptor,x,z,bottom,top,kind,Integer.MIN_VALUE,Integer.MAX_VALUE,openings,water,null);
         int floor=protection==null?Integer.MIN_VALUE:protection.floor(descriptor,x,z,new TerrainColumn(bottom,top));
-        return new Slice(descriptor,x,z,bottom,top,kind,floor,skylightFloor(descriptor,x,z,bottom,top,kind,openings),openings,water);
+        int skylight=skylightFloor(descriptor,x,z,frame==null?bottom:frame.parent().bottomY(),
+                frame==null?top:frame.parent().topY(),kind,openings);
+        if(frame!=null && skylight!=Integer.MAX_VALUE)skylight=frame.physicalY(skylight);
+        return new Slice(descriptor,x,z,bottom,top,kind,floor,skylight,openings,water,frame);
     }
 
     private static List<TerrainColumn> intervals(BitSet bits) {

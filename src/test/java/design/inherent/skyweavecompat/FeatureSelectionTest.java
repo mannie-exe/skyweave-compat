@@ -250,6 +250,19 @@ class FeatureSelectionTest {
         }
     }
 
+    @Test void propertyWriterRequiresBothExactOptionalDependenciesOnEitherSide() {
+        var policy = only(Feature.BETTER_VILLAGE_CONFIG);
+        for (boolean client : new boolean[]{false, true}) {
+            assertTrue(FeatureSelection.select(policy, Map.of(), client).mixins(client).isEmpty());
+            assertTrue(FeatureSelection.select(policy, Map.of("libraryferret", "future"), client).mixins(client).isEmpty());
+            assertEquals(java.util.List.of("BetterVillageConfigMixin"), FeatureSelection.select(policy,
+                    Map.of("libraryferret", "4.0.0", "bettervillage", "3.3.1"), client).mixins(client));
+            var future = Map.of("libraryferret", "future", "bettervillage", "3.3.1");
+            assertTrue(FeatureSelection.select(only(), future, client).mixins(client).isEmpty());
+            assertThrows(IllegalStateException.class, () -> FeatureSelection.select(policy, future, client));
+        }
+    }
+
     @Test void prerequisitesPrecedeTheirDependents() {
         for (var feature : Feature.values()) {
             var prerequisite = FeatureSelection.prerequisite(feature);

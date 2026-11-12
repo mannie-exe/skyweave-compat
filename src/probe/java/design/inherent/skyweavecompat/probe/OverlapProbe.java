@@ -5,7 +5,6 @@ import com.google.gson.*;
 import com.mojang.serialization.JsonOps;
 import design.inherent.skyweavecompat.terrain.*;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.levelgen.RandomState;
 import org.sathrek.sky_archipelago.config.SkyIslandGeneratorSettings;
@@ -34,9 +33,9 @@ final class OverlapProbe {
         var rows = new JsonArray();
         int loaded=server.overworld().getChunkSource().getLoadedChunksCount();
         for (long seed : new long[]{1, 42, 8675309}) {
-            var preset = server.registryAccess().registryOrThrow(Registries.WORLD_PRESET)
-                    .get(ResourceLocation.parse(GenerationProfile.ID));
-            var generator = (SkyIslandChunkGenerator)preset.createWorldDimensions().overworld();
+            var configured=(SkyIslandChunkGenerator)server.overworld().getChunkSource().getGenerator();
+            // Preserve the actual fixture biome source, including an explicit fixed-biome control.
+            var generator = new SkyIslandChunkGenerator(configured.getBiomeSource(),configured.generatorSettings(),configured.embeddedSettings());
             var random = RandomState.create(generator.generatorSettings().value(),
                     server.registryAccess().registryOrThrow(Registries.NOISE).asLookup(), seed);
             var field = ((GeologicalGenerator)(Object)generator).skyweave$field(random);
@@ -49,7 +48,7 @@ final class OverlapProbe {
             for (var anchor : anchors) {
                 long columns = 0, occupied = 0, stacked = 0, voidVolume = 0, overlapVolume = 0;
                 int maximumSegments = 0, maximumAdded = 0, pointColumns = 0;
-                long pointChecks=0, simultaneousCavitySolid=0, distinctDatumPoints=0, differentLayerColumns=0,biomeOwnerChecks=0;
+                long pointChecks=0, simultaneousCavitySolid=0, fracturedCavitySolid=0, distinctDatumPoints=0, differentLayerColumns=0,biomeOwnerChecks=0;
                 long thermalChecks=0,rawThermalDisagreements=0,climateCaptureNanos=0;int maximumClimateLayers=0;
                 var examples = new JsonArray();
                 int reach = GenerationConfiguration.profile().clusterReach();
@@ -96,7 +95,12 @@ final class OverlapProbe {
                                         thermalChecks++;
                                     }
                                     biomeOwnerChecks++;
-                                    if(solid && cavity)simultaneousCavitySolid++;
+                                    if(solid && cavity) {
+                                        simultaneousCavitySolid++;
+                                        if(contributions.stream().anyMatch(c->c.occupancy()==IslandContext.Occupancy.CAVITY
+                                                && ((StyledTerrain)(Object)field).skyweave$styles().style(c.body().island()).kind()!=IslandStyles.Kind.NATIVE))
+                                            fracturedCavitySolid++;
+                                    }
                                     if(contributions.stream().map(c->c.body().climateDatum()).distinct().count()>1)distinctDatumPoints++;
                                     pointChecks++;
                                 }
@@ -129,11 +133,15 @@ final class OverlapProbe {
                 row.addProperty("thermalOwnerChecks",thermalChecks);row.addProperty("rawExteriorThermalDisagreements",rawThermalDisagreements);
                 row.addProperty("climateCaptureNanos",climateCaptureNanos);row.addProperty("maximumClimateLayers",maximumClimateLayers);
                 row.addProperty("simultaneousCavitySolid",simultaneousCavitySolid);row.addProperty("distinctDatumPoints",distinctDatumPoints);
+                row.addProperty("fracturedCavitySolid",fracturedCavitySolid);
                 row.addProperty("maximumSegments", maximumSegments); row.add("lowerBodyExamples", examples);
                 rows.add(row);
             }
         }
         report.add("samples", rows); report.addProperty("upperIntervalsUnchanged", true);
+        long fractured=rows.asList().stream().mapToLong(row->row.getAsJsonObject().get("fracturedCavitySolid").getAsLong()).sum();
+        if(Boolean.getBoolean("neighbors.probe.requireFracturedOverlap") && fractured==0)
+            throw new AssertionError("No fractured cavity overlaps another contributor's solid; use the bounded overlap fixture");
         if(server.overworld().getChunkSource().getLoadedChunksCount()!=loaded)throw new AssertionError("Overlap climate metadata loaded chunks");
         report.addProperty("loadedChunksUnchanged",true);
         report.addProperty("elapsedSeconds", (System.nanoTime() - began) / 1e9);

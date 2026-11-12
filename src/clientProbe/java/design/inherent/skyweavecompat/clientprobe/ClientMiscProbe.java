@@ -29,6 +29,7 @@ final class ClientMiscProbe {
         if (!Files.isRegularFile(root.resolve("misc-review-fixture.json")))
             throw new IllegalStateException("Misc probe requires its disposable-profile marker");
         NeoForge.EVENT_BUS.addListener(this::tick);
+        if(Boolean.getBoolean("skyweave_compat.probe.configuration"))new ClientConfigurationProbe();
         if (Boolean.getBoolean("skyweave_compat.probe.wayfinder")) WayfinderFixture.register();
     }
     private void tick(ClientTickEvent.Post event) {

@@ -1,5 +1,6 @@
 package design.inherent.skyweavecompat.terrain.structure;
 
+import design.inherent.skyweavecompat.configuration.ConfigFile;
 import com.google.gson.*;
 import design.inherent.skyweavecompat.configuration.ProfileJson;
 import java.io.IOException;
@@ -68,7 +69,7 @@ public final class StructureConfiguration {
         try {
             Files.createDirectories(directory);
             if (!Files.exists(path)) Files.writeString(path, JSON.toJson(StructurePolicy.DEFAULT) + "\n", StandardOpenOption.CREATE_NEW);
-            policy = parse(Files.readString(path));
+            policy = parse(ConfigFile.read(path));
         } catch (IOException | RuntimeException error) {
             throw new IllegalStateException("Cannot load " + path + ": " + error.getMessage(), error);
         }

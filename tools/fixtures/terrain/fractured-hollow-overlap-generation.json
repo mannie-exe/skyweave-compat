@@ -1,0 +1,21 @@
+{
+  "spacing": 2400,
+  "jitter": 750,
+  "centerMinY": 200,
+  "centerMaxY": 490,
+  "anchorMinRadius": 270,
+  "anchorMaxRadius": 370,
+  "anchorPlateau": 28,
+  "anchorMinHeight": 250,
+  "anchorMaxHeight": 400,
+  "companionMinRadius": 90,
+  "companionMaxRadius": 110,
+  "companionMinOrbit": 0,
+  "companionMaxOrbit": 48,
+  "companionMinOffsetY": -96,
+  "companionMaxOffsetY": -64,
+  "minimumClusterGap": 350,
+  "floorClearance": 32,
+  "buildingHeadroom": 200,
+  "activation": 0.85
+}

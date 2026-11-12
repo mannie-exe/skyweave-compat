@@ -54,7 +54,8 @@ final class WayfinderProbe {
         var setup = ChannelAttributes.getPayloadSetup(connection);
         var channels = new HashMap<net.minecraft.network.ConnectionProtocol,Map<net.minecraft.resources.ResourceLocation,NetworkChannel>>();
         setup.channels().forEach((protocol,entries) -> {
-            var copy = new HashMap<>(entries); copy.remove(WayfinderPacket.TYPE.id()); channels.put(protocol,copy);
+            var copy = new HashMap<>(entries); copy.remove(WayfinderPacket.TYPE.id());
+            copy.remove(design.inherent.skyweavecompat.wayfinder.WayfinderStatusPacket.TYPE.id());channels.put(protocol,copy);
         });
         ChannelAttributes.setPayloadSetup(connection,new NetworkPayloadSetup(channels));
         check(!player.connection.hasChannel(WayfinderPacket.TYPE),"Fixture retained client capability");
@@ -164,7 +165,7 @@ final class WayfinderProbe {
         player.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO); player.fallDistance = 0;
     }
     private static void command(MinecraftServer server) throws Exception {
-        feedback.clear();
+        drainFeedback();feedback.clear();
         server.getCommands().getDispatcher().execute("skyweavecompat wayfinder",player.createCommandSourceStack());
     }
     private static void check(boolean value, String message) { if (!value) throw new AssertionError(message); }
@@ -172,9 +173,22 @@ final class WayfinderProbe {
         return (design.inherent.skyweavecompat.wayfinder.WayfinderSettings)field(state(server),"settings");
     }
     private static void response(String key) throws Exception {
-        if (settings(player.server).debugMessages())
-            check(feedback.contains("skyweave_compat.wayfinder."+key),"Missing "+key+" response: "+feedback);
-        else check(feedback.isEmpty(),"Quiet Wayfinder emitted feedback: "+feedback);
+        drainFeedback();
+        check(feedback.contains("skyweave_compat.wayfinder."+key),"Missing native command "+key+" response: "+feedback);
+    }
+    private static void drainFeedback() {
+        var channel=(io.netty.channel.embedded.EmbeddedChannel)player.connection.getConnection().channel();
+        channel.runPendingTasks();Object value;
+        while((value=channel.readOutbound())!=null) {
+            if(value instanceof net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket payload
+                    && payload.payload() instanceof design.inherent.skyweavecompat.wayfinder.WayfinderStatusPacket status)
+                feedback.add("skyweave_compat.wayfinder."+status.status().key());
+            if(value instanceof net.minecraft.network.protocol.game.ClientboundSystemChatPacket chat)chatKeys(chat.content());
+        }
+    }
+    private static void chatKeys(net.minecraft.network.chat.Component component) {
+        if(component.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents text)feedback.add(text.getKey());
+        for(var sibling:component.getSiblings())chatKeys(sibling);
     }
     private static boolean settled(MinecraftServer server) throws Exception {
         return ((Map<?,?>)field(state(server),"jobs")).get(player.getUUID()) == null;
@@ -207,7 +221,7 @@ final class WayfinderProbe {
                 response("success"); check(ticks-changed < 40,"Immediate-repeat fixture waited out the old cooldown");
                 check(((Map<?,?>)field(state(server),"warps")).isEmpty(),"Disabled cooldown retained warp bookkeeping");
                 report.addProperty("noCooldownImmediateRepeat",true);
-                report.addProperty("defaultMessagesSilent",!settings(server).debugMessages());
+                report.addProperty("nativeCommandFeedbackIndependentFromClientPreference",true);
                 for (int up=1;up<=settings(server).placementLookupHeight();up++)
                     server.overworld().setBlockAndUpdate(target.above(up),Blocks.STONE.defaultBlockState());
                 reset(server,0); command(server); step = 22; changed = ticks;
@@ -277,9 +291,10 @@ final class WayfinderProbe {
                 player.addTag("wayfinder.allowed"); command(server); response("denied");
                 report.addProperty("legacyTagGrantsNoPermission",true);
                 feedback.clear();
-                Wayfinder.receive(player,WayfinderPacket.signal(WayfinderPacket.START,new UUID(0,0)));
-                response("denied"); check(requestOrNull(server) == null,"Denied hotkey acquired work");
-                report.addProperty("nonOperatorHotkeyFollowsDebugPolicy",true);
+                Wayfinder.receive(player,WayfinderPacket.signal(WayfinderPacket.START,UUID.randomUUID()));
+                drainFeedback();check(feedback.isEmpty(),"Denied hotkey exposed diagnostics");
+                check(requestOrNull(server) == null,"Denied hotkey acquired work");
+                report.addProperty("nonOperatorHotkeySilent",true);
                 server.getPlayerList().op(player.getGameProfile());
                 // Embedded endpoints qualify server validation, not remote transport.
                 net.neoforged.neoforge.network.registration.NetworkRegistry.configureMockConnection(player.connection.getConnection());
@@ -297,16 +312,36 @@ final class WayfinderProbe {
                 check(request(server).equals(id),"Stale response cancelled current request");
                 Wayfinder.receive(player,WayfinderPacket.signal(WayfinderPacket.CANCEL,id));
                 response("cancelled");
-                Wayfinder.receive(player,WayfinderPacket.signal(WayfinderPacket.START,new UUID(0,0)));
+                Wayfinder.receive(player,WayfinderPacket.signal(WayfinderPacket.START,UUID.randomUUID()));
                 var replacement = request(server);
                 Wayfinder.receive(player,WayfinderPacket.signal(WayfinderPacket.CANCEL,id));
                 check(request(server).equals(replacement),"Previous lifetime cancelled replacement");
                 Wayfinder.receive(player,WayfinderPacket.signal(WayfinderPacket.CANCEL,replacement));
                 report.addProperty("staleAndDuplicateResponsesIgnored",true);
+                reset(server,0);command(server);
+                Wayfinder.receive(player,new design.inherent.skyweavecompat.wayfinder.WayfinderCandidatePacket(request(server),
+                        design.inherent.skyweavecompat.wayfinder.WayfinderRegion.containing(40,0,1)));
+                step=60;changed=ticks;
+            } else if(step==60 && settled(server)) {
+                response("success");check(player.getX()>39,"Coarse candidate did not resolve actual native support");
+                report.addProperty("coarseCellRefinedToNativeLanding",true);
+                reset(server,0);command(server);
+                Wayfinder.receive(player,new design.inherent.skyweavecompat.wayfinder.WayfinderCandidatePacket(request(server),
+                        design.inherent.skyweavecompat.wayfinder.WayfinderRegion.containing(16,0,1)));
+                step=61;changed=ticks;
+            } else if(step==61 && settled(server)) {
+                response("incomplete");check(player.getX()<1,"Empty coarse region selected a farther target");
+                report.addProperty("emptyCoarseCellDoesNotFallThrough",true);
+                command(server);int requests=((Number)field(state(server),"requests")).intValue();
+                Wayfinder.receive(player,new design.inherent.skyweavecompat.wayfinder.WayfinderCandidatePacket(request(server),
+                        design.inherent.skyweavecompat.wayfinder.WayfinderRegion.containing(4096,0,8)));
+                response("incomplete");check(settled(server),"Oversized coarse region retained work");
+                check(((Number)field(state(server),"requests")).intValue()==requests,"Oversized region admitted native requests");
+                report.addProperty("coarseRefinementLeaseBudgetPreserved",true);
                 command(server); server.getPlayerList().deop(player.getGameProfile());
                 step = 7; changed = ticks;
             } else if (step == 7 && ticks - changed > 2) {
-                response("cancelled"); check(requestOrNull(server) == null,"Revoked operator retained a request");
+                drainFeedback();check(requestOrNull(server) == null,"Revoked operator retained a request");
                 check(player.getX() < 1,"Revoked permission moved player");
                 report.addProperty("pendingPermissionRevocation",true);
                 server.getPlayerList().op(player.getGameProfile()); command(server);
