@@ -38,10 +38,6 @@ public record GenerationProfile(
                 || companionMinRadius > companionMaxRadius || companionMinOrbit > companionMaxOrbit
                 || companionMinOffsetY > companionMaxOffsetY)
             throw new IllegalArgumentException("Invalid or unreachable island profile");
-        int radius = clusterReach(anchorMaxRadius, companionMaxOrbit, companionMaxRadius);
-        if (Math.ceilDiv(2L * jitter + 2L * radius + minimumClusterGap, spacing) > 8) {
-            throw new IllegalArgumentException("Profile requires more than eight neighboring cells for clearance");
-        }
         if (safeMinimumY(centerMinY, cliffDepth(anchorMaxHeight, anchorPlateau), anchorPlateau, companionMaxOffsetY, floorClearance)
                 > safeMaximumY(centerMaxY, anchorPlateau, companionMinOffsetY, buildingHeadroom)) {
             throw new IllegalArgumentException("No island placement fits the floor clearance and building headroom");
@@ -49,16 +45,16 @@ public record GenerationProfile(
     }
 
     // Bounds enclose native 1.4 plans; include one block for rounded companion offsets.
-    private static int clusterReach(int anchorRadius, int orbit, int companionRadius) {
-        double scale = ShapeConfiguration.profile().maximumAxisScale();
-        return Math.max(supportRadius((int)Math.ceil(anchorRadius * scale)),
-                orbit + supportRadius((int)Math.ceil(Math.max(companionRadius, 28) * scale)) + 1);
+    private static int clusterReach(int anchorRadius, int orbit, int companionRadius, ShapeProfile shapes) {
+        double scale = shapes.maximumAxisScale();
+        return Math.max(supportRadius((int)Math.ceil(anchorRadius * scale), shapes),
+                orbit + supportRadius((int)Math.ceil(Math.max(companionRadius, 28) * scale), shapes) + 1);
     }
-    public static int supportRadius(int radius) {
+    public static int supportRadius(int radius) { return supportRadius(radius, ShapeConfiguration.profile()); }
+    public static int supportRadius(int radius, ShapeProfile shapes) {
         // Rotated, warped native land plans and broken-reef margins bound both axes.
         double land = Math.sqrt(2) * (1.34 * 1.65 + 0.14) * radius + 2;
         double reef = radius + 1.5 * Math.max(8, radius / 2) + 10;
-        var shapes = ShapeConfiguration.profile();
         int fringe = shapes.enabled() ? shapes.fringe().maximumReach(radius) : 0;
         return (int)Math.ceil(Math.max(land, reef)) + fringe;
     }
@@ -71,9 +67,18 @@ public record GenerationProfile(
     public int safeMinimumY(int targetHeight) {
         return safeMinimumY(centerMinY, cliffDepth(targetHeight), anchorPlateau, companionMaxOffsetY, floorClearance);
     }
-    public int clusterReach() { return clusterReach(anchorMaxRadius, companionMaxOrbit, companionMaxRadius); }
+    /** Validate an installation's complete proposed pair without changing running configuration. */
+    public GenerationProfile validateAgainst(ShapeProfile shapes) {
+        if (conflictCellCount(shapes) > 8)
+            throw new IllegalArgumentException("Generation and shape profiles require more than eight neighboring cells for clearance");
+        return this;
+    }
+    public int clusterReach() { return clusterReach(ShapeConfiguration.profile()); }
+    public int clusterReach(ShapeProfile shapes) { return clusterReach(anchorMaxRadius, companionMaxOrbit, companionMaxRadius, shapes); }
     /** A farther cell's centers cannot approach within two cluster reaches plus the gap. */
-    public int conflictCells() { return (int)Math.ceilDiv(2L * jitter + 2L * clusterReach() + minimumClusterGap, spacing); }
+    public int conflictCells() { return conflictCells(ShapeConfiguration.profile()); }
+    public int conflictCells(ShapeProfile shapes) { return Math.toIntExact(conflictCellCount(shapes)); }
+    private long conflictCellCount(ShapeProfile shapes) { return Math.ceilDiv(2L * jitter + 2L * clusterReach(shapes) + minimumClusterGap, spacing); }
     /** Point/area lookup, including the distance from a cell edge to its nominal center. */
     public int lookupCells() { return lookupCells(clusterReach()); }
     public int lookupCells(int reach) { return (int)Math.ceilDiv((long)jitter + reach + (spacing + 1L) / 2, spacing); }

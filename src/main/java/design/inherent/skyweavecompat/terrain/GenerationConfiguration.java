@@ -52,7 +52,11 @@ public final class GenerationConfiguration {
         }
     }
 
+    public static GenerationProfile parse(String text, ShapeProfile shapes) {
+        return design.inherent.skyweavecompat.configuration.ProfileJson.generation(text).validateAgainst(shapes);
+    }
+
     public static GenerationProfile parse(String text) {
-        return design.inherent.skyweavecompat.configuration.ProfileJson.generation(text);
+        return parse(text, ShapeConfiguration.profile());
     }
 }

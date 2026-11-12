@@ -172,14 +172,35 @@ public final class RegisteredEdits {
     public void check() throws IOException { candidate(); file.check(baseline); checkNative(); }
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static void apply(Field field, Object value) { ((ModConfigSpec.ConfigValue) field.binding()).set(value); }
+    public SettingsCommit.Write prepare() throws IOException {
+        var submitted = session.submit();
+        String original = baseline;
+        var expected = snapshot(candidate(submitted.changes()));
+        var previous = snapshot(saved);
+        return new SettingsCommit.Write(filename, () -> {
+            session.checkCurrent(submitted); file.check(original); checkNative(previous);
+        }, () -> savePrepared(submitted, original, expected, previous));
+    }
     public void save() throws Exception {
         if (!dirty()) return;
-        var submitted = session.submit();
-        var expected = candidate(submitted.changes()); var previous = new LinkedHashMap<>(saved); boolean[] applied = {false};
+        prepare().save();
+    }
+    private static Map<String, Object> snapshot(Map<String, Object> values) {
+        var copy = new LinkedHashMap<String, Object>();
+        values.forEach((key, value) -> copy.put(key, value instanceof List<?> list ? List.copyOf(list) : value));
+        return java.util.Collections.unmodifiableMap(copy);
+    }
+    private void checkNative(Map<String, Object> expected) throws IOException {
+        if (!fields.stream().allMatch(field -> Objects.equals(field.binding().getRaw(), expected.get(field.key()))))
+            throw new IOException("File and registered values differ. Let the owning mod reload, then reload this editor to review them.");
+    }
+    private void savePrepared(EditSession.Submission<String, String> submitted, String original,
+            Map<String, Object> expected, Map<String, Object> previous) throws Exception {
+        boolean[] applied = {false};
         String actual;
         try {
-            actual = file.throughOwner(baseline, () -> {
-                checkNative(); applied[0] = true;
+            actual = file.throughOwner(original, () -> {
+                checkNative(previous); applied[0] = true;
                 for (var field : fields) if (submitted.changes().containsKey(field.key())) apply(field, expected.get(field.key()));
                 spec.save();
             });
@@ -192,7 +213,7 @@ public final class RegisteredEdits {
             if (values(parse(current)).equals(expected)) {
                 accept(current, submitted); warning = "Saved, but the registered reload failed: " + failure.getMessage(); return;
             }
-            if (current.equals(baseline)) for (var field : fields)
+            if (current.equals(original)) for (var field : fields)
                 if (submitted.changes().containsKey(field.key()) && Objects.equals(field.binding().getRaw(), expected.get(field.key()))) apply(field, previous.get(field.key()));
             throw failure;
         }

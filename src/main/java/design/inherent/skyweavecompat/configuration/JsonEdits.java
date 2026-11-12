@@ -134,15 +134,24 @@ public final class JsonEdits {
         return List.copyOf(issues);
     }
     public void check() throws IOException { candidate(); file.check(baseline); }
+    /** Capture all submitted text before another document or callback can change the draft. */
+    public SettingsCommit.Write prepare() throws IOException {
+        var submitted = session.submit();
+        String original = baseline, next = candidate(submitted.changes());
+        ConfigFile.validateCandidate(next);
+        return new SettingsCommit.Write(definition.filename(), new SettingsCommit.Text(original, next), () -> {
+            session.checkCurrent(submitted); file.check(original);
+        }, () -> {
+            String actual = file.write(original, next);
+            definition.validate().accept(actual);
+            var parsed = object(actual);
+            session.acknowledge(submitted, displayed(parsed));
+            saved = parsed; baseline = actual;
+        });
+    }
     public void save() throws IOException {
         if (!dirty()) return;
-        var submitted = session.submit();
-        String next = candidate(submitted.changes());
-        String actual = file.write(baseline, next);
-        definition.validate().accept(actual);
-        var parsed = object(actual);
-        session.acknowledge(submitted, displayed(parsed));
-        saved = parsed; baseline = actual;
+        ProfileEditPlan.prepare(file.path().getParent(), List.of(prepare())).save().requireSuccess();
     }
 
     private Map<String, String> displayed(JsonObject object) {

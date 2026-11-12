@@ -51,10 +51,15 @@ public final class EditSession<K, V> {
     }
     public Submission<K, V> submit() { return new Submission<>(this, revision, values(), changes); }
 
-    /** A later edit or Revert is preserved against the newly acknowledged saved baseline. */
-    public void acknowledge(Submission<K, V> submission, Map<K, V> actual) {
+    /** Typing preserves this revision; reload/acknowledgement invalidates prepared work. */
+    public void checkCurrent(Submission<K, V> submission) {
         if (submission.owner != this || submission.revision != revision)
             throw new IllegalStateException("Stale settings submission");
+    }
+
+    /** A later edit or Revert is preserved against the newly acknowledged saved baseline. */
+    public void acknowledge(Submission<K, V> submission, Map<K, V> actual) {
+        checkCurrent(submission);
         var next = immutable(actual);
         if (!next.keySet().equals(saved.keySet())) throw new IllegalArgumentException("Settings schema changed");
         var current = values();

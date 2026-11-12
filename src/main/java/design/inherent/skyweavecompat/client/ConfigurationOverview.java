@@ -614,10 +614,10 @@ public final class ConfigurationOverview extends Screen {
                 FeatureSelection.select(new FeatureSettings(proposed), versions, true);
             }
             var writes = new ArrayList<SettingsCommit.Write>();
-            if (draft != null && draft.dirty()) writes.add(new SettingsCommit.Write(FeatureSettings.FILE, draft::check, draft::save));
-            for (var edits : json.values()) if (edits.dirty()) writes.add(new SettingsCommit.Write(edits.definition().filename(), edits::check, edits::save));
-            for (var edits : toml.values()) if (edits.dirty()) writes.add(new SettingsCommit.Write(edits.filename(), edits::check, edits::save));
-            var result = SettingsCommit.save(writes);
+            if (draft != null && draft.dirty()) writes.add(draft.prepare());
+            for (var edits : json.values()) if (edits.dirty()) writes.add(edits.prepare());
+            for (var edits : toml.values()) if (edits.dirty()) writes.add(edits.prepare());
+            var result = ProfileEditPlan.prepare(ConfigLocations.ownedDirectory(FMLPaths.CONFIGDIR.get()), writes).save();
             if (result.success()) {
                 feedback = text("saved_files", String.join(", ", result.written()));
                 for (var edits : toml.values()) if (edits.warning() != null) feedback = feedback.copy().append("\n").append(Component.literal(edits.warning()));

@@ -14,6 +14,10 @@ class JsonEditsTest {
     private JsonEdits create(String help) throws IOException {
         var definition = JsonSettings.FILES.stream().filter(file -> file.help().equals(help)).findFirst().orElseThrow();
         Files.writeString(directory.resolve(definition.filename()), definition.defaults());
+        if (help.equals("generation")) {
+            var shapes = JsonSettings.find("skyweave_compat-shapes.json");
+            Files.writeString(directory.resolve(shapes.filename()), shapes.defaults());
+        }
         return new JsonEdits(directory, definition);
     }
     @Test void canonicalOceanEditsPreserveValuesAndDetectExternalChanges() throws IOException {

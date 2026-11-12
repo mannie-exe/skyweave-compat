@@ -13,6 +13,24 @@ class GenerationProfileTest {
         assertTrue(profile.conflictCells() <= 8);
         json.addProperty("minimumClusterGap", 1000000);
         assertThrows(RuntimeException.class, () -> GenerationConfiguration.parse(json.toString()));
+        json.addProperty("minimumClusterGap", Integer.MAX_VALUE);
+        assertThrows(IllegalArgumentException.class, () -> GenerationConfiguration.parse(json.toString()));
+    }
+
+    @Test void intrinsicParsingDoesNotUseTheRunningShapeProfile() {
+        var json = new Gson().toJsonTree(GenerationProfile.INITIAL).getAsJsonObject();
+        json.addProperty("spacing", 400);
+        json.addProperty("jitter", 0);
+        // This fits disabled outline/fringe shaping but not the running default shapes.
+        // Parsing must permit a proposed pair without installing either draft globally.
+        var profile = assertDoesNotThrow(() -> design.inherent.skyweavecompat.configuration.ProfileJson.generation(json.toString()));
+        assertEquals(400, profile.spacing());
+        var initial = ShapeProfile.INITIAL;
+        var disabled = new ShapeProfile(false, initial.strengthVariation(), initial.outline(), initial.fringe(), initial.fractures(), initial.deepDark());
+        assertSame(profile, profile.validateAgainst(disabled));
+        assertThrows(IllegalArgumentException.class, () -> profile.validateAgainst(initial));
+        assertThrows(IllegalArgumentException.class, () -> GenerationConfiguration.parse(json.toString(), initial));
+        assertEquals(profile, GenerationConfiguration.parse(json.toString(), disabled));
     }
 
     @Test void rejectsUnknownMissingFractionalAndImpossibleControls() {

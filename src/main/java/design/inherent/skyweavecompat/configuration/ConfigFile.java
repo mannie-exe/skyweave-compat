@@ -53,9 +53,13 @@ public final class ConfigFile {
         if (!read().equals(baseline)) throw new ChangedOnDisk();
     }
 
-    public String write(String baseline, String candidate) throws IOException {
+    public static void validateCandidate(String candidate) throws IOException {
         if (candidate.getBytes(StandardCharsets.UTF_8).length > LIMIT)
             throw new IOException("Configuration exceeds 128 KiB");
+    }
+
+    public String write(String baseline, String candidate) throws IOException {
+        validateCandidate(candidate);
         synchronized (WRITERS.computeIfAbsent(path, ignored -> new Object())) {
             check(baseline);
             if (!Files.isWritable(path)) throw new IOException("Configuration is not writable");

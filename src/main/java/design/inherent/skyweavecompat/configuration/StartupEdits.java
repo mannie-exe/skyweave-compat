@@ -45,16 +45,25 @@ public final class StartupEdits {
     public void discard() { session.discard(); }
     public Map<Feature, Boolean> changes() { return session.changes(); }
 
+    public SettingsCommit.Write prepare() throws IOException {
+        var submitted = session.submit();
+        String original = baseline, candidate = replace(original, submitted.changes());
+        ConfigFile.validateCandidate(candidate);
+        FeatureSettings parsed = FeatureSettings.read(new StringReader(candidate));
+        return new SettingsCommit.Write(FeatureSettings.FILE, new SettingsCommit.Text(original, candidate), () -> {
+            session.checkCurrent(submitted);
+            try { file.check(original); } catch (ConfigFile.ChangedOnDisk conflict) { throw new ChangedOnDisk(); }
+        }, () -> {
+            final String actual;
+            try { actual = file.write(original, candidate); }
+            catch (ConfigFile.ChangedOnDisk conflict) { throw new ChangedOnDisk(); }
+            session.acknowledge(submitted, values(parsed));
+            baseline = actual; saved = parsed;
+        });
+    }
     public void save() throws IOException {
         if (!dirty()) return;
-        check();
-        var submitted = session.submit();
-        String candidate = replace(baseline, submitted.changes());
-        FeatureSettings parsed = FeatureSettings.read(new StringReader(candidate));
-        try { baseline = file.write(baseline, candidate); }
-        catch (ConfigFile.ChangedOnDisk conflict) { throw new ChangedOnDisk(); }
-        session.acknowledge(submitted, values(parsed));
-        saved = parsed;
+        SettingsCommit.save(List.of(prepare())).requireSuccess();
     }
 
     private static Map<Feature, Boolean> values(FeatureSettings settings) {
