@@ -1,25 +1,31 @@
 package design.inherent.skyweavecompat.terrain;
 
+import design.inherent.skyweavecompat.configuration.SettingSpec;
+import design.inherent.skyweavecompat.configuration.RecordSettings;
+
 /** Optional edge treatments of native wet islands; no independent basin generator. */
-public record OceanProfile(boolean enabled, double admissionChance,
-        double lagoonWeight, double reefRingWeight, double deadOceanShelfWeight, double brokenReefWeight,
-        double coastalChance, double perimeterChance,
-        int coveOpeningDegrees, int coveShoulderDegrees, int outletDepth, int sealThickness,
-        boolean spireCompanions, int spireClearance) {
+public record OceanProfile(
+        boolean enabled,
+        @SettingSpec(minimum="0", maximum="1", unit="probability", group="admission", step=".01") double admissionChance,
+        @SettingSpec(minimum="0", maximum="10", unit="weight", group="variants", step=".1") double lagoonWeight,
+        @SettingSpec(minimum="0", maximum="10", unit="weight", group="variants", step=".1") double reefRingWeight,
+        @SettingSpec(minimum="0", maximum="10", unit="weight", group="variants", step=".1") double deadOceanShelfWeight,
+        @SettingSpec(minimum="0", maximum="10", unit="weight", group="variants", step=".1") double brokenReefWeight,
+        @SettingSpec(minimum="0", maximum="1", unit="probability", group="shoreline", step=".01") double coastalChance,
+        @SettingSpec(minimum="0", maximum="1", unit="probability", group="shoreline", step=".01") double perimeterChance,
+        @SettingSpec(minimum="30", maximum="180", unit="degrees", group="cove") int coveOpeningDegrees,
+        @SettingSpec(minimum="1", maximum="89", unit="degrees", group="cove") int coveShoulderDegrees,
+        @SettingSpec(minimum="1", maximum="8", unit="blocks") int outletDepth,
+        @SettingSpec(minimum="3", maximum="16", unit="blocks") int sealThickness,
+        boolean spireCompanions,
+        @SettingSpec(minimum="0", maximum="64", unit="blocks") int spireClearance) {
     public enum Mode { NATIVE, COASTAL, PERIMETER }
     public static final OceanProfile INITIAL = new OceanProfile(true, 0.20, 1, 0, 0, 1, 0.25, 0, 100, 20, 2, 4, true, 16);
     public OceanProfile {
-        if (!Double.isFinite(admissionChance) || admissionChance < 0 || admissionChance > 1
-                || !weight(lagoonWeight) || !weight(reefRingWeight) || !weight(deadOceanShelfWeight) || !weight(brokenReefWeight)
-                || !Double.isFinite(coastalChance) || !Double.isFinite(perimeterChance)
-                || coastalChance < 0 || perimeterChance < 0 || coastalChance + perimeterChance > 1
-                || coveOpeningDegrees < 30 || coveOpeningDegrees > 180
-                || coveShoulderDegrees < 1 || coveShoulderDegrees * 2 >= coveOpeningDegrees
-                || outletDepth < 1 || outletDepth > 8
-                || sealThickness < 3 || sealThickness > 16 || spireClearance < 0 || spireClearance > 64)
-            throw new IllegalArgumentException("Invalid native ocean edge profile");
+        RecordSettings.validate(OceanProfile.class, enabled, admissionChance, lagoonWeight, reefRingWeight, deadOceanShelfWeight, brokenReefWeight, coastalChance, perimeterChance, coveOpeningDegrees, coveShoulderDegrees, outletDepth, sealThickness, spireCompanions, spireClearance);
+        if (coastalChance + perimeterChance > 1 || coveShoulderDegrees * 2 >= coveOpeningDegrees)
+            throw new IllegalArgumentException("Ocean edge probabilities or cove shoulder/opening are inconsistent");
     }
-    private static boolean weight(double value) { return Double.isFinite(value) && value >= 0 && value <= 10; }
     public boolean admits(long seed) {
         return enabled && unit(seed ^ 0x607b1c192a8e34d5L) < admissionChance;
     }

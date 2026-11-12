@@ -1,5 +1,7 @@
 package design.inherent.skyweavecompat.terrain.city;
 
+import design.inherent.skyweavecompat.configuration.SettingSpec;
+import design.inherent.skyweavecompat.configuration.RecordSettings;
 import design.inherent.skyweavecompat.configuration.ConfigFile;
 import com.google.gson.*;
 import design.inherent.skyweavecompat.configuration.JsonEdits;
@@ -10,10 +12,10 @@ import java.util.Set;
 /** Ancient City policy; shared by the runtime loader and optimistic configuration editor. */
 public final class CityConfiguration {
     public static final String FILE = "skyweave_compat-ancient-cities.json";
-    public record Policy(double minimumBuriedFraction) {
+    public record Policy(
+            @SettingSpec(minimum="0", maximum="1", unit="probability", step=".01") double minimumBuriedFraction) {
         public Policy {
-            if (!Double.isFinite(minimumBuriedFraction) || minimumBuriedFraction < 0 || minimumBuriedFraction > 1)
-                throw new IllegalArgumentException("Minimum buried fraction must be between 0 and 1");
+            RecordSettings.validate(Policy.class, minimumBuriedFraction);
         }
     }
     public static final Policy DEFAULT = new Policy(.90);

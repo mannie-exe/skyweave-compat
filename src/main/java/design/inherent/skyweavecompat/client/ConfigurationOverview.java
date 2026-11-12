@@ -543,7 +543,8 @@ public final class ConfigurationOverview extends Screen {
                         }));
                     }
                     var add = valueButton(text("add"), label, 65, () -> { remember(); values.add(""); edits.strings(key, values); rebuildWidgets(); });
-                    add.active = values.size() < 128;
+                    var field = edits.field(key);
+                    add.active = field == null || field.maximumEntries() < 0 || values.size() < field.maximumEntries();
                     content.row(Component.empty(), Component.empty(), add, valueButton(text("reset"), label, 42, () -> {
                         remember(); edits.reset(key); rebuildWidgets();
                     }));

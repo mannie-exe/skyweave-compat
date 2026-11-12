@@ -30,7 +30,7 @@ public final class RegisteredEdits {
     private final ConfigFile file;
     private final ModConfigSpec spec;
     private final List<Field> fields = new ArrayList<>();
-    private final Map<String, String> edits = new LinkedHashMap<>();
+    private EditSession<String, String> session;
     private final Map<String, Object> saved = new LinkedHashMap<>();
     private String baseline, warning;
 
@@ -59,19 +59,20 @@ public final class RegisteredEdits {
         return value instanceof Enum<?> choice ? choice.name()
                 : value instanceof List<?> ? new com.google.gson.Gson().toJson(value) : String.valueOf(value);
     }
-    public String value(String key) { field(key); return edits.getOrDefault(key, display(saved.get(key))); }
+    public String value(String key) { field(key); return session.value(key); }
     public String defaultValue(String key) { return display(field(key).defaultValue()); }
-    public void set(String key, String value) { field(key); if (value.equals(display(saved.get(key)))) edits.remove(key); else edits.put(key, value); }
+    public void set(String key, String value) { field(key); session.set(key, value); }
     public void reset(String key) { set(key, defaultValue(key)); }
-    public boolean dirty() { return !edits.isEmpty(); }
-    public java.util.Set<String> changedKeys() { return java.util.Set.copyOf(edits.keySet()); }
-    public void discard() { edits.clear(); }
+    public boolean dirty() { return session.dirty(); }
+    public java.util.Set<String> changedKeys() { return session.changes().keySet(); }
+    public void discard() { session.discard(); }
     public String warning() { return warning; }
 
     public void reload() throws IOException {
         String text = file.read(); CommentedConfig parsed = parse(text);
         var values = values(parsed);
-        baseline = text; saved.clear(); saved.putAll(values); edits.clear(); warning = null;
+        if (session == null) session = new EditSession<>(displayed(values)); else session.reload(displayed(values));
+        baseline = text; saved.clear(); saved.putAll(values); warning = null;
     }
     private Map<String, Object> values(CommentedConfig parsed) {
         var values = new LinkedHashMap<String, Object>();
@@ -119,9 +120,10 @@ public final class RegisteredEdits {
             throw new IllegalArgumentException("Unsupported registered number");
         } catch (RuntimeException invalid) { throw new IllegalArgumentException(field.key() + ": invalid value", invalid); }
     }
-    public Map<String, Object> candidate() throws IOException {
+    public Map<String, Object> candidate() throws IOException { return candidate(session.changes()); }
+    private Map<String, Object> candidate(Map<String, String> changes) throws IOException {
         var parsed = parse(baseline);
-        edits.forEach((key, value) -> parsed.set(field(key).binding().getPath(), convert(field(key), value)));
+        changes.forEach((key, value) -> parsed.set(field(key).binding().getPath(), convert(field(key), value)));
         validate(parsed); return values(parsed);
     }
     private void checkNative() throws IOException {
@@ -135,12 +137,13 @@ public final class RegisteredEdits {
     private static void apply(Field field, Object value) { ((ModConfigSpec.ConfigValue) field.binding()).set(value); }
     public void save() throws Exception {
         if (!dirty()) return;
-        var expected = candidate(); var previous = new LinkedHashMap<>(saved); boolean[] applied = {false};
+        var submitted = session.submit();
+        var expected = candidate(submitted.changes()); var previous = new LinkedHashMap<>(saved); boolean[] applied = {false};
         String actual;
         try {
             actual = file.throughOwner(baseline, () -> {
                 checkNative(); applied[0] = true;
-                for (var field : fields) if (edits.containsKey(field.key())) apply(field, expected.get(field.key()));
+                for (var field : fields) if (submitted.changes().containsKey(field.key())) apply(field, expected.get(field.key()));
                 spec.save();
             });
             if (!values(parse(actual)).equals(expected)) throw new IOException("Registered save readback differs. Reload to review it.");
@@ -150,15 +153,22 @@ public final class RegisteredEdits {
             String current;
             try { current = file.read(); } catch (IOException unreadable) { failure.addSuppressed(unreadable); throw failure; }
             if (values(parse(current)).equals(expected)) {
-                accept(current); warning = "Saved, but the registered reload failed: " + failure.getMessage(); return;
+                accept(current, submitted); warning = "Saved, but the registered reload failed: " + failure.getMessage(); return;
             }
             if (current.equals(baseline)) for (var field : fields)
-                if (edits.containsKey(field.key()) && Objects.equals(field.binding().getRaw(), expected.get(field.key()))) apply(field, previous.get(field.key()));
+                if (submitted.changes().containsKey(field.key()) && Objects.equals(field.binding().getRaw(), expected.get(field.key()))) apply(field, previous.get(field.key()));
             throw failure;
         }
-        accept(actual); warning = null;
+        accept(actual, submitted); warning = null;
     }
-    private void accept(String text) throws IOException {
-        var parsed = parse(text); baseline = text; saved.clear(); saved.putAll(values(parsed)); edits.clear();
+    private void accept(String text, EditSession.Submission<String, String> submitted) throws IOException {
+        var parsed = values(parse(text));
+        session.acknowledge(submitted, displayed(parsed));
+        baseline = text; saved.clear(); saved.putAll(parsed);
+    }
+    private static Map<String, String> displayed(Map<String, Object> values) {
+        var result = new LinkedHashMap<String, String>();
+        values.forEach((key, value) -> result.put(key, display(value)));
+        return result;
     }
 }

@@ -48,7 +48,9 @@ class JsonEditsTest {
                 after.rule(design.inherent.skyweavecompat.terrain.structure.StructureFamily.PORTALS));
         edits.set("families.villages.maximumPerCluster", "1.5");
         String saved = Files.readString(path);
-        assertThrows(ArithmeticException.class, edits::save);
+        var invalid = assertThrows(SettingIssue.InvalidValue.class, edits::save);
+        assertEquals("families.villages.maximumPerCluster", invalid.issue().field());
+        assertEquals("type", invalid.issue().code());
         assertEquals(saved, Files.readString(path));
         assertTrue(edits.dirty());
     }

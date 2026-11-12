@@ -1,5 +1,7 @@
 package design.inherent.skyweavecompat.maps;
 
+import design.inherent.skyweavecompat.configuration.SettingSpec;
+import design.inherent.skyweavecompat.configuration.RecordSettings;
 import design.inherent.skyweavecompat.configuration.ConfigFile;
 import com.google.gson.GsonBuilder;
 import design.inherent.skyweavecompat.configuration.ConfigLocations;
@@ -8,16 +10,20 @@ import java.nio.file.*;
 import net.neoforged.fml.loading.FMLPaths;
 
 /** Client preference math and codec; never links Hoofprint, Surveyor or rendering classes. */
-public record MapZoomSettings(double zoomMinimum, double zoomMaximum, double zoomInitial, double zoomStep) {
+public record MapZoomSettings(
+        @SettingSpec(minimum="0.015625", maximum="128", step="0.125", unit="zoom", group="zoomRange") double zoomMinimum,
+        @SettingSpec(minimum="0.015625", maximum="128", step="0.125", unit="zoom", group="zoomRange") double zoomMaximum,
+        @SettingSpec(minimum="0", maximum="128", step="0.125", unit="zoom", group="initialView") double zoomInitial,
+        @SettingSpec(minimum="1.01", maximum="2", step="0.01", unit="factor", group="interaction") double zoomStep) {
     public static final String FILE = "skyweave_compat-hoofprint.json";
     public static final MapZoomSettings DEFAULT = new MapZoomSettings(.125, 32, .125, 1.25);
     private static volatile MapZoomSettings lastValid = DEFAULT;
     public MapZoomSettings {
-        if (!Double.isFinite(zoomMinimum) || !Double.isFinite(zoomMaximum) || !Double.isFinite(zoomInitial)
-                || !Double.isFinite(zoomStep) || zoomMinimum < 1.0 / 64 || zoomMaximum > 128
-                || zoomMaximum < zoomMinimum || zoomInitial != 0 && (zoomInitial < zoomMinimum || zoomInitial > zoomMaximum)
-                || zoomStep < 1.01 || zoomStep > 2)
-            throw new IllegalArgumentException("Zoom requires 1/64 ≤ minimum ≤ maximum ≤ 128, initial zero or inside range, step1.01–2");
+        RecordSettings.validate(MapZoomSettings.class, zoomMinimum, zoomMaximum, zoomInitial, zoomStep);
+        if (zoomMaximum < zoomMinimum || zoomInitial != 0 && (zoomInitial < zoomMinimum || zoomInitial > zoomMaximum))
+            throw new design.inherent.skyweavecompat.configuration.SettingIssue.InvalidValue(
+                    new design.inherent.skyweavecompat.configuration.SettingIssue("zoom_range", "zoomInitial",
+                            java.util.List.of("zoomMinimum", "zoomMaximum"), "Initial zoom must be zero or within the minimum/maximum range"));
     }
     public static MapZoomSettings parse(String text) {
         try { return ProfileJson.record(text, MapZoomSettings.class); }

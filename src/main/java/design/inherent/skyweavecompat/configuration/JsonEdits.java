@@ -21,17 +21,20 @@ public final class JsonEdits {
     private final List<String> keys;
     private String baseline;
     private JsonObject saved;
-    private final Map<String, String> edits = new LinkedHashMap<>();
+    private EditSession<String, String> session;
 
     public JsonEdits(Path directory, JsonSettings.Definition definition) throws IOException {
         if (!JsonSettings.FILES.contains(definition)) throw new IllegalArgumentException("Unknown configuration");
         this.definition = definition;
         keys = leafKeys(JsonParser.parseString(definition.defaults()).getAsJsonObject());
+        if (!definition.fields().isEmpty() && !keys.equals(definition.fields().stream().map(SettingDefinition::key).toList()))
+            throw new IllegalArgumentException("Owned fields do not match the document schema: " + definition.filename());
         file = new ConfigFile(directory, definition.filename());
         reload();
     }
     public JsonSettings.Definition definition() { return definition; }
     public List<String> keys() { return keys; }
+    public SettingDefinition field(String key) { kind(key); return definition.field(key); }
     public Kind kind(String key) {
         JsonElement value = at(saved, key);
         if (value == null) throw new IllegalArgumentException("Unknown setting: " + key);
@@ -41,11 +44,11 @@ public final class JsonEdits {
         return primitive.isBoolean() ? Kind.BOOLEAN : primitive.isString() ? Kind.STRING : Kind.NUMBER;
     }
     private String display(JsonElement value) { return value.isJsonArray() ? value.toString() : value.getAsString(); }
-    public String value(String key) { kind(key); return edits.getOrDefault(key, display(at(saved, key))); }
+    public String value(String key) { kind(key); return session.value(key); }
     public String defaultValue(String key) { return display(at(JsonParser.parseString(definition.defaults()).getAsJsonObject(), key)); }
     public void set(String key, String value) {
         kind(key);
-        if (value.equals(display(at(saved, key)))) edits.remove(key); else edits.put(key, value);
+        session.set(key, value);
     }
     public void reset(String key) { set(key, defaultValue(key)); }
     public List<String> strings(String key) {
@@ -54,22 +57,30 @@ public final class JsonEdits {
         return array.asList().stream().map(JsonElement::getAsString).toList();
     }
     public void strings(String key, List<String> values) { set(key, new Gson().toJson(values)); }
-    public boolean dirty() { return !edits.isEmpty(); }
-    public boolean edited(String key) { return edits.containsKey(key); }
-    public void discard() { edits.clear(); }
+    public boolean dirty() { return session.dirty(); }
+    public boolean edited(String key) { return session.edited(key); }
+    public void discard() { session.discard(); }
     public void reload() throws IOException {
         String current = file.read();
         object(current); // Preserve the file reader's checked syntax errors and the previous draft on failure.
         definition.validate().accept(current);
         JsonObject parsed = object(definition.normalize().apply(current));
-        baseline = current; saved = parsed; edits.clear();
+        var values = displayed(parsed);
+        if (session == null) session = new EditSession<>(values); else session.reload(values);
+        baseline = current; saved = parsed;
     }
-    public String candidate() {
+    public String candidate() { return candidate(session.changes()); }
+    private String candidate(Map<String, String> changes) {
         JsonObject result = saved.deepCopy();
-        edits.forEach((key, raw) -> {
+        changes.forEach((key, raw) -> {
             try {
                 var parent = parent(result, key);
                 String leaf = key.substring(key.lastIndexOf('.') + 1);
+                var field = definition.field(key);
+                if (field != null) {
+                    parent.add(leaf, JSON.toJsonTree(field.parse(raw)));
+                    return;
+                }
                 switch (kind(key)) {
                     case NUMBER -> parent.add(leaf, new JsonPrimitive(new BigDecimal(raw.strip())));
                     case STRING -> parent.addProperty(leaf, raw);
@@ -86,19 +97,48 @@ public final class JsonEdits {
                         parent.add(leaf, array);
                     }
                 }
-            } catch (RuntimeException invalid) { throw new IllegalArgumentException(key + ": " + invalid.getMessage(), invalid); }
+            } catch (SettingIssue.InvalidValue invalid) { throw invalid; }
+            catch (RuntimeException invalid) { throw new IllegalArgumentException(key + ": " + invalid.getMessage(), invalid); }
         });
         String text = JSON.toJson(result) + "\n";
         definition.validate().accept(text);
         return baseline.contains("\r\n") ? text.replace("\n", "\r\n") : text;
     }
+    public List<SettingIssue> issues() {
+        var issues = new ArrayList<SettingIssue>();
+        for (var entry : session.changes().entrySet()) {
+            var field = definition.field(entry.getKey());
+            if (field != null) {
+                var input = field.inspect(entry.getValue());
+                if (input.issue() != null) issues.add(input.issue());
+            }
+        }
+        if (!issues.isEmpty()) return List.copyOf(issues);
+        try { candidate(); }
+        catch (RuntimeException invalid) {
+            Throwable cause = invalid;
+            while (cause.getCause() != null && !(cause instanceof SettingIssue.InvalidValue)) cause = cause.getCause();
+            if (cause instanceof SettingIssue.InvalidValue value) issues.add(value.issue());
+            else issues.add(new SettingIssue("document", "", List.of(), String.valueOf(cause.getMessage())));
+        }
+        return List.copyOf(issues);
+    }
     public void check() throws IOException { candidate(); file.check(baseline); }
     public void save() throws IOException {
         if (!dirty()) return;
-        String next = candidate();
+        var submitted = session.submit();
+        String next = candidate(submitted.changes());
         String actual = file.write(baseline, next);
         definition.validate().accept(actual);
-        saved = object(actual); baseline = actual; edits.clear();
+        var parsed = object(actual);
+        session.acknowledge(submitted, displayed(parsed));
+        saved = parsed; baseline = actual;
+    }
+
+    private Map<String, String> displayed(JsonObject object) {
+        var values = new LinkedHashMap<String, String>();
+        for (String key : keys) values.put(key, display(at(object, key)));
+        return values;
     }
 
     private static List<String> leafKeys(JsonObject object) {

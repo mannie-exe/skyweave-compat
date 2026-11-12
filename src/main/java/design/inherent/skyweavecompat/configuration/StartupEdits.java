@@ -19,7 +19,7 @@ public final class StartupEdits {
     private final ConfigFile file;
     private String baseline;
     private FeatureSettings saved;
-    private final Map<Feature, Boolean> edits = new EnumMap<>(Feature.class);
+    private EditSession<Feature, Boolean> session;
 
     private StartupEdits(Path directory) throws IOException { this.file = new ConfigFile(directory, FeatureSettings.FILE); reload(); }
     public static StartupEdits open(Path configDirectory) throws IOException {
@@ -32,26 +32,35 @@ public final class StartupEdits {
     public void reload() throws IOException {
         String text = read();
         FeatureSettings parsed = FeatureSettings.read(new StringReader(text));
-        baseline = text; saved = parsed; edits.clear();
+        if (session == null) session = new EditSession<>(values(parsed)); else session.reload(values(parsed));
+        baseline = text; saved = parsed;
     }
     public FeatureSettings saved() { return saved; }
-    public boolean value(Feature feature) { return edits.getOrDefault(feature, saved.enabled(feature)); }
+    public boolean value(Feature feature) { return session.value(feature); }
     public void set(Feature feature, boolean value) {
-        if (value == saved.enabled(feature)) edits.remove(feature); else edits.put(feature, value);
+        session.set(feature, value);
     }
-    public boolean dirty() { return !edits.isEmpty(); }
-    public boolean edited(Feature feature) { return edits.containsKey(feature); }
-    public void discard() { edits.clear(); }
-    public Map<Feature, Boolean> changes() { return Map.copyOf(edits); }
+    public boolean dirty() { return session.dirty(); }
+    public boolean edited(Feature feature) { return session.edited(feature); }
+    public void discard() { session.discard(); }
+    public Map<Feature, Boolean> changes() { return session.changes(); }
 
     public void save() throws IOException {
         if (!dirty()) return;
         check();
-        String candidate = replace(baseline, edits);
+        var submitted = session.submit();
+        String candidate = replace(baseline, submitted.changes());
         FeatureSettings parsed = FeatureSettings.read(new StringReader(candidate));
         try { baseline = file.write(baseline, candidate); }
         catch (ConfigFile.ChangedOnDisk conflict) { throw new ChangedOnDisk(); }
-        saved = parsed; edits.clear();
+        session.acknowledge(submitted, values(parsed));
+        saved = parsed;
+    }
+
+    private static Map<Feature, Boolean> values(FeatureSettings settings) {
+        var values = new EnumMap<Feature, Boolean>(Feature.class);
+        for (Feature feature : Feature.values()) values.put(feature, settings.enabled(feature));
+        return values;
     }
 
     private static String replace(String original, Map<Feature, Boolean> edits) throws IOException {

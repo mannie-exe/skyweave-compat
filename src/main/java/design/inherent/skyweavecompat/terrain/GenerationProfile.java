@@ -1,11 +1,29 @@
 package design.inherent.skyweavecompat.terrain;
 
+import design.inherent.skyweavecompat.configuration.SettingSpec;
+import design.inherent.skyweavecompat.configuration.RecordSettings;
+
 /** Versioned terrain parameters. A changed layout requires a new generation identity. */
-public record GenerationProfile(int spacing, int jitter, int centerMinY, int centerMaxY,
-        int anchorMinRadius, int anchorMaxRadius, int anchorPlateau, int anchorMinHeight, int anchorMaxHeight,
-        int companionMinRadius, int companionMaxRadius, int companionMinOrbit, int companionMaxOrbit,
-        int companionMinOffsetY, int companionMaxOffsetY, int minimumClusterGap,
-        int floorClearance, int buildingHeadroom, double activation) {
+public record GenerationProfile(
+        @SettingSpec(minimum="1", maximum="16384", unit="blocks", group="placement") int spacing,
+        @SettingSpec(minimum="0", maximum="8191", unit="blocks", group="placement") int jitter,
+        @SettingSpec(minimum="-128", maximum="767", unit="blocks", group="elevation") int centerMinY,
+        @SettingSpec(minimum="-128", maximum="767", unit="blocks", group="elevation") int centerMaxY,
+        @SettingSpec(minimum="1", maximum="500", unit="blocks", group="anchorRadius") int anchorMinRadius,
+        @SettingSpec(minimum="1", maximum="500", unit="blocks", group="anchorRadius") int anchorMaxRadius,
+        @SettingSpec(minimum="1", maximum="128", unit="blocks", group="anchorBody") int anchorPlateau,
+        @SettingSpec(minimum="1", maximum="600", unit="blocks", group="anchorHeight") int anchorMinHeight,
+        @SettingSpec(minimum="1", maximum="600", unit="blocks", group="anchorHeight") int anchorMaxHeight,
+        @SettingSpec(minimum="1", maximum="500", unit="blocks", group="companionRadius") int companionMinRadius,
+        @SettingSpec(minimum="1", maximum="500", unit="blocks", group="companionRadius") int companionMaxRadius,
+        @SettingSpec(minimum="0", maximum="8192", unit="blocks", group="companionOrbit") int companionMinOrbit,
+        @SettingSpec(minimum="0", maximum="8192", unit="blocks", group="companionOrbit") int companionMaxOrbit,
+        @SettingSpec(minimum="-896", maximum="896", unit="blocks", group="companionElevation") int companionMinOffsetY,
+        @SettingSpec(minimum="-896", maximum="896", unit="blocks", group="companionElevation") int companionMaxOffsetY,
+        @SettingSpec(minimum="0", unit="blocks", group="clearance") int minimumClusterGap,
+        @SettingSpec(minimum="0", maximum="896", unit="blocks", group="clearance") int floorClearance,
+        @SettingSpec(minimum="0", maximum="896", unit="blocks", group="clearance") int buildingHeadroom,
+        @SettingSpec(minimum="0", maximum="1", unit="probability", group="placement", step=".01", exclusiveMinimum=true) double activation) {
     public static final String ID = "skyweave_compat:islands_v1";
     public static final int MIN_Y = -128;
     public static final int MAX_Y = 768;
@@ -14,21 +32,12 @@ public record GenerationProfile(int spacing, int jitter, int centerMinY, int cen
             -60, 50, 350, 32, 200, 0.85);
 
     public GenerationProfile {
-        if (spacing <= 0 || jitter < 0 || 2L * jitter >= spacing || centerMinY > centerMaxY
-                || centerMinY < MIN_Y || centerMaxY >= MAX_Y
-                || anchorMinRadius <= 0 || anchorMinRadius > anchorMaxRadius
-                || anchorPlateau <= 0 || anchorMinHeight <= anchorPlateau + 64 || anchorMaxHeight < anchorMinHeight
-                || companionMinRadius <= 0
-                || companionMinRadius > companionMaxRadius || companionMinOrbit < 0
-                || companionMinOrbit > companionMaxOrbit || companionMinOffsetY > companionMaxOffsetY
-                || minimumClusterGap < 0 || floorClearance < 0 || buildingHeadroom < 0
-                || floorClearance > MAX_Y - MIN_Y || buildingHeadroom > MAX_Y - MIN_Y
-                || companionMinOffsetY < MIN_Y - MAX_Y || companionMaxOffsetY > MAX_Y - MIN_Y
-                || !Double.isFinite(activation) || activation <= 0 || activation > 1
-                || spacing > 16384 || anchorMaxRadius > 500 || companionMaxRadius > 500
-                || companionMaxOrbit > 8192 || anchorMaxHeight > 600 || anchorPlateau > 128) {
+        RecordSettings.validate(GenerationProfile.class, spacing, jitter, centerMinY, centerMaxY, anchorMinRadius, anchorMaxRadius, anchorPlateau, anchorMinHeight, anchorMaxHeight, companionMinRadius, companionMaxRadius, companionMinOrbit, companionMaxOrbit, companionMinOffsetY, companionMaxOffsetY, minimumClusterGap, floorClearance, buildingHeadroom, activation);
+        if (2L * jitter >= spacing || centerMinY > centerMaxY || anchorMinRadius > anchorMaxRadius
+                || anchorMinHeight <= anchorPlateau + 64 || anchorMaxHeight < anchorMinHeight
+                || companionMinRadius > companionMaxRadius || companionMinOrbit > companionMaxOrbit
+                || companionMinOffsetY > companionMaxOffsetY)
             throw new IllegalArgumentException("Invalid or unreachable island profile");
-        }
         int radius = clusterReach(anchorMaxRadius, companionMaxOrbit, companionMaxRadius);
         if (Math.ceilDiv(2L * jitter + 2L * radius + minimumClusterGap, spacing) > 8) {
             throw new IllegalArgumentException("Profile requires more than eight neighboring cells for clearance");

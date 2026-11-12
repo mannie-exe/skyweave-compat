@@ -1,5 +1,7 @@
 package design.inherent.skyweavecompat.wayfinder;
 
+import design.inherent.skyweavecompat.configuration.SettingSpec;
+import design.inherent.skyweavecompat.configuration.RecordSettings;
 import com.google.gson.GsonBuilder;
 import design.inherent.skyweavecompat.configuration.ConfigFile;
 import design.inherent.skyweavecompat.configuration.ProfileJson;
@@ -7,8 +9,14 @@ import java.nio.file.*;
 import java.util.List;
 
 /** Server-owned access and work policy. Neither a support whitelist nor a distance setting. */
-public record WayfinderSettings(boolean operatorsOnly, int cooldownTicks, int placementLookupHeight, int stepsPerTick,
-        int concurrentRequests, int requestTimeoutTicks, List<String> blockedBlocks) {
+public record WayfinderSettings(
+        boolean operatorsOnly,
+        @SettingSpec(minimum="0", maximum="12000", unit="ticks", group="access") int cooldownTicks,
+        @SettingSpec(minimum="0", maximum="64", unit="blocks", group="placement") int placementLookupHeight,
+        @SettingSpec(minimum="16", maximum="2048", unit="steps_per_tick", group="work") int stepsPerTick,
+        @SettingSpec(minimum="1", maximum="8", unit="requests", group="work") int concurrentRequests,
+        @SettingSpec(minimum="20", maximum="1200", unit="ticks", group="work") int requestTimeoutTicks,
+        @SettingSpec(maximumEntries=256, maximumLength=256, unique=true, pattern="#?[a-z0-9_.-]+:[a-z0-9_./-]+", group="hazards") List<String> blockedBlocks) {
     public static final String FILE = "skyweave_compat-wayfinder.json";
     public static final WayfinderSettings DEFAULT = new WayfinderSettings(true, 0, 16, 256, 4, 200, List.of(
             "minecraft:water", "minecraft:lava", "minecraft:bubble_column", "minecraft:fire", "minecraft:soul_fire",
@@ -17,15 +25,7 @@ public record WayfinderSettings(boolean operatorsOnly, int cooldownTicks, int pl
             "minecraft:cobweb", "minecraft:nether_portal", "minecraft:end_portal", "minecraft:end_gateway"));
 
     public WayfinderSettings {
-        if (placementLookupHeight < 0 || placementLookupHeight > 64)
-            throw new IllegalArgumentException("Placement lookup height must be between 0 and 64");
-        if (cooldownTicks < 0 || cooldownTicks > 12000 || stepsPerTick < 16 || stepsPerTick > 2048
-                || concurrentRequests < 1 || concurrentRequests > 8 || requestTimeoutTicks < 20 || requestTimeoutTicks > 1200)
-            throw new IllegalArgumentException("Invalid Wayfinder cooldown or work limits");
-        if (blockedBlocks == null || blockedBlocks.size() > 256 || blockedBlocks.stream().anyMatch(id ->
-                id == null || id.length() > 256 || !id.matches("#?[a-z0-9_.-]+:[a-z0-9_./-]+"))
-                || blockedBlocks.stream().distinct().count() != blockedBlocks.size())
-            throw new IllegalArgumentException("Expected up to 256 unique block IDs or #tags");
+        RecordSettings.validate(WayfinderSettings.class, operatorsOnly, cooldownTicks, placementLookupHeight, stepsPerTick, concurrentRequests, requestTimeoutTicks, blockedBlocks);
         blockedBlocks = List.copyOf(blockedBlocks);
     }
 
