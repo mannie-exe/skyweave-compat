@@ -72,7 +72,7 @@ public final class SettingsCatalog {
     }
     public static List<Page> pages() { return Arrays.stream(Category.values()).flatMap(category -> pages(category).stream()).toList(); }
     public static Page page(Group group) { return pages(group.category).stream().filter(page -> page.groups.contains(group)).findFirst().orElseThrow(); }
-    public enum Timing { IMMEDIATE, SERVER_START, GAME_RESTART, NEW_WORLD, RELOAD, SCREEN_OPEN, NEW_VIEW }
+    public enum Timing { IMMEDIATE, SERVER_START, GAME_RESTART, NEW_WORLD, RELOAD, SCREEN_OPEN, NEW_VIEW, PLAYER_JOIN, CONFIG_LOAD, MIXED, UNVERIFIED }
     public record FeatureEntry(Feature feature, Group group, String labelKey, String summaryKey, String filename, Timing timing) {}
     public static FeatureEntry entry(Feature feature) {
         return new FeatureEntry(feature, group(feature), "skyweave_compat.configuration.feature." + feature.key,
@@ -109,15 +109,34 @@ public final class SettingsCatalog {
             return switch (help) {
                 case "rendering_client", "journal", "wayfinder_client", "link_gui_client", "link_gui_common" -> Timing.IMMEDIATE;
                 case "hoofprint_zoom" -> Timing.IMMEDIATE;
-                case "villages", "wayfinder" -> Timing.SERVER_START;
-                case "generation", "shapes", "interiors", "climate", "rivers", "oceans", "ancient_cities", "structures", "watersheds" -> Timing.NEW_WORLD;
+                case "wayfinder", "structure_search" -> Timing.SERVER_START;
+                case "villages" -> Timing.NEW_WORLD;
+                case "generation", "shapes", "interiors", "climate", "rivers", "oceans", "ancient_cities", "structures" -> Timing.NEW_WORLD;
+                case "watersheds" -> Timing.MIXED;
                 case "bluemap" -> Timing.RELOAD;
                 default -> Timing.GAME_RESTART;
             };
         }
         public Timing timing(String field) {
             if (help.equals("hoofprint_zoom") && field.equals("zoomInitial")) return Timing.NEW_VIEW;
-            return help.equals("watersheds") && !field.startsWith("Generation.") ? Timing.IMMEDIATE : timing();
+            if (!help.equals("watersheds")) return timing();
+            if (field.startsWith("Generation.")) return Timing.NEW_WORLD;
+            return switch (field) {
+                case "Visuals.showMainMenuButton" -> Timing.SCREEN_OPEN;
+                case "General.showWelcomeMessage" -> Timing.PLAYER_JOIN;
+                case "General.disableTectonicUndergroundRivers" -> Timing.CONFIG_LOAD;
+                case "River Flow Speeds.playerSpeed", "River Flow Speeds.animalSpeed", "River Flow Speeds.waterMobSpeed",
+                        "River Flow Speeds.itemSpeed", "River Flow Speeds.defaultSpeed", "River Flow Speeds.sableShipSpeed",
+                        "River Flow Speeds.rainFlowBoost", "River Flow Speeds.thunderstormFlowBoost", "River Flow Speeds.vanillaRiverFlow",
+                        "River Flow Speeds.customEntitySpeeds", "Visuals.enableRiverParticles", "Visuals.riverParticleDensity",
+                        "Visuals.enableRiverVisualFlow", "Visuals.customMainMenuPanorama", "Sounds.enableRiverSound" -> Timing.IMMEDIATE;
+                default -> Timing.UNVERIFIED;
+            };
+        }
+        public List<String> notices(String field) {
+            if (help.equals("villages")) return List.of("villages.saved_identity");
+            return help.equals("watersheds") && field.equals("General.disableTectonicUndergroundRivers")
+                    ? List.of("watersheds.tectonic_effect") : List.of();
         }
     }
     public static Timing timing(String filename, String field) {

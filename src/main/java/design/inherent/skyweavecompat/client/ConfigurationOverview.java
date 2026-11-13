@@ -512,17 +512,7 @@ public final class ConfigurationOverview extends Screen {
             }
             String key = field.key(), id = SettingsCatalog.field(file, key).anchor();
             Component label = registeredName(file, field);
-            String description = field.spec().getComment();
-            var timing = switch (field.spec().restartType()) {
-                case NONE -> SettingsCatalog.Timing.IMMEDIATE;
-                case WORLD -> SettingsCatalog.Timing.SERVER_START;
-                case GAME -> SettingsCatalog.Timing.GAME_RESTART;
-            };
-            if (SettingsCatalog.timing(file, key) == SettingsCatalog.Timing.NEW_WORLD) timing = SettingsCatalog.Timing.NEW_WORLD;
-            Component help = Component.literal(description == null ? "" : description.lines().findFirst().orElse(""))
-                    .append("\n").append(text("after_save." + timing.name().toLowerCase(Locale.ROOT)));
-            if (!admitted) help = help.copy().append("\n").append(text("rendering.hook_unavailable"));
-            if (field.spec().getRange() != null) help = help.copy().append("\n").append(text("bounds", field.spec().getRange().toString()));
+            Component help = registeredHelp(field, fileDefinition, admitted, false);
             var reset = valueButton(text("reset"), label, 42, () -> { remember(); edits.reset(key); rebuildWidgets(); });
             reset.setTooltip(Tooltip.create(text("default", edits.defaultValue(key))));
             reset.active = admitted;
@@ -539,10 +529,19 @@ public final class ConfigurationOverview extends Screen {
                     edits.set(key, field.choices().get((current + 1) % field.choices().size())); rebuildWidgets();
                 });
                 control.active = admitted;
-                if (description != null) control.setTooltip(Tooltip.create(help));
+                control.setTooltip(Tooltip.create(registeredHelp(field, fileDefinition, admitted, true)));
                 content.relatedField(id, relationship(file, key, field.definition()), label, help, control, reset);
             }
         }
+    }
+    private Component registeredHelp(RegisteredEdits.Field field, SettingsCatalog.FileEntry file, boolean admitted, boolean full) {
+        String description = field.spec().getComment();
+        var help = Component.literal(description == null ? "" : full ? description : description.lines().findFirst().orElse(""))
+                .append("\n").append(text("after_save." + field.timing(file.filename()).name().toLowerCase(Locale.ROOT)));
+        for (String notice : file.notices(field.key())) help.append("\n").append(text(notice));
+        if (!admitted) help.append("\n").append(text("rendering.hook_unavailable"));
+        if (field.spec().getRange() != null) help.append("\n").append(text("bounds", field.spec().getRange().toString()));
+        return help;
     }
     private Component validation(RegisteredEdits edits) {
         try { edits.candidate(); return edits.nativeMatchesFile()?Component.empty():

@@ -12,6 +12,24 @@ import static org.junit.jupiter.api.Assertions.*;
 class RegisteredEditsTest {
     @TempDir Path directory;
 
+    @Test void nativeRestartDeclarationsAndSavedGenerationIdentityOverrideLiveFileDefaults() throws Exception {
+        var builder = new ModConfigSpec.Builder();
+        builder.define("live", true);
+        builder.worldRestart().define("world", true);
+        builder.gameRestart().define("game", true);
+        var spec = builder.build(); var file = write("createredstonelinkgui-client.toml", spec);
+        var edits = new RegisteredEdits(directory, file.getFileName().toString(), spec);
+        var timing = new java.util.HashMap<String, SettingsCatalog.Timing>();
+        edits.fields().forEach(field -> timing.put(field.key(), field.timing(edits.filename())));
+        assertEquals(SettingsCatalog.Timing.IMMEDIATE, timing.get("live"));
+        assertEquals(SettingsCatalog.Timing.SERVER_START, timing.get("world"));
+        assertEquals(SettingsCatalog.Timing.GAME_RESTART, timing.get("game"));
+        for (String key : java.util.List.of("minimumGap", "maximumGap", "minimumIslandRadius"))
+            assertTrue(SettingsCatalog.changesGeneration("skyweave_compat-common.toml", java.util.List.of(key)));
+        assertEquals(SettingsCatalog.Timing.SERVER_START,
+                SettingsCatalog.timing("skyweave_compat-search.json", "timeLimitSeconds"));
+    }
+
     @Test void integerDraftsAndCrossFieldBoundsUseTheRegisteredSpecAndRuntimeRule() throws Exception {
         var builder = new ModConfigSpec.Builder();
         builder.worldRestart().defineInRange("minimumGap", 64, 0, 2048);

@@ -20,6 +20,15 @@ public final class RegisteredEdits {
         public String key() { return String.join(".", binding.getPath()); }
         public ModConfigSpec.ValueSpec spec() { return binding.getSpec(); }
         public Object defaultValue() { return binding.getDefault(); }
+        public SettingsCatalog.Timing timing(String filename) {
+            var declared = SettingsCatalog.timing(filename, key());
+            if (declared == SettingsCatalog.Timing.NEW_WORLD) return declared;
+            return switch (spec().restartType()) {
+                case NONE -> declared;
+                case WORLD -> SettingsCatalog.Timing.SERVER_START;
+                case GAME -> SettingsCatalog.Timing.GAME_RESTART;
+            };
+        }
         public List<String> choices() {
             if (defaultValue() instanceof Boolean) return List.of("false", "true");
             if (defaultValue() instanceof Enum<?> value) return java.util.Arrays.stream(value.getDeclaringClass().getEnumConstants()).map(Enum::name).toList();

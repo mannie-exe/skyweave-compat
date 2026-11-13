@@ -242,7 +242,9 @@ These native controls remain available when the optional Dynamic Waters adaptati
 
 ## Dynamic Waters
 
-The optional adaptation uses Dynamic Waters 13.1.0's mountain watershed planner against the accepted island surface. In **World → Dynamic Waters**, the registered TOML editor exposes `config/dynamicwaters-common.toml`, including quoted string lists. Validation, serialization and reloads remain owned by the upstream NeoForge specification. Edits preserve external changes and drafts through the shared optimistic editor. `Generation` changes trigger the fresh-world confirmation and enter the saved generator identity; force, visual and audio controls do not change terrain identity.
+The optional adaptation uses Dynamic Waters 13.1.0's mountain watershed planner against the accepted island surface. In **World → Dynamic Waters**, the registered TOML editor exposes `config/dynamicwaters-common.toml`, including quoted string lists. Validation, serialization and reloads remain owned by the upstream NeoForge specification. Edits preserve external changes and drafts through the shared optimistic editor. `Generation` changes trigger the fresh-world confirmation and enter the saved generator identity; force, visual and audio controls do not change terrain identity. Flow, particle, panorama and sound readers consult current registered values. The main-menu button is created when its screen is initialized; welcome text is checked on the next player join. These are distinct application boundaries, shown on the individual controls.
+
+`General.disableTectonicUndergroundRivers` is a native config-load/server-start action, not a live river preference. When enabled, Dynamic Waters can set `continents.underground_rivers` to false in an existing `config/tectonic.json`. Turning the option off does not restore that file; Tectonic owns consumption of its changed settings. Editing this local common config does not administer a connected remote server.
 
 For island hydrology, set `Generation.normalRiverMode` to `VANILLA`, leave `mountainRiverTunnels` false and both native Sky Archipelago river/lake flags false. `NONE` also rewrites the climate ridge input and is not equivalent to leaving the native lowland planner alone. Mountain rivers, natural basin lakes, supported edge falls, river-biome painting, materials and flow remain upstream-owned. Wet ocean habitats keep their own beds/seals and are excluded from watershed carving. Unsupported combinations fail with an actionable startup error.
 
@@ -396,6 +398,8 @@ Leave the village out of `skyStructureWhitelist`: upstream whitelisting skips na
 The neighbor filter uses the resolved terrain settings and island field. In ordinary Sky Archipelago worlds it works with upstream spacing modes without changing them. Skyweave Islands uses the geometry profile above. Neither path overrides biome eligibility.
 
 ## Tuning
+
+Skyweave records these neighbor settings in saved generation identity. Changed values require a fresh Skyweave world; restarting alone does not migrate an existing save.
 
 Increase `maximumGap` to admit more distant floating villages. Decrease it to keep villages closer, at the cost of more clusters without a village. Decrease `minimumIslandRadius` to allow small islands to qualify as hosts. Increase `minimumGap` to leave a wider void around villages.
 
