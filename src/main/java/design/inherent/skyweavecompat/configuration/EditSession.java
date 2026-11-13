@@ -21,7 +21,7 @@ public final class EditSession<K, V> {
 
     private Map<K, V> saved;
     private final Map<K, V> changes = new LinkedHashMap<>();
-    private long revision;
+    private volatile long revision;
 
     public EditSession(Map<K, V> saved) { this.saved = immutable(saved); }
     private static <K, V> Map<K, V> immutable(Map<K, V> values) {

@@ -41,6 +41,8 @@ public final class ConfigurationOverview extends Screen {
     private SettingsPanel navigation, content;
     private Button save;
     private SettingsControls controls;
+    private final ServerSettingsView serverSettings;
+    private List<Component> saveReport = List.of();
     private record FocusRequest(SettingsPanel panel, String key) {}
     private FocusRequest requestedFocus;
     private record ValidationJob(long after, java.util.function.Supplier<Component> validate) {}
@@ -67,6 +69,7 @@ public final class ConfigurationOverview extends Screen {
 
     public ConfigurationOverview(ModContainer container, Screen parent) {
         super(Component.translatable("skyweave_compat.configuration.title")); this.parent = parent;
+        serverSettings = new ServerSettingsView(Minecraft.getInstance(), this::serverChanged);
         load(); loadJson(); loadRegistered();
     }
     static net.minecraft.network.chat.MutableComponent text(String key, Object... args) { return Component.translatable("skyweave_compat.settings." + key, args); }
@@ -85,7 +88,8 @@ public final class ConfigurationOverview extends Screen {
             unavailable.remove(file.filename());
         } catch (Exception failure) { unavailable.put(file.filename(), String.valueOf(failure.getMessage())); }
     }
-    private boolean dirty() { return draft != null && draft.dirty() || json.values().stream().anyMatch(JsonEdits::dirty)
+    private boolean dirty() { if (serverSettings.selected()) return json.values().stream().filter(edits -> ServerSettingsContext.Document.supports(edits.definition().filename())).anyMatch(JsonEdits::dirty);
+        return draft != null && draft.dirty() || json.values().stream().anyMatch(JsonEdits::dirty)
             || toml.values().stream().anyMatch(RegisteredEdits::dirty); }
     private void loadRegistered() {
         for (var entry : SettingsCatalog.FILES) {
@@ -135,7 +139,19 @@ public final class ConfigurationOverview extends Screen {
     @Override protected void init() {
         if (controls == null) controls = new SettingsControls(font);
         language = net.minecraft.locale.Language.getInstance(); resourceRevision = ClientResourceRevision.revision();
-        int top = 34 + font.split(text("local"), Math.max(100, width - 24)).size() * font.lineHeight;
+        int top = 34 + font.split(contextIntro(), Math.max(100, width - 24)).size() * font.lineHeight;
+        var contextButton = button(text(serverSettings.selected() ? "context_server" : "context_local"),
+                Math.max(80, Math.min(width - 20, 260)), this::switchContext);
+        contextButton.active = !serverSettings.busy() && (serverSettings.selected() || serverSettings.available());
+        contextButton.setTooltip(Tooltip.create(text("context_help")));
+        contextButton.setPosition(10, top); addRenderableWidget(contextButton);
+        if (serverSettings.selected() && serverSettings.retryable()) {
+            var retry = button(text("application_retry"), Math.max(80, Math.min(120,width - contextButton.getWidth() - 24)), serverSettings::retry);
+            retry.active = serverSettings.ready() && !dirty(); retry.setPosition(contextButton.getX()+contextButton.getWidth()+4,top);
+            if (retry.getX()+retry.getWidth()>width-10) { top+=24; retry.setPosition(10,top); }
+            addRenderableWidget(retry);
+        }
+        top += 24;
         notice = !feedback.getString().isEmpty() ? feedback : draft == null ? text("load_failed") : Component.empty();
         if (!notice.getString().isEmpty()) {
             noticeY = top; noticeWidth = Math.max(80, width - 128);
@@ -172,7 +188,7 @@ public final class ConfigurationOverview extends Screen {
         else if (page == null) buildStatus();
         else {
             content.section(page.id(), text("mod." + page.label()));
-            content.row(category(page.category()), text("page_scope"));
+            content.row(category(page.category()), text(serverSettings.selected() ? "server_policy_scope" : "page_scope"));
             buildPage(page);
         }
         content.finish(scroll.getOrDefault(route(), 0f));
@@ -186,14 +202,15 @@ public final class ConfigurationOverview extends Screen {
         updateSelection();
         var back = button(Component.translatable("gui.back"), 80, this::onClose); back.setPosition(10, height - 28); addRenderableWidget(back);
         save = button(text("save"), Math.min(110, Math.max(80, width / 4)), this::saveDraft);
-        save.setPosition(width - save.getWidth() - 10, height - 28); save.active = dirty(); addRenderableWidget(save);
+        save.setPosition(width - save.getWidth() - 10, height - 28); save.active = canSave();
+        save.setTooltip(Tooltip.create(text(serverSettings.selected() ? "server_policy_timing" : "save_scope"))); addRenderableWidget(save);
     }
     private record Destination(String id, Component label, Component summary, boolean section) {
         Destination(String id, Component label, Component summary) { this(id, label, summary, false); }
     }
     private boolean preferencesAvailable() { return OptionalIntegrations.enabled(Feature.QUESTLOG_INTERFACE) || OptionalIntegrations.enabled(Feature.QUESTLOG_NOTIFICATIONS); }
     private List<SettingsCatalog.Item> items(SettingsCatalog.Section section) {
-        return section.items().stream().filter(item -> !(item instanceof SettingsCatalog.Preference) || preferencesAvailable())
+        return section.items().stream().filter(item -> !serverSettings.selected() || item instanceof SettingsCatalog.File file && ServerSettingsContext.Document.supports(file.entry().filename())).filter(item -> !(item instanceof SettingsCatalog.Preference) || preferencesAvailable())
                 .filter(item -> !(item instanceof SettingsCatalog.ShaderWorkspace) || OptionalIntegrations.enabled(Feature.SHADER_PATCHES)).toList();
     }
     private List<SettingsCatalog.Section> sections(Page target) {
@@ -201,7 +218,7 @@ public final class ConfigurationOverview extends Screen {
     }
     private List<Page> pages(Category category) {
         var collator = java.text.Collator.getInstance(Locale.forLanguageTag(minecraft.getLanguageManager().getSelected().replace('_', '-')));
-        return SettingsCatalog.pages(category).stream().sorted((a, b) -> {
+        return SettingsCatalog.pages(category).stream().filter(target -> !serverSettings.selected() || !sections(target).isEmpty()).sorted((a, b) -> {
             int order = collator.compare(text("mod." + a.label()).getString(), text("mod." + b.label()).getString());
             return order != 0 ? order : a.id().compareTo(b.id());
         }).toList();
@@ -218,7 +235,7 @@ public final class ConfigurationOverview extends Screen {
                     var definition = file.entry();
                     var inline = toml.get(definition.filename());
                     if (inline == null || inline.fields().size() != 1)
-                        entries.add(new Destination(item.id(), Component.translatable(definition.labelKey()), Component.translatable(definition.summaryKey())));
+                        entries.add(new Destination(item.id(), Component.translatable(definition.labelKey()), serverSettings.selected() ? text("server_file_policy") : Component.translatable(definition.summaryKey())));
                     var edits = json.get(definition.filename());
                     if (edits != null) for (String key : edits.keys()) entries.add(new Destination(definition.field(key).anchor(),
                             fieldName(edits, key), text("field." + edits.definition().help() + "." + key + ".help")));
@@ -277,6 +294,7 @@ public final class ConfigurationOverview extends Screen {
     }
     private static Component fieldName(JsonEdits edits, String key) { return text("field." + edits.definition().help() + "." + key); }
     private void buildPage(Page page) {
+        if (serverSettings.selected() && sections(page).isEmpty()) content.row(text("context_local_only"), Component.empty());
         for (var section : sections(page)) {
             content.beginGroup(section.id(), text(section.kind().label));
             for (var item : items(section)) {
@@ -385,10 +403,15 @@ public final class ConfigurationOverview extends Screen {
     }
     private void buildStatus() {
         content.section("files", text("status_files"));
-        content.row(text("status_intro"), Component.empty());
+        if (!saveReport.isEmpty()) {
+            content.section("save-receipts", text(serverSettings.selected() ? "policy_state" : "save_results"));
+            for (var line : saveReport) content.row(Component.empty(), line);
+        }
+        content.row(text(serverSettings.selected() ? "server_status_intro" : "status_intro"), Component.empty());
         content.row(text("reload"), text("reload_summary"), button(text("reload"), 95, this::reload));
         folder();
         for (var file : SettingsCatalog.FILES) {
+            if (serverSettings.selected() && !ServerSettingsContext.Document.supports(file.filename())) continue;
             if (file.group() == null) addFile(file);
             else content.row("file-link/" + file.id(), Component.literal(file.filename()),
                     text("section_title", category(file.group().category), modName(file.group())),
@@ -412,7 +435,7 @@ public final class ConfigurationOverview extends Screen {
     private void addFile(SettingsCatalog.FileEntry file) {
         var path = ConfigLocations.file(FMLPaths.CONFIGDIR.get(), file.filename()); boolean exists = Files.isRegularFile(path);
         var open = fileButton(file);
-        Component help = Component.translatable(file.summaryKey()).copy().append("\n").append(text("timing." + file.timing().name().toLowerCase(Locale.ROOT)));
+        Component help = (serverSettings.selected() ? text("server_file_policy") : Component.translatable(file.summaryKey())).copy().append("\n").append(text(serverSettings.selected() ? "server_policy_timing" : "timing." + file.timing().name().toLowerCase(Locale.ROOT)));
         if (!exists) help = help.copy().append("\n").append(text("not_created"));
         Component label = file.group() == null || detail != null ? Component.literal(file.filename()) : Component.translatable(file.labelKey());
         var edits = json.get(file.filename());
@@ -518,6 +541,8 @@ public final class ConfigurationOverview extends Screen {
             String id = SettingsCatalog.field(file, key).anchor();
             Component label = fieldName(edits, key);
             Component help = text("field." + edits.definition().help() + "." + key + ".help");
+            var observed = serverSettings.observed(file,key);
+            if (serverSettings.selected() && observed!=null) help = help.copy().append("\n").append(text("effective_value",observed));
             switch (edits.kind(key)) {
                 case NUMBER, STRING -> {
                     if (edits.field(key) != null) {
@@ -581,8 +606,11 @@ public final class ConfigurationOverview extends Screen {
     }
     private void folder() { content.row(Component.empty(), Component.empty(), button(text("open_folder"), 115, () -> Util.getPlatform().openFile(ConfigLocations.ownedDirectory(FMLPaths.CONFIGDIR.get()).toFile()))); }
 
+    private Component contextIntro() { return text(serverSettings.selected() ? "server_context_intro" : "local"); }
+    private boolean canSave() { return dirty() && !serverSettings.busy() && (!serverSettings.selected() || serverSettings.ready()); }
     private void saveDraft() {
-        if (!dirty()) return;
+        if (!canSave()) return;
+        if (serverSettings.selected()) { writeServerDraft(); return; }
         boolean generation = draft != null && draft.changes().keySet().stream().anyMatch(feature -> SettingsCatalog.group(feature).category == Category.WORLD)
                 || json.values().stream().anyMatch(edits -> SettingsCatalog.changesGeneration(edits.definition().filename(), edits.changedKeys()))
                 || toml.values().stream().anyMatch(edits -> edits.changedKeys().stream()
@@ -614,21 +642,67 @@ public final class ConfigurationOverview extends Screen {
             for (var edits : json.values()) if (edits.dirty()) writes.add(edits.prepare());
             for (var edits : toml.values()) if (edits.dirty()) writes.add(edits.prepare());
             var result = ProfileEditPlan.prepare(ConfigLocations.ownedDirectory(FMLPaths.CONFIGDIR.get()), writes).save();
-            if (result.success()) {
-                feedback = text("saved_files", String.join(", ", result.written()));
-                for (var edits : toml.values()) if (edits.warning() != null) feedback = feedback.copy().append("\n").append(Component.literal(edits.warning()));
+            var report = new ArrayList<Component>();
+            for (var receipt : result.receipts()) {
+                var line = Component.literal(receipt.filename()+": ").append(text("persistence."+receipt.state().name().toLowerCase(Locale.ROOT)));
+                if (receipt.failure()!=null) line.append(". ").append(boundedMessage(receipt.failure()));
+                report.add(line);
             }
-            else feedback = text("save_partial", result.written().isEmpty() ? text("none") : String.join(", ", result.written()), result.failed())
-                    .append("\n").append(Component.literal(String.valueOf(result.failure().getMessage())));
+            for (var edits : toml.values()) if (edits.warning()!=null) report.add(Component.literal(edits.warning()));
+            saveReport = List.copyOf(report);
+            feedback = text(result.success() ? "save_report_success" : "save_report_partial");
         } catch (Exception failure) { feedback = failure("save_failed", failure); }
         rebuildWidgets();
     }
+    private static Component boundedMessage(Exception failure) {
+        String value = String.valueOf(failure.getMessage());
+        return Component.literal(value.length()<=512 ? value : value.substring(0,512));
+    }
+    private void writeServerDraft() {
+        remember();
+        try {
+            var writes = new ArrayList<SettingsCommit.Write>();
+            for (var edits : json.values()) if (ServerSettingsContext.Document.supports(edits.definition().filename()) && edits.dirty())
+                writes.add(edits.prepare(minecraft::execute));
+            serverSettings.submit(List.copyOf(writes));
+        } catch (Exception failure) { feedback = failure("save_failed",failure); rebuildWidgets(); }
+    }
+    private void serverChanged() {
+        feedback = serverSettings.message();
+        var report = new ArrayList<Component>();
+        for (var receipt : serverSettings.receipts()) {
+            var line = Component.literal(SettingsCatalog.document(receipt.document()).filename()+": ")
+                    .append(text("persistence."+receipt.persistence().name().toLowerCase(Locale.ROOT)))
+                    .append("; ").append(text("application."+receipt.application().name().toLowerCase(Locale.ROOT)));
+            if (receipt.failure()!=null) line.append(". ").append(boundedMessage(receipt.failure()));
+            report.add(line);
+        }
+        saveReport = List.copyOf(report);
+        if (minecraft!=null && minecraft.screen==this) { remember(); rebuildWidgets(); }
+    }
+    private void switchContext() {
+        if (serverSettings.busy()) return;
+        boolean next = !serverSettings.selected();
+        Runnable change = () -> {
+            serverSettings.close(); load(); loadJson(); loadRegistered(); controls=null; saveReport=List.of();
+            if (next) { page=SettingsCatalog.page(Group.NAVIGATION); detail=null; selectedEntry=page.id(); expanded.clear(); expanded.add(page.category()); serverSettings.open(); }
+            remember(); rebuildWidgets();
+        };
+        if (dirty()) minecraft.setScreen(new ConfirmScreen(answer -> { minecraft.setScreen(this); if (answer) change.run(); },
+                text("discard_title"),text("context_discard"),text("discard"),text("keep_editing")));
+        else change.run();
+    }
+    private void leave() { serverSettings.close(); minecraft.setScreen(parent); }
     private void reload() {
-        remember(); Runnable reload = () -> { load(); loadJson(); loadRegistered(); rebuildWidgets(); };
+        if (serverSettings.busy()) return;
+        remember(); Runnable reload = () -> { load(); loadJson(); loadRegistered(); controls=null;
+            if (serverSettings.selected()) serverSettings.open();
+            rebuildWidgets(); };
         if (dirty()) minecraft.setScreen(new ConfirmScreen(answer -> { minecraft.setScreen(this); if (answer) reload.run(); }, text("reload_title"), text("reload_message"), text("reload"), text("keep_editing")));
         else reload.run();
     }
     @Override public void tick() {
+        serverSettings.tick();
         applyRequestedFocus();
         long now = Util.getMillis();
         var ready = validationJobs.entrySet().stream().filter(entry -> entry.getValue().after <= now).toList();
@@ -694,21 +768,21 @@ public final class ConfigurationOverview extends Screen {
             remember(); detail = null; contentFocus = focused.get(route()); rebuildWidgets(); return;
         }
         remember();
-        if (dirty()) minecraft.setScreen(new ConfirmScreen(answer -> { if (answer) { if (draft != null) draft.discard(); json.values().forEach(JsonEdits::discard); toml.values().forEach(RegisteredEdits::discard); minecraft.setScreen(parent); } else minecraft.setScreen(this); }, text("discard_title"), text("discard_message"), text("discard"), text("keep_editing")));
-        else minecraft.setScreen(parent);
+        if (dirty()) minecraft.setScreen(new ConfirmScreen(answer -> { if (answer) { if (draft != null) draft.discard(); json.values().forEach(JsonEdits::discard); toml.values().forEach(RegisteredEdits::discard); leave(); } else minecraft.setScreen(this); }, text("discard_title"), text("discard_message"), text("discard"), text("keep_editing")));
+        else leave();
     }
     @Override public void render(GuiGraphics graphics, int mx, int my, float tick) {
         updateSelection();
-        renderBackground(graphics, mx, my, tick); save.active = dirty(); super.render(graphics, mx, my, tick);
+        renderBackground(graphics, mx, my, tick); save.active = canSave(); super.render(graphics, mx, my, tick);
         graphics.drawString(font, title, 12, 10, 0xffffff);
-        graphics.drawWordWrap(font, text("local"), 12, 24, Math.max(100, width - 24), 0xc0c0c0);
+        graphics.drawWordWrap(font, contextIntro(), 12, 24, Math.max(100, width - 24), 0xc0c0c0);
         if (!notice.getString().isEmpty()) graphics.drawWordWrap(font, notice, 12, noticeY + 2, noticeWidth, 0xffffff);
         int available = Math.max(0, width - save.getWidth() - 112);
         if (available > 90) {
-            Component hint = text(dirty() ? "save_scope" : "restart");
+            Component hint = text(serverSettings.selected() ? "server_policy_footer" : dirty() ? "save_scope" : "restart");
             int textHeight = font.split(hint, available).size() * font.lineHeight;
             int textY = save.getY() + (save.getHeight() - textHeight) / 2 + 1;
-            graphics.drawWordWrap(font, hint, 100, textY, available, 0xc0c0c0);
+            if (textHeight <= save.getHeight()) graphics.drawWordWrap(font, hint, 100, textY, available, 0xc0c0c0);
         }
     }
 }

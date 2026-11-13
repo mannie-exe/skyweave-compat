@@ -189,9 +189,11 @@ public final class RegisteredEdits {
         String original = baseline;
         var expected = snapshot(candidate(submitted.changes()));
         var previous = snapshot(saved);
-        return new SettingsCommit.Write(filename, () -> {
+        return new SettingsCommit.Write(filename, null, () -> {
             session.checkCurrent(submitted); file.check(original); checkNative(previous);
-        }, () -> savePrepared(submitted, original, expected, previous));
+        }, () -> savePrepared(submitted, original, expected, previous),
+                () -> new SettingsCommit.Observation(SettingsCommit.Persistence.WRITTEN, baseline),
+                () -> SettingsCommit.observe(file, original, text -> values(parse(text)).equals(expected)));
     }
     public void save() throws Exception {
         if (!dirty()) return;

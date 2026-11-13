@@ -54,7 +54,7 @@ public final class ProfileEditPlan {
                 files.get(write.filename()).check(write.text().candidate());
                 expected.put(write.filename(), write.text().candidate());
             }
-        }));
+        }, write::savedObservation, write::failureObservation));
         return SettingsCommit.prepare(guarded);
     }
 

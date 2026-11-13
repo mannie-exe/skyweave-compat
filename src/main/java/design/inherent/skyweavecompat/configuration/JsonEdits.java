@@ -144,19 +144,28 @@ public final class JsonEdits {
     }
     public void check() throws IOException { candidate(); file.check(baseline); }
     /** Capture all submitted text before another document or callback can change the draft. */
-    public SettingsCommit.Write prepare() throws IOException {
+    public SettingsCommit.Write prepare() throws IOException { return prepare(Runnable::run); }
+    /** File work may run on an authority thread; all mutable editor acknowledgement stays on its owning thread. */
+    public SettingsCommit.Write prepare(java.util.concurrent.Executor acknowledgements) throws IOException {
         var submitted = session.submit();
         String original = baseline, next = candidate(submitted.changes());
         ConfigFile.validateCandidate(next);
+        var observed = new java.util.concurrent.atomic.AtomicReference<String>();
         return new SettingsCommit.Write(definition.filename(), new SettingsCommit.Text(original, next), () -> {
             session.checkCurrent(submitted); file.check(original);
         }, () -> {
             String actual = file.write(original, next);
             definition.validate().accept(actual);
             var parsed = object(actual);
-            session.acknowledge(submitted, displayed(parsed));
-            saved = parsed; baseline = actual;
-        });
+            observed.set(actual);
+            acknowledgements.execute(() -> {
+                try { session.checkCurrent(submitted); }
+                catch (IllegalStateException detached) { return; }
+                session.acknowledge(submitted, displayed(parsed));
+                saved = parsed; baseline = actual;
+            });
+        }, () -> new SettingsCommit.Observation(SettingsCommit.Persistence.WRITTEN, observed.get()),
+                () -> SettingsCommit.observe(file, original, next::equals));
     }
     public void save() throws IOException {
         if (!dirty()) return;

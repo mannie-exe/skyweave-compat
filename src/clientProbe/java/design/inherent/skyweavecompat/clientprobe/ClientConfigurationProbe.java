@@ -29,6 +29,11 @@ final class ClientConfigurationProbe {
     private Boolean keyAccepted;
     private JsonObject nativeKey;
     private boolean wayfinderObserver;
+    private volatile JsonObject serverProof;
+    private net.minecraft.server.MinecraftServer firstServer;
+    private java.util.UUID firstActor;
+    private design.inherent.skyweavecompat.configuration.SettingsPolicy.Revision firstRevision;
+    private design.inherent.skyweavecompat.configuration.ServerSettingsContext.SavedRevision firstSaved;
     ClientConfigurationProbe() {
         if (!Files.isRegularFile(root.resolve("config-review-fixture.json"))) throw new IllegalStateException("Configuration probe requires its disposable-fixture marker");
         NeoForge.EVENT_BUS.addListener(this::tick);
@@ -44,6 +49,56 @@ final class ClientConfigurationProbe {
         var mc = Minecraft.getInstance();
         mc.setScreen(new ConfigurationOverview(ModList.get().getModContainerById("skyweave_compat").orElseThrow(), mc.screen));
     }
+    private void serverProof() throws Exception {
+        var mc=Minecraft.getInstance(); var server=mc.getSingleplayerServer();
+        if (server==null || mc.player==null) throw new IllegalStateException("Expected a running integrated fixture");
+        var actor=mc.player.getUUID(); int requested=sequence;
+        if (mc.screen instanceof ConfigurationOverview overview && firstSaved==null) {
+            var field=ConfigurationOverview.class.getDeclaredField("serverSettings");field.setAccessible(true); Object view=field.get(overview);
+            var method=view.getClass().getDeclaredMethod("receipts");method.setAccessible(true);
+            for (Object value : (java.util.List<?>)method.invoke(view)) {
+                var receipt=(design.inherent.skyweavecompat.configuration.ServerSettingsContext.Receipt)value;
+                if (receipt.saved()!=null) {firstSaved=receipt.saved();break;}
+            }
+        }
+        var previousServer=firstServer; var previousActor=firstActor; var previousRevision=firstRevision; var previousSaved=firstSaved;
+        server.submit(() -> {
+            var player=server.getPlayerList().getPlayer(actor); var result=new JsonObject();
+            try {
+                var actual=design.inherent.skyweavecompat.wayfinder.Wayfinder.readPolicy(player.createCommandSourceStack());
+                result.addProperty("sequence",requested);result.addProperty("serverIdentity",System.identityHashCode(server));
+                result.addProperty("revisionIdentity",System.identityHashCode(actual.revision()));
+                result.add("wayfinder",new GsonBuilder().create().toJsonTree(actual.value()));
+                if (previousServer!=null && previousServer!=server) {
+                    result.addProperty("previousStopped",previousServer.isStopped());result.addProperty("sameActorUuid",actor.equals(previousActor));
+                    boolean refused=false;
+                    try { design.inherent.skyweavecompat.wayfinder.Wayfinder.applyPolicy(player.createCommandSourceStack(),previousRevision,actual.value()); }
+                    catch (IllegalStateException expected) {refused=true;}
+                    result.addProperty("oldEffectiveRevisionRefused",refused);
+                    if (previousSaved!=null) {
+                        var next=design.inherent.skyweavecompat.configuration.ServerSettingsContext.open(player); boolean stale=false;
+                        try {next.retry(previousSaved);}catch(IllegalArgumentException expected){stale=true;}finally{next.close();}
+                        result.addProperty("oldSavedContextRefused",stale);
+                    }
+                }
+                if (previousServer==null) mc.execute(() -> {firstServer=server;firstActor=actor;firstRevision=actual.revision();});
+            } catch (Exception failure) {result.addProperty("error",failure.toString());}
+            serverProof=result;
+        });
+    }
+    private void world(int slot) {
+        var mc=Minecraft.getInstance();
+        if (slot<1 || slot>2 || mc.getSingleplayerServer()!=null || mc.level!=null) throw new IllegalStateException("Expected a disconnected marked client and slot1/2");
+        String name="config-review-world-"+slot;
+        var rules=new net.minecraft.world.level.GameRules();
+        rules.getRule(net.minecraft.world.level.GameRules.RULE_DOMOBSPAWNING).set(false,null);
+        rules.getRule(net.minecraft.world.level.GameRules.RULE_SPAWN_CHUNK_RADIUS).set(0,null);
+        mc.createWorldOpenFlows().createFreshLevel(name,new net.minecraft.world.level.LevelSettings(name,
+                net.minecraft.world.level.GameType.CREATIVE,false,net.minecraft.world.Difficulty.PEACEFUL,true,rules,
+                net.minecraft.world.level.WorldDataConfiguration.DEFAULT),new net.minecraft.world.level.levelgen.WorldOptions(42L,false,false),
+                registries -> registries.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+                        .get(net.minecraft.resources.ResourceLocation.withDefaultNamespace("flat")).createWorldDimensions(),new TitleScreen());
+    }
     private void tick(ClientTickEvent.Post event) {
         var mc = Minecraft.getInstance();
         if (++ticks % 10 != 0 || mc.getOverlay() != null) return;
@@ -57,6 +112,10 @@ final class ClientConfigurationProbe {
                     sequence = seq; lastError = null;
                     switch (command.get("operation").getAsString()) {
                         case "open" -> open();
+                        case "server-proof" -> serverProof();
+                        case "world" -> world(command.get("slot").getAsInt());
+                        case "disconnect" -> { if (mc.level!=null) mc.level.disconnect(); mc.disconnect(new TitleScreen()); mc.setScreen(new TitleScreen()); }
+
                         case "wayfinder" -> {
                             if(!wayfinderObserver || mc.player==null
                                     || !Files.isRegularFile(root.resolve("misc-review-fixture.json")))
@@ -145,6 +204,10 @@ final class ClientConfigurationProbe {
             report.addProperty("controlDown", net.minecraft.client.gui.screens.Screen.hasControlDown());
             report.addProperty("keyAccepted", keyAccepted);
             if (nativeKey != null) report.add("nativeKey", nativeKey);
+            if (serverProof!=null) report.add("serverProof",serverProof);
+            report.addProperty("integrated",mc.getSingleplayerServer()!=null);
+            report.addProperty("playerReady",mc.player!=null);
+            report.add("loadedMods",new GsonBuilder().create().toJsonTree(ModList.get().getMods().stream().map(mod -> mod.getModId()+"@"+mod.getVersion()).sorted().toList()));
             if (mc.screen != null) report.addProperty("focusOwner", String.valueOf(mc.screen.getFocused()));
             if (mc.screen != null) report.addProperty("screenFocusAttached", mc.screen.getFocused() == null || mc.screen.children().contains(mc.screen.getFocused()));
             var rows = new JsonArray();
@@ -192,6 +255,23 @@ final class ClientConfigurationProbe {
                     registered.add(edits.filename(), entry);
                 }
                 report.add("registered", registered);
+                var serverField=ConfigurationOverview.class.getDeclaredField("serverSettings");serverField.setAccessible(true);
+                Object view=serverField.get(overview); var serverState=new JsonObject();
+                for (String property : java.util.List.of("selected","busy","ready","retryable")) {
+                    var method=view.getClass().getDeclaredMethod(property);method.setAccessible(true);
+                    serverState.addProperty(property,(Boolean)method.invoke(view));
+                }
+                var receiptMethod=view.getClass().getDeclaredMethod("receipts");receiptMethod.setAccessible(true);
+                var receipts=new JsonArray();
+                for (var value : (java.util.List<?>)receiptMethod.invoke(view)) {
+                    var receipt=(design.inherent.skyweavecompat.configuration.ServerSettingsContext.Receipt)value;
+                    var result=new JsonObject();result.addProperty("document",receipt.document());
+                    result.addProperty("persistence",receipt.persistence().name());result.addProperty("application",receipt.application().name());
+                    result.addProperty("hasSavedRevision",receipt.saved()!=null);result.addProperty("hasEffectiveRevision",receipt.effective()!=null);
+                    if (receipt.effective()!=null) result.add("effectiveValues",new GsonBuilder().create().toJsonTree(receipt.effective().value()));
+                    if (receipt.failure()!=null) result.addProperty("failure",receipt.failure().toString());receipts.add(result);
+                }
+                serverState.add("receipts",receipts);report.add("serverContext",serverState);
                 var linkField = ConfigurationOverview.class.getDeclaredField("links"); linkField.setAccessible(true);
                 var navigationKeys = new JsonArray();
                 for (Object key : ((java.util.Map<?, ?>) linkField.get(overview)).keySet()) navigationKeys.add(String.valueOf(key));

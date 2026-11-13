@@ -154,7 +154,7 @@ These permission-level-2 commands validate the complete existing file and publis
 
 New requests use the published policy. Existing jobs retain their captured work limits and deadlines; reduced concurrency limits new native requests while outstanding work drains. Wayfinder rechecks current permission and both captured/current hazard exclusions before landing. Identical reloads leave the effective revision unchanged. Startup loading still reads the policy normally.
 
-The configuration screen edits local files. Saving a client-side copy does not publish policy to a connected server; use the owning server’s reload command. Operational policies do not alter saved terrain identity.
+The configuration screen defaults to **Local files**. Saving Wayfinder or search there changes installation defaults and leaves the current server policy intact. During singleplayer play, select **Context: Running singleplayer server** to edit these two policies through the actual server owner. Operator permission is required. Other settings stay in Local files; registered COMMON settings retain their native shared-process behavior. Remote servers use their own reload command and are not edited by this interface. Operational policies do not alter saved terrain identity.
 
 ## Village tuning
 
@@ -465,6 +465,8 @@ Journal preferences in this overview, startup switches, owned JSON files and emb
 | Redstone Link GUI client/common                       | Embedded staged enum/range fields | Native timing, after Save                            |
 
 Small registered forms are embedded in their owning page. Native specs still validate, serialize and apply them; editing alone does not change runtime values. Application timing is shown per field. Preferences is a navigation purpose, not a promise of immediate saving. An immediate journal shortcut changed elsewhere is an external edit; a stale overview draft must be reloaded or reviewed before saving. Raw file access lives in Status & files, and opening a page never creates missing configuration. Single-field files do not add a redundant file heading or menu item.
+
+Use **Status & files** to inspect each owner’s result. A failed Save distinguishes refusal before writing, unchanged disk, unknown persistence, and a verified write. A verified write can still have pending or failed application; it is not reported as effective merely because the file exists. Opening a running-server context reads saved/effective policy without writing. If they differ, **Retry application** validates those saved bytes and current permission/revision, then applies without rewriting the file. Changed files require Reload and review. Changing context requires discarding drafts; an old player session or stopped/replaced server cannot reuse the previous context.
 
 Owned profile and startup-switch files must be regular UTF-8 files of at most 128 KiB. Startup and editor reads enforce the same limits; duplicate JSON keys are rejected rather than choosing one value.
 

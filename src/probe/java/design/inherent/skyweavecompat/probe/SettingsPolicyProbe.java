@@ -84,6 +84,7 @@ final class SettingsPolicyProbe {
         else report.addProperty("search","not selected without terrain; no search policy resolution requested");
         check(chunks==server.overworld().getChunkSource().getLoadedChunksCount(),"Policy operations loaded chunks");
         report.addProperty("loaded_chunk_count_unchanged",true);
+        SettingsContextProbe.run(server,report);
         report.addProperty("limits","No active job, lease-drain, integrated/LAN, two-server-process-lifecycle, UI Save or full-pack claim");
     }
     private static void search(CommandSourceStack source, Path root, JsonObject report) throws Exception {

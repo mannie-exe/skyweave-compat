@@ -59,7 +59,8 @@ public final class StartupEdits {
             catch (ConfigFile.ChangedOnDisk conflict) { throw new ChangedOnDisk(); }
             session.acknowledge(submitted, values(parsed));
             baseline = actual; saved = parsed;
-        });
+        }, () -> new SettingsCommit.Observation(SettingsCommit.Persistence.WRITTEN, baseline),
+                () -> SettingsCommit.observe(file, original, candidate::equals));
     }
     public void save() throws IOException {
         if (!dirty()) return;
