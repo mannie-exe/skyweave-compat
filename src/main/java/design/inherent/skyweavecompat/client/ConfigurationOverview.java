@@ -413,6 +413,7 @@ public final class ConfigurationOverview extends Screen {
         var edits = toml.get(JournalPreferences.FILE);
         Component label = Component.translatable("skyweave_compat.journal." + key);
         Component description = Component.translatable("skyweave_compat.journal." + key + "_description");
+        description = description.copy().append("\n").append(text("after_save.immediate"));
         if (edits == null) {
             content.anchorRow("preference/" + key, label, description.copy().append("\n").append(text("registered_unavailable")));
             return;
@@ -684,6 +685,8 @@ public final class ConfigurationOverview extends Screen {
                 content.heading(Component.translatable(range.labelKey()));
             Component label = fieldName(edits, key);
             Component help = text("field." + edits.definition().help() + "." + key + ".help");
+            help = help.copy().append("\n").append(text(serverSettings.selected() ? "server_policy_timing"
+                    : "after_save." + SettingsCatalog.file(file).timing(key).name().toLowerCase(Locale.ROOT)));
             var observed = serverSettings.observed(file,key);
             if (serverSettings.selected() && observed!=null) help = help.copy().append("\n").append(text("effective_value",observed));
             switch (edits.kind(key)) {

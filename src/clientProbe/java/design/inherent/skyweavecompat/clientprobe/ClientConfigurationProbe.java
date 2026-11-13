@@ -202,7 +202,14 @@ final class ClientConfigurationProbe {
                         case "resize" -> org.lwjgl.glfw.GLFW.glfwSetWindowSize(mc.getWindow().getWindow(), command.get("width").getAsInt(), command.get("height").getAsInt());
                         case "text" -> { for (char character : command.get("value").getAsString().toCharArray()) mc.screen.charTyped(character, 0); }
                         case "snapshot" -> {}
+                        case "narration" -> narration(mc);
                         case "journal-write-and-toggle" -> journalWriter();
+                        case "journal-preferences-proof" -> journalPreferences();
+                        case "journal-settings" -> {
+                            if (!OptionalIntegrations.enabled(Feature.QUESTLOG_INTERFACE)) throw new IllegalStateException("Expected the admitted journal owner");
+                            mc.setScreen(new design.inherent.skyweavecompat.questlog.client.JournalSettingsScreen(mc.screen,
+                                    org.infernalstudios.questlog.client.gui.QuestlogGuiSet.DEFAULT));
+                        }
                         case "quit" -> mc.stop();
                         default -> throw new IllegalArgumentException("Unknown configuration fixture action");
                     }
@@ -210,6 +217,32 @@ final class ClientConfigurationProbe {
             }
             write(lastError);
         } catch (Exception failure) { lastError = failure.toString(); write(lastError); }
+    }
+    private void journalPreferences() throws Exception {
+        if (!OptionalIntegrations.enabled(Feature.QUESTLOG_INTERFACE)) throw new IllegalStateException("Expected the admitted journal owner");
+        var result=new JsonObject();
+        result.addProperty("images",design.inherent.skyweavecompat.questlog.client.JournalPreferences.ITEM_IMAGES.get());
+        result.addProperty("symbols",design.inherent.skyweavecompat.questlog.client.JournalPreferences.CONDITION_SYMBOLS.get());
+        result.addProperty("notifications",design.inherent.skyweavecompat.questlog.client.JournalPreferences.NOTIFICATIONS.get().name());
+        ProbeStateFiles.write(root.resolve("journal-preferences-observation.json"),new GsonBuilder().setPrettyPrinting().create().toJson(result));
+    }
+    private void narration(Minecraft mc) throws Exception {
+        if (!(mc.screen instanceof ConfigurationOverview)) throw new IllegalStateException("Expected the configuration screen");
+        var result = new JsonArray();
+        class Output implements net.minecraft.client.gui.narration.NarrationElementOutput {
+            private final int depth;
+            Output(int depth) { this.depth = depth; }
+            @Override public void add(net.minecraft.client.gui.narration.NarratedElementType type,
+                    net.minecraft.client.gui.narration.NarrationThunk<?> value) {
+                value.getText(text -> { var entry = new JsonObject(); entry.addProperty("depth",depth);
+                    entry.addProperty("type",type.name()); entry.addProperty("text",text); result.add(entry); });
+            }
+            @Override public net.minecraft.client.gui.narration.NarrationElementOutput nest() { return new Output(depth + 1); }
+        }
+        var focused = mc.screen.getFocused();
+        if (!(focused instanceof net.minecraft.client.gui.narration.NarratableEntry entry)) throw new IllegalStateException("Expected a focused narratable control");
+        entry.updateNarration(new Output(0));
+        ProbeStateFiles.write(root.resolve("configuration-narration.json"),new GsonBuilder().setPrettyPrinting().create().toJson(result));
     }
     private void journalWriter() throws Exception {
         if(!OptionalIntegrations.enabled(Feature.QUESTLOG_INTERFACE))throw new IllegalStateException("Journal writer fixture requires its real optional owner");
@@ -317,6 +350,10 @@ final class ClientConfigurationProbe {
                     Object value = field.get(overview);
                     report.addProperty(name, value instanceof net.minecraft.network.chat.Component text ? text.getString() : String.valueOf(value));
                 }
+                var saveReport = ConfigurationOverview.class.getDeclaredField("saveReport"); saveReport.setAccessible(true);
+                var results = new JsonArray();
+                for (Object value : (java.util.List<?>) saveReport.get(overview)) results.add(((net.minecraft.network.chat.Component) value).getString());
+                report.add("saveReport", results);
                 var draftsField = ConfigurationOverview.class.getDeclaredField("json"); draftsField.setAccessible(true);
                 var files = new JsonObject();
                 for (Object value : ((java.util.Map<?, ?>) draftsField.get(overview)).values()) {

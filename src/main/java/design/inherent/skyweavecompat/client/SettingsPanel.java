@@ -276,7 +276,21 @@ final class SettingsPanel extends ScrollPanel {
     }
     @Override public NarrationPriority narrationPriority() { return getFocused() == null ? NarrationPriority.NONE : NarrationPriority.FOCUSED; }
     @Override public void updateNarration(NarrationElementOutput output) {
-        if (getFocused() instanceof AbstractWidget widget) widget.updateNarration(output);
-        else output.add(NarratedElementType.TITLE, Component.translatable("skyweave_compat.configuration.title"));
+        if (getFocused() instanceof AbstractWidget widget) {
+            // Keep native value, usage and error narration at its own depth.
+            widget.updateNarration(output.nest());
+            var row = rows.stream().filter(candidate -> candidate.controls.contains(widget)).findFirst().orElse(null);
+            if (row != null) {
+                Component help = row.summary;
+                if (help.getString().isEmpty() && row.key != null) {
+                    // Collection controls inherit the authored field description, not a neighboring row.
+                    var parent = rows.stream().filter(candidate -> candidate.key != null
+                                    && row.key.startsWith(candidate.key + "/") && !candidate.summary.getString().isEmpty())
+                            .max(java.util.Comparator.comparingInt(candidate -> candidate.key.length())).orElse(null);
+                    if (parent != null) help = parent.summary;
+                }
+                if (!help.getString().isEmpty()) output.add(NarratedElementType.HINT, help);
+            }
+        } else output.add(NarratedElementType.TITLE, Component.translatable("skyweave_compat.configuration.title"));
     }
 }
