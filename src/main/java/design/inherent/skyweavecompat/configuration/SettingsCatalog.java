@@ -139,6 +139,12 @@ public final class SettingsCatalog {
                     ? List.of("watersheds.tectonic_effect") : List.of();
         }
     }
+    /** Authored relationship; numeric bounds and coupled validation remain with the document owner. */
+    public record RangePair(String minimum, String maximum, String labelKey) {}
+    public static List<RangePair> ranges(String filename) {
+        return filename.equals("skyweave_compat-hoofprint.json")
+                ? List.of(new RangePair("zoomMinimum", "zoomMaximum", "skyweave_compat.settings.zoom_range")) : List.of();
+    }
     public static Timing timing(String filename, String field) {
         return FILES.stream().filter(entry -> entry.filename().equals(filename))
                 .findFirst().map(entry -> entry.timing(field)).orElse(Timing.GAME_RESTART);

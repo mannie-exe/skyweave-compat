@@ -39,6 +39,9 @@ class RegisteredEditsTest {
         var edits = new RegisteredEdits(directory, file.getFileName().toString(), spec);
         String original = Files.readString(file);
         edits.set("minimumGap", "600"); assertThrows(Exception.class, edits::candidate); assertEquals(original, Files.readString(file));
+        var issue = edits.issues().getFirst();
+        assertEquals("minimumGap", issue.field()); assertTrue(issue.affects("maximumGap"));
+        assertFalse(issue.affects("minimumIslandRadius"));
         edits.set("maximumGap", "700"); assertEquals(600, edits.candidate().get("minimumGap"));
         edits.set("minimumGap", "12.5"); assertThrows(Exception.class, edits::save); assertEquals("12.5", edits.value("minimumGap"));
         edits.reset("minimumGap"); assertEquals("64", edits.value("minimumGap"));

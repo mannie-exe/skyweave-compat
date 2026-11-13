@@ -82,6 +82,7 @@ public final class RegisteredEdits {
                 : value instanceof List<?> ? new com.google.gson.Gson().toJson(value) : String.valueOf(value);
     }
     public String value(String key) { field(key); return session.value(key); }
+    public String savedValue(String key) { return session.saved(key); }
     public String defaultValue(String key) { return display(field(key).defaultValue()); }
     public void set(String key, String value) { field(key); session.set(key, value); }
     public void reset(String key) { set(key, defaultValue(key)); }
@@ -122,7 +123,10 @@ public final class RegisteredEdits {
             var issue = localIssue(key); if (issue != null) issues.add(issue);
         });
         if (issues.isEmpty()) try { candidate(); }
-        catch (Exception invalid) { issues.add(new SettingIssue("document", "", List.of(), String.valueOf(invalid.getMessage()))); }
+        catch (Exception invalid) {
+            var issue = SettingIssue.find(invalid);
+            issues.add(issue != null ? issue : new SettingIssue("document", "", List.of(), String.valueOf(invalid.getMessage())));
+        }
         return List.copyOf(issues);
     }
 

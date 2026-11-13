@@ -39,7 +39,7 @@ public final class ConfigurationOverview extends Screen {
     private int noticeY, noticeWidth;
     private Feature detail;
     private SettingsPanel navigation, content;
-    private Button save;
+    private Button save, revert, review, viewButton;
     private SettingsControls controls;
     private final ServerSettingsView serverSettings;
     private List<Component> saveReport = List.of();
@@ -56,13 +56,25 @@ public final class ConfigurationOverview extends Screen {
     private final Map<String, SectionNavigation.Bookmark> positions = new HashMap<>();
     private final Map<String, String> focused = new HashMap<>();
     private final EnumSet<Category> expanded = EnumSet.of(Category.INTERFACE);
-    private EnumSet<Category> beforeSearch;
+    private enum View { ALL, MODIFIED, INVALID, RESTART }
+    private View view = View.ALL;
+    private record ViewState(boolean modified, boolean invalid, boolean restart) {
+        boolean accepts(View view) { return switch (view) { case ALL -> true; case MODIFIED -> modified; case INVALID -> invalid; case RESTART -> restart; }; }
+    }
+    private final Map<String,ViewState> viewStates = new HashMap<>();
+    private record FilterPosition(Page page, Feature detail, String selected, EnumSet<Category> expanded,
+            Map<String,SectionNavigation.Bookmark> positions, Map<String,Float> scroll, Map<String,String> focused,
+            float navigationScroll, String navigationFocus, String contentFocus) {}
+    private FilterPosition beforeFilter;
+    private boolean restoredFilterPosition;
+    private java.util.Set<String> shown = java.util.Set.of();
+    private final java.util.Set<String> collapsed = new java.util.HashSet<>();
     private final Map<String, JsonEdits> json = new LinkedHashMap<>();
     private final Map<String, RegisteredEdits> toml = new LinkedHashMap<>();
     private final Map<String, String> unavailable = new HashMap<>();
     private String query = "";
     private EditBox search;
-    private boolean searchPending;
+    private boolean searchPending, resultSetChanged;
     private boolean searchFocus;
     private String contentFocus, navigationFocus;
     private String selectedEntry;
@@ -115,12 +127,20 @@ public final class ConfigurationOverview extends Screen {
         }
     }
     private void navigate(Page target, String anchor) {
-        remember(); detail = null; page = target;
+        remember(); detail = null; page = target; expandDestination(anchor);
         selectedEntry = anchor != null ? anchor : target == null ? "files" : target.id();
         if (target != null) { expanded.clear(); expanded.add(target.category()); }
         contentFocus = focused.get(route()); rebuildWidgets();
         content.jump(selectedEntry);
         updateSelection();
+    }
+    private static String jsonGroup(JsonEdits edits, String key) {
+        return key.contains(".") ? "json-group/" + SettingsCatalog.file(edits.definition().filename()).id() + "/" + key.substring(0,key.indexOf('.')) : null;
+    }
+    private void expandDestination(String anchor) {
+        if (anchor == null) return;
+        for (var edits : json.values()) for (String key : edits.keys())
+            if (SettingsCatalog.field(edits.definition().filename(),key).anchor().equals(anchor)) collapsed.remove(jsonGroup(edits,key));
     }
     private void inspect(Feature feature) { remember(); selectedEntry = "feature/" + feature.key; detail = feature; contentFocus = null; rebuildWidgets(); }
     private void updateSelection() {
@@ -160,7 +180,7 @@ public final class ConfigurationOverview extends Screen {
             reload.setPosition(width - 102, noticeY); addRenderableWidget(reload);
             top += noticeHeight + 8;
         }
-        int paneHeight = Math.max(30, height - top - 38);
+        int paneHeight = Math.max(30, height - top - 62);
         int sidebar = Math.clamp(width / 4, 102, 170);
         if (search == null) {
             search = new EditBox(font, 10, top, sidebar, 20, text("search"));
@@ -168,19 +188,15 @@ public final class ConfigurationOverview extends Screen {
             search.setResponder(value -> {
                 // Native cursor/selection changes also notify EditBox's responder.
                 if (query.equals(value)) return;
-                boolean wasEmpty = query.isBlank(); query = value;
-                if (wasEmpty && !query.isBlank()) beforeSearch = expanded.clone();
-                if (query.isBlank() && beforeSearch != null) {
-                    expanded.clear(); expanded.addAll(beforeSearch);
-                    if (page != null) expanded.add(page.category());
-                    beforeSearch = null;
-                }
-                searchPending = true;
+                boolean wasFiltering = filtering();
+                query = value; filterChanged(wasFiltering); searchPending = true; resultSetChanged=true;
             });
         }
         search.setPosition(10, top); search.setWidth(sidebar); search.setMessage(text("search")); search.setHint(text("search"));
         addRenderableWidget(search);
-        navigation = new SettingsPanel(minecraft, 10, top + 24, sidebar, Math.max(20, paneHeight - 24), true);
+        viewButton = button(text("filter." + view.name().toLowerCase(Locale.ROOT)), sidebar, this::nextView);
+        viewButton.setPosition(10,top+24); viewButton.setTooltip(Tooltip.create(text("filter_help"))); addRenderableWidget(viewButton);
+        navigation = new SettingsPanel(minecraft, 10, top + 48, sidebar, Math.max(20, paneHeight - 48), true);
         content = new SettingsPanel(minecraft, sidebar + 18, top, Math.max(80, width - sidebar - 28), paneHeight, false);
         buildNavigation();
         navigation.finish(navigationScroll); addRenderableWidget(navigation);
@@ -200,6 +216,10 @@ public final class ConfigurationOverview extends Screen {
         else if (navigationFocus != null && navigation.focusKey() != null) setFocused(navigation);
         if (searchFocus) { setFocused(search); search.setFocused(true); }
         updateSelection();
+        revert = button(text("revert"), Math.max(80, Math.min(110, width / 3)), this::revertDraft);
+        revert.setPosition(10, height - 52); revert.active = dirty() && !serverSettings.busy(); addRenderableWidget(revert);
+        review = button(text("review"), Math.max(100, Math.min(150, width / 2 - 16)), this::reviewDraft);
+        review.setPosition(width - review.getWidth() - 10, height - 52); review.active = dirty() && !serverSettings.busy(); addRenderableWidget(review);
         var back = button(Component.translatable("gui.back"), 80, this::onClose); back.setPosition(10, height - 28); addRenderableWidget(back);
         save = button(text("save"), Math.min(110, Math.max(80, width / 4)), this::saveDraft);
         save.setPosition(width - save.getWidth() - 10, height - 28); save.active = canSave();
@@ -249,23 +269,24 @@ public final class ConfigurationOverview extends Screen {
     }
     private List<Destination> visibleDestinations(Page target) {
         var all = destinations(target);
-        if (query.isBlank()) return all;
+        if (!filtering()) return all;
         var visible = new ArrayList<Destination>();
         for (int start = 0; start < all.size();) {
             int end = start + 1;
             while (end < all.size() && !all.get(end).section()) end++;
             var header = all.get(start);
-            var children = all.subList(start + 1, end).stream().filter(entry -> matches(target, entry)).toList();
-            if (matches(target, header) || !children.isEmpty()) { visible.add(header); visible.addAll(children); }
+            boolean groupMatch = matches(target, header);
+            var children = all.subList(start + 1, end).stream().filter(entry -> accepts(entry.id()) && (groupMatch || matches(target, entry))).toList();
+            if (!children.isEmpty()) { visible.add(header); visible.addAll(children); }
             start = end;
         }
         return visible;
     }
     private void buildNavigation() {
-        links.clear(); boolean searching = !query.isBlank(); int count = 0;
+        refreshViewStates();
+        links.clear(); boolean searching = filtering(); int count = 0;
         for (Category category : Category.values()) {
-            var pages = pages(category).stream().filter(target -> !searching || matches(target, null)
-                    || destinations(target).stream().anyMatch(entry -> matches(target, entry))).toList();
+            var pages = pages(category).stream().filter(target -> !searching || !visibleDestinations(target).isEmpty()).toList();
             if (pages.isEmpty()) continue;
             var header = SettingsPanel.navigationButton(Component.literal(searching || expanded.contains(category) ? "− " : "+ ").append(category(category)), navigationWidth() - 20, true, false, () -> {
                 remember(); if (!expanded.remove(category)) expanded.add(category); rebuildWidgets();
@@ -288,16 +309,80 @@ public final class ConfigurationOverview extends Screen {
             navigation.row("files", status.getMessage(), Component.empty(), status); links.put("files", status);
         }
     }
+    private boolean filtering() { return !query.isBlank() || view != View.ALL; }
+    private void filterChanged(boolean wasFiltering) {
+        if (!wasFiltering && filtering()) {
+            remember(); beforeFilter = new FilterPosition(page,detail,selectedEntry,expanded.clone(),Map.copyOf(positions),
+                    Map.copyOf(scroll),new HashMap<>(focused),navigationScroll,navigationFocus,contentFocus);
+        } else if (wasFiltering && !filtering() && beforeFilter != null) {
+            var saved = beforeFilter; beforeFilter = null;
+            page=saved.page(); detail=saved.detail(); selectedEntry=saved.selected(); expanded.clear(); expanded.addAll(saved.expanded());
+            positions.clear(); positions.putAll(saved.positions()); scroll.clear(); scroll.putAll(saved.scroll());
+            focused.clear(); focused.putAll(saved.focused()); navigationScroll=saved.navigationScroll();
+            navigationFocus=saved.navigationFocus(); contentFocus=saved.contentFocus(); restoredFilterPosition=true;
+        }
+    }
+    private void rebuildFiltered(boolean newResults) {
+        if (!restoredFilterPosition) remember();
+        else searchFocus = search != null && getFocused() == search;
+        if (newResults && filtering()) { navigationScroll=0; navigationFocus=null; }
+        restoredFilterPosition=false; rebuildWidgets();
+    }
+    private void nextView() {
+        boolean wasFiltering = filtering(); view = View.values()[(view.ordinal()+1)%View.values().length];
+        if (view == View.INVALID) {
+            json.values().forEach(edits -> controls.feedback(SettingsCatalog.file(edits.definition().filename()).id(),edits.issues()));
+            toml.values().forEach(edits -> controls.feedback(SettingsCatalog.file(edits.filename()).id(),edits.issues()));
+        }
+        filterChanged(wasFiltering); rebuildFiltered(true); setFocused(viewButton);
+    }
+    private boolean accepts(String anchor) { return view == View.ALL || viewStates.getOrDefault(anchor,new ViewState(false,false,false)).accepts(view); }
+    private static boolean restart(SettingsCatalog.Timing timing) {
+        return timing == SettingsCatalog.Timing.GAME_RESTART || timing == SettingsCatalog.Timing.SERVER_START || timing == SettingsCatalog.Timing.NEW_WORLD;
+    }
+    private void refreshViewStates() {
+        viewStates.clear();
+        if (draft != null) for (Feature feature : Feature.values())
+            viewStates.put("feature/"+feature.key,new ViewState(draft.edited(feature),false,true));
+        for (var file : SettingsCatalog.FILES) {
+            var owned = json.get(file.filename()); var nativeEdits = toml.get(file.filename());
+            var states = new ArrayList<ViewState>();
+            if (owned != null) for (String key : owned.keys()) {
+                var id = file.field(key); var definition = owned.field(key);
+                var state = new ViewState(owned.edited(key), controls.hasIssue(id)
+                        || definition != null && definition.inspect(owned.value(key)).issue()!=null,restart(file.timing(key)));
+                states.add(state); viewStates.put(id.anchor(),state);
+            }
+            if (nativeEdits != null) for (var field : nativeEdits.fields()) {
+                var id = file.field(field.key());
+                var state = new ViewState(nativeEdits.changedKeys().contains(field.key()), controls.hasIssue(id)
+                        || nativeEdits.binding(field.key()).issue()!=null,restart(field.timing(file.filename())));
+                states.add(state); viewStates.put(id.anchor(),state);
+                if (file.filename().equals(JournalPreferences.FILE)) {
+                    String preference = switch(field.key()) { case "itemImages" -> "images"; case "conditionSymbols" -> "symbols"; case "notifications" -> "notifications"; default -> null; };
+                    if (preference!=null) viewStates.put("preference/"+preference,state);
+                }
+            }
+            viewStates.put("file/"+file.id(),new ViewState(states.stream().anyMatch(ViewState::modified),
+                    unavailable.containsKey(file.filename()) && Files.isRegularFile(ConfigLocations.file(FMLPaths.CONFIGDIR.get(),file.filename())) || controls.documentIssue(file.id()) || states.stream().anyMatch(ViewState::invalid),
+                    states.stream().anyMatch(ViewState::restart)));
+        }
+    }
     private boolean matches(Page target, Destination entry) {
         return SettingsSearch.matches(query, category(target.category()).getString(), text("mod." + target.label()).getString(),
                 entry == null ? "" : entry.label().getString(), entry == null ? "" : entry.summary().getString(), entry == null ? target.id() : entry.id());
     }
     private static Component fieldName(JsonEdits edits, String key) { return text("field." + edits.definition().help() + "." + key); }
     private void buildPage(Page page) {
+        shown = visibleDestinations(page).stream().map(Destination::id).collect(java.util.stream.Collectors.toSet());
+        if (shown.isEmpty()) content.row(text("no_results"),text("filter_help"));
         if (serverSettings.selected() && sections(page).isEmpty()) content.row(text("context_local_only"), Component.empty());
         for (var section : sections(page)) {
+            if (!shown.contains(section.id())) continue;
             content.beginGroup(section.id(), text(section.kind().label));
             for (var item : items(section)) {
+                if (!shown.contains(item.id()) && !(item instanceof SettingsCatalog.File file && shown.stream()
+                        .anyMatch(anchor -> anchor.startsWith("field/" + file.entry().id() + "/")))) continue;
                 if (item instanceof SettingsCatalog.Fix fix) addFeature(fix.feature());
                 else if (item instanceof SettingsCatalog.Preference preference) buildPreference(preference.key());
                 else if (item instanceof SettingsCatalog.File file) addFile(file.entry());
@@ -501,7 +586,7 @@ public final class ConfigurationOverview extends Screen {
         String lastGroup = "";
         for (var field : edits.fields()) {
             var fileDefinition = SettingsCatalog.file(file);
-            if (!presentedField(fileDefinition, edits, page, field.key())) continue;
+            if (!presentedField(fileDefinition, edits, page, field.key()) || !shown.contains(fileDefinition.field(field.key()).anchor())) continue;
             var owner = fileDefinition.fieldOwner(field.key());
             boolean admitted = owner == null || OptionalIntegrations.enabled(owner);
             var path = field.binding().getPath();
@@ -513,9 +598,6 @@ public final class ConfigurationOverview extends Screen {
             String key = field.key(), id = SettingsCatalog.field(file, key).anchor();
             Component label = registeredName(file, field);
             Component help = registeredHelp(field, fileDefinition, admitted, false);
-            var reset = valueButton(text("reset"), label, 42, () -> { remember(); edits.reset(key); rebuildWidgets(); });
-            reset.setTooltip(Tooltip.create(text("default", edits.defaultValue(key))));
-            reset.active = admitted;
             if (field.definition().kind() == SettingDefinition.Kind.STRINGS) {
                 buildCollection(label, help, edits.binding(key), file, () -> validation(edits));
             } else if (field.choices().isEmpty()) {
@@ -524,15 +606,41 @@ public final class ConfigurationOverview extends Screen {
                 content.relatedField(id, relationship(file, key, field.definition()), label, help,
                         widgets.toArray(net.minecraft.client.gui.components.AbstractWidget[]::new));
             } else {
-                var control = valueButton(registeredValue(field, edits.value(key)), label, Math.clamp(font.width(registeredValue(field, edits.value(key))) + 12, 65, 130), () -> {
-                    remember(); int current = field.choices().indexOf(edits.value(key));
-                    edits.set(key, field.choices().get((current + 1) % field.choices().size())); rebuildWidgets();
-                });
-                control.active = admitted;
-                control.setTooltip(Tooltip.create(registeredHelp(field, fileDefinition, admitted, true)));
-                content.relatedField(id, relationship(file, key, field.definition()), label, help, control, reset);
+                var widgets = choiceControls(label, edits.binding(key), field.choices(), value -> field.defaultValue() instanceof Boolean
+                        || field.defaultValue() instanceof design.inherent.skyweavecompat.climate.CloudPlacement.Mode
+                        ? registeredValue(field, value) : choiceLabel(edits.binding(key).id(), field.definition(), value));
+                widgets.forEach(widget -> widget.active = admitted);
+                widgets.getFirst().setTooltip(Tooltip.create(registeredHelp(field, fileDefinition, admitted, true)));
+                content.relatedField(id, relationship(file, key, field.definition()), label, help,
+                        widgets.toArray(net.minecraft.client.gui.components.AbstractWidget[]::new));
             }
         }
+    }
+    private List<net.minecraft.client.gui.components.AbstractWidget> choiceControls(Component label, SettingsBinding binding,
+            List<String> choices, java.util.function.Function<String, Component> labels) {
+        var current = labels.apply(binding.read().get());
+        var choose = valueButton(current, label, Math.clamp(font.width(current) + 16, 65, 160), () -> {
+            remember(); contentFocus = binding.id().anchor() + "/0"; focused.put(route(), contentFocus);
+            if (choices.size() > 4) {
+                var entries = choices.stream().map(key -> new SettingsChoiceScreen.Choice(key, labels.apply(key))).toList();
+                minecraft.setScreen(new SettingsChoiceScreen(this, label, entries, binding.read().get(), value -> {
+                    binding.definition().parse(value); binding.edit().accept(value);
+                }));
+            } else {
+                int index = choices.indexOf(binding.read().get());
+                binding.edit().accept(choices.get((index + 1) % choices.size())); rebuildWidgets();
+            }
+        });
+        var reset = valueButton(text("reset"), label, 42, () -> { remember(); binding.reset(); rebuildWidgets(); });
+        reset.setTooltip(Tooltip.create(text("default", binding.definition().defaultText())));
+        return List.of(choose, reset);
+    }
+    private static Component choiceLabel(SettingId id, SettingDefinition definition, String key) {
+        if (definition.valueType().isEnum()) for (Object value : definition.valueType().getEnumConstants())
+            if (((Enum<?>) value).name().equals(key) && value instanceof net.neoforged.neoforge.common.TranslatableEnum translated)
+                return translated.getTranslatedName();
+        return Component.translatableWithFallback("skyweave_compat.settings.choice." + id.document() + "." + id.field() + "." + key,
+                registeredFallback(key.toLowerCase(Locale.ROOT)));
     }
     private Component registeredHelp(RegisteredEdits.Field field, SettingsCatalog.FileEntry file, boolean admitted, boolean full) {
         String description = field.spec().getComment();
@@ -544,27 +652,49 @@ public final class ConfigurationOverview extends Screen {
         return help;
     }
     private Component validation(RegisteredEdits edits) {
-        try { edits.candidate(); return edits.nativeMatchesFile()?Component.empty():
-                text("native_reload_pending").withStyle(net.minecraft.ChatFormatting.YELLOW); }
-        catch (Exception invalid) { return failure("invalid", invalid).withStyle(net.minecraft.ChatFormatting.RED); }
+        var issues = edits.issues(); controls.feedback(SettingsCatalog.file(edits.filename()).id(), issues);
+        if (!issues.isEmpty()) return text("invalid").append(" ").append(issues.getFirst().message()).withStyle(net.minecraft.ChatFormatting.RED);
+        try { return edits.nativeMatchesFile() ? Component.empty() : text("native_reload_pending").withStyle(net.minecraft.ChatFormatting.YELLOW); }
+        catch (Exception failure) { return failure("invalid", failure).withStyle(net.minecraft.ChatFormatting.RED); }
     }
     private void buildJson(JsonEdits edits) {
         String file = edits.definition().filename();
         content.row("validation/" + file, Component.empty(), validation(edits));
         String group = "";
         for (String key : edits.keys()) {
+            if (!shown.contains(SettingsCatalog.field(file,key).anchor())) continue;
             String nextGroup = key.contains(".") ? key.substring(0, key.indexOf('.')) : "";
-            if (!nextGroup.equals(group) && !nextGroup.isEmpty())
-                content.section("json-group/" + SettingsCatalog.file(file).id() + "/" + nextGroup,
-                        text("field." + edits.definition().help() + "." + nextGroup));
+            String groupAnchor = jsonGroup(edits,key);
+            boolean folded = groupAnchor != null && !filtering() && collapsed.contains(groupAnchor);
+            if (!nextGroup.equals(group) && !nextGroup.isEmpty()) {
+                Component groupLabel = text("field." + edits.definition().help() + "." + nextGroup);
+                var toggle = valueButton(Component.literal(folded ? "+" : "−"), groupLabel, 20, () -> {
+                    remember();
+                    if (!collapsed.remove(groupAnchor)) collapsed.add(groupAnchor);
+                    contentFocus=groupAnchor+"/0"; focused.put(route(),contentFocus); rebuildWidgets();
+                });
+                toggle.setTooltip(Tooltip.create(text(folded ? "expand_group" : "collapse_group")));
+                toggle.active = !filtering();
+                content.anchorRow(groupAnchor,groupLabel,Component.empty(),toggle);
+            }
             group = nextGroup;
+            if (folded) continue;
             String id = SettingsCatalog.field(file, key).anchor();
+            for (var range : SettingsCatalog.ranges(file)) if (key.equals(range.minimum()))
+                content.heading(Component.translatable(range.labelKey()));
             Component label = fieldName(edits, key);
             Component help = text("field." + edits.definition().help() + "." + key + ".help");
             var observed = serverSettings.observed(file,key);
             if (serverSettings.selected() && observed!=null) help = help.copy().append("\n").append(text("effective_value",observed));
             switch (edits.kind(key)) {
                 case NUMBER, STRING -> {
+                    if (edits.field(key) != null && edits.field(key).kind() == SettingDefinition.Kind.CHOICE) {
+                        var binding = edits.binding(key);
+                        content.relatedField(id, relationship(file, key, edits.field(key)), label, help,
+                                choiceControls(label, binding, edits.field(key).choices(), value -> choiceLabel(binding.id(), edits.field(key), value))
+                                        .toArray(net.minecraft.client.gui.components.AbstractWidget[]::new));
+                        break;
+                    }
                     if (edits.field(key) != null) {
                         content.relatedField(id, relationship(file, key, edits.field(key)), label, withUnits(help, edits.field(key)), controls.field(label, edits.binding(key),
                                 () -> validateLater(file, () -> validation(edits)))
@@ -604,8 +734,8 @@ public final class ConfigurationOverview extends Screen {
                 collection.actions().toArray(net.minecraft.client.gui.components.AbstractWidget[]::new));
     }
     private Component validation(JsonEdits edits) {
-        try { edits.candidate(); return Component.empty(); }
-        catch (Exception failure) { return failure("invalid", failure).withStyle(net.minecraft.ChatFormatting.RED); }
+        var issues = edits.issues(); controls.feedback(SettingsCatalog.file(edits.definition().filename()).id(), issues);
+        return issues.isEmpty() ? Component.empty() : text("invalid").append(" ").append(issues.getFirst().message()).withStyle(net.minecraft.ChatFormatting.RED);
     }
     private void validateLater(String file, java.util.function.Supplier<Component> validate) {
         content.summary("validation/" + file, text("validating"));
@@ -628,8 +758,60 @@ public final class ConfigurationOverview extends Screen {
 
     private Component contextIntro() { return text(serverSettings.selected() ? "server_context_intro" : "local"); }
     private boolean canSave() { return dirty() && !serverSettings.busy() && (!serverSettings.selected() || serverSettings.ready()); }
+    private void revertDraft() {
+        if (serverSettings.busy()) return;
+        remember();
+        if (!serverSettings.selected()) {
+            if (draft != null) draft.discard();
+            toml.values().forEach(RegisteredEdits::discard);
+        }
+        json.values().stream().filter(edits -> !serverSettings.selected()
+                || ServerSettingsContext.Document.supports(edits.definition().filename())).forEach(JsonEdits::discard);
+        validationJobs.clear(); feedback = text("reverted"); rebuildWidgets();
+    }
+    private List<SettingsReviewScreen.Change> reviewChanges() {
+        var changes = new ArrayList<SettingsReviewScreen.Change>();
+        if (!serverSettings.selected() && draft != null) for (Feature feature : Feature.values()) if (draft.edited(feature))
+            changes.add(new SettingsReviewScreen.Change(new SettingId("skyweave_compat:features", feature.key), FeatureSettings.FILE,
+                    featureName(feature), on(draft.saved().enabled(feature)).getString(), on(draft.value(feature)).getString(),
+                    text("after_save.game_restart"), state(feature)));
+        for (var file : SettingsCatalog.FILES) {
+            if (serverSettings.selected() && !ServerSettingsContext.Document.supports(file.filename())) continue;
+            var owned = json.get(file.filename()); var nativeEdits = toml.get(file.filename());
+            if (owned != null) for (String key : owned.keys()) if (owned.edited(key))
+                changes.add(new SettingsReviewScreen.Change(file.field(key), file.filename(), fieldName(owned,key),
+                        owned.savedValue(key), owned.value(key), text("after_save." + file.timing(key).name().toLowerCase(Locale.ROOT)),
+                        observed(file.filename(),key)));
+            if (nativeEdits != null) for (var field : nativeEdits.fields()) if (nativeEdits.changedKeys().contains(field.key()))
+                changes.add(new SettingsReviewScreen.Change(file.field(field.key()), file.filename(), registeredName(file.filename(),field),
+                        nativeEdits.savedValue(field.key()), nativeEdits.value(field.key()), registeredHelp(field,file,
+                                file.fieldOwner(field.key()) == null || OptionalIntegrations.enabled(file.fieldOwner(field.key())),true),
+                        text("effective_unknown")));
+        }
+        return List.copyOf(changes);
+    }
+    private Component observed(String file, String key) {
+        Component value = serverSettings.selected() ? serverSettings.observed(file,key) : null;
+        return value == null ? text("effective_unknown") : text("effective_value",value);
+    }
+    private void reviewDraft() {
+        if (!dirty() || serverSettings.busy()) return;
+        remember(); var snapshot = reviewChanges();
+        minecraft.setScreen(new SettingsReviewScreen(this, snapshot, contextIntro(), id -> {
+            minecraft.setScreen(this);
+            if (id.document().equals("skyweave_compat:features")) {
+                for (Feature feature : Feature.values()) if (feature.key.equals(id.field())) {
+                    navigate(SettingsCatalog.page(SettingsCatalog.group(feature)),"feature/"+feature.key); break;
+                }
+            } else reveal(SettingsCatalog.document(id.document()),id.field());
+        }, () -> {
+            minecraft.setScreen(this);
+            if (!snapshot.equals(reviewChanges())) { feedback = text("review_changed"); rebuildWidgets(); return; }
+            saveDraft();
+        }));
+    }
     private void saveDraft() {
-        if (!canSave()) return;
+        if (!canSave() || !validateDraft()) return;
         if (serverSettings.selected()) { writeServerDraft(); return; }
         boolean generation = draft != null && draft.changes().keySet().stream().anyMatch(feature -> SettingsCatalog.group(feature).category == Category.WORLD)
                 || json.values().stream().anyMatch(edits -> SettingsCatalog.changesGeneration(edits.definition().filename(), edits.changedKeys()))
@@ -647,6 +829,38 @@ public final class ConfigurationOverview extends Screen {
         if (generation) {
             remember(); minecraft.setScreen(new ConfirmScreen(answer -> { minecraft.setScreen(this); if (answer) writeDraft(); }, text("generation_title"), text("generation_message")));
         } else writeDraft();
+    }
+    /** Validate the owning candidates before persistence and route only explicitly attributed errors. */
+    private boolean validateDraft() {
+        for (var file : SettingsCatalog.FILES) {
+            if (serverSettings.selected() && !ServerSettingsContext.Document.supports(file.filename())) continue;
+            var owned = json.get(file.filename());
+            var nativeEdits = toml.get(file.filename());
+            List<SettingIssue> issues = owned != null ? owned.issues() : nativeEdits != null ? nativeEdits.issues() : List.of();
+            controls.feedback(file.id(), issues);
+            if (!issues.isEmpty()) {
+                var issue = issues.getFirst();
+                feedback = text("invalid").append(" ").append(issue.message());
+                reveal(file, issue.field()); return false;
+            }
+        }
+        return true;
+    }
+    private void reveal(SettingsCatalog.FileEntry file, String field) {
+        // Validation must remain reachable even when a future filter hides the field.
+        view = View.ALL; query = ""; beforeFilter = null; restoredFilterPosition=false; searchPending = resultSetChanged = false;
+        if (search != null) search.setValue("");
+        var target = SettingsCatalog.page(file.group());
+        if (file.help().equals("rendering_client") && field.startsWith("worldText.")) target = SettingsCatalog.page(Group.IRIS);
+        var id = field.isEmpty() ? null : file.field(field);
+        String anchor = id == null ? "file/" + file.id() : id.anchor();
+        if (file.help().equals("journal")) anchor = switch(field) {
+            case "itemImages" -> "preference/images"; case "conditionSymbols" -> "preference/symbols";
+            case "notifications" -> "preference/notifications"; default -> anchor;
+        };
+        navigate(target,anchor);
+        String focus = id == null ? null : content.fieldFocus(id.anchor(), controls.input(id));
+        if (focus != null) requestedFocus = new FocusRequest(content, focus);
     }
     private void writeDraft() {
         remember();
@@ -708,7 +922,7 @@ public final class ConfigurationOverview extends Screen {
         if (serverSettings.busy()) return;
         boolean next = !serverSettings.selected();
         Runnable change = () -> {
-            serverSettings.close(); load(); loadJson(); loadRegistered(); controls=null; saveReport=List.of();
+            serverSettings.close(); validationJobs.clear(); load(); loadJson(); loadRegistered(); controls=null; saveReport=List.of();
             if (next) { page=SettingsCatalog.page(Group.NAVIGATION); detail=null; selectedEntry=page.id(); expanded.clear(); expanded.add(page.category()); serverSettings.open(); }
             remember(); rebuildWidgets();
         };
@@ -719,7 +933,7 @@ public final class ConfigurationOverview extends Screen {
     private void leave() { serverSettings.close(); minecraft.setScreen(parent); }
     private void reload() {
         if (serverSettings.busy()) return;
-        remember(); Runnable reload = () -> { load(); loadJson(); loadRegistered(); controls=null;
+        remember(); Runnable reload = () -> { validationJobs.clear(); load(); loadJson(); loadRegistered(); controls=null;
             if (!serverSettings.selected() && OptionalIntegrations.enabled(Feature.HOOFPRINT_ZOOM))
                 design.inherent.skyweavecompat.maps.MapZoomSettings.load();
             if (serverSettings.selected()) serverSettings.open();
@@ -735,17 +949,12 @@ public final class ConfigurationOverview extends Screen {
         for (var entry : ready) {
             validationJobs.remove(entry.getKey());
             content.summary("validation/" + entry.getKey(), entry.getValue().validate.get());
+            if (view != View.ALL) searchPending = true;
         }
         if (searchPending) {
             searchPending = false;
-            // Filtering replaces only the result tree. Native caret/selection/clipboard state stays in EditBox.
-            var previous = navigation;
-            navigation = new SettingsPanel(minecraft, 10, search.getY() + 24, search.getWidth(),
-                    Math.max(20, height - search.getY() - 62), true);
-            removeWidget(previous); buildNavigation(); navigation.finish(0); addRenderableWidget(navigation);
-            children().sort(java.util.Comparator.comparingInt(child -> child == search ? 0 : child == navigation ? 1 : child == content ? 2 : 3));
-            if (getFocused() == previous) { setFocused(navigation); navigation.focusVisibleControl(); }
-            updateSelection();
+            boolean newResults=resultSetChanged; resultSetChanged=false;
+            rebuildFiltered(newResults);
         }
         if (language != net.minecraft.locale.Language.getInstance() || resourceRevision != ClientResourceRevision.revision()) {
             remember(); rebuildWidgets();
@@ -767,11 +976,13 @@ public final class ConfigurationOverview extends Screen {
         applyRequestedFocus(); return handled;
     }
     @Override public boolean mouseClicked(double x, double y, int button) {
+        var previousView = viewButton;
         boolean handled = super.mouseClicked(x, y, button);
         // Native dispatch assigns focus after the callback, which may have replaced its widgets.
         var focused = getFocused();
         if (minecraft.screen == this && focused != null && !children().contains(focused)) {
-            if (focused instanceof SettingsPanel previous) {
+            if (focused == previousView) setFocused(viewButton);
+            else if (focused instanceof SettingsPanel previous) {
                 String key = previous.focusKey();
                 if (detail != null && !previous.isNavigation()) this.focused.put(page == null ? "files" : page.id(), key);
                 var replacement = previous.isNavigation() ? navigation : content;
@@ -799,7 +1010,8 @@ public final class ConfigurationOverview extends Screen {
     }
     @Override public void render(GuiGraphics graphics, int mx, int my, float tick) {
         updateSelection();
-        renderBackground(graphics, mx, my, tick); save.active = canSave(); super.render(graphics, mx, my, tick);
+        renderBackground(graphics, mx, my, tick); save.active = canSave();
+        revert.active = review.active = dirty() && !serverSettings.busy(); super.render(graphics, mx, my, tick);
         graphics.drawString(font, title, 12, 10, 0xffffff);
         graphics.drawWordWrap(font, contextIntro(), 12, 24, Math.max(100, width - 24), 0xc0c0c0);
         if (!notice.getString().isEmpty()) graphics.drawWordWrap(font, notice, 12, noticeY + 2, noticeWidth, 0xffffff);

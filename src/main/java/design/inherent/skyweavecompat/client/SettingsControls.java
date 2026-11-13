@@ -25,6 +25,39 @@ final class SettingsControls {
     private final Font font;
     private final Map<String, EditBox> inputs = new HashMap<>();
     private final Map<SettingId, TextCollection> collections = new HashMap<>();
+    private final Map<SettingId, ProbabilitySlider> sliders = new HashMap<>();
+    private final Map<SettingId, SettingsBinding> fields = new HashMap<>();
+    private final Map<String, List<SettingIssue>> documentIssues = new HashMap<>();
+    void feedback(String document, List<SettingIssue> issues) {
+        documentIssues.put(document, List.copyOf(issues)); refreshIssues(document);
+    }
+    boolean hasIssue(SettingId id) {
+        return documentIssues.getOrDefault(id.document(), List.of()).stream().anyMatch(issue -> issue.affects(id.field()));
+    }
+    boolean documentIssue(String document) {
+        return documentIssues.getOrDefault(document, List.of()).stream().anyMatch(issue -> issue.field().isEmpty());
+    }
+    private void edited(String document) { documentIssues.remove(document); refreshIssues(document); }
+    private void refreshIssues(String document) {
+        fields.forEach((id, binding) -> {
+            if (id.document().equals(document) && inputs.get(id.anchor()) != null)
+                decorate(inputs.get(id.anchor()), fieldIssue(binding));
+        });
+    }
+    private SettingIssue fieldIssue(SettingsBinding binding) {
+        var local = binding.issue();
+        return local != null ? local : documentIssues.getOrDefault(binding.id().document(), List.of()).stream()
+                .filter(issue -> issue.affects(binding.id().field())).findFirst().orElse(null);
+    }
+    AbstractWidget input(SettingId id) {
+        var collection = collections.get(id);
+        if (collection != null) {
+            if (collection.error() != null) return inputs.get(id.anchor() + "/raw");
+            for (var row : collection.rows()) if (collection.issue(row.id()) != null)
+                return inputs.get(collection.anchor(row.id()));
+        }
+        return inputs.get(id.anchor());
+    }
     SettingsControls(Font font) { this.font = font; }
 
     EditBox text(String id, Component label, Supplier<String> read, Consumer<String> edit,
@@ -51,10 +84,18 @@ final class SettingsControls {
     List<AbstractWidget> field(Component label, SettingsBinding binding, Runnable changed) {
         String id = binding.id().anchor();
         var definition = binding.definition();
+        fields.put(binding.id(), binding);
         var steppers = new ArrayList<Button>();
-        var input = text(id, label, binding.read(), binding.edit(), definition.constraints().maximumLength(), binding::issue,
-                () -> { updateSteps(steppers, definition, binding.read().get()); changed.run(); });
+        ProbabilitySlider slider = design.inherent.skyweavecompat.configuration.SettingSlider.supports(definition)
+                ? sliders.computeIfAbsent(binding.id(), ignored -> new ProbabilitySlider(label)) : null;
+        var input = text(id, label, binding.read(), binding.edit(), definition.constraints().maximumLength(), () -> fieldIssue(binding),
+                () -> { edited(binding.id().document()); updateSteps(steppers, definition, binding.read().get()); if (slider != null) slider.refresh(); changed.run(); });
         var controls = new ArrayList<AbstractWidget>();
+        if (slider != null) {
+            slider.bind(label, binding, input::setValue);
+            slider.setTooltip(Tooltip.create(label.copy().append(": ").append(ConfigurationOverview.text("unit." + definition.unit()))));
+            controls.add(slider);
+        }
         controls.add(input);
         if (definition.kind() == SettingDefinition.Kind.INTEGER || definition.kind() == SettingDefinition.Kind.LONG
                 || definition.kind() == SettingDefinition.Kind.DECIMAL) {
@@ -73,7 +114,7 @@ final class SettingsControls {
         }
         var reset = Button.builder(ConfigurationOverview.text("reset"), ignored -> {
             binding.reset(); input.setValue(binding.read().get()); decorate(input, binding.issue());
-            updateSteps(steppers, definition, binding.read().get()); changed.run();
+            updateSteps(steppers, definition, binding.read().get()); if (slider != null) slider.refresh(); changed.run();
         }).bounds(0, 0, Math.max(42, font.width(ConfigurationOverview.text("reset")) + 12), 20)
                 .createNarration(supplier -> label.copy().append(": ").append(supplier.get())).build();
         reset.setTooltip(Tooltip.create(ConfigurationOverview.text("default", definition.defaultText())));

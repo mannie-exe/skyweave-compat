@@ -20,6 +20,20 @@ class JsonEditsTest {
         }
         return new JsonEdits(directory, definition);
     }
+    @Test void coupledZoomIssuesRetainFieldIdentityThroughTheOwningParser() throws IOException {
+        var edits = create("hoofprint_zoom");
+        String original = Files.readString(directory.resolve(edits.definition().filename()));
+        edits.set("zoomMinimum", "64");
+        var issue = edits.issues().getFirst();
+        assertEquals("zoomMinimum", issue.field()); assertTrue(issue.affects("zoomMaximum"));
+        assertFalse(issue.affects("zoomInitial"));
+        edits.set("zoomMaximum", "96");
+        issue = edits.issues().getFirst();
+        assertEquals("zoomInitial", issue.field()); assertTrue(issue.affects("zoomMinimum"));
+        edits.set("zoomInitial", "0"); assertTrue(edits.issues().isEmpty());
+        assertEquals(original, Files.readString(directory.resolve(edits.definition().filename())));
+        edits.discard(); assertEquals(edits.savedValue("zoomInitial"),edits.value("zoomInitial"));
+    }
     @Test void canonicalOceanEditsPreserveValuesAndDetectExternalChanges() throws IOException {
         var definition = JsonSettings.find("skyweave_compat-oceans.json");
         var json = JsonParser.parseString(definition.defaults()).getAsJsonObject();

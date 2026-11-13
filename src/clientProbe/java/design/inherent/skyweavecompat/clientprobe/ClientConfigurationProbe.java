@@ -160,8 +160,26 @@ final class ClientConfigurationProbe {
                             var found = widgets(mc.screen).stream().filter(w -> w.getMessage().getString().equals(command.get("label").getAsString())).toList();
                             int index = command.has("index") ? command.get("index").getAsInt() : 0;
                             var widget = found.get(index);
-                            boolean accepted = mc.screen.mouseClicked(widget.getX() + widget.getWidth() / 2.0, widget.getY() + widget.getHeight() / 2.0, 0);
+                            double x = widget.getX() + widget.getWidth() / 2.0, y = widget.getY() + widget.getHeight() / 2.0;
+                            if (!visibleTarget(mc.screen,widget,x,y)) throw new IllegalStateException("Target outside current viewport; scroll first: " + command.get("label"));
+                            boolean accepted;
+                            try { accepted = mc.screen.mouseClicked(x,y,0); }
+                            finally { if (mc.screen != null) mc.screen.mouseReleased(x,y,0); }
                             if (!accepted) throw new IllegalStateException("Native click was refused: " + command.get("label"));
+                        }
+                        case "list-click" -> {
+                            var lists = mc.screen.children().stream().filter(child -> child instanceof net.minecraft.client.gui.components.ObjectSelectionList<?>).toList();
+                            var list = (net.minecraft.client.gui.components.ObjectSelectionList<?>) lists.getFirst();
+                            int index = command.get("index").getAsInt();
+                            if (index < 0 || index >= list.children().size()) throw new IllegalArgumentException("Choice index outside current view");
+                            var top = net.minecraft.client.gui.components.AbstractSelectionList.class.getDeclaredMethod("getRowTop", int.class); top.setAccessible(true);
+                            var bottom = net.minecraft.client.gui.components.AbstractSelectionList.class.getDeclaredMethod("getRowBottom", int.class); bottom.setAccessible(true);
+                            int y = ((int) top.invoke(list, index) + (int) bottom.invoke(list, index)) / 2;
+                            double x = list.getX() + list.getWidth() / 2d;
+                            boolean accepted;
+                            try { accepted = mc.screen.mouseClicked(x,y,0); }
+                            finally { if (mc.screen != null) mc.screen.mouseReleased(x,y,0); }
+                            if (!accepted) throw new IllegalStateException("Native list click refused");
                         }
                         case "field" -> {
                             var fields = widgets(mc.screen).stream().filter(w -> w instanceof net.minecraft.client.gui.components.EditBox).toList();
@@ -210,6 +228,13 @@ final class ClientConfigurationProbe {
         result.addProperty("externalChoicePreserved",Boolean.FALSE.equals(actual.get("conditionSymbols")));
         ProbeStateFiles.write(root.resolve("journal-writer-observation.json"),new GsonBuilder().setPrettyPrinting().create().toJson(result));
     }
+    private static boolean visibleTarget(GuiEventListener listener, AbstractWidget target, double x, double y) {
+        if (listener == target) return target.visible && target.active;
+        if (listener instanceof ContainerEventHandler container) for (var child : container.children())
+            if (visibleTarget(child,target,x,y))
+                return listener instanceof net.minecraft.client.gui.screens.Screen || listener.isMouseOver(x,y);
+        return false;
+    }
     private static ArrayList<AbstractWidget> widgets(GuiEventListener listener) {
         var found = new ArrayList<AbstractWidget>();
         if (listener instanceof AbstractWidget widget) found.add(widget);
@@ -251,6 +276,20 @@ final class ClientConfigurationProbe {
                 rows.add(row);
             }
             report.add("widgets", rows);
+            if (mc.screen != null && mc.screen.getClass().getName().equals("design.inherent.skyweavecompat.client.SettingsChoiceScreen")) {
+                var choiceState = new JsonObject();
+                for (String name : java.util.List.of("query", "selectedKey", "focus")) {
+                    var field = mc.screen.getClass().getDeclaredField(name); field.setAccessible(true); choiceState.addProperty(name, String.valueOf(field.get(mc.screen)));
+                }
+                var field = mc.screen.getClass().getDeclaredField("list"); field.setAccessible(true);
+                var list = (net.minecraft.client.gui.components.ObjectSelectionList<?>) field.get(mc.screen); var choices = new JsonArray();
+                for (Object entry : list.children()) {
+                    var value = entry.getClass().getDeclaredField("choice"); value.setAccessible(true); var choice = value.get(entry);
+                    var key = choice.getClass().getDeclaredMethod("key"); key.setAccessible(true);
+                    choices.add((String) key.invoke(choice));
+                }
+                choiceState.add("keys", choices); choiceState.addProperty("scroll", list.getScrollAmount()); report.add("chooser", choiceState);
+            }
             if (mc.screen instanceof ConfigurationOverview overview) {
                 for (String name : java.util.List.of("page", "query", "feedback")) {
                     var field = ConfigurationOverview.class.getDeclaredField(name); field.setAccessible(true);

@@ -20,7 +20,11 @@ public record MapZoomSettings(
     private static volatile MapZoomSettings lastValid = DEFAULT;
     public MapZoomSettings {
         RecordSettings.validate(MapZoomSettings.class, zoomMinimum, zoomMaximum, zoomInitial, zoomStep);
-        if (zoomMaximum < zoomMinimum || zoomInitial != 0 && (zoomInitial < zoomMinimum || zoomInitial > zoomMaximum))
+        if (zoomMaximum < zoomMinimum)
+            throw new design.inherent.skyweavecompat.configuration.SettingIssue.InvalidValue(
+                    new design.inherent.skyweavecompat.configuration.SettingIssue("zoom_range_order", "zoomMinimum",
+                            java.util.List.of("zoomMaximum"), "Minimum zoom must not exceed maximum zoom"));
+        if (zoomInitial != 0 && (zoomInitial < zoomMinimum || zoomInitial > zoomMaximum))
             throw new design.inherent.skyweavecompat.configuration.SettingIssue.InvalidValue(
                     new design.inherent.skyweavecompat.configuration.SettingIssue("zoom_range", "zoomInitial",
                             java.util.List.of("zoomMinimum", "zoomMaximum"), "Initial zoom must be zero or within the minimum/maximum range"));

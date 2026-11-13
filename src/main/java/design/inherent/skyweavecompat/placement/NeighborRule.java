@@ -6,7 +6,11 @@ public final class NeighborRule {
 
     public record Settings(boolean enabled, int minimumGap, int maximumGap, int minimumIslandRadius) {
         public Settings {
-            if (minimumGap < 0 || maximumGap < minimumGap || maximumGap > 2048
+            if (maximumGap < minimumGap)
+                throw new design.inherent.skyweavecompat.configuration.SettingIssue.InvalidValue(
+                        new design.inherent.skyweavecompat.configuration.SettingIssue("neighbor_gap_order", "minimumGap",
+                                java.util.List.of("maximumGap"), "Minimum gap must not exceed maximum gap"));
+            if (minimumGap < 0 || maximumGap > 2048
                     || minimumIslandRadius < 0 || minimumIslandRadius > 2048) {
                 throw new IllegalArgumentException("Require 0 <= minimumGap <= maximumGap <= 2048 and island radius in 0..2048");
             }

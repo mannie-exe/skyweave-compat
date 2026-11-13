@@ -117,6 +117,11 @@ final class SettingsPanel extends ScrollPanel {
     void restore(SectionNavigation.Bookmark bookmark) { scrollDistance = sections.restore(bookmark, maximumScroll()); position(); }
     String focusKey() { return positions.stream().filter(p -> p.widget == getFocused()).map(Positioned::key).filter(java.util.Objects::nonNull).findFirst().orElse(null); }
     void restoreFocus(String key) { if (key != null) positions.stream().filter(p -> key.equals(p.key)).findFirst().ifPresent(p -> { setFocused(p.widget); p.widget.setFocused(true); }); }
+    String fieldFocus(String anchor, AbstractWidget preferred) {
+        return positions.stream().filter(p -> p.widget.active && p.widget.visible && p.key != null
+                        && (preferred == null ? p.key.startsWith(anchor + "/") : p.widget == preferred))
+                .map(Positioned::key).findFirst().orElse(null);
+    }
     void focusVisibleControl() {
         position();
         positions.stream().map(Positioned::widget).filter(widget -> widget.active && widget.visible

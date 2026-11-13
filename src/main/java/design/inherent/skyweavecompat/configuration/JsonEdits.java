@@ -54,6 +54,7 @@ public final class JsonEdits {
     }
     private String display(JsonElement value) { return value.isJsonArray() ? value.toString() : value.getAsString(); }
     public String value(String key) { kind(key); return session.value(key); }
+    public String savedValue(String key) { return session.saved(key); }
     public String defaultValue(String key) { return display(at(JsonParser.parseString(definition.defaults()).getAsJsonObject(), key)); }
     public void set(String key, String value) {
         kind(key);
@@ -135,10 +136,9 @@ public final class JsonEdits {
         if (!issues.isEmpty()) return List.copyOf(issues);
         try { candidate(); }
         catch (RuntimeException invalid) {
-            Throwable cause = invalid;
-            while (cause.getCause() != null && !(cause instanceof SettingIssue.InvalidValue)) cause = cause.getCause();
-            if (cause instanceof SettingIssue.InvalidValue value) issues.add(value.issue());
-            else issues.add(new SettingIssue("document", "", List.of(), String.valueOf(cause.getMessage())));
+            var issue = SettingIssue.find(invalid);
+            if (issue != null) issues.add(issue);
+            else issues.add(new SettingIssue("document", "", List.of(), String.valueOf(invalid.getMessage())));
         }
         return List.copyOf(issues);
     }
