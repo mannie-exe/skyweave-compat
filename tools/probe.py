@@ -126,7 +126,7 @@ parser.add_argument('--reverse-structure-order', action='store_true', help='Visi
 parser.add_argument('--far-structure-fixture', action='store_true', help='Use structure destinations at least 4096 blocks from spawn for fresh-order checks')
 parser.add_argument('--empty-village-start', action='store_true', help='In a fixed-plains fixture, make village layouts fail with an empty start pool')
 parser.add_argument('--seed', type=int, default=1)
-parser.add_argument('--search-fixture', choices=['mixed', 'cap', 'time', 'lifecycle', 'selectors'], help='With --structure-search, test mixed placements, candidate/time exhaustion, native caller/world lifecycle, or family/ID/tag selectors')
+parser.add_argument('--search-fixture', choices=['mixed', 'cap', 'time', 'lifecycle', 'selectors', 'policy'], help='With --structure-search, test mixed placements, candidate/time exhaustion, native caller/world lifecycle, family/ID/tag selectors, or active policy publication')
 parser.add_argument('--terrain-seed', type=int, help='Survey this exact seed instead of the five-seed terrain comparison')
 parser.add_argument('--maximum-gap', type=int, default=128)
 parser.add_argument('--disable-climate-adapter', action='store_true', help='Disable only the climate adaptation in the disposable fixture')
@@ -274,6 +274,7 @@ if args.wayfinder_high: name += '-high'
 if args.wayfinder_public: name += '-public'
 if args.quests: name = f'quest-behavior-{args.seed}'
 if args.structure_search: name = f'structure-search-{args.seed}-' + args.search_target.replace(':', '-').replace('/', '-').replace('=', '-')
+if args.search_fixture == 'policy': name += '-policy'
 if args.locator: name = f'locator-{args.seed}'
 if args.configuration_writers: name = f'configuration-writers-{args.seed}'
 if args.perimeter: name = f'perimeter-{args.seed}'

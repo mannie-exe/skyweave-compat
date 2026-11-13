@@ -38,6 +38,7 @@ final class StructureLocatorProbe {
     }
 
     static void start(MinecraftServer server, Path destination) throws Exception {
+        if (System.getProperty("neighbors.probe.searchFixture", "").equals("policy")) { LocatorPolicyProbe.start(server,destination); return; }
         output = destination; ticks = 0; phase = 0; phaseTick = 0; maxGap = 0; planning = null;
         started = lastTick = runStarted = System.nanoTime(); firstResult = -1; streamedVerification=false; resultWhilePlanning=false; messages.clear();
         selector=0;selectorRuns=new JsonObject();selectedId=null;
@@ -101,6 +102,7 @@ final class StructureLocatorProbe {
         throw new AssertionError("Cannot inspect the accepted native locator request");
     }
     static void tick(MinecraftServer server) {
+        LocatorPolicyProbe.tick(server);
         if (!active) return;
         try {
             long now = System.nanoTime(); maxGap = Math.max(maxGap, now - lastTick); lastTick = now; ticks++;
