@@ -696,8 +696,12 @@ public final class ConfigurationOverview extends Screen {
                         break;
                     }
                     if (edits.field(key) != null) {
-                        content.relatedField(id, relationship(file, key, edits.field(key)), label, withUnits(help, edits.field(key)), controls.field(label, edits.binding(key),
-                                () -> validateLater(file, () -> validation(edits)))
+                        var description=help;
+                        content.relatedField(id, relationship(file, key, edits.field(key)), label, fieldHelp(edits,key,description), controls.field(label, edits.binding(key),
+                                () -> {
+                                    content.summary(id,fieldHelp(edits,key,description));
+                                    validateLater(file, () -> validation(edits));
+                                })
                                 .toArray(net.minecraft.client.gui.components.AbstractWidget[]::new));
                         break;
                     }
@@ -747,6 +751,13 @@ public final class ConfigurationOverview extends Screen {
         String group = definition.group().isEmpty() ? parent : parent + "/" + definition.group();
         return group.isEmpty() ? null : file + "/" + group;
     }
+    private static Component fieldHelp(JsonEdits edits, String key, Component description) {
+        var definition=edits.field(key); var help=withUnits(description,definition);
+        var input=definition.inspect(edits.value(key));
+        String hint=input.state()==SettingDefinition.InputState.VALID
+                ? SettingsCatalog.file(edits.definition().filename()).valueHint(key,input.value()) : null;
+        return hint==null ? help : help.copy().append("\n").append(text(hint));
+    }
     private static Component withUnits(Component help, SettingDefinition definition) {
         if (definition.unit().isEmpty()) return help;
         return help.copy().append("\n").append(text("unit." + definition.unit()));
@@ -767,7 +778,7 @@ public final class ConfigurationOverview extends Screen {
         }
         json.values().stream().filter(edits -> !serverSettings.selected()
                 || ServerSettingsContext.Document.supports(edits.definition().filename())).forEach(JsonEdits::discard);
-        validationJobs.clear(); feedback = text("reverted"); rebuildWidgets();
+        validationJobs.clear(); controls.clearFeedback(); feedback = text("reverted"); rebuildWidgets();
     }
     private List<SettingsReviewScreen.Change> reviewChanges() {
         var changes = new ArrayList<SettingsReviewScreen.Change>();
@@ -923,8 +934,13 @@ public final class ConfigurationOverview extends Screen {
         boolean next = !serverSettings.selected();
         Runnable change = () -> {
             serverSettings.close(); validationJobs.clear(); load(); loadJson(); loadRegistered(); controls=null; saveReport=List.of();
-            if (next) { page=SettingsCatalog.page(Group.NAVIGATION); detail=null; selectedEntry=page.id(); expanded.clear(); expanded.add(page.category()); serverSettings.open(); }
-            remember(); rebuildWidgets();
+            // A new authority context gets fresh navigation state, not another context's filtered bookmark.
+            view=View.ALL; query=""; beforeFilter=null; restoredFilterPosition=false; searchPending=resultSetChanged=false;
+            if (search!=null) search.setValue("");
+            positions.clear(); scroll.clear(); focused.clear(); contentFocus=navigationFocus=null; navigationScroll=0;
+            detail=null;
+            if (next) { page=SettingsCatalog.page(Group.NAVIGATION); selectedEntry=page.id(); expanded.clear(); expanded.add(page.category()); serverSettings.open(); }
+            rebuildWidgets();
         };
         if (dirty()) minecraft.setScreen(new ConfirmScreen(answer -> { minecraft.setScreen(this); if (answer) change.run(); },
                 text("discard_title"),text("context_discard"),text("discard"),text("keep_editing")));

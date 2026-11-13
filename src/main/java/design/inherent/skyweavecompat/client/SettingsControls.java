@@ -31,6 +31,12 @@ final class SettingsControls {
     void feedback(String document, List<SettingIssue> issues) {
         documentIssues.put(document, List.copyOf(issues)); refreshIssues(document);
     }
+    void clearFeedback() {
+        documentIssues.clear();
+        fields.forEach((id,binding) -> {
+            var input=inputs.get(id.anchor()); if (input!=null) decorate(input,binding.issue());
+        });
+    }
     boolean hasIssue(SettingId id) {
         return documentIssues.getOrDefault(id.document(), List.of()).stream().anyMatch(issue -> issue.affects(id.field()));
     }

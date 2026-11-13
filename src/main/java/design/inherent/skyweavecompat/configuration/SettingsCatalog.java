@@ -102,6 +102,12 @@ public final class SettingsCatalog {
                 default -> throw new IllegalArgumentException("Unowned rendering preference: " + key);
             };
         }
+        public String valueHint(String field, Object value) {
+            if (!(value instanceof Number number) || number.doubleValue()!=0) return null;
+            if (help.equals("wayfinder") && field.equals("cooldownTicks")) return "value_off";
+            if (help.equals("hoofprint_zoom") && field.equals("zoomInitial")) return "value_native";
+            return null;
+        }
         public SettingId field(String key) { return new SettingId(id, key); }
         public String labelKey() { return "skyweave_compat.settings.file." + help + ".title"; }
         public String summaryKey() { return "skyweave_compat.settings.file." + help; }

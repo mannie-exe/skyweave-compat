@@ -1045,6 +1045,8 @@
   "skyweave_compat.settings.probability_value": "%s%%",
   "skyweave_compat.settings.expand_group": "Expand settings group",
   "skyweave_compat.settings.collapse_group": "Collapse settings group",
+  "skyweave_compat.settings.value_off": "Off (0)",
+  "skyweave_compat.settings.value_native": "Native initial view (0)",
   "skyweave_compat.ponder.linear_assembly.header": "Assembling a Linear Bearing",
   "skyweave_compat.ponder.linear_assembly.text_1": "Linear Casings form a passive guide. Match the bearing and casing orientations.",
   "skyweave_compat.ponder.linear_assembly.text_2": "Glue the payload together above the bearing.",

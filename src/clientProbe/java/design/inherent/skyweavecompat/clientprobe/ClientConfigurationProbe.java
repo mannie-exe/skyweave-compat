@@ -129,6 +129,7 @@ final class ClientConfigurationProbe {
                         case "world" -> world(command.get("slot").getAsInt());
                         case "environment-world" -> world(command.get("slot").getAsInt(), true);
                         case "environment-proof" -> ClientPresentationProbe.observe(root, mc);
+                        case "hoofprint-proof" -> hoofprint(mc);
                         case "load-world" -> {
                             int slot = command.get("slot").getAsInt();
                             if (slot < 1 || slot > 2 || mc.level != null || mc.getSingleplayerServer() != null
@@ -227,6 +228,26 @@ final class ClientConfigurationProbe {
         result.addProperty("nativeSymbols",design.inherent.skyweavecompat.questlog.client.JournalPreferences.CONDITION_SYMBOLS.get());
         result.addProperty("externalChoicePreserved",Boolean.FALSE.equals(actual.get("conditionSymbols")));
         ProbeStateFiles.write(root.resolve("journal-writer-observation.json"),new GsonBuilder().setPrettyPrinting().create().toJson(result));
+    }
+    private void hoofprint(Minecraft mc) throws Exception {
+        if (!OptionalIntegrations.enabled(Feature.HOOFPRINT_ZOOM) || mc.screen==null
+                || !mc.screen.getClass().getName().equals("garden.hestia.hoofprint.HoofprintScreen"))
+            throw new IllegalStateException("Expected the admitted real Hoofprint screen");
+        var type=mc.screen.getClass();var proof=new JsonObject();
+        var scale=type.getDeclaredMethod("getScaleFactor");scale.setAccessible(true);
+        proof.addProperty("nativeScaleFactor",((Number)scale.invoke(mc.screen)).doubleValue());
+        for (String name:java.util.List.of("centreX","centreZ","guiScale","dim","skyweave$scale")) {
+            var field=type.getDeclaredField(name);field.setAccessible(true);var value=field.get(mc.screen);
+            if (value instanceof Number number)proof.addProperty(name,number);else proof.addProperty(name,String.valueOf(value));
+        }
+        for (String name:java.util.List.of("screenXToWorldX","screenYToWorldZ")) {
+            var method=type.getDeclaredMethod(name,double.class);method.setAccessible(true);
+            proof.addProperty(name,((Number)method.invoke(mc.screen,name.contains("WorldX")?100d:120d)).doubleValue());
+        }
+        proof.addProperty("windowGuiScale",mc.getWindow().getGuiScale());
+        proof.add("preferences",new GsonBuilder().create().toJsonTree(design.inherent.skyweavecompat.maps.MapZoomSettings.current()));
+        proof.addProperty("connectionIdentity",System.identityHashCode(mc.getConnection()));
+        ProbeStateFiles.write(root.resolve("hoofprint-observation.json"),new GsonBuilder().setPrettyPrinting().create().toJson(proof));
     }
     private static boolean visibleTarget(GuiEventListener listener, AbstractWidget target, double x, double y) {
         if (listener == target) return target.visible && target.active;
