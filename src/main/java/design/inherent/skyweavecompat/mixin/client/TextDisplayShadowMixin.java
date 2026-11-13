@@ -13,6 +13,6 @@ public abstract class TextDisplayShadowMixin {
     @Inject(method = "renderInner(Lnet/minecraft/world/entity/Display$TextDisplay;Lnet/minecraft/world/entity/Display$TextDisplay$TextRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;IF)V",
             at = @At("HEAD"), cancellable = true, require = 1, allow = 1)
     private void skyweave$skipTextDisplayShadow(CallbackInfo callback) {
-        if (IrisApi.getInstance().isRenderingShadowPass()) callback.cancel();
+        if (design.inherent.skyweavecompat.client.RenderingPreferences.TEXT_SHADOW.get() && IrisApi.getInstance().isRenderingShadowPass()) callback.cancel();
     }
 }

@@ -25,7 +25,8 @@ public abstract class IslandShaderEnvironmentMixin {
             return level != null && IslandClimate.applies(level) ? 1 : 0;
         }).uniform1i(UniformUpdateFrequency.PER_FRAME, "skyweaveVoidVisuals", () -> {
             var level = Minecraft.getInstance().level;
-            return level != null && IslandClimate.applies(level) && OptionalIntegrations.enabled(Feature.ISLAND_VOID) ? 1 : 0;
+            return level != null && IslandClimate.applies(level) && design.inherent.skyweavecompat.client.RenderingPreferences.enabled(Feature.ISLAND_VOID,
+                    design.inherent.skyweavecompat.client.RenderingPreferences.VOID_FOG) ? 1 : 0;
         }).uniform1i(UniformUpdateFrequency.PER_FRAME, "skyweaveOpenSky",
                 design.inherent.skyweavecompat.client.IslandSkyExposure::openSky);
     }

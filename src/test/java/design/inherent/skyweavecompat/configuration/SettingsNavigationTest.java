@@ -14,7 +14,7 @@ class SettingsNavigationTest {
         var routes = new java.util.HashSet<String>();
         for (var page : SettingsCatalog.pages()) {
             assertTrue(routes.add(page.id()));
-            assertTrue(page.files().stream().allMatch(file -> file.group() != null && page.groups().contains(file.group())));
+            assertTrue(page.files().stream().allMatch(file -> file.group() != null && file.presentOn(page.groups())));
             for (var feature : page.features()) {
                 assertTrue(found.add(feature));
                 assertEquals(page, SettingsCatalog.page(SettingsCatalog.group(feature)));

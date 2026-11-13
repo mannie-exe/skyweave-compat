@@ -14,6 +14,6 @@ public abstract class NametagShadowMixin {
     @Inject(method = "renderNameTag(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/network/chat/Component;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;IF)V",
             at = @At("HEAD"), cancellable = true, require = 1, allow = 1)
     private void skyweave$skipNametagShadow(CallbackInfo callback) {
-        if (IrisApi.getInstance().isRenderingShadowPass()) callback.cancel();
+        if (design.inherent.skyweavecompat.client.RenderingPreferences.NAMETAG_SHADOW.get() && IrisApi.getInstance().isRenderingShadowPass()) callback.cancel();
     }
 }

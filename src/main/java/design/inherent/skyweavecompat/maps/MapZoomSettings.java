@@ -38,6 +38,9 @@ public record MapZoomSettings(
         if (!Double.isFinite(delta) || !Double.isFinite(scale) || scale <= 0) return scale;
         return clamp(scale * Math.pow(zoomStep, Math.clamp(delta, -32, 32)));
     }
+    public static MapZoomSettings current() { return lastValid; }
+    /** Publish a complete validated saved document; readers never poll the file during rendering. */
+    public static void acceptSaved(String text) { lastValid = parse(text); }
     public static MapZoomSettings load() {
         var path = ConfigLocations.file(FMLPaths.CONFIGDIR.get(), FILE);
         try {

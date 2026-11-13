@@ -36,7 +36,7 @@ public abstract class HoofprintZoomMixin extends Screen {
     }
     @Inject(method = "init()V", at = @At("TAIL"), require = 1)
     private void skyweave$restoreView(CallbackInfo callback) {
-        skyweave$settings = MapZoomSettings.load();
+        skyweave$settings = MapZoomSettings.current();
         var previous = skyweave$beforeInit != null ? skyweave$beforeInit : HoofprintViews.get(minecraft.getConnection());
         if (previous != null) {
             dim = previous.dimension(); centreX = previous.x(); centreZ = previous.z();
@@ -45,13 +45,24 @@ public abstract class HoofprintZoomMixin extends Screen {
         skyweave$beforeInit = null;
         skyweave$remember();
     }
+    @Unique private void skyweave$refresh() {
+        var current = MapZoomSettings.current();
+        if (current == skyweave$settings) return;
+        skyweave$settings = current;
+        if (Double.isFinite(skyweave$scale)) {
+            skyweave$scale = current.clamp(skyweave$scale);
+            skyweave$remember();
+        }
+    }
     @Inject(method = "getScaleFactor()F", at = @At("HEAD"), cancellable = true, require = 1)
     private void skyweave$floatScale(CallbackInfoReturnable<Float> result) {
+        skyweave$refresh();
         if (Double.isFinite(skyweave$scale) && minecraft != null)
             result.setReturnValue((float)(skyweave$scale / minecraft.getWindow().getGuiScale()));
     }
     @Inject(method = "mouseScrolled(DDDD)Z", at = @At("HEAD"), cancellable = true, require = 1)
     private void skyweave$anchoredZoom(double x, double y, double horizontal, double vertical, CallbackInfoReturnable<Boolean> result) {
+        skyweave$refresh();
         if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(vertical) || vertical == 0
                 || !Double.isFinite(skyweave$scale)) { result.setReturnValue(false); return; }
         double next = skyweave$settings.scroll(skyweave$scale, vertical);
@@ -66,6 +77,7 @@ public abstract class HoofprintZoomMixin extends Screen {
     @WrapOperation(method = "changeDim", at = @At(value = "INVOKE", target = "Lnet/minecraft/util/Mth;clamp(DDD)D", remap = true),
             require = 1, allow = 1)
     private double skyweave$dimensionScale(double nativeScale, double minimum, double maximum, Operation<Double> original) {
+        skyweave$refresh();
         // This invocation exists only for two positive dimension ratios. Preserve its native center conversion.
         if (Double.isFinite(skyweave$scale) && nativeScale > 0 && guiScale > 0)
             skyweave$scale = skyweave$settings.clamp(skyweave$scale * nativeScale / guiScale);

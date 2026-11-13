@@ -267,7 +267,9 @@ Physical world Y, thermal altitude, underground cover and geological ore referen
 
 ## Island environment
 
-The cloud and void switches apply only to the marked Skyweave dimension type. Cloud height maps vanilla `192` from the `[-64,320)` envelope into `[-128,768)`, yielding approximately `469.33`. The native/Iris cloud provider consumes this value; shader-owned volumetric cloud layers can keep their own artistic heights.
+The cloud and void adaptations apply only to the marked Skyweave dimension type. **Rendering → Sky Archipelago → Preferences** edits `config/skyweave/skyweave_compat-rendering-client.toml`. Cloud height offers Vanilla, Build-envelope mapped and Absolute modes. Mapped is the default: vanilla `192` maps from `[-64,320)` into `[-128,768)`, yielding approximately `469.33`. Vanilla and Mapped accept an offset in world blocks; Absolute uses the supplied world Y. Values are bounded by Minecraft's supported vertical domain, and a native no-cloud dimension remains cloudless. The provider reads changes on the next render. Shader-owned volumetric cloud layers can retain their own heights.
+
+The same document provides independent **Exclude below-world fog darkening** and **Exclude dark sky plane** preferences, both on by default. Fog policy also controls the existing `skyweaveVoidVisuals` uniform consumed by generated BSL and Complementary/Euphoria recipes. The plane preference controls the native dark-plane draw; it does not replace shader-owned sky geometry. Startup switches still decide which adaptations are loaded; preferences cannot activate a missing hook.
 
 Void visuals remove native altitude darkening and the black underside-sky draw. They preserve fluid fog, genuine cave lighting, mob effects, normal weather and gameplay void damage. This is separate from glyph drop shadows, entity blob shadows and shader shadow maps.
 
@@ -476,9 +478,13 @@ This interface edits local installation files. A local common config does not ad
 
 The [implementation reference](development/configuration.md) owns persistence safety, optional loading, native fixtures and dependency-update checks.
 
+## Map zoom preferences
+
+**Maps → Hoofprint** edits `config/skyweave/skyweave_compat-hoofprint.json`. Saving or explicitly reloading minimum/maximum zoom and scroll step updates an open map without recentering it; a narrowed range clamps the existing scale. Initial zoom applies only to a new view, with zero using the native initial scale. Resize and reopening preserve a remembered view for the current connection. These preferences never load terrain or change discovery. Invalid file reloads retain the last valid values.
+
 ## Iris world text
 
-Under **Rendering → Iris**, the two shadow-exclusion switches independently omit text displays (including backgrounds) and ordinary entity nametags from Iris's shadow map. Both default on when Iris is available; explicit false settings retain shadows. Restart Minecraft to change either policy. Neither requires the island preset, Sable, Veil or Colorwheel.
+Under **Rendering → Iris → Preferences**, the shared rendering-client document independently controls unlit text displays, unlit entity nametags and each kind's shader-shadow exclusion. All four preferences default on and apply during the next relevant render. Shadow exclusion omits glyphs/backgrounds without suppressing the entity body. The associated **Fixes** switches still require a restart and control optional loading; explicit false wins. Neither world-text policy requires the island preset, Sable, Veil or Colorwheel.
 
 Ordinary text rendering and entity-body shadows are retained. Item/block displays, signs and custom world interfaces are outside these switches. A modded nametag renderer that bypasses the base entity renderer is not covered.
 

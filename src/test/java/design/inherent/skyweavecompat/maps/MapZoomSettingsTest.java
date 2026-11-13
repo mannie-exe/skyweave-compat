@@ -4,6 +4,27 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class MapZoomSettingsTest {
+    @Test void timingDistinguishesLiveBoundsFromTheFirstViewOnlyInitialScale() {
+        assertEquals(design.inherent.skyweavecompat.configuration.SettingsCatalog.Timing.NEW_VIEW,
+                design.inherent.skyweavecompat.configuration.SettingsCatalog.timing(MapZoomSettings.FILE, "zoomInitial"));
+        for (String key : java.util.List.of("zoomMinimum", "zoomMaximum", "zoomStep"))
+            assertEquals(design.inherent.skyweavecompat.configuration.SettingsCatalog.Timing.IMMEDIATE,
+                    design.inherent.skyweavecompat.configuration.SettingsCatalog.timing(MapZoomSettings.FILE, key));
+    }
+    @Test void publicationIsAtomicAndAnInvalidSavedDocumentCannotReplaceTheLastValidPolicy() {
+        String valid = "{\"zoomMinimum\":0.25,\"zoomMaximum\":16,\"zoomInitial\":0,\"zoomStep\":1.5}";
+        var previous = MapZoomSettings.current();
+        try {
+            MapZoomSettings.acceptSaved(valid);
+            var published = MapZoomSettings.current();
+            assertEquals(.25, published.clamp(.125));
+            assertEquals(1.5, published.scroll(1, 1));
+            assertThrows(IllegalArgumentException.class, () -> MapZoomSettings.acceptSaved(valid.replace("16", "0.01")));
+            assertSame(published, MapZoomSettings.current());
+        } finally {
+            MapZoomSettings.acceptSaved(new com.google.gson.Gson().toJson(previous));
+        }
+    }
     @Test void fractionalDeltasAccumulateWithoutChangingNativeGuiScale() {
         var profile = MapZoomSettings.DEFAULT;
         double scale = 1;

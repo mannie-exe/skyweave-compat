@@ -1,6 +1,5 @@
 package design.inherent.skyweavecompat.client;
 
-import design.inherent.skyweavecompat.climate.EnvironmentHeight;
 import design.inherent.skyweavecompat.climate.IslandClimate;
 import design.inherent.skyweavecompat.terrain.GenerationProfile;
 import net.minecraft.client.Minecraft;
@@ -16,7 +15,7 @@ public final class IslandSky extends DimensionSpecialEffects.OverworldEffects {
     @Override public float getCloudHeight() {
         var level = Minecraft.getInstance().level;
         return level != null && IslandClimate.applies(level)
-                ? EnvironmentHeight.cloudHeight(super.getCloudHeight(), level.getMinBuildHeight(), level.getHeight())
+                ? RenderingPreferences.cloudHeight(super.getCloudHeight(), level.getMinBuildHeight(), level.getHeight())
                 : super.getCloudHeight();
     }
 }

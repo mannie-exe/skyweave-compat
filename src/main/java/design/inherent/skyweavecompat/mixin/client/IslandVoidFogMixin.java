@@ -14,6 +14,6 @@ public abstract class IslandVoidFogMixin {
     @ModifyVariable(method = "setupColor", name = "f5", at = @At(value = "INVOKE",
             target = "Lnet/minecraft/client/renderer/FogRenderer;getPriorityFogFunction(Lnet/minecraft/world/entity/Entity;F)Lnet/minecraft/client/renderer/FogRenderer$MobEffectFogFunction;"))
     private static float baseline(float original, @Local(argsOnly = true) ClientLevel level) {
-        return IslandClimate.applies(level) ? 1 : original;
+        return IslandClimate.applies(level) && design.inherent.skyweavecompat.client.RenderingPreferences.VOID_FOG.get() ? 1 : original;
     }
 }

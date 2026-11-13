@@ -86,7 +86,8 @@ final class ClientConfigurationProbe {
             serverProof=result;
         });
     }
-    private void world(int slot) {
+    private void world(int slot) { world(slot, false); }
+    private void world(int slot, boolean environment) {
         var mc=Minecraft.getInstance();
         if (slot<1 || slot>2 || mc.getSingleplayerServer()!=null || mc.level!=null) throw new IllegalStateException("Expected a disconnected marked client and slot1/2");
         String name="config-review-world-"+slot;
@@ -96,8 +97,20 @@ final class ClientConfigurationProbe {
         mc.createWorldOpenFlows().createFreshLevel(name,new net.minecraft.world.level.LevelSettings(name,
                 net.minecraft.world.level.GameType.CREATIVE,false,net.minecraft.world.Difficulty.PEACEFUL,true,rules,
                 net.minecraft.world.level.WorldDataConfiguration.DEFAULT),new net.minecraft.world.level.levelgen.WorldOptions(42L,false,false),
-                registries -> registries.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
-                        .get(net.minecraft.resources.ResourceLocation.withDefaultNamespace("flat")).createWorldDimensions(),new TitleScreen());
+                registries -> {
+                    var flat = registries.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+                            .get(net.minecraft.resources.ResourceLocation.withDefaultNamespace("flat")).createWorldDimensions();
+                    if (!environment) return flat;
+                    if (!Files.isRegularFile(root.resolve("environment-review-fixture.json")))
+                        throw new IllegalStateException("Expected marked environment resource fixture");
+                    var dimensions = new java.util.LinkedHashMap<>(flat.dimensions());
+                    var type = registries.registryOrThrow(net.minecraft.core.registries.Registries.DIMENSION_TYPE).getHolderOrThrow(
+                            net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION_TYPE,
+                                    net.minecraft.resources.ResourceLocation.parse("skyweave_compat:islands_v1")));
+                    dimensions.put(net.minecraft.world.level.dimension.LevelStem.OVERWORLD,
+                            new net.minecraft.world.level.dimension.LevelStem(type, flat.overworld()));
+                    return new net.minecraft.world.level.levelgen.WorldDimensions(dimensions);
+                },new TitleScreen());
     }
     private void tick(ClientTickEvent.Post event) {
         var mc = Minecraft.getInstance();
@@ -114,6 +127,15 @@ final class ClientConfigurationProbe {
                         case "open" -> open();
                         case "server-proof" -> serverProof();
                         case "world" -> world(command.get("slot").getAsInt());
+                        case "environment-world" -> world(command.get("slot").getAsInt(), true);
+                        case "environment-proof" -> ClientPresentationProbe.observe(root, mc);
+                        case "load-world" -> {
+                            int slot = command.get("slot").getAsInt();
+                            if (slot < 1 || slot > 2 || mc.level != null || mc.getSingleplayerServer() != null
+                                    || !Files.isRegularFile(root.resolve("saves/config-review-world-" + slot + "/level.dat")))
+                                throw new IllegalStateException("Expected a stopped saved review world1/2");
+                            mc.createWorldOpenFlows().openWorld("config-review-world-" + slot, () -> mc.setScreen(new TitleScreen()));
+                        }
                         case "disconnect" -> { if (mc.level!=null) mc.level.disconnect(); mc.disconnect(new TitleScreen()); mc.setScreen(new TitleScreen()); }
 
                         case "wayfinder" -> {

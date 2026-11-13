@@ -19,6 +19,11 @@ public final class ClientConfiguration {
             container.registerConfig(ModConfig.Type.CLIENT,WayfinderPreferences.SPEC,
                     design.inherent.skyweavecompat.configuration.ConfigLocations.registeredName(WayfinderPreferences.FILE));
         }
+        if (RenderingPreferences.admitted()) container.registerConfig(ModConfig.Type.CLIENT, RenderingPreferences.SPEC,
+                design.inherent.skyweavecompat.configuration.ConfigLocations.registeredName(RenderingPreferences.FILE));
+        if (OptionalIntegrations.enabled(Feature.HOOFPRINT_ZOOM))
+            modBus.addListener((net.neoforged.fml.event.lifecycle.FMLClientSetupEvent event) ->
+                    event.enqueueWork(design.inherent.skyweavecompat.maps.MapZoomSettings::load));
         if (OptionalIntegrations.enabled(Feature.CLIMATE)) ClimateClient.register();
         modBus.addListener(ClientResourceRevision::register);
         if (OptionalIntegrations.enabled(Feature.ISLAND_CLOUDS)) modBus.addListener(IslandSky::register);

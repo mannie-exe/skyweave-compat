@@ -12,6 +12,6 @@ public abstract class NametagLightingMixin {
     @ModifyVariable(method = "renderNameTag(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/network/chat/Component;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;IF)V",
             at = @At("HEAD"), argsOnly = true, require = 1, allow = 1)
     private MultiBufferSource skyweave$nametagLighting(MultiBufferSource original) {
-        return WorldTextLighting.wrap(original);
+        return design.inherent.skyweavecompat.client.RenderingPreferences.NAMETAG_LIGHTING.get() ? WorldTextLighting.wrap(original) : original;
     }
 }

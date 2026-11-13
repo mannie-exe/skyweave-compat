@@ -50,7 +50,7 @@ public final class SettingsCatalog {
             if (groups.contains(Group.IRIS)) sections.add(new Section(this, SectionKind.SHADERS, List.of(new ShaderWorkspace())));
             return List.copyOf(sections);
         }
-        public List<FileEntry> files() { return FILES.stream().filter(file -> file.group() != null && groups.contains(file.group())).toList(); }
+        public List<FileEntry> files() { return FILES.stream().filter(file -> file.group() != null && file.presentOn(groups)).toList(); }
     }
     public enum SectionKind {
         PREFERENCES("preferences"), FIXES("fixes"), TUNING("tuning"), SHADERS("shaders.title");
@@ -72,7 +72,7 @@ public final class SettingsCatalog {
     }
     public static List<Page> pages() { return Arrays.stream(Category.values()).flatMap(category -> pages(category).stream()).toList(); }
     public static Page page(Group group) { return pages(group.category).stream().filter(page -> page.groups.contains(group)).findFirst().orElseThrow(); }
-    public enum Timing { IMMEDIATE, SERVER_START, GAME_RESTART, NEW_WORLD, RELOAD, SCREEN_OPEN }
+    public enum Timing { IMMEDIATE, SERVER_START, GAME_RESTART, NEW_WORLD, RELOAD, SCREEN_OPEN, NEW_VIEW }
     public record FeatureEntry(Feature feature, Group group, String labelKey, String summaryKey, String filename, Timing timing) {}
     public static FeatureEntry entry(Feature feature) {
         return new FeatureEntry(feature, group(feature), "skyweave_compat.configuration.feature." + feature.key,
@@ -83,13 +83,32 @@ public final class SettingsCatalog {
             owners = List.copyOf(owners);
             SettingId.validateDocument(id);
         }
+        public boolean presentOn(List<Group> groups) {
+            return groups.contains(group) || help.equals("rendering_client") && groups.contains(Group.IRIS);
+        }
+        public boolean presents(Page page, String key) {
+            return !help.equals("rendering_client") || (key.startsWith("worldText.")
+                    ? page.groups().contains(Group.IRIS) : page.groups().contains(Group.ISLAND_SKY));
+        }
+        public Feature fieldOwner(String key) {
+            if (!help.equals("rendering_client")) return null;
+            if (key.startsWith("clouds.")) return Feature.ISLAND_CLOUDS;
+            if (key.startsWith("voidAtmosphere.")) return Feature.ISLAND_VOID;
+            return switch (key) {
+                case "worldText.unlitTextDisplays" -> Feature.TEXT_DISPLAY_LIGHTING;
+                case "worldText.unlitNametags" -> Feature.NAMETAG_LIGHTING;
+                case "worldText.excludeTextDisplayShadows" -> Feature.TEXT_DISPLAY_SHADOW;
+                case "worldText.excludeNametagShadows" -> Feature.NAMETAG_SHADOW;
+                default -> throw new IllegalArgumentException("Unowned rendering preference: " + key);
+            };
+        }
         public SettingId field(String key) { return new SettingId(id, key); }
         public String labelKey() { return "skyweave_compat.settings.file." + help + ".title"; }
         public String summaryKey() { return "skyweave_compat.settings.file." + help; }
         public Timing timing() {
             return switch (help) {
-                case "journal", "wayfinder_client", "link_gui_client", "link_gui_common" -> Timing.IMMEDIATE;
-                case "hoofprint_zoom" -> Timing.SCREEN_OPEN;
+                case "rendering_client", "journal", "wayfinder_client", "link_gui_client", "link_gui_common" -> Timing.IMMEDIATE;
+                case "hoofprint_zoom" -> Timing.IMMEDIATE;
                 case "villages", "wayfinder" -> Timing.SERVER_START;
                 case "generation", "shapes", "interiors", "climate", "rivers", "oceans", "ancient_cities", "structures", "watersheds" -> Timing.NEW_WORLD;
                 case "bluemap" -> Timing.RELOAD;
@@ -97,6 +116,7 @@ public final class SettingsCatalog {
             };
         }
         public Timing timing(String field) {
+            if (help.equals("hoofprint_zoom") && field.equals("zoomInitial")) return Timing.NEW_VIEW;
             return help.equals("watersheds") && !field.startsWith("Generation.") ? Timing.IMMEDIATE : timing();
         }
     }
@@ -169,6 +189,9 @@ public final class SettingsCatalog {
         return Arrays.stream(Group.values()).filter(group -> group.category == category).toList();
     }
     public static final List<FileEntry> FILES = List.of(
+            new FileEntry("skyweave_compat-rendering-client.toml", "skyweave_compat:rendering_client", Group.ISLAND_SKY, "rendering_client",
+                    List.of(Feature.ISLAND_CLOUDS, Feature.ISLAND_VOID, Feature.ISLAND_SHADER_ENVIRONMENT,
+                            Feature.TEXT_DISPLAY_LIGHTING, Feature.NAMETAG_LIGHTING, Feature.TEXT_DISPLAY_SHADOW, Feature.NAMETAG_SHADOW), SectionKind.PREFERENCES),
             new FileEntry("skyweave_compat-wayfinder.json", "skyweave_compat:wayfinder", Group.NAVIGATION, "wayfinder", List.of(Feature.WAYFINDER), SectionKind.TUNING),
             new FileEntry("skyweave_compat-wayfinder-client.toml", "skyweave_compat:wayfinder_client", Group.NAVIGATION, "wayfinder_client", List.of(Feature.WAYFINDER), SectionKind.PREFERENCES),
             new FileEntry("skyweave_compat-hoofprint.json", "skyweave_compat:hoofprint", Group.HOOFPRINT, "hoofprint_zoom", List.of(Feature.HOOFPRINT_ZOOM), SectionKind.PREFERENCES),

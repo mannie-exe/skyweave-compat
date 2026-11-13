@@ -240,7 +240,7 @@ public final class ConfigurationOverview extends Screen {
                     if (edits != null) for (String key : edits.keys()) entries.add(new Destination(definition.field(key).anchor(),
                             fieldName(edits, key), text("field." + edits.definition().help() + "." + key + ".help")));
                     var nativeEdits = toml.get(definition.filename());
-                    if (nativeEdits != null) for (var field : nativeEdits.fields()) entries.add(new Destination(definition.field(field.key()).anchor(),
+                    if (nativeEdits != null) for (var field : nativeEdits.fields()) if (presentedField(definition, nativeEdits, target, field.key())) entries.add(new Destination(definition.field(field.key()).anchor(),
                             registeredName(definition.filename(), field), Component.literal(field.spec().getComment() == null ? field.key() : field.spec().getComment())));
                 } else if (item instanceof SettingsCatalog.ShaderWorkspace) entries.add(new Destination(item.id(), text("shaders.rebuild"), text("shaders.rebuild_help")));
             }
@@ -474,7 +474,20 @@ public final class ConfigurationOverview extends Screen {
         String words = key.replaceAll("([a-z0-9])([A-Z])", "$1 $2").replace('_', ' ');
         return words.isEmpty() ? key : Character.toUpperCase(words.charAt(0)) + words.substring(1);
     }
+    private static boolean presentedField(SettingsCatalog.FileEntry file, RegisteredEdits edits, Page page, String key) {
+        if (page != null && !file.presents(page, key)) return false;
+        if (!file.help().equals("rendering_client")) return true;
+        if ((key.equals("clouds.absolute") || key.equals("clouds.offset")) && edits.binding(key).issue() != null) return true;
+        String mode = edits.value("clouds.mode");
+        return switch (key) {
+            case "clouds.absolute" -> mode.equals("ABSOLUTE");
+            case "clouds.offset" -> !mode.equals("ABSOLUTE");
+            default -> true;
+        };
+    }
     private Component registeredValue(RegisteredEdits.Field field, String value) {
+        if (field.defaultValue() instanceof design.inherent.skyweavecompat.climate.CloudPlacement.Mode)
+            return text("rendering.cloud_mode." + value.toLowerCase(Locale.ROOT));
         if (field.defaultValue() instanceof Boolean) return on(Boolean.parseBoolean(value));
         if (field.defaultValue() instanceof net.neoforged.neoforge.common.TranslatableEnum) {
             for (Object choice : ((Enum<?>) field.defaultValue()).getDeclaringClass().getEnumConstants())
@@ -487,6 +500,10 @@ public final class ConfigurationOverview extends Screen {
         content.row("validation/" + file, Component.empty(), validation(edits));
         String lastGroup = "";
         for (var field : edits.fields()) {
+            var fileDefinition = SettingsCatalog.file(file);
+            if (!presentedField(fileDefinition, edits, page, field.key())) continue;
+            var owner = fileDefinition.fieldOwner(field.key());
+            boolean admitted = owner == null || OptionalIntegrations.enabled(owner);
             var path = field.binding().getPath();
             String group = String.join(" / ", path.subList(0, path.size() - 1));
             if (!group.isEmpty() && !group.equals(lastGroup)) {
@@ -504,21 +521,25 @@ public final class ConfigurationOverview extends Screen {
             if (SettingsCatalog.timing(file, key) == SettingsCatalog.Timing.NEW_WORLD) timing = SettingsCatalog.Timing.NEW_WORLD;
             Component help = Component.literal(description == null ? "" : description.lines().findFirst().orElse(""))
                     .append("\n").append(text("after_save." + timing.name().toLowerCase(Locale.ROOT)));
+            if (!admitted) help = help.copy().append("\n").append(text("rendering.hook_unavailable"));
             if (field.spec().getRange() != null) help = help.copy().append("\n").append(text("bounds", field.spec().getRange().toString()));
             var reset = valueButton(text("reset"), label, 42, () -> { remember(); edits.reset(key); rebuildWidgets(); });
             reset.setTooltip(Tooltip.create(text("default", edits.defaultValue(key))));
+            reset.active = admitted;
             if (field.definition().kind() == SettingDefinition.Kind.STRINGS) {
                 buildCollection(label, help, edits.binding(key), file, () -> validation(edits));
             } else if (field.choices().isEmpty()) {
-                content.relatedField(id, relationship(file, key, field.definition()), label, help, controls.field(label, edits.binding(key),
-                        () -> validateLater(file, () -> validation(edits)))
-                        .toArray(net.minecraft.client.gui.components.AbstractWidget[]::new));
+                var widgets = controls.field(label, edits.binding(key), () -> validateLater(file, () -> validation(edits)));
+                widgets.forEach(widget -> widget.active = admitted);
+                content.relatedField(id, relationship(file, key, field.definition()), label, help,
+                        widgets.toArray(net.minecraft.client.gui.components.AbstractWidget[]::new));
             } else {
                 var control = valueButton(registeredValue(field, edits.value(key)), label, Math.clamp(font.width(registeredValue(field, edits.value(key))) + 12, 65, 130), () -> {
                     remember(); int current = field.choices().indexOf(edits.value(key));
                     edits.set(key, field.choices().get((current + 1) % field.choices().size())); rebuildWidgets();
                 });
-                if (description != null) control.setTooltip(Tooltip.create(Component.literal(description)));
+                control.active = admitted;
+                if (description != null) control.setTooltip(Tooltip.create(help));
                 content.relatedField(id, relationship(file, key, field.definition()), label, help, control, reset);
             }
         }
@@ -644,6 +665,10 @@ public final class ConfigurationOverview extends Screen {
             var result = ProfileEditPlan.prepare(ConfigLocations.ownedDirectory(FMLPaths.CONFIGDIR.get()), writes).save();
             var report = new ArrayList<Component>();
             for (var receipt : result.receipts()) {
+                if (receipt.state() == SettingsCommit.Persistence.WRITTEN
+                        && receipt.filename().equals(design.inherent.skyweavecompat.maps.MapZoomSettings.FILE)
+                        && OptionalIntegrations.enabled(Feature.HOOFPRINT_ZOOM))
+                    design.inherent.skyweavecompat.maps.MapZoomSettings.acceptSaved(receipt.savedText());
                 var line = Component.literal(receipt.filename()+": ").append(text("persistence."+receipt.state().name().toLowerCase(Locale.ROOT)));
                 if (receipt.failure()!=null) line.append(". ").append(boundedMessage(receipt.failure()));
                 report.add(line);
@@ -696,6 +721,8 @@ public final class ConfigurationOverview extends Screen {
     private void reload() {
         if (serverSettings.busy()) return;
         remember(); Runnable reload = () -> { load(); loadJson(); loadRegistered(); controls=null;
+            if (!serverSettings.selected() && OptionalIntegrations.enabled(Feature.HOOFPRINT_ZOOM))
+                design.inherent.skyweavecompat.maps.MapZoomSettings.load();
             if (serverSettings.selected()) serverSettings.open();
             rebuildWidgets(); };
         if (dirty()) minecraft.setScreen(new ConfirmScreen(answer -> { minecraft.setScreen(this); if (answer) reload.run(); }, text("reload_title"), text("reload_message"), text("reload"), text("keep_editing")));

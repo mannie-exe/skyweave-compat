@@ -57,11 +57,28 @@ final class ShadowPassProbe {
             Class<?> define(byte[] bytes) { return defineClass("ExtractedShadowGuard", bytes, 0, bytes.length); }
         }
         var check = new Loader().define(writer.toByteArray()).getMethod("check", CallbackInfo.class);
-        for (boolean shadow : new boolean[]{false, true, false}) {
-            Api.shadow = shadow;
-            var callback = new CallbackInfo("balloon", true);
-            check.invoke(null, callback);
-            assertEquals(shadow, callback.isCancelled(), "only the shadow pass must be cancelled: " + handler);
-        }
+        var preferences = design.inherent.skyweavecompat.client.RenderingPreferences.SPEC;
+        var values = com.electronwill.nightconfig.core.CommentedConfig.inMemory();
+        preferences.correct(values);
+        // The pinned loader seals ILoadedConfig; use its real in-memory holder, never a fake spec reader.
+        var loadedType = Class.forName("net.neoforged.fml.config.LoadedConfig");
+        var constructor = loadedType.getDeclaredConstructor(com.electronwill.nightconfig.core.CommentedConfig.class,
+                java.nio.file.Path.class, net.neoforged.fml.config.ModConfig.class);
+        constructor.setAccessible(true);
+        preferences.acceptConfig((net.neoforged.fml.config.IConfigSpec.ILoadedConfig) constructor.newInstance(values, null, null));
+        try {
+            for (boolean textPolicy : new boolean[]{true, false}) for (boolean nametagPolicy : new boolean[]{false, true}) {
+                design.inherent.skyweavecompat.client.RenderingPreferences.TEXT_SHADOW.set(textPolicy);
+                design.inherent.skyweavecompat.client.RenderingPreferences.NAMETAG_SHADOW.set(nametagPolicy);
+                boolean policy = handler.equals("skyweave$skipTextDisplayShadow") ? textPolicy
+                        : handler.equals("skyweave$skipNametagShadow") ? nametagPolicy : true;
+                for (boolean shadow : new boolean[]{false, true, false}) {
+                    Api.shadow = shadow;
+                    var callback = new CallbackInfo("world-render", true);
+                    check.invoke(null, callback);
+                    assertEquals(policy && shadow, callback.isCancelled(), "independent policy in shadow pass: " + handler);
+                }
+            }
+        } finally { preferences.acceptConfig(null); }
     }
 }

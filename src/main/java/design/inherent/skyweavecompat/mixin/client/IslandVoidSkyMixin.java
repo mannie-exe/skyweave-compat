@@ -20,6 +20,6 @@ public abstract class IslandVoidSkyMixin {
     @WrapOperation(method = "renderSky", at = @At(value = "INVOKE", target =
             "Lcom/mojang/blaze3d/vertex/VertexBuffer;drawWithShader(Lorg/joml/Matrix4f;Lorg/joml/Matrix4f;Lnet/minecraft/client/renderer/ShaderInstance;)V"))
     private void sky(VertexBuffer buffer, Matrix4f modelView, Matrix4f projection, ShaderInstance shader, Operation<Void> original) {
-        if (buffer != darkBuffer || !IslandClimate.applies(level)) original.call(buffer, modelView, projection, shader);
+        if (buffer != darkBuffer || !IslandClimate.applies(level) || !design.inherent.skyweavecompat.client.RenderingPreferences.VOID_PLANE.get()) original.call(buffer, modelView, projection, shader);
     }
 }
