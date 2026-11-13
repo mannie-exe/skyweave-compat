@@ -78,6 +78,8 @@ The catalog's current generic TOML forms are embedded rather than redirecting to
 
 ## Runtime policy ownership
 
+Wayfinder retains one most-recent successful warp tick per connected player even with cooldown Off, so enabling cooldown can enforce the new-request policy against real recent activity. Logout removes that history; publication does not fabricate a new warp time.
+
 `SettingsPolicy` holds immutable effective values for one owner-thread context. Its opaque revision identities cannot be reused across another instance or after close. Preparation grants no permission: reads, preparation, and publication check actual authorization; publication also rejects stale revisions and consumes the proposal once. An equal candidate is a no-op with the same revision. The runtime policy does not write files or claim persistence success.
 
 Wayfinder and `StructureLocator` own these policies in their actual per-server state, close them at lifecycle cleanup, and expose permission-level-2 read/application entry points. `SearchSettings.load` returns a parsed value rather than updating a process-global active policy. `SettingsReload` registers only authored wayfinder/search destinations. Native command execution reads the bounded trusted file, validates the complete record, and publishes on the owning server thread; failure leaves effective values intact. File watchers alone do not publish these policies.

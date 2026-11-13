@@ -24,6 +24,7 @@ final class WayfinderProbe {
     private static boolean cancelTeleport, teleportHookSeen;
     private static int step, ticks, changed;
     private static BlockPos target;
+    private static design.inherent.skyweavecompat.wayfinder.WayfinderSettings restoreRequestPolicy, restoreHazardPolicy;
     static void start(MinecraftServer server, Path destination) throws Exception {
         output = destination;
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(
@@ -170,7 +171,7 @@ final class WayfinderProbe {
     }
     private static void check(boolean value, String message) { if (!value) throw new AssertionError(message); }
     private static design.inherent.skyweavecompat.wayfinder.WayfinderSettings settings(MinecraftServer server) throws Exception {
-        return (design.inherent.skyweavecompat.wayfinder.WayfinderSettings)field(state(server),"settings");
+        return Wayfinder.readPolicy(server.createCommandSourceStack()).value();
     }
     private static void response(String key) throws Exception {
         drainFeedback();
@@ -219,7 +220,17 @@ final class WayfinderProbe {
                 }
             } else if (step == 21 && player.getX() > 39) {
                 response("success"); check(ticks-changed < 40,"Immediate-repeat fixture waited out the old cooldown");
-                check(((Map<?,?>)field(state(server),"warps")).isEmpty(),"Disabled cooldown retained warp bookkeeping");
+                var recent = (Map<?,?>)field(state(server),"warps");
+                check(recent.size()==1 && recent.containsKey(player.getUUID()),"Recent-warp accounting is not bounded to the actual actor");
+                var policy = Wayfinder.readPolicy(server.createCommandSourceStack());
+                var value = policy.value();
+                var cooldown = new design.inherent.skyweavecompat.wayfinder.WayfinderSettings(value.operatorsOnly(),40,
+                        value.placementLookupHeight(),value.stepsPerTick(),value.concurrentRequests(),value.requestTimeoutTicks(),value.blockedBlocks());
+                var applied = Wayfinder.applyPolicy(server.createCommandSourceStack(),policy.revision(),cooldown);
+                reset(server,0); command(server); response("cooldown");
+                check(settled(server),"New cooldown publication admitted a request before its captured recent warp elapsed");
+                Wayfinder.applyPolicy(server.createCommandSourceStack(),applied.revision(),value);
+                report.addProperty("runtimeCooldownPublicationPreservesRecentWarp",true);
                 report.addProperty("noCooldownImmediateRepeat",true);
                 report.addProperty("nativeCommandFeedbackIndependentFromClientPreference",true);
                 for (int up=1;up<=settings(server).placementLookupHeight();up++)
@@ -281,7 +292,7 @@ final class WayfinderProbe {
                 step = Boolean.getBoolean("neighbors.probe.wayfinderPublic") ? 15 : 6; changed = ticks;
             } else if (step == 15 && player.getX() > 39) {
                 response("success"); check(!player.hasPermissions(2),"Public-access witness was still an operator");
-                var settings = (design.inherent.skyweavecompat.wayfinder.WayfinderSettings)field(state(server),"settings");
+                var settings = settings(server);
                 check(!settings.operatorsOnly(),"Server policy did not apply");
                 report.addProperty("explicitServerPolicyAllowsNonOperator",true);
                 ProbeTickets.assertAbsent(server,Set.of("skyweave_wayfinder"));
@@ -367,12 +378,25 @@ final class WayfinderProbe {
                 if (leases.isEmpty()) return;
                 check(leases.size() <= 4 && (int)field(state,"requests") <= 4,"Unbounded destination work");
                 report.addProperty("observedColdDestinationLeases",leases.size());
+                var before = Wayfinder.readPolicy(server.createCommandSourceStack()); restoreRequestPolicy=before.value();
+                long touched=((Number)field(job,"touched")).longValue();
+                var reduced = new design.inherent.skyweavecompat.wayfinder.WayfinderSettings(before.value().operatorsOnly(),before.value().cooldownTicks(),
+                        before.value().placementLookupHeight(),before.value().stepsPerTick(),1,20,before.value().blockedBlocks());
+                Wayfinder.applyPolicy(server.createCommandSourceStack(),before.revision(),reduced);
+                check(field(job,"settings")==before.value() && ((Number)field(job,"touched")).longValue()==touched,
+                        "Reload replaced the admitted request settings or clock");
+                check(((design.inherent.skyweavecompat.wayfinder.WayfinderSettings)field(job,"settings")).requestTimeoutTicks()>20,
+                        "Captured-timeout control lacks a strictly lower new value");
+                check((int)field(state,"requests")==4 && leases.size()==4,"Reload erased native pending/lease accounting");
+                report.addProperty("nativeLowerCapPreservesFourPendingLeasesAndCapturedTimeout",true);
                 Wayfinder.receive(player,WayfinderPacket.signal(WayfinderPacket.CANCEL,(UUID)field(job,"id")));
                 response("cancelled"); ProbeTickets.assertAbsent(server,Set.of("skyweave_wayfinder"));
                 check(player.getX() < 1,"Cancellation moved player provisionally");
                 step = 11; changed = ticks;
             } else if (step == 11 && (int)field(state(server),"requests") == 0) {
                 report.addProperty("pendingDestinationCancelledAndDrained",true);
+                var current=Wayfinder.readPolicy(server.createCommandSourceStack());
+                Wayfinder.applyPolicy(server.createCommandSourceStack(),current.revision(),restoreRequestPolicy);
                 check(requestOrNull(server) == null,"Cancelled destination retained a job");
                 command(server);
                 // A plausible LOD candidate whose actual loaded cell is air must not create support.
@@ -411,22 +435,40 @@ final class WayfinderProbe {
                 report.addProperty("dimensionChangeCancelled",true);
                 player.teleportTo(server.overworld(),.5,101,.5,Set.of(),-90,0);
                 concurrency(server);
-                server.getPlayerList().remove(player);
-                ProbeTickets.assertAbsent(server,Set.of("skyweave_wayfinder"));
-                report.addProperty("leasesReleased",true); report.addProperty("complete",true);
-                report.addProperty("ticks",ticks); save(); active = false;
-                if (Boolean.getBoolean("neighbors.probe.wayfinderDh")) {
-                    report.addProperty("complete",false); save(); WayfinderDhProbe.start(server,output,report);
-                } else { verifyShutdown(server); server.halt(false); }
+                player.setNoGravity(true); player.getAbilities().flying=true; reset(server,0);
+                server.overworld().setBlockAndUpdate(new BlockPos(40,102,0),Blocks.STONE.defaultBlockState());
+                command(server); var admitted=request(server);
+                var before=Wayfinder.readPolicy(server.createCommandSourceStack()); restoreHazardPolicy=before.value();
+                var blocked=new ArrayList<>(before.value().blockedBlocks()); blocked.add("minecraft:stone");
+                var tighter=new design.inherent.skyweavecompat.wayfinder.WayfinderSettings(before.value().operatorsOnly(),before.value().cooldownTicks(),
+                        before.value().placementLookupHeight(),before.value().stepsPerTick(),before.value().concurrentRequests(),before.value().requestTimeoutTicks(),blocked);
+                Wayfinder.applyPolicy(server.createCommandSourceStack(),before.revision(),tighter);
+                Wayfinder.receive(player,new WayfinderPacket(WayfinderPacket.HIT,admitted,40,102.62,.5,0,0,0,"",0,0,List.of()));
+                step=70; changed=ticks;
+            } else if (step==70 && settled(server) && (int)field(state(server),"requests")==0) {
+                response("unsafe");check(player.getX()<1,"New hazard policy allowed an already-admitted landing");
+                var current=Wayfinder.readPolicy(server.createCommandSourceStack());
+                Wayfinder.applyPolicy(server.createCommandSourceStack(),current.revision(),restoreHazardPolicy);
+                report.addProperty("liveHazardTighteningRejectsCapturedStoneLanding",true);
+                finishFixture(server);
             }
         } catch (Throwable error) {
             report.addProperty("complete",false); report.addProperty("error",error.toString()); error.printStackTrace();
             save(); active = false; server.halt(false);
         }
     }
+    private static void finishFixture(MinecraftServer server) throws Exception {
+        server.getPlayerList().remove(player);
+        ProbeTickets.assertAbsent(server,Set.of("skyweave_wayfinder"));
+        report.addProperty("leasesReleased",true); report.addProperty("complete",true);
+        report.addProperty("ticks",ticks); save(); active=false;
+        if (Boolean.getBoolean("neighbors.probe.wayfinderDh")) {
+            report.addProperty("complete",false); save(); WayfinderDhProbe.start(server,output,report);
+        } else { verifyShutdown(server); server.halt(false); }
+    }
     private static void concurrency(MinecraftServer server) throws Exception {
         var state = state(server);
-        var settings = (design.inherent.skyweavecompat.wayfinder.WayfinderSettings)field(state,"settings");
+        var settings = settings(server);
         var actors = new ArrayList<ServerPlayer>();
         try {
             for (int index = 0; index <= settings.concurrentRequests(); index++) {
@@ -443,6 +485,15 @@ final class WayfinderProbe {
                     "Concurrent admission exceeded its configured bound");
             check((int)field(state,"requests") == 0,"Pending client queries loaded chunks");
             report.addProperty("nativeConcurrentAdmissionBound",jobs.size());
+            var before=Wayfinder.readPolicy(server.createCommandSourceStack());
+            var reduced=new design.inherent.skyweavecompat.wayfinder.WayfinderSettings(settings.operatorsOnly(),settings.cooldownTicks(),
+                    settings.placementLookupHeight(),settings.stepsPerTick(),1,settings.requestTimeoutTicks(),settings.blockedBlocks());
+            var applied=Wayfinder.applyPolicy(server.createCommandSourceStack(),before.revision(),reduced);
+            Wayfinder.start(actors.getLast());
+            check(jobs.size()==settings.concurrentRequests() && !jobs.containsKey(actors.getLast().getUUID()),
+                    "Lower cap discarded admitted jobs or accepted another actor before drainage");
+            Wayfinder.applyPolicy(server.createCommandSourceStack(),applied.revision(),before.value());
+            report.addProperty("liveLowerCapKeepsAdmittedJobsAndRefusesNewActor",true);
         } finally {
             for (var actor : actors) server.getPlayerList().remove(actor);
         }
