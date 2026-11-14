@@ -8,6 +8,16 @@ Use JDK 21 and the checked-in wrapper:
 
 Probe JARs are separate from the released mod. Use disposable instances and exact artifact/configuration digests; a successful build is not native verification. [Verification](verification.md) owns retained results and their limits.
 
+## Boundary evidence
+
+Separate a codec roundtrip, direct handler call, queued mutation and actual TCP dispatch. For a packet control, record the sender's real game mode/permissions, current menu and dimension, and whether the target lookup creates or loads a chunk. Recheck authority after enqueue at the mutation point. A native fake or embedded player is useful for controlled behavior but does not prove a remote transport path. Preserve an ordinary positive action alongside malformed or unauthorized controls.
+
+Inventory and recovery checks count every native custody owner, including carried records, physical block entities, graves, player inventories and drops. Verify actual death/drop/clone ordering and physical placement, not only a planned recovery record. A successful in-memory count requires normal stop and second-JVM readback before it becomes a saved-state claim.
+
+At a coordinate-frame boundary, observe both delivery and the actual native consumer's outcome. A pipeline recorder that cancels or replaces the force can count calls and inputs; it cannot establish resulting world velocity. Use an asymmetric real body, rotated/tilted controls and the original native pipeline for that claim. Restore temporary observers before the next uncontrolled tick and keep optional activation/fallback qualification distinct from a direct consumer control.
+
+For variable-length decoding or persistence, start with the actual writer and supported producer data. Check complete input, integer arithmetic, cumulative allocation, ownership and publication before choosing caps. Wire and disk formats may differ even when they describe the same object. Include valid nonempty data, truncation, failed publication, concurrent requests and restart; an exception or empty decode alone is insufficient. Retain fatal diagnostics and failed-control receipts outside disposable runtimes, then remove only marked task-owned files.
+
 ## Wayfinder
 
 `tools/probe.py --wayfinder --minimal --seed 42 --server /path/to/server/game --java /path/to/java` uses only Compat and its probe with Minecraft/NeoForge. It exercises native command teleports, shapes, hazards, permission and token checks, nearer obstruction and cancellation of an actual cold destination request. It inspects owned tickets and waits for abandoned native work to drain. The endpoints are embedded native players, not remote network clients.
@@ -26,6 +36,8 @@ python3 tools/probe.py --dh-pregen --dh-stop-after 2 --seed 42 \
 The input server is read-only. The fixture uses a temporary save and random local port, requests a bounded DH job and asks its owned server to stop while the job is active. A normal process exit is required within 90 seconds. Add `--dh-world-key` to exercise UUID cache naming; without it the fixture requires ordinary keys and no new identity marker. These commands never submit work to the input server.
 
 ## Server and generation probes
+
+`--benchmark --minimal --samples 1 --seed 42` also exercises the transformed preset predicate with matching, equally valued foreign, direct and ordinary upstream settings holders, plus a missing-key refusal. After warmup, its allocation counter covers one million native eligibility calls; it is separate from column/FULL-chunk timing. The report fingerprints sampled columns, physical block states, biomes and accepted starts. An empty start set is not structure qualification: pair it with a nonempty native structure fixture. Use `--reopen` to compare saved outputs and the generation identity, and `--output-dir /private/case` to keep cases separate. Probe JARs and measurements are excluded from the released mod.
 
 All probe boots passively capture at most eight dedicated-side client-class resolution errors with their synchronous caller stacks. Use `--inspect-sable-discovery` only when explicitly testing DW/Sable discovery: it additionally calls the native foreign-End physics entry at fixture shutdown and records the initialized methods, container/list result and loaded-chunk counts. `--disable-water-sable` supplies the explicit native negative control. These actions are confined to the disposable server; the diagnostic classes are excluded from release artifacts.
 

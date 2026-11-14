@@ -2,6 +2,32 @@
 
 Evidence below qualifies named artifacts only. Build and native fixture commands live in [testing](testing.md); adapter contracts and update checks live in their domain guides. A later checkout needs its own relevant checks.
 
+## Preset eligibility and launch policy (0.34.0)
+
+Minecraft 1.21.1, NeoForge 21.1.265 and Temurin Java 21.0.13+9 on macOS arm64 qualify release candidate SHA-256 `dec974c7986e1dce1a09c399eddbf5203f3fd55e64913b4c1c625400f173cb5a`. Required `check build probeJar clientProbeJar` passes: 419 JUnit tests, nine Python tooling tests and package/upstream/rendering checks. Standalone, terrain-disabled and full-graph dedicated startup all finish normally with this exact versioned JAR.
+
+The causal comparison uses baseline `b618e0da76ff95f0f2414cadb7029d380d7008279df268fac3737156510fe639` and candidate `95ab0c4baf4263f3552267ca5ce0d7067892e60ee2d4e461b68b50f757d8a1ac`. Exactly `GeneratorProfileMixin.class` differs; metadata and every other member agree. Matching, equally valued foreign, direct/unkeyed, ordinary upstream and missing-key native controls pass. The holder test remains per-call.
+
+| Matched pair | Baseline allocated bytes | Candidate allocated bytes | Baseline loop ms | Candidate loop ms |
+| ------------ | -----------------------: | ------------------------: | ---------------: | ----------------: |
+| 1            |              136,000,072 |                        72 |           36.247 |             6.745 |
+| 2            |              136,000,072 |                        72 |           36.916 |            12.769 |
+| 3            |              136,000,072 |                        72 |           36.076 |             8.268 |
+
+Each window follows 100,000 warmup calls and measures one million actual transformed eligibility calls on four native generator instances. The result is thread-allocated bytes in that loop, not sampled allocation weight, retained memory, whole-generation throughput or FPS. Each paired seed-42 diagnostic agrees on 10,201 columns, 1,367 occupied samples, 18 FULL targets, 4,128,768 physical block states and biome fingerprints. Timings remain descriptive on a shared host. The sampled accepted-start set is empty; separate seed-1 native mineshaft controls retain 12 accepted starts and 1,491 pieces with matching metadata and generation identity through two boots per variant.
+
+A full authored-config dedicated diagnostic using 8 GiB/G1 also saves/reopens the same nonempty 18-target block/biome workload and identity. It uses view distance 2 and no remote player; it does not size populated servers. Its second-JVM recording includes one `System.gc()` full collection, with a longest observed pause of 506 ms; concurrent G1 cycles are not full stop-the-world collections. There is no collector-replacement or explicit-GC-suppression claim.
+
+The full installed client graph, authored configurations and generated Complementary Unbound/Euphoria/Skyweave shader load 609 native chunks at requested view 12/simulation 10 in an integrated island world. Native shader activation, 8 GiB maximum/512 MiB initial heap and generational ZGC are observed. Save/reopen and orderly exit pass. Its 302 GC pauses total 1.81 ms, longest 0.0214 ms; startup also has 16 overlapping thread allocation stalls, longest 283 ms. No allocation stall is recorded after the world-ready endpoint. Sampled RSS reaches about 9.94 GiB, which includes more than Java heap. This is a bounded integrated-world run with four diagnostic CPUs and a 60-FPS cap, not a TCP session, prolonged exploration, large factory or frame-time qualification. Keep those diagnostic flags out of exports.
+
+The client and full-server runs use the preceding measured/versioned candidates; all 843 production classes are byte-identical to the final release candidate. Only release metadata changes afterward. Client fixture failures from a missing ZFastNoise prerequisite, missing shader recipe inputs and stale observer state were retained and corrected without changing production behavior. A full-server attempt that imported a retired Wayfinder display field is separate from the successful authored-config run. JVM defaults remain unchanged; the pack owns the [launch decision table](https://github.com/mannie-exe/create-skyweave/blob/main/docs/development/performance.md#heap-and-collector-decisions).
+
+## Typed settings and live policy qualification
+
+The completed configuration implementation's packaged-client receipt, `.git/captures/config-system-production-client/combined.json`, names baseline `b618e0da…`, the same exact artifact used above. It loads the production graph and separately qualifies minimum client/server absence, real native controls, measured layout/focus/caret retention under language/size changes, invalid drafts, local versus remote contexts and independent rendering preferences. Actual BSL/Colorwheel and Complementary/Euphoria pipelines, shader/resource reload and native cloud/void callbacks are observed. Its production classes remain unchanged apart from the separately qualified preset identifier. Audible OS narration, every font provider, Photon on unsupported Apple hardware and future remote operator transport remain outside coverage.
+
+`config-system-search-policy-jobs.json` and `config-system-wayfinder-policy-jobs.json` exercise actual active native jobs: new searches adopt reloaded policies, admitted jobs retain captured limits, reduced concurrency does not erase accepted work, callbacks drain and Wayfinder policy changes preserve cooldown history. These are native policy/job controls, distinct from a new network-administration protocol. Persistence, application receipts and their limits remain owned by [configuration maintenance](configuration.md).
+
 ## Bounded navigation and terrain follow-up
 
 The unpublished candidate `ce5891be10db62d3487256c7cf97c3f33cc2e391d003934d0fbed23b3e462a41` passes `check build probeJar clientProbeJar`: 346 JUnit tests without failures, errors or skips, nine Python release-tool tests, and the package, upstream, Iris, Ponder and framebuffer checks. Native controls use Minecraft 1.21.1, NeoForge 21.1.265, Java 21, Sky Archipelago 1.4, Dynamic Waters 13.1.0 and DH 3.3.3 as applicable. This is a source candidate, not a published release or a personal-instance rollout.

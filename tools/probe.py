@@ -20,6 +20,7 @@ from fixture_files import copy_owned, stage_configs
 ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--mod', type=Path, help='Exact Skyweave: Compatibility Patches JAR for an isolated comparison; defaults to the local build')
+parser.add_argument('--output-dir', type=Path, help='Retained report/log directory; defaults to build/verification')
 parser.add_argument('--server', type=Path, required=True, help='Installed game directory; read-only input')
 parser.add_argument('--java', default='java')
 parser.add_argument('--heap', choices=['4G', '6G', '8G'], default='4G', help='Maximum Java heap; distributed island scans need 6G')
@@ -214,8 +215,8 @@ if args.oceans and not args.ocean_config:
     parser.error('--oceans requires --ocean-config')
 if args.minimal and args.generation != 'adapted' and not any((args.city_recipe, args.wayfinder, args.access, args.perimeter, args.hydrology, args.variation, args.structure_search, args.locator, args.lookup, args.coverage, args.structures, args.surface_structures, args.overlap, args.interiors, args.veins, args.water, args.materials, args.oceans, args.habitats, args.floe_layers, args.biomes, args.surface_climate, args.terrain, args.benchmark, args.village_support, args.natural_inputs, args.ground_village)):
     parser.error('--minimal requires a terrain, coverage, structure, interior, vein, water or material check')
-if args.reopen and not (args.fractured_hollow or args.variation or args.city_recipe or args.quests or args.access or args.ocean_fringes or args.structure_search or args.hydrology or args.lookup or args.generation or args.natural or args.structures or args.surface_structures or args.water or args.oceans or args.village_support or args.natural_inputs or args.ground_village):
-    parser.error('--reopen requires generation, natural villages, structures, water or ocean fringes')
+if args.reopen and not (args.benchmark or args.fractured_hollow or args.variation or args.city_recipe or args.quests or args.access or args.ocean_fringes or args.structure_search or args.hydrology or args.lookup or args.generation or args.natural or args.structures or args.surface_structures or args.water or args.oceans or args.village_support or args.natural_inputs or args.ground_village):
+    parser.error('--reopen requires a benchmark, generation, natural villages, structures, water or ocean fringes')
 if args.natural_profile != 'current' and not args.natural:
     parser.error('--natural-profile requires --natural')
 if (args.structure_id or args.layouts_only) and not (args.structures or args.surface_structures):
@@ -244,7 +245,7 @@ mod = ROOT / f'build/libs/skyweave-compat-{version}-mc1.21.1-neoforge.jar'
 if args.mod:
     mod = args.mod.expanduser().resolve()
 fixture = ROOT / 'build/probe/skyweave-compat-probe.jar'
-output = ROOT / 'build/verification'
+output = args.output_dir.expanduser().resolve() if args.output_dir else ROOT / 'build/verification'
 output.mkdir(parents=True, exist_ok=True)
 name = f'islands-{args.seed}' if args.islands else f'mechanics-{args.seed}' if args.mechanics else f'biomes-{args.seed}' if args.biomes else f'generation-{args.generation}-{args.seed}' if args.generation else 'terrain' if args.terrain else f'natural-{args.natural_profile}-{args.seed}' if args.natural else 'placement'
 if args.habitats: name = f'habitats-{args.seed}'
@@ -772,6 +773,8 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
                     raise SystemExit(f'Water regression at actual stage {status}: {site["x"]},{site["z"]}')
     if args.reopen and report.exists():
         first = json.loads(report.read_text())
+        identity_path = run / 'probe-world/skyweave-generation.json'
+        first_identity = identity_path.read_bytes() if identity_path.is_file() else None
         if first.get('complete') is False:
             raise SystemExit(f'Native check failed before reopening; diagnostics: {report}')
         if args.structures or args.surface_structures:
@@ -796,6 +799,11 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
             report.write_text(json.dumps(first, indent=2) + '\n')
         else:
             second = json.loads(report.read_text())
+            if first_identity is not None:
+                if not identity_path.is_file() or identity_path.read_bytes() != first_identity:
+                    raise SystemExit('Saved generation identity changed after reopening')
+                second['generationIdentity'] = {'sha256': hashlib.sha256(first_identity).hexdigest(),
+                                                'unchangedAfterReopen': True}
             if 'sideLoadingDiagnostic' in first:
                 second['initialSideLoadingDiagnostic']=first['sideLoadingDiagnostic']
             if second.get('complete') is False:
@@ -803,6 +811,9 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
                 report.write_text(json.dumps(second,indent=2)+'\n')
                 raise SystemExit(f'Native check failed after reopening; diagnostics: {report}')
             def observed(data):
+                if args.benchmark:
+                    return {key:data[key] for key in ('columns','occupiedColumnSamples','columnDigest',
+                            'blockDigest','biomeDigest','physicalBlocksCompared','acceptedStarts')}
                 if args.fractured_hollow:
                     return [{**{key:value for key,value in row.items() if key!='stages'},
                              'savedFull':row['stages']['minecraft:full']} for row in data['witnesses']]
@@ -854,7 +865,7 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
                     return {key: data[key] for key in ['samples', 'villagePlan']} if 'villagePlan' in data else data['samples']
                 return [(sample['x'], sample['z'], {key: value for key, value in sample['blocks'].items()
                         if key.endswith('_ore')}) for sample in data['samples']]
-            match_key = ('reopenFracturedCavitiesMatch' if args.fractured_hollow else 'reopenQuestClaimsMatch' if args.quests else 'reopenSpawnMatches' if args.access else 'reopenFringeMaterialsMatch' if args.ocean_fringes else 'reopenSavedStartsMatch' if args.structure_search else 'reopenHydrologyMatch' if args.hydrology else 'reopenLookupMatch' if args.lookup else
+            match_key = ('reopenBenchmarkMatch' if args.benchmark else 'reopenFracturedCavitiesMatch' if args.fractured_hollow else 'reopenQuestClaimsMatch' if args.quests else 'reopenSpawnMatches' if args.access else 'reopenFringeMaterialsMatch' if args.ocean_fringes else 'reopenSavedStartsMatch' if args.structure_search else 'reopenHydrologyMatch' if args.hydrology else 'reopenLookupMatch' if args.lookup else
                          'reopenGroundVillageMatch' if args.ground_village else 'reopenNaturalInputsMatch' if args.natural_inputs else 'reopenVillageSupportMatch' if args.village_support else 'reopenWaterOwnershipMatch' if args.water or args.oceans else
                          'reopenStructuresMatch' if args.structures or args.surface_structures else
                          'reopenVariationMatches' if args.variation else 'reopenVillagesMatch' if args.natural else 'reopenCityAssemblyMatch' if args.city_recipe else 'reopenOreCountsMatch')

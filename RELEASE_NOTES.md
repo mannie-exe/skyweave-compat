@@ -1,18 +1,19 @@
-# Skyweave: Compatibility Patches 0.33.0
+# Skyweave: Compatibility Patches 0.34.0
 
-Unify island ownership, underground climate and village terrain support on Sky Archipelago 1.4. Minecraft remains 1.21.1; NeoForge remains 21.1.265.
+Complete the configuration, navigation and terrain follow-up, and remove repeated preset-ID parsing. Minecraft remains 1.21.1; NeoForge remains 21.1.265.
 
-- Use actual height-aware solid, water and cavity contributors for native underground-biome depth and island-relative temperature. Keep resource geology, physical positions and thermal altitude distinct.
-- Synchronize bounded server-owned climate context for client weather and the qualified Iris precipitation path. Preserve cold biomes, native fluid/light rules and client lifecycle cleanup.
-- Restore bounded ground-village terrain blending, original natural foundation materials and shallow physical contact. Respect processed output, authored damage, roads, water, cavities and overlapping ownership; verify required contacts after feature closure.
-- Require complete support for inhabited buildings by default and try bounded alternatives without changing family allowances. Unsafe historical layouts may be rejected. Opt-in diagnostics distinguish support failures, missing information and exhausted work.
-- Protect qualified village terrain from conflicting native feature writes while retaining unrelated features. Preserve intentional gaps and reject unexplained source changes.
-- Give special Deep Dark islands a deepslate body, coherent sculk surface, sheltered cavern openings and separately bounded devices. Preserve player farming and brought animals. Ancient Cities remain independently eligible; none is forced on the special variant.
-- Adapt native elevated-water habitat and movement rules, Dynamic Waters floe climate and cached-node heights. Add independent optional Sable parent-world temperature projection and repair dedicated DW/Sable reflection without replacing native force math.
-- Accept the two exact qualified Fabric/Connector version spellings for Surveyor and Hoofprint, retaining strict rejection of other versions.
+- Use typed settings, stable entry identities, collection controls, measured layouts and staged edits. Validate complete file batches and coupled generation profiles, preserve external-edit conflicts and report partial saves honestly.
+- Distinguish local files, the running integrated server and a remote server. Local server application has explicit receipts; a client copy never administers a remote server. Reload Wayfinder and search policy through their permission-checked server commands.
+- Apply qualified rendering, map and operator-feedback preferences live. Startup feature switches and saved-generation inputs retain their own timing and authority.
+- Resolve Wayfinder targets from existing fine or coarse DH data, then validate bounded native destination terrain. Keep diagnostics client-owned, private to the requesting operator and off by default.
+- Retain island/structure searches through same-connection respawn, use the original search center, and distinguish incomplete zero-result searches from verified absence.
+- Preserve exposed chambers across fractured HOLLOW and special Deep Dark cells. Respect local watershed bank/bed admission and layered contributors instead of sealing cavities or inventing unsupported water outlets.
+- Stop Better Villages from rewriting unchanged native configuration when its exact optional dependencies qualify.
 
-Generation uses a new saved identity. Create a fresh marked world; existing structures are not relocated or backfilled. Do not bypass an old world's identity marker. Update matching client/server binaries and authored configuration together.
+The parsing correction retains the native settings-holder test on every call; foreign and unkeyed settings remain foreign. Three matched comparisons against the immediately preceding implementation retain identical columns, physical blocks and biomes. Each one-million-call eligibility window falls from 136,000,072 allocated bytes to 72 bytes. This measures the predicate, not a whole-generation, frame-rate or gameplay speedup.
 
-Native evidence covers bounded processed foundation contacts, material provenance, alternative village fitting, save/reopen, reordered generation, climate ownership and transport, elevated-water behavior and optional/disabled controls. A packaged Prism client with the full resource stack verifies integrated reopening, both generated BSL/Colorwheel and Complementary/Euphoria shaders, precipitation uniforms and climate forms. Independent read-only implementation review found no blocking defect in its inspected boundaries. See the [verification record](docs/development/verification.md) for exact artifacts and limits.
+The terrain corrections change saved generation identity to `islands_v1-skyarch-1.4-15` and the watershed adapter to `island_watersheds_v5`. Use a fresh marked world with matching client/server builds, or retain the previous release and original settings for an existing world. Never edit a saved identity to bypass the guard. Installation does not delete worlds automatically.
 
-These checks do not certify every donor road, a worldwide encounter rate or arbitrary modded feature writers. Matched support-enabled/disabled connector checks retain the same observed reachability. Euphoria's existing file watcher can warn about an unrelated BSL output during an explicit in-process rebuild; this does not prevent the tested shaders from rendering.
+Existing Wayfinder server policies need a deliberate one-time removal of the retired `debugMessages` and `hideHotkeyPermissionMessage` fields. Preserve access/work settings; local feedback now belongs in the client preference file. See [configuration](docs/configuration.md#wayfinder) for exact paths and timing.
+
+Keep the existing Java 21 collector and heap policies. The full-client generational-ZGC check includes the patched Complementary shader and an integrated-world save/reopen; resource-loading allocation stalls remain an explicit limit. See [verification](docs/development/verification.md) for exact artifacts, commands and coverage. No content mods or upstream dependency versions change.

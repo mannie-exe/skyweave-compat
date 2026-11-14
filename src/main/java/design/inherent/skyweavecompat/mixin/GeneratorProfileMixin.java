@@ -2,6 +2,7 @@ package design.inherent.skyweavecompat.mixin;
 
 import design.inherent.skyweavecompat.terrain.*;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import design.inherent.skyweavecompat.terrain.ProfiledTerrain;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.levelgen.RandomState;
@@ -15,11 +16,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(value = SkyIslandChunkGenerator.class, remap = false)
 public abstract class GeneratorProfileMixin implements GeologicalGenerator {
+    @Unique private static final ResourceLocation skyweave$PRESET_ID = ResourceLocation.parse(GenerationProfile.ID);
     @Shadow private IslandField getIslandField(RandomState random) { throw new AssertionError(); }
     @Shadow private volatile SkyIslandSettings resolvedSettingsCache;
     @Override public IslandField skyweave$field(RandomState random) { return getIslandField(random); }
     @Override public boolean skyweave$isEnabled() {
-        return ((SkyIslandChunkGenerator)(Object)this).generatorSettings().is(ResourceLocation.parse(GenerationProfile.ID));
+        return ((SkyIslandChunkGenerator)(Object)this).generatorSettings().is(skyweave$PRESET_ID);
     }
 
     @Inject(method = "resolvedSkyIslandSettings", at = @At("HEAD"), cancellable = true)

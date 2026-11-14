@@ -239,6 +239,7 @@ final class ClientMiscProbe {
     }
     private JsonObject state(Minecraft mc) throws Exception {
         var row = new JsonObject(); row.addProperty("sequence", sequence); row.addProperty("error", error);
+        if (Boolean.getBoolean("skyweave_compat.probe.memory")) row.add("memory", ClientMemoryProbe.snapshot(mc));
         if (Boolean.getBoolean("skyweave_compat.probe.wayfinder")) row.add("wayfinder",WayfinderFixture.state(mc));
         var versions = new JsonObject();
         for (var id : new String[]{"hoofprint", "surveyor", "connector", "ftblibrary", "inventoryprofilesnext", "libipn"})
