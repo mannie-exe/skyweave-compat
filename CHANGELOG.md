@@ -44,6 +44,10 @@ Generated from Git history. Player-facing release summaries are in [release note
 
 - Give settings stable document identities ([062271a](https://github.com/mannie-exe/skyweave-compat/commit/062271abe2644a2d7eeee41d38c1b980fca64dc0))
 
+### Documentation
+
+- Qualify CI artifact boundaries ([bc85148](https://github.com/mannie-exe/skyweave-compat/commit/bc85148eae8d972cb2f223a8114507dabcedc020))
+
 ### Build and verification
 
 - Qualify live wayfinder policy changes ([1ecf2ca](https://github.com/mannie-exe/skyweave-compat/commit/1ecf2ca928824639c77e5e6a86c4bb5c411d4739))
