@@ -2,6 +2,12 @@
 
 Generated from Git history. Player-facing release summaries are in [release notes](RELEASE_NOTES.md).
 
+## v0.35.0 · 2026-11-14
+
+### Fixes
+
+- **terrain:** Preserve footings and river outlets ([2e0b90e](https://github.com/mannie-exe/skyweave-compat/commit/2e0b90e1b905d2e77f83ed14d331b5d04fb86088))
+
 ## v0.34.0 · 2026-11-14
 
 ### Features
