@@ -2,6 +2,54 @@
 
 Generated from Git history. Player-facing release summaries are in [release notes](RELEASE_NOTES.md).
 
+## v0.34.0 · 2026-11-14
+
+### Features
+
+- Add measured settings controls and staged preferences ([91efc45](https://github.com/mannie-exe/skyweave-compat/commit/91efc45e4da107f35c12f27d5f3751239528ffd9))
+
+- Expose typed native river settings ([bce4760](https://github.com/mannie-exe/skyweave-compat/commit/bce476019e8a3632829c04cc2823502c275d593e))
+
+- Retain native settings collection controls ([8a771f6](https://github.com/mannie-exe/skyweave-compat/commit/8a771f672bf0be6df53c5122c07eb6119e516bf2))
+
+- Reload server-owned operational policies ([184a346](https://github.com/mannie-exe/skyweave-compat/commit/184a34685f878ba9e3d0e9a9868c2912f2b29dcb))
+
+- Apply local server settings with receipts ([de84ff8](https://github.com/mannie-exe/skyweave-compat/commit/de84ff873403c3d081d6d39b7187ea36bb649c33))
+
+- Add live rendering preferences ([0a1009c](https://github.com/mannie-exe/skyweave-compat/commit/0a1009c229f4b17ce751ab2e6352df7997ccbbc3))
+
+- Complete typed settings interactions ([bfe8473](https://github.com/mannie-exe/skyweave-compat/commit/bfe8473f5e4069ae1a25327d4bd9302fedada37c))
+
+### Fixes
+
+- Complete navigation and terrain repairs ([c294f10](https://github.com/mannie-exe/skyweave-compat/commit/c294f10e65fb4b7d2147e92f8caef0c41a2e652d))
+
+- Prepare consistent settings save batches ([7f7d92a](https://github.com/mannie-exe/skyweave-compat/commit/7f7d92a9ef1dd4327c5509f1ca4ad30562d065c0))
+
+- Share nonblank collection validation ([e0041e7](https://github.com/mannie-exe/skyweave-compat/commit/e0041e73becc56abcc7c5fa6b870d3303c039d78))
+
+- Describe actual settings application timing ([e7a5ff1](https://github.com/mannie-exe/skyweave-compat/commit/e7a5ff1de19faa0469c6148ce5accce9dfd12900))
+
+- Isolate configuration context presentation ([b178c1d](https://github.com/mannie-exe/skyweave-compat/commit/b178c1d17feb8eb5645c4f0d78f78b330397dcb3))
+
+- Complete settings help narration ([9a441b9](https://github.com/mannie-exe/skyweave-compat/commit/9a441b9c235193a67b7feac2854a23e5684c310a))
+
+### Performance
+
+- **terrain:** Cache the fixed preset key ([ca49a36](https://github.com/mannie-exe/skyweave-compat/commit/ca49a3642e37828a487dcbf59b0362cad7d6291c))
+
+### Refactoring
+
+- Share typed settings and edit sessions ([877b8eb](https://github.com/mannie-exe/skyweave-compat/commit/877b8ebd92a70729cce148b062daafd77a300a2f))
+
+- Give settings stable document identities ([062271a](https://github.com/mannie-exe/skyweave-compat/commit/062271abe2644a2d7eeee41d38c1b980fca64dc0))
+
+### Build and verification
+
+- Qualify live wayfinder policy changes ([1ecf2ca](https://github.com/mannie-exe/skyweave-compat/commit/1ecf2ca928824639c77e5e6a86c4bb5c411d4739))
+
+- Qualify active structure search policies ([bdb52f5](https://github.com/mannie-exe/skyweave-compat/commit/bdb52f5fdc15eb304bda79c7de2f478716b8cd19))
+
 ## v0.33.0 · 2026-11-12
 
 ### Features
