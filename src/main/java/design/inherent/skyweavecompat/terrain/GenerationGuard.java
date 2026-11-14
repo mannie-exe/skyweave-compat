@@ -47,8 +47,8 @@ public final class GenerationGuard {
         }
         var ops = RegistryOps.create(JsonOps.INSTANCE, server.registryAccess());
         var identity = new JsonObject();
-        identity.addProperty("algorithm", "islands_v1-skyarch-1.4-15");
-        identity.addProperty("groundVillageSupport", "natural_snapshot_native_beardifier_v1");
+        identity.addProperty("algorithm", "islands_v1-skyarch-1.4-16");
+        identity.addProperty("groundVillageSupport", "qualified_bearing_native_beardifier_v2");
         identity.addProperty("largeVeins", "native_reference_depth_v1");
         identity.addProperty("seed", server.getWorldData().worldGenOptions().seed());
         identity.add("villagePolicy", new Gson().toJsonTree(NeighborConfig.settings()));

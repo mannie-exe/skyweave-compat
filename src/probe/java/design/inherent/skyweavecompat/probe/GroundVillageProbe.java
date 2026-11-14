@@ -35,8 +35,19 @@ public final class GroundVillageProbe {
     private static final java.util.concurrent.atomic.AtomicBoolean UNRELATED_FEATURE_TESTED=new java.util.concurrent.atomic.AtomicBoolean();
     private static final java.util.concurrent.atomic.AtomicBoolean NEIGHBOR_FEATURE_TESTED=new java.util.concurrent.atomic.AtomicBoolean();
     private static final JsonObject FEATURE_CONTROLS=new JsonObject();
+    private static final java.util.concurrent.atomic.AtomicReference<Throwable> FEATURE_FAILURE=new java.util.concurrent.atomic.AtomicReference<>();
     private static final Map<ChunkPos,NaturalStructureInputs.Journal> PREPARED=new java.util.concurrent.ConcurrentHashMap<>();
     private static final Map<ChunkPos,Integer> PREPARATION_CONTROLS=new java.util.concurrent.ConcurrentHashMap<>();
+    private static int remainingTicks,observedTicks;
+    private static Path pendingOutput,pendingReceipt;
+    private static JsonObject pendingReport;
+    private static List<VillageFootprint.Foot> pendingFeet=List.of();
+    private static Set<ChunkPos> forced=Set.of();
+    private static BlockPos unsupportedScaffold;
+    private static boolean ticksArmed;
+    private static int readinessTicks;
+    private static long tickReadinessDeadline;
+    private static net.minecraft.server.level.ServerPlayer tickingPlayer;
     private GroundVillageProbe() {}
     private static void check(boolean valid,String message) { if(!valid)throw new AssertionError(message); }
     /** Probe-only exact-foot attribution, bounded and armed after the initial native terrain stages. */
@@ -54,6 +65,12 @@ public final class GroundVillageProbe {
     }
     /** Real native feature calls inside an isolated FEATURES region; no product testing authority. */
     public static synchronized void featureControls(net.minecraft.world.level.WorldGenLevel level,ChunkAccess chunk,
+            net.minecraft.world.level.chunk.ChunkGenerator generator) {
+        if(FEATURE_FAILURE.get()!=null)return;
+        try {nativeFeatureControls(level,chunk,generator);}
+        catch(Throwable failure) {FEATURE_FAILURE.compareAndSet(null,failure);}
+    }
+    private static void nativeFeatureControls(net.minecraft.world.level.WorldGenLevel level,ChunkAccess chunk,
             net.minecraft.world.level.chunk.ChunkGenerator generator) {
         if(watched.isEmpty() || !OptionalIntegrations.enabled(Feature.GROUND_SUPPORT))return;
         var origin=watched.keySet().stream().filter(p->new ChunkPos(p).equals(chunk.getPos())).sorted(BlockPos::compareTo).findFirst().orElse(null);
@@ -79,9 +96,9 @@ public final class GroundVillageProbe {
                 } catch(ReflectiveOperationException failure) {throw new IllegalStateException("Late carving input control failed",failure);}
                 var before=new HashMap<BlockPos,BlockState>();for(var at:BlockPos.betweenClosed(envelope.minX(),envelope.minY(),envelope.minZ(),envelope.maxX(),envelope.maxY(),envelope.maxZ()))before.put(at.immutable(),level.getBlockState(at));
                 var random=new CountedRandom();
-                boolean boulder=net.minecraft.world.level.levelgen.feature.Feature.FOREST_ROCK.place(
-                        new net.minecraft.world.level.levelgen.feature.configurations.BlockStateConfiguration(net.minecraft.world.level.block.Blocks.STONE.defaultBlockState()),level,generator,random,origin);
+                boolean boulder=boulderAtKnownSoil(level,generator,random,origin.above());
                 check(!boulder && random.draws==0,"Protected boulder consumed randomness or placed");
+                FEATURE_CONTROLS.addProperty("protectedBoulderKnownSoil",true);
                 random=new CountedRandom();
                 boolean lake=net.minecraft.world.level.levelgen.feature.Feature.LAKE.place(new net.minecraft.world.level.levelgen.feature.LakeFeature.Configuration(
                                 net.minecraft.world.level.levelgen.feature.stateproviders.BlockStateProvider.simple(net.minecraft.world.level.block.Blocks.LAVA),
@@ -117,8 +134,7 @@ public final class GroundVillageProbe {
             if(y>chunk.getMinBuildHeight()+3 && NaturalMaterials.skin(level.getBlockState(at.below()))
                     && !GroundVillageTerrain.featureConflict(level,box) && UNRELATED_FEATURE_TESTED.compareAndSet(false,true)) {
                 var random=new CountedRandom();
-                boolean placed=net.minecraft.world.level.levelgen.feature.Feature.FOREST_ROCK.place(
-                        new net.minecraft.world.level.levelgen.feature.configurations.BlockStateConfiguration(net.minecraft.world.level.block.Blocks.STONE.defaultBlockState()),level,generator,random,at);
+                boolean placed=boulderAtKnownSoil(level,generator,random,at);
                 check(placed && random.draws>0 && level.getBlockState(at).is(net.minecraft.world.level.block.Blocks.STONE),"Unrelated native boulder suppressed");
                 int boulderDraws=random.draws;
                 var disk=new net.minecraft.world.level.levelgen.feature.configurations.DiskConfiguration(
@@ -158,6 +174,18 @@ public final class GroundVillageProbe {
                 } finally {savedTree.forEach((p,state)->level.setBlock(p,state,19));}
             }
         }
+    }
+    /** Native boulders scan past sand/gravel. Fix only this control's soil, then restore it. */
+    private static boolean boulderAtKnownSoil(net.minecraft.world.level.WorldGenLevel level,
+            net.minecraft.world.level.chunk.ChunkGenerator generator,net.minecraft.util.RandomSource random,BlockPos origin) {
+        var soil=origin.below();var before=level.getBlockState(soil);
+        check(!before.hasBlockEntity(),"Boulder fixture would replace block-entity input");
+        try {
+            level.setBlock(soil,net.minecraft.world.level.block.Blocks.DIRT.defaultBlockState(),19);
+            return net.minecraft.world.level.levelgen.feature.Feature.FOREST_ROCK.place(
+                    new net.minecraft.world.level.levelgen.feature.configurations.BlockStateConfiguration(net.minecraft.world.level.block.Blocks.STONE.defaultBlockState()),
+                    level,generator,random,origin);
+        } finally {level.setBlock(soil,before,19);}
     }
     private static net.minecraft.world.level.levelgen.feature.configurations.SimpleBlockConfiguration plantConfiguration() {
         var state=net.minecraft.world.level.block.Blocks.SUNFLOWER.defaultBlockState();
@@ -232,7 +260,94 @@ public final class GroundVillageProbe {
                 .report("ground-village",level.getSeed(),List.of(),Map.of()).summary().counters().getOrDefault("skyweaveVillageTreeRefused",0L);
     }
     private static boolean featureControlsEnabled() {
-        return !Boolean.getBoolean("neighbors.probe.groundGravityOnly") && !Boolean.getBoolean("neighbors.probe.groundLagoon");
+        return !Boolean.getBoolean("neighbors.probe.groundGravityOnly") && !Boolean.getBoolean("neighbors.probe.groundLagoon")
+                && System.getProperty("neighbors.probe.groundTemplate","minecraft:village/plains/houses/plains_small_house_1")
+                .equals("minecraft:village/plains/houses/plains_small_house_1");
+    }
+    static boolean pending() { return remainingTicks>0; }
+    static void tick(MinecraftServer server) {
+        if(remainingTicks==0)return;
+        try {
+            var level=server.overworld();int scaffolds=0,embeddings=0;
+            if(!ticksArmed) {
+                var scaffold=net.minecraft.world.level.block.Blocks.SCAFFOLDING;
+                for(var foot:pendingFeet)if(foot.expected().is(scaffold)) {
+                    level.setBlock(foot.position(),foot.expected().setValue(net.minecraft.world.level.block.ScaffoldingBlock.DISTANCE,6)
+                            .setValue(net.minecraft.world.level.block.ScaffoldingBlock.BOTTOM,true),2);
+                    level.scheduleTick(foot.position(),scaffold,1);
+                    if(unsupportedScaffold==null)unsupportedScaffold=foot.position().above(8);
+                }
+                if(unsupportedScaffold!=null) {
+                    level.setBlock(unsupportedScaffold.below(),net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(),2);
+                    level.setBlock(unsupportedScaffold,scaffold.defaultBlockState().setValue(net.minecraft.world.level.block.ScaffoldingBlock.DISTANCE,0),2);
+                    level.scheduleTick(unsupportedScaffold,scaffold,1);
+                }
+                tickReadinessDeadline=System.nanoTime()+java.util.concurrent.TimeUnit.SECONDS.toNanos(120);
+                ticksArmed=true;return;
+            }
+            if(pendingFeet.stream().anyMatch(foot->!level.getBlockState(foot.position()).equals(foot.expected()))
+                    || unsupportedScaffold!=null && level.getBlockState(unsupportedScaffold).is(net.minecraft.world.level.block.Blocks.SCAFFOLDING)) {
+                var status=new JsonArray();for(var cp:forced) {
+                    var row=new JsonObject();row.addProperty("chunk",cp.toString());row.addProperty("entitiesLoaded",level.areEntitiesLoaded(cp.toLong()));
+                    row.addProperty("positionTicking",level.getChunkSource().isPositionTicking(cp.toLong()));
+                    row.addProperty("blocksInRange",level.shouldTickBlocksAt(cp.toLong()));status.add(row);
+                    if(System.nanoTime()>=tickReadinessDeadline)row.add("holder",schedulerState(level,cp));
+                }
+                pendingReport.add("lastWaitReadiness",status);
+                readinessTicks++;
+                check(System.nanoTime()<tickReadinessDeadline,"Native scheduled footing controls never completed: "+status);
+                return;
+            }
+            if(--remainingTicks>0)return;
+            for(var foot:pendingFeet) {
+                check(level.getBlockState(foot.position()).equals(foot.expected()),"Native scheduled updates changed a supported foot: "+foot+" actual="+level.getBlockState(foot.position()));
+                if(foot.expected().is(net.minecraft.world.level.block.Blocks.SCAFFOLDING)) {
+                    check(net.minecraft.world.level.block.ScaffoldingBlock.getDistance(level,foot.position())==0,
+                            "Native scaffold leg did not acquire ground contact");scaffolds++;
+                }
+                if(foot.expected().hasBlockEntity())check(level.getBlockEntity(foot.position())!=null,"Native embedded block entity lost");
+                if(foot.expected().hasBlockEntity())embeddings++;
+            }
+            pendingReport.addProperty("ordinaryTicks",observedTicks);pendingReport.addProperty("stableScaffoldLegs",scaffolds);
+            pendingReport.addProperty("readinessWaitTicks",readinessTicks);
+            if(unsupportedScaffold!=null) {
+                check(!level.getBlockState(unsupportedScaffold).is(net.minecraft.world.level.block.Blocks.SCAFFOLDING),
+                        "Unowned unsupported scaffold did not retain native failure behavior");
+                pendingReport.addProperty("unsupportedScaffoldRemoved",true);
+            }
+            pendingReport.addProperty("retainedEmbeddedEntities",embeddings);pendingReport.addProperty("complete",true);
+            Files.writeString(pendingReceipt,pendingReport.toString());
+            Files.writeString(pendingOutput,new GsonBuilder().setPrettyPrinting().create().toJson(pendingReport)+"\n");
+        } catch(Throwable failure) {
+            remainingTicks=0;pendingReport.addProperty("complete",false);pendingReport.addProperty("failure",failure.toString());
+            try {Files.writeString(pendingOutput,new GsonBuilder().setPrettyPrinting().create().toJson(pendingReport)+"\n");}
+            catch(java.io.IOException error) {failure.addSuppressed(error);}
+            throw new IllegalStateException("Native footing tick check failed",failure);
+        } finally {
+            if(remainingTicks==0) {
+                if(tickingPlayer!=null)server.getPlayerList().remove(tickingPlayer);
+                for(var cp:forced)server.overworld().setChunkForced(cp.x,cp.z,false);forced=Set.of();server.halt(false);
+            }
+        }
+    }
+    private static JsonObject schedulerState(ServerLevel level,ChunkPos cp) {
+        var report=new JsonObject();
+        try {
+            var lookup=net.minecraft.server.level.ChunkMap.class.getDeclaredMethod("getVisibleChunkIfPresent",long.class);lookup.setAccessible(true);
+            var holder=(net.minecraft.server.level.ChunkHolder)lookup.invoke(level.getChunkSource().chunkMap,cp.toLong());
+            if(holder==null) {report.addProperty("absent",true);return report;}
+            report.addProperty("type",holder.getClass().getName());report.addProperty("ticketLevel",holder.getTicketLevel());
+            var future=holder.getTickingChunkFuture();report.addProperty("tickingFutureDone",future.isDone());
+            report.addProperty("tickingFutureExceptional",future.isCompletedExceptionally());
+            if(future.isDone() && !future.isCompletedExceptionally())report.addProperty("result",future.getNow(null).toString());
+            try {
+                var field=holder.getClass().getDeclaredField("newHolder");field.setAccessible(true);var nativeHolder=field.get(holder);
+                for(var method:nativeHolder.getClass().getMethods())if(method.getParameterCount()==0
+                        && Set.of("getTargetStatus","getCurrentStatus","getStatus").contains(method.getName()))
+                    report.addProperty(method.getName(),String.valueOf(method.invoke(nativeHolder)));
+            } catch(ReflectiveOperationException ignored) {report.addProperty("nativeHolderDetails","unavailable");}
+        } catch(Exception failure) {report.addProperty("diagnosticFailure",failure.toString());}
+        return report;
     }
     static void run(MinecraftServer server,Path output) throws Exception {
         var report=new JsonObject();
@@ -244,6 +359,11 @@ public final class GroundVillageProbe {
                     var row=value.getAsJsonObject();var at=point(row);
                     check(level.getBlockState(at).equals(BlockState.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE,row.get("state")).getOrThrow()),
                             "Saved production footing changed on reopen: "+at);
+                }
+                if(report.has("embeddedEntities"))for(var value:report.getAsJsonArray("embeddedEntities")) {
+                    var row=value.getAsJsonObject();var at=point(row);var entity=level.getBlockEntity(at);
+                    check(entity!=null && entity.saveWithFullMetadata(level.registryAccess()).equals(net.minecraft.nbt.TagParser.parseTag(row.get("nbt").getAsString())),
+                            "Embedded block entity contents changed after reopening: "+at);
                 }
                 if(report.get("enabled").getAsBoolean()) {
                     var origin=report.getAsJsonArray("origin");var cp=new ChunkPos(Math.floorDiv(origin.get(0).getAsInt(),16),Math.floorDiv(origin.get(2).getAsInt(),16));
@@ -260,10 +380,17 @@ public final class GroundVillageProbe {
             }
             var generator=(SkyIslandChunkGenerator)level.getChunkSource().getGenerator();var settings=generator.resolvedSkyIslandSettings();
             var field=((GeologicalGenerator)(Object)generator).skyweave$field(level.getChunkSource().randomState());
-            var element=StructurePoolElement.single("minecraft:village/plains/houses/plains_small_house_1").apply(StructureTemplatePool.Projection.RIGID);
-            var zero=element.getBoundingBox(server.getStructureManager(),BlockPos.ZERO,Rotation.NONE);
+            var templateId=ResourceLocation.parse(System.getProperty("neighbors.probe.groundTemplate","minecraft:village/plains/houses/plains_small_house_1"));
+            var template=server.getStructureManager().get(templateId).orElseThrow(()->new IllegalStateException("Missing native fixture template "+templateId));
+            check(template.getSize().getX()>0 && template.getSize().getY()>0 && template.getSize().getZ()>0,"Empty native fixture template");
+            var rotation=Rotation.valueOf(System.getProperty("neighbors.probe.groundRotation","NONE"));
+            var element=StructurePoolElement.single(templateId.toString()).apply(StructureTemplatePool.Projection.RIGID);
+            var zero=element.getBoundingBox(server.getStructureManager(),BlockPos.ZERO,rotation);
+            report.addProperty("template",templateId.toString());report.addProperty("rotation",rotation.name());
             int width=zero.getXSpan(),depth=zero.getZSpan();check(width<=32 && depth<=32,"Native fixture house exceeds the bounded multi-chunk window: "+zero);
             report.add("templateBounds",new Gson().toJsonTree(List.of(width,zero.getYSpan(),depth)));
+            int gap=Integer.getInteger("neighbors.probe.groundGap",2);
+            check(gap>=1 && gap<=3,"Invalid native footing gap");report.addProperty("minimumInitialGap",gap);
             ChunkPos selected=null;int examined=0;boolean shore=Boolean.getBoolean("neighbors.probe.groundLagoon");
             int[] offsets=shore?new int[]{10,-10,9,-9,8,-8,7,-7,6,-6,5,-5,4,-4,3,-3,2,-2,1,-1,0}:new int[]{-2,-1,0,1,2};
             outer:for(int cx=shore?3:8;cx<=(shore?3:16);cx++)for(int cz=shore?6:-16;cz<=(shore?6:-8);cz++) {
@@ -283,7 +410,7 @@ public final class GroundVillageProbe {
                                     || ((InteriorField)(Object)field).skyweave$isFringe(island,cp.getMinBlockX()+x,cp.getMinBlockZ()+z,settings)) { valid=false;break; }
                             int top=column.segments().getFirst().topY();low=Math.min(low,top);high=Math.max(high,top);
                         }
-                        if(valid && high-low<=1) { selected=cp;report.add("terrainHost",new Gson().toJsonTree(island));break outer; }
+                        if(valid && high-low<=(gap==3?0:1)) { selected=cp;report.add("terrainHost",new Gson().toJsonTree(island));break outer; }
                     }
                 }
             }
@@ -303,9 +430,9 @@ public final class GroundVillageProbe {
                 highest=Math.max(highest,top);lowest=Math.min(lowest,top);
             }
             check(highest-lowest<=1,"Actual CARVERS roof differs from bounded metadata window");
-            var origin=new BlockPos(selected.getMinBlockX()+4,highest+3,selected.getMinBlockZ()+4);
-            var piece=new PoolElementStructurePiece(server.getStructureManager(),element,origin,element.getGroundLevelDelta(),Rotation.NONE,
-                    element.getBoundingBox(server.getStructureManager(),origin,Rotation.NONE),LiquidSettings.APPLY_WATERLOGGING);
+            var origin=new BlockPos(selected.getMinBlockX()+4-zero.minX(),highest+gap+1,selected.getMinBlockZ()+4-zero.minZ());
+            var piece=new PoolElementStructurePiece(server.getStructureManager(),element,origin,element.getGroundLevelDelta(),rotation,
+                    element.getBoundingBox(server.getStructureManager(),origin,rotation),LiquidSettings.APPLY_WATERLOGGING);
             var first=piece.getBoundingBox();var c=first.getCenter();var reference=new BlockPos(c.getX(),first.minY(),c.getZ());
             var before=StructureTerrainView.capture(level.getSeed(),level.registryAccess(),neighbors.values());
             var feet=VillageFootprint.compile(piece,0,reference,server.getStructureManager(),before,new VillageFootprint.Budget(),null);
@@ -325,6 +452,7 @@ public final class GroundVillageProbe {
                 }
             }
             var finished=level.getChunk(selected.x,selected.z);int contacts=0;var saved=new JsonArray();
+            if(FEATURE_FAILURE.get()!=null)throw new AssertionError("Native auxiliary feature control failed",FEATURE_FAILURE.get());
             report.add("nativeGravity",settleGravity(level,feet.feet()));
             report.add("origin",new Gson().toJsonTree(List.of(origin.getX(),origin.getY(),origin.getZ())));
             for(var foot:feet.feet()) {
@@ -336,6 +464,19 @@ public final class GroundVillageProbe {
             }
             boolean enabled=OptionalIntegrations.enabled(Feature.GROUND_SUPPORT);int grading=0,physicalGrading=0;
             report.addProperty("feet",feet.feet().size());report.addProperty("contactsAfter",contacts);report.add("savedBlocks",saved);
+            var entities=new JsonArray();report.add("embeddedEntities",entities);
+            for(var foot:feet.feet()) {
+                var entity=level.getBlockEntity(foot.position());
+                if(entity instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity campfire
+                        && !foot.expected().getValue(net.minecraft.world.level.block.CampfireBlock.LIT)) {
+                    // Unlit native item persistence complements the support-writer NBT control.
+                    campfire.getItems().set(0,new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.POTATO));entity.setChanged();
+                }
+                if(entity!=null) {
+                    var row=new JsonObject();var at=foot.position();row.addProperty("x",at.getX());row.addProperty("y",at.getY());row.addProperty("z",at.getZ());
+                    row.addProperty("nbt",entity.saveWithFullMetadata(level.registryAccess()).toString());entities.add(row);
+                }
+            }
             var counters=org.sathrek.sky_archipelago.worldgen.benchmark.StructureBenchmarkRecorder
                     .report("ground-village",level.getSeed(),List.of(),Map.of()).summary().counters();
             report.add("counters",new Gson().toJsonTree(counters));
@@ -395,6 +536,16 @@ public final class GroundVillageProbe {
             report.addProperty("physicalGradingCells",physicalGrading);
             report.add("origin",new Gson().toJsonTree(List.of(origin.getX(),origin.getY(),origin.getZ())));report.add("savedBlocks",saved);
             report.addProperty("reopened",false);report.addProperty("complete",true);Files.writeString(receipt,report.toString());
+            int ticks=Integer.getInteger("neighbors.probe.groundTicks",0);
+            if(ticks>0 && enabled) {
+                level.getGameRules().getRule(net.minecraft.world.level.GameRules.RULE_RANDOMTICKING).set(0,server);
+                level.getGameRules().getRule(net.minecraft.world.level.GameRules.RULE_WEATHER_CYCLE).set(false,server);
+                forced=feet.feet().stream().map(f->new ChunkPos(f.position())).collect(java.util.stream.Collectors.toUnmodifiableSet());
+                for(var cp:forced)level.setChunkForced(cp.x,cp.z,true);
+                tickingPlayer=ProbePlayers.stationary(server,"FootingProbe",origin.above(8));
+                pendingFeet=feet.feet();pendingOutput=output;pendingReceipt=receipt;pendingReport=report;
+                remainingTicks=observedTicks=ticks;report.addProperty("complete",false);
+            }
         } catch(Throwable failure) { report.addProperty("complete",false);report.addProperty("failure",failure.toString());throw failure; }
         finally {
             watched=Map.of();report.add("changedFootWrites",new Gson().toJsonTree(List.copyOf(CHANGES)));

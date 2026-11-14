@@ -2,6 +2,8 @@ package design.inherent.skyweavecompat.mixin.water;
 
 import design.inherent.skyweavecompat.water.IslandWaterTerrain;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.levelgen.RandomState;
@@ -15,18 +17,20 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import design.inherent.skyweavecompat.water.DrainageBoundary;
+import design.inherent.skyweavecompat.water.MouthElevation;
 import org.sathrek.sky_archipelago.worldgen.generator.core.SkyIslandChunkGenerator;
 
 /** Empty sky terminates drainage; it is never a basin to fill or a route to another island. */
 @Mixin(targets = "com.AdamNew.dynamicwaters.terrain.BasinTile$Builder", remap = false)
 public abstract class WaterSinksMixin {
+    @Unique private static final org.slf4j.Logger skyweave$logger=com.mojang.logging.LogUtils.getLogger();
     @Shadow @Final private ChunkGenerator generator;
     @Shadow @Final private RandomState randomState;
     @Shadow @Final private int cx0;
     @Shadow @Final private int cz0;
     @Shadow @Final private float[] h;
     @Shadow @Final private boolean[] sink;
-    @Unique private int skyweave$mouthDatum = Integer.MIN_VALUE;
+    @Unique private MouthElevation skyweave$emission;
 
     @Unique private DrainageBoundary skyweave$boundary(int x, int z) {
         return DrainageBoundary.sample((SkyIslandChunkGenerator)generator, randomState, x, z);
@@ -70,25 +74,63 @@ public abstract class WaterSinksMixin {
         return IslandWaterTerrain.applies(generator) && sink[cell] ? Math.round(h[cell]) + 1 : original;
     }
 
-    @ModifyExpressionValue(method = "emit", at = @At(value = "FIELD",
-            target = "Lcom/AdamNew/dynamicwaters/terrain/BasinTile$Builder;seaLevel:I"))
-    private int mouthLevel(int original) {
-        return skyweave$mouthDatum == Integer.MIN_VALUE ? original : skyweave$mouthDatum;
+    @WrapMethod(method="emit")
+    private void emission(int[] cells,int from,int to,int ownerRegion,boolean source,boolean lake,
+            boolean confluence,boolean mouth,boolean hitMain,int inletLakeY,@Coerce Object main,
+            double offset,Operation<Void> original) {
+        var previous=skyweave$emission;
+        skyweave$emission=IslandWaterTerrain.applies(generator) && mouth && !hitMain?new MouthElevation():null;
+        try { original.call(cells,from,to,ownerRegion,source,lake,confluence,mouth,hitMain,inletLakeY,main,offset); }
+        finally { skyweave$emission=previous; }
+    }
+
+    @ModifyExpressionValue(method="emit",at={
+            @At(value="FIELD",target="Lcom/AdamNew/dynamicwaters/terrain/BasinTile$Builder;seaLevel:I",ordinal=0),
+            @At(value="FIELD",target="Lcom/AdamNew/dynamicwaters/terrain/BasinTile$Builder;seaLevel:I",ordinal=1)},require=2,allow=2)
+    private int nodeFloor(int original,@Local(name="k") int node,@Local(name="ys") int[] heights) {
+        var frame=skyweave$emission;if(frame==null)return original;
+        if(!frame.hasHead()) {
+            if(node!=0)throw new IllegalStateException("Native emitter did not expose its incoming head");
+            // Both lakeFloorAt and native incision have already been applied here.
+            frame.head(heights[node]);
+        }
+        return frame.datum();
+    }
+
+    @ModifyExpressionValue(method="emit",at=@At(value="FIELD",
+            target="Lcom/AdamNew/dynamicwaters/terrain/BasinTile$Builder;seaLevel:I",ordinal=2),require=1,allow=1)
+    private int endpoint(int original) {
+        return skyweave$emission==null?original:skyweave$emission.datum();
+    }
+
+    @Inject(method="emit",at=@At(value="INVOKE",
+            target="Lcom/AdamNew/dynamicwaters/terrain/BasinTile;reverse([D)V",ordinal=0),cancellable=true,require=1,allow=1)
+    private void receiver(int[] cells,int from,int to,int ownerRegion,boolean source,boolean lake,
+            boolean confluence,boolean mouth,boolean hitMain,int inletLakeY,@Coerce Object main,
+            double offset,CallbackInfo callback) {
+        var frame=skyweave$emission;
+        if(frame!=null && !frame.joins()) {
+            org.sathrek.sky_archipelago.worldgen.benchmark.StructureBenchmarkRecorder.increment("skyweaveWaterMouth.UPHILL_RECEIVER");
+            skyweave$logger.debug("Refusing uphill island mouth at cell {}: routed head {}, receiver {}",
+                    cells[to],frame.incomingY(),frame.receiverY());
+            callback.cancel();
+        }
     }
 
     @Inject(method = "emit", at = @At("HEAD"), cancellable = true)
     private void localMouth(int[] cells, int from, int to, int ownerRegion, boolean source, boolean lake,
             boolean confluence, boolean mouth, boolean hitMain, int inletLakeY, @Coerce Object main,
             double offset, CallbackInfo callback) {
-        skyweave$mouthDatum = Integer.MIN_VALUE;
-        if (!IslandWaterTerrain.applies(generator) || !mouth || hitMain || inletLakeY != Integer.MIN_VALUE) return;
+        var frame=skyweave$emission;
+        if(frame==null)return;
+        if(inletLakeY!=Integer.MIN_VALUE) {frame.waterAt(inletLakeY);return;}
         int width = (int)Math.sqrt(h.length);
         for (int i = to; i >= from; i--) {
             int cell = cells[i];
             var boundary = skyweave$boundary((cx0 + cell % width) * 8, (cz0 + cell / width) * 8);
             if (boundary.kind() == DrainageBoundary.Kind.VOID) continue;
-            // The local water surface or last supported rim supplies the datum, never global sea level.
-            skyweave$mouthDatum = boundary.level() + 1;
+            if(boundary.kind()==DrainageBoundary.Kind.LOCAL_WATER)frame.waterAt(boundary.level());
+            else frame.voidAt(boundary.level());
             return;
         }
         callback.cancel(); // No supported approach: emitting a sea-level path would invent a river.
@@ -130,7 +172,8 @@ public abstract class WaterSinksMixin {
             var boundary = skyweave$boundary((int)Math.floor(px), (int)Math.floor(pz));
             if (boundary.kind() != DrainageBoundary.Kind.LAND || boundary.owner() != owner) {
                 endX = px; endZ = pz;
-                if (boundary.kind() == DrainageBoundary.Kind.LOCAL_WATER) skyweave$mouthDatum = boundary.level() + 1;
+                if(boundary.kind()==DrainageBoundary.Kind.LOCAL_WATER && skyweave$emission!=null)
+                    skyweave$emission.waterAt(boundary.level());
                 break;
             }
         }

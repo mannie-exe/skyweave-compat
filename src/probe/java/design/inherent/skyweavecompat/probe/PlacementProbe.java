@@ -35,6 +35,7 @@ public final class PlacementProbe {
         WaterProbe.tick(event.getServer());
         LocatorProbe.tick(event.getServer());
         HydrologyProbe.tick(event.getServer());
+        GroundVillageProbe.tick(event.getServer());
         StructureLocatorProbe.tick(event.getServer());
         LocatorLifecycleProbe.tick(event.getServer());
         // Sky Archipelago chooses its fallback spawn in another ServerStarted listener.
@@ -304,6 +305,7 @@ public final class PlacementProbe {
             }
             if (Boolean.getBoolean("neighbors.probe.groundVillage")) {
                 GroundVillageProbe.run(server, Path.of(System.getProperty("neighbors.probe.output")));
+                asynchronous=GroundVillageProbe.pending();
                 return;
             }
             if (!System.getProperty("neighbors.probe.yung", "").isEmpty()) {
@@ -428,7 +430,15 @@ public final class PlacementProbe {
             report.addProperty("mixinRejections", mixinRejections); report.add("samples", results);
             Files.writeString(Path.of(System.getProperty("neighbors.probe.output")), new GsonBuilder().setPrettyPrinting().create().toJson(report));
             System.out.println("NEIGHBORS_PROBE_COMPLETE");
-        } catch (Throwable exception) { exception.printStackTrace(); }
+        } catch (Throwable exception) {
+            exception.printStackTrace();
+            try {
+                var output=Path.of(System.getProperty("neighbors.probe.output"));
+                var failed=Files.isRegularFile(output)?com.google.gson.JsonParser.parseString(Files.readString(output)).getAsJsonObject():new JsonObject();
+                failed.addProperty("complete",false);failed.addProperty("failure",exception.toString());
+                Files.writeString(output,new GsonBuilder().setPrettyPrinting().create().toJson(failed)+"\n");
+            } catch(Throwable reporting) {reporting.printStackTrace();}
+        }
         finally { if (settleTicks == 0 && !asynchronous) server.halt(false); }
     }
 }

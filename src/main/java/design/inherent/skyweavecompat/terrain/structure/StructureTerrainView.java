@@ -39,6 +39,22 @@ public final class StructureTerrainView implements InvocationHandler {
             this.minY=minY;this.height=height;
             sections=sources.stream().map(PalettedContainer::copy).toList();
         }
+        ColumnChunk(ColumnChunk source,Set<Integer> changedSections) {
+            minY=source.minY;height=source.height;
+            var copied=new ArrayList<>(source.sections);
+            for(int index:changedSections)copied.set(index,writableCopy(source.sections.get(index)));
+            sections=List.copyOf(copied);
+        }
+        /** Native copy() retains palette resize handlers. Only a fresh container owns its growth. */
+        private static PalettedContainer<BlockState> writableCopy(PalettedContainer<BlockState> source) {
+            var copy=source.recreate();var initial=copy.get(0,0,0);
+            if(source.maybeHas(state->state!=initial))
+                for(int x=0;x<16;x++)for(int y=0;y<16;y++)for(int z=0;z<16;z++) {
+                    var state=source.get(x,y,z);
+                    if(state!=initial)copy.getAndSetUnchecked(x,y,z,state);
+                }
+            return copy;
+        }
         BlockState state(int x,int y,int z) {
             if(y<minY || y>=minY+height)throw new Unavailable("Terrain input outside captured build height: "+y);
             return sections.get((y-minY)>>4).get(x&15,y&15,z&15);
@@ -90,11 +106,17 @@ public final class StructureTerrainView implements InvocationHandler {
     /** Apply only an already bound own grading plan to an immutable processor input. */
     public StructureTerrainView overlay(List<VillageGrading.Cell> cells) {
         if(cells.size()>VillageGrading.MAX_CELLS)throw new Unavailable("Terrain overlay budget exceeded");
-        var changed=new HashMap<ChunkPos,ColumnChunk>();
+        var touched=new HashMap<ChunkPos,Set<Integer>>();
         for(var cell:cells) {
             if(!state(cell.position()).equals(cell.original()))throw new Unavailable("Grading does not match natural input");
+            var address=new ChunkPos(cell.position());var source=chunks.get(address);
+            touched.computeIfAbsent(address,ignored->new HashSet<>()).add((cell.position().getY()-source.minY)>>4);
+        }
+        var changed=new HashMap<ChunkPos,ColumnChunk>();
+        touched.forEach((address,sections)->changed.put(address,new ColumnChunk(chunks.get(address),sections)));
+        for(var cell:cells) {
             var address=new ChunkPos(cell.position());
-            var copied=changed.computeIfAbsent(address,key->{var old=chunks.get(key);return new ColumnChunk(old.minY,old.height,old.sections);});
+            var copied=changed.get(address);
             var at=cell.position();copied.sections.get((at.getY()-copied.minY)>>4).set(at.getX()&15,at.getY()&15,at.getZ()&15,cell.target());
         }
         var all=new HashMap<>(chunks);all.putAll(changed);return new StructureTerrainView(seed,registries,all);

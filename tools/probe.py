@@ -29,6 +29,8 @@ parser.add_argument('--reopen', action='store_true', help='Reopen generated samp
 parser.add_argument('--ocean-fringes', action='store_true', help='With --perimeter, verify parent ocean materials through native surface/features')
 parser.add_argument('--world-output', type=Path, help='Keep a successful disposable world at a new path for isolated client inspection')
 parser.add_argument('--minimal', action='store_true', help='Generate with only Sky Archipelago and Skyweave: Compatibility Patches, plus the read-only probe')
+parser.add_argument('--village-stack', action='store_true', help='Use Sky Archipelago, CTOV/Lithostitched and the installed village donors with their required libraries')
+parser.add_argument('--with-c2me', action='store_true', help='Include the installed C2ME scheduler in the bounded village-stack fixture')
 parser.add_argument('--wayfinder-dh', action='store_true', help='With --wayfinder, also qualify native DH column reads beyond4096 and at large coordinates')
 parser.add_argument('--wayfinder-high', action='store_true', help='With --wayfinder, use Skyweave build heights in the bounded flat fixture')
 parser.add_argument('--wayfinder-public', action='store_true', help='With --wayfinder, verify explicit non-operator access from a server policy file')
@@ -105,6 +107,7 @@ parser.add_argument('--fluid-ticks', type=int, default=600, help='Native ticks f
 parser.add_argument('--drainage-only', action='store_true', help='With --hydrology and zero fluid ticks, inspect fine route continuity without creating chunks')
 parser.add_argument('--water-witnesses', type=Path, help='With --hydrology, observe a bounded exact-seed water regression fixture through native chunk stages')
 parser.add_argument('--water-witnesses-only', action='store_true', help='With --hydrology --water-witnesses, skip unrelated drainage surveys; allow ticks and reopen')
+parser.add_argument('--water-emitters', action='store_true', help='With exact hydrology witnesses, qualify native mouth scoping and detached publication controls')
 parser.add_argument('--climate-only', action='store_true', help='Check exact climate witnesses without requiring the unrelated channel-flow fixture')
 parser.add_argument('--natural-profile', choices=['current', 'adapted'], default='current', help='Preset for the natural village survey')
 mode.add_argument('--natural', action='store_true', help='Generate natural starts and complete two villages')
@@ -120,6 +123,10 @@ parser.add_argument('--disable-ground-support', action='store_true', help='Disab
 parser.add_argument('--disable-water-spawns', action='store_true', help='Use native global water spawn/movement rules in the disposable habitat fixture')
 parser.add_argument('--ground-gravity', action='store_true', help='With --ground-village, test actual falling supports separately from the plains-only auxiliary feature controls')
 parser.add_argument('--ground-lagoon', action='store_true', help='With --ground-village, check one native house on the named real lagoon shore, seed -6565383426043466991')
+parser.add_argument('--ground-template', default='minecraft:village/plains/houses/plains_small_house_1', help='With --ground-village, place an installed native template on real island terrain')
+parser.add_argument('--ground-rotation', choices=['NONE', 'CLOCKWISE_90', 'CLOCKWISE_180', 'COUNTERCLOCKWISE_90'], default='NONE', help='Rotation for the controlled --ground-village template')
+parser.add_argument('--ground-ticks', type=int, default=0, help='With --ground-village, observe up to 200 ordinary ticks after support; random ticks/weather stay off in this fixture')
+parser.add_argument('--ground-gap', type=int, choices=[1, 2, 3], default=2, help='With --ground-village, minimum initial air gap below the native floor on real terrain')
 parser.add_argument('--disable-water-sable', action='store_true', help='Use upstream Dynamic Waters/Sable discovery and currents in the disposable fixture')
 parser.add_argument('--inspect-sable-discovery', action='store_true', help='Actively exercise native foreign-dimension DW/Sable discovery at fixture shutdown; passive side-loading observation is always enabled')
 parser.add_argument('--disable-structure-policy', action='store_true', help='Use native structure opportunities in the disposable fixture')
@@ -134,6 +141,9 @@ parser.add_argument('--disable-climate-adapter', action='store_true', help='Disa
 parser.add_argument('--disable-carver-adapter', action='store_true',
                     help='Disable the relative-carving adaptation in the disposable startup configuration')
 args = parser.parse_args()
+if args.village_stack and (args.minimal or not (args.ground_village or args.village_support)):
+    parser.error('--village-stack requires --ground-village or --village-support without --minimal')
+if args.with_c2me and (not args.village_stack or args.without_c2me):parser.error('--with-c2me requires --village-stack without --without-c2me')
 if args.wayfinder_dh and (not args.wayfinder or args.minimal): parser.error('--wayfinder-dh requires --wayfinder with DH installed')
 if args.wayfinder_high and not args.wayfinder: parser.error('--wayfinder-high requires --wayfinder')
 if args.wayfinder_public and (not args.wayfinder or args.wayfinder_dh): parser.error('--wayfinder-public requires --wayfinder without --wayfinder-dh')
@@ -165,6 +175,8 @@ if args.climate_only and (not args.hydrology or not args.water_witnesses or args
     parser.error('--climate-only requires --hydrology --water-witnesses --fluid-ticks 0 without --reopen')
 if args.water_witnesses_only and (not args.hydrology or not args.water_witnesses or args.climate_only):
     parser.error('--water-witnesses-only requires --hydrology --water-witnesses without --climate-only')
+if args.water_emitters and (not args.hydrology or not args.water_witnesses or args.climate_only):
+    parser.error('--water-emitters requires --hydrology --water-witnesses without --climate-only')
 if args.natural_shore_fixture and not args.fixed_biome:
     parser.error('--natural-shore-fixture requires --fixed-biome')
 if args.ecology and (args.minimal or not args.fixed_biome):
@@ -173,6 +185,11 @@ if args.ground_gravity and (not args.ground_village or args.disable_ground_suppo
     parser.error('--ground-gravity requires enabled --ground-village support')
 if args.ground_lagoon and (not args.ground_village or args.ground_gravity or args.fixed_biome or args.seed != -6565383426043466991):
     parser.error('--ground-lagoon requires --ground-village, its exact seed and natural biomes')
+if not re.fullmatch(r'[a-z0-9_.-]+:[a-z0-9_./-]+', args.ground_template):
+    parser.error('--ground-template requires a namespaced resource ID')
+if not 0 <= args.ground_ticks <= 200 or not args.ground_village and (
+        args.ground_ticks or args.ground_gap != 2 or args.ground_rotation != 'NONE' or args.ground_template != 'minecraft:village/plains/houses/plains_small_house_1'):
+    parser.error('--ground-template/--ground-rotation/--ground-ticks/--ground-gap require --ground-village; ticks must be 0..200')
 if args.disable_water_spawns and not (args.habitats or args.floe_layers):
     parser.error('--disable-water-spawns requires --habitats or --floe-layers')
 if args.drainage_only and (not args.hydrology or args.fluid_ticks != 0 or args.reopen):
@@ -259,6 +276,11 @@ if args.coverage: name = f'coverage-{args.seed}'
 if args.village_pools: name = f'village-pools-{args.seed}'
 if args.village_support: name = f'village-support-{args.seed}'
 if args.ground_village: name = f'ground-village-{args.seed}'
+if args.ground_village and args.ground_template != 'minecraft:village/plains/houses/plains_small_house_1':
+    name += '-' + args.ground_template.replace(':', '-').replace('/', '-')
+if args.ground_rotation != 'NONE': name += '-' + args.ground_rotation.lower()
+if args.ground_ticks: name += f'-ticks-{args.ground_ticks}'
+if args.ground_gap != 2: name += f'-gap-{args.ground_gap}'
 if args.ground_gravity: name += '-gravity'
 if args.ground_lagoon: name += '-lagoon'
 if args.disable_ground_support: name += '-support-disabled'
@@ -313,6 +335,8 @@ if args.disable_carver_adapter:
     name += '-native-carvers'
 if args.minimal:
     name += '-minimal'
+if args.village_stack:name += '-village-stack'
+if args.with_c2me:name += '-c2me'
 if args.audio: name = f'audio-{args.audio}'
 if args.structure_id: name += '-' + args.structure_id.replace(':', '-').replace('/', '-')
 if args.layouts_only: name += '-layouts'
@@ -350,6 +374,9 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
     if args.configuration_release:prepare_writer_installation('install')
     (run / 'libraries').symlink_to(server / 'libraries', target_is_directory=True)
     (run / 'mods').mkdir()
+    village_mods={'sky_archipelago','ctov','lithostitched','apollib','bettervillage','libraryferret','t_and_t','cristellib'}
+    if args.with_c2me:village_mods.add('c2me')
+    found_village_mods=set()
     for source in (server / 'mods').glob('*.jar'):
         with zipfile.ZipFile(source) as jar:
             metadata = (tomllib.loads(jar.read('META-INF/neoforge.mods.toml').decode())
@@ -362,13 +389,19 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
         if retired: raise SystemExit('Remove retired integration artifacts from fixture inputs: ' + ', '.join(sorted(retired)))
         if 'skyweave_compat' in ids:
             continue
-        if args.minimal or (args.audio and args.audio != 'full'):
+        if args.minimal or args.village_stack or (args.audio and args.audio != 'full'):
             selected = set() if args.wayfinder and args.minimal else {'sky_archipelago'}
+            if args.village_stack:selected.update(village_mods)
             if args.audio in ('create', 'pair'): selected.add('create')
             if args.audio in ('analog', 'pair'): selected.add('analogaudio')
             if not ids & selected:
                 continue
         (run / 'mods' / source.name).symlink_to(source)
+        found_village_mods.update(ids & village_mods)
+    # The pinned Lithostitched embeds Apollib; NeoForge validates its nested dependency.
+    required_village_mods=village_mods-{'apollib'}
+    if args.village_stack and not required_village_mods<=found_village_mods:
+        raise SystemExit('Village fixture is missing: '+', '.join(sorted(required_village_mods-found_village_mods)))
     if args.minimal and not args.wayfinder and len(list((run / 'mods').glob('*.jar'))) != 1:
         raise SystemExit('Minimal run requires exactly one installed Sky Archipelago JAR')
     if args.audio and args.audio != 'full':
@@ -417,7 +450,12 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
     if args.dynamic_waters:
         # VANILLA disables Dynamic Waters' continental network and ridge rewriting;
         # NONE also rewrites ridges, changing the climate underneath the island preset.
-        (run / 'config/dynamicwaters-common.toml').write_text('[Generation]\nnormalRiverMode = "VANILLA"\n')
+        dw_config=run / 'config/dynamicwaters-common.toml'
+        if dw_config.exists():
+            text,count=re.subn(r'(?m)^([ \t]*normalRiverMode[ \t]*=[ \t]*)"[^"\n]*"',r'\g<1>"VANILLA"',dw_config.read_text())
+            if count!=1:raise SystemExit('Unrecognized Dynamic Waters fixture configuration')
+            dw_config.write_text(text)
+        else:dw_config.write_text('[Generation]\nnormalRiverMode = "VANILLA"\n')
     feature_file = run / 'config/skyweave/skyweave_compat-features.properties'
     feature_settings = {}
     if feature_file.exists():
@@ -578,6 +616,7 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
                f'-Dneighbors.probe.perimeter={str(args.perimeter).lower()}',
                f'-Dneighbors.probe.hydrology={str(args.hydrology).lower()}',
                f'-Dneighbors.probe.drainageOnly={str(args.drainage_only).lower()}',
+               f'-Dneighbors.probe.waterEmitters={str(args.water_emitters).lower()}',
                *([f'-Dneighbors.probe.waterWitnesses={args.water_witnesses.resolve()}'] if args.water_witnesses else []),
                f'-Dneighbors.probe.climateOnly={str(args.climate_only).lower()}',
                f'-Dneighbors.probe.cityWitness={str(args.city_witness).lower()}',
@@ -592,6 +631,10 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
                f'-Dneighbors.probe.villageSupport={str(args.village_support).lower()}',
                f'-Dneighbors.probe.naturalInputs={str(args.natural_inputs).lower()}',
                f'-Dneighbors.probe.groundVillage={str(args.ground_village).lower()}',
+               f'-Dneighbors.probe.groundTemplate={args.ground_template}',
+               f'-Dneighbors.probe.groundRotation={args.ground_rotation}',
+               f'-Dneighbors.probe.groundTicks={args.ground_ticks}',
+               f'-Dneighbors.probe.groundGap={args.ground_gap}',
                f'-Dneighbors.probe.cityRecipe={str(args.city_recipe).lower()}',
                f'-Dneighbors.probe.biomes={str(args.biomes).lower()}',
                f'-Dneighbors.probe.mechanics={str(args.mechanics).lower()}',
@@ -664,7 +707,7 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
 
         if args.water or args.oceans: data['waterSearchRadius'] = args.water_radius
         data['peakResidentBytes'] = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss * (1 if sys.platform == 'darwin' else 1024)
-        data['modSelection'] = args.audio or ('minimal' if args.minimal else 'full')
+        data['modSelection'] = args.audio or ('minimal' if args.minimal else 'village-stack' if args.village_stack else 'full')
         data['installedJars'] = sorted(path.name for path in (run / 'mods').glob('*.jar'))
         if args.dynamic_waters:
             data['dynamicWatersConfig'] = (run / 'config/dynamicwaters-common.toml').read_text()
@@ -687,7 +730,8 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
                                  if path.name in {'skyweave_compat-generation.json', 'skyweave_compat-shapes.json', 'skyweave_compat-interiors.json',
                                                   'skyweave_compat-rivers.json', 'skyweave_compat-oceans.json', 'skyweave_compat-climate.json',
                                                   'skyweave_compat-ancient-cities.json', 'skyweave_compat-structures.json', 'skyweave_compat-search.json'}}
-        artifacts = list((run / 'mods').glob('*.jar')) if args.audio else [mod, fixture]
+        # Fingerprint the immutable staged inputs, even if a local build completes during the run.
+        artifacts = list((run / 'mods').glob('*.jar')) if args.audio else [run / 'mods' / mod.name, run / 'mods' / fixture.name]
         data['artifacts'] = {path.name: hashlib.sha256((run / 'mods' / path.name).read_bytes()).hexdigest() for path in artifacts}
         report.write_text(json.dumps(data, indent=2) + '\n')
     def launch(log_path):

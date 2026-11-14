@@ -17,6 +17,10 @@ public final class HydrologyProbe {
     private static Path tickOutput;
     private static JsonObject tickReport;
     private static int remaining, elapsed;
+    private static int flowWaitTicks;
+    private static long flowReadinessDeadline;
+    private static boolean flowReady;
+    private static net.minecraft.server.level.ServerPlayer flowPlayer;
     private static JsonObject regressionFixture;
     private static final Map<String, JsonObject> generationStages = new HashMap<>();
     private static final Map<String, JsonArray> climateWrites = new HashMap<>();
@@ -125,6 +129,14 @@ public final class HydrologyProbe {
         } else run(server, output);
         if (regression != null) {
             var report=JsonParser.parseString(Files.readString(output)).getAsJsonObject();report.add("regressionSites",regression);
+            report.addProperty("complete",false);
+            Files.writeString(output,new GsonBuilder().setPrettyPrinting().create().toJson(report)+"\n");
+            if(regressionFixture.has("outlet"))report.add("outletPlanning",WaterOutletProbe.planning(server,regressionFixture));
+            if(Boolean.getBoolean("neighbors.probe.waterEmitters")) {
+                report.add("emitterControls",WaterEmissionControls.run(server,regressionFixture));
+                report.add("outletDeterminism",WaterOutletProbe.determinism(server,regressionFixture));
+            }
+            report.addProperty("complete",true);
             Files.writeString(output,new GsonBuilder().setPrettyPrinting().create().toJson(report)+"\n");
         }
         if (ticks == 0) { server.halt(false); return; }
@@ -137,11 +149,27 @@ public final class HydrologyProbe {
         if(tickReport.has("regressionSites"))for(var entry:tickReport.getAsJsonArray("regressionSites")) {
             var site=entry.getAsJsonObject();server.overworld().setChunkForced(Math.floorDiv(site.get("x").getAsInt(),16),Math.floorDiv(site.get("z").getAsInt(),16),true);
         }
+        if(regressionFixture!=null && regressionFixture.has("outlet")) {
+            var point=tickReport.getAsJsonArray("regressionSites").get(0).getAsJsonObject();
+            flowPlayer=ProbePlayers.stationary(server,"OutletProbe",new net.minecraft.core.BlockPos(point.get("x").getAsInt(),point.get("waterY").getAsInt()+12,point.get("z").getAsInt()));
+            flowReadinessDeadline=System.nanoTime()+java.util.concurrent.TimeUnit.SECONDS.toNanos(120);
+        } else flowReady=true;
         Files.writeString(output, new GsonBuilder().setPrettyPrinting().create().toJson(tickReport) + "\n");
     }
 
     static void tick(MinecraftServer server) {
         if (remaining == 0) return;
+        if(!flowReady) {
+            try {
+                if(flowWaitTicks++%10!=0)return;
+                flowReady=WaterOutletProbe.flow(server,regressionFixture,false).get("voidFlowCells").getAsInt()>0;
+                if(!flowReady && System.nanoTime()<flowReadinessDeadline)return;
+                if(!flowReady)throw new AssertionError("Native outlet never began flowing in the loaded fixture");
+                tickReport.addProperty("flowReadinessWaitTicks",flowWaitTicks);
+            } catch(Throwable failure) {
+                tickReport.addProperty("complete",false);tickReport.addProperty("error",failure.toString());remaining=1;
+            }
+        }
         elapsed++;
         if (--remaining != 0) return;
         try {
@@ -163,6 +191,7 @@ public final class HydrologyProbe {
                     && (tickReport.getAsJsonArray("outlets").isEmpty() || falls == 0))
                 throw new AssertionError("No naturally flowing island outlet: " + tickReport.get("outlets"));
             tickReport.addProperty("fluidTicks", elapsed); tickReport.addProperty("flowingOutlets", falls);
+            if(regressionFixture!=null && regressionFixture.has("outlet"))tickReport.add("outletFlow",WaterOutletProbe.flow(server,regressionFixture));
             if(tickReport.has("regressionSites"))for(var entry:tickReport.getAsJsonArray("regressionSites")) {
                 var site=entry.getAsJsonObject();var pos=new net.minecraft.core.BlockPos(site.get("x").getAsInt(),site.get("waterY").getAsInt(),site.get("z").getAsInt());
                 boolean wet=level.getFluidState(pos).is(net.minecraft.tags.FluidTags.WATER);site.addProperty("wetAfterTicks",wet);
@@ -172,17 +201,22 @@ public final class HydrologyProbe {
                 }
                 if(site.has("expectedNonAir") && site.get("expectedNonAir").getAsBoolean() && level.getBlockState(pos).isAir())
                     throw new AssertionError("Waterline hole returned after ticks: "+pos);
+                if(site.has("expectedBlock") && !site.get("expectedBlock").getAsString().equals(
+                        net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(level.getBlockState(pos).getBlock()).toString()))
+                    throw new AssertionError("Expected outlet block changed after ticks: "+pos+" "+level.getBlockState(pos));
                 site.addProperty("blockAfterTicks",level.getBlockState(pos).toString());
             }
-            tickReport.addProperty("complete", true);
+            tickReport.addProperty("complete", !tickReport.has("error"));
         } catch (Throwable error) { tickReport.addProperty("error", error.toString()); error.printStackTrace(); }
         try { Files.writeString(tickOutput, new GsonBuilder().setPrettyPrinting().create().toJson(tickReport) + "\n"); }
         catch (java.io.IOException error) { throw new java.io.UncheckedIOException(error); }
+        if(flowPlayer!=null)server.getPlayerList().remove(flowPlayer);
         server.halt(false);
     }
     private static JsonArray witnessStages(MinecraftServer server) throws Exception {
         String filename=System.getProperty("neighbors.probe.waterWitnesses","");if(filename.isEmpty())return null;
         var fixture=JsonParser.parseString(Files.readString(Path.of(filename))).getAsJsonObject();
+        regressionFixture=fixture;
         var level=server.overworld();if(level.getSeed()!=fixture.get("seed").getAsLong())throw new AssertionError("Wrong regression seed");
         var rows=new JsonArray();
         for(var entry:fixture.getAsJsonArray("points")) {

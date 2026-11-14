@@ -11,6 +11,7 @@ import java.util.List;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.TagParser;
+import net.minecraft.nbt.*;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
@@ -67,6 +68,78 @@ final class VillageRawIntentControls {
             saved.forEach((at,state)->level.getChunkAt(at).setBlockState(at,state,false));
         }
         var result=new JsonObject();result.addProperty("native_positions",cases);result.addProperty("selected_palette_variants",variants.size());
+        result.addProperty("embedding_bearing_cases",embeddings(level,view,node));
+        result.add("installedTemplateBearings",installedTemplates(level,node));
         result.addProperty("above_floor_decoration_excluded",true);result.addProperty("actual_native_outputs_match",true);return result;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static com.google.gson.JsonArray installedTemplates(ServerLevel level,java.lang.reflect.Method node) throws Exception {
+        var rows=new com.google.gson.JsonArray();var manager=level.getServer().getStructureManager();
+        var counts=java.util.Map.of("ctov:village/mountain/house/small_1",34,
+                "ctov:village/mountain/house/small_2",43,"ctov:village/mountain/jobsite/butcher",11);
+        for(var entry:counts.entrySet().stream().sorted(java.util.Map.Entry.comparingByKey()).toList()) {
+            var id=ResourceLocation.parse(entry.getKey());if(manager.get(id).isEmpty())continue;
+            for(var rotation:Rotation.values()) {
+                var element=StructurePoolElement.single(id.toString()).apply(StructureTemplatePool.Projection.RIGID);var origin=new BlockPos(8,700,8);
+                var piece=new PoolElementStructurePiece(manager,element,origin,element.getGroundLevelDelta(),rotation,
+                        element.getBoundingBox(manager,origin,rotation),LiquidSettings.APPLY_WATERLOGGING);
+                var bounds=piece.getBoundingBox();var chunks=new java.util.ArrayList<net.minecraft.world.level.chunk.ChunkAccess>();
+                for(int cx=Math.floorDiv(bounds.minX()-2,16);cx<=Math.floorDiv(bounds.maxX()+2,16);cx++)
+                    for(int cz=Math.floorDiv(bounds.minZ()-2,16);cz<=Math.floorDiv(bounds.maxZ()+2,16);cz++)chunks.add(level.getChunk(cx,cz));
+                var captured=StructureTerrainView.capture(level.getSeed(),level.registryAccess(),chunks);
+                var compiled=VillageFootprint.compile(piece,0,origin,manager,captured,new VillageFootprint.Budget(),null);
+                check(compiled.qualified() && compiled.feet().size()==entry.getValue(),"Installed template bearing changed: "+id+" "+rotation+" "+compiled.reason());
+                var description=node.invoke(null,piece,manager);var accessor=description.getClass().getDeclaredMethod("feet");accessor.setAccessible(true);
+                var predicted=(List<FoundationSupport.Foot>)accessor.invoke(description);
+                check(predicted.stream().map(f->new BlockPos(f.x(),f.y(),f.z())).collect(java.util.stream.Collectors.toSet())
+                        .equals(compiled.feet().stream().map(VillageFootprint.Foot::position).collect(java.util.stream.Collectors.toSet())),
+                        "Installed template early/processed bearing differs: "+id+" "+rotation);
+                var row=new JsonObject();row.addProperty("template",id.toString());row.addProperty("rotation",rotation.name());
+                row.addProperty("feet",compiled.feet().size());rows.add(row);
+            }
+        }
+        return rows;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static int embeddings(ServerLevel level,StructureTerrainView view,java.lang.reflect.Method node) throws Exception {
+        var manager=level.getServer().getStructureManager();var id=ResourceLocation.parse("skyweave_compat:probe/embedding_bearings");
+        var template=manager.getOrCreate(id);int cases=0;
+        var topStair=net.minecraft.world.level.block.Blocks.BIRCH_STAIRS.defaultBlockState().setValue(
+                net.minecraft.world.level.block.state.properties.BlockStateProperties.HALF,net.minecraft.world.level.block.state.properties.Half.TOP);
+        var topSlab=net.minecraft.world.level.block.Blocks.BIRCH_SLAB.defaultBlockState().setValue(
+                net.minecraft.world.level.block.state.properties.BlockStateProperties.SLAB_TYPE,net.minecraft.world.level.block.state.properties.SlabType.TOP);
+        var scaffold=net.minecraft.world.level.block.Blocks.SCAFFOLDING.defaultBlockState().setValue(net.minecraft.world.level.block.ScaffoldingBlock.DISTANCE,0);
+        var states=List.of(net.minecraft.world.level.block.Blocks.CAMPFIRE.defaultBlockState(),net.minecraft.world.level.block.Blocks.SOUL_CAMPFIRE.defaultBlockState(),
+                net.minecraft.world.level.block.Blocks.BARREL.defaultBlockState(),net.minecraft.world.level.block.Blocks.FURNACE.defaultBlockState(),
+                net.minecraft.world.level.block.Blocks.OAK_FENCE.defaultBlockState(),net.minecraft.world.level.block.Blocks.COBBLESTONE_WALL.defaultBlockState(),topStair,scaffold,
+                topSlab,scaffold.setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.WATERLOGGED,true),
+                net.minecraft.world.level.block.Blocks.SHULKER_BOX.defaultBlockState());
+        for(int index=0;index<states.size();index++)for(var rotation:Rotation.values()) {
+            var state=states.get(index);var tag=TagParser.parseTag("""
+                    {size:[4,2,1],palette:[],blocks:[{pos:[0,0,0],state:0},{pos:[2,0,0],state:1},{pos:[2,1,0],state:0}],entities:[]}
+                    """);
+            var palette=new ListTag();palette.add(NbtUtils.writeBlockState(net.minecraft.world.level.block.Blocks.STONE.defaultBlockState()));palette.add(NbtUtils.writeBlockState(state));tag.put("palette",palette);
+            template.load(level.registryAccess().lookupOrThrow(Registries.BLOCK),tag);
+            var element=StructurePoolElement.single(id.toString()).apply(StructureTemplatePool.Projection.RIGID);var origin=new BlockPos(8,700,8);
+            var piece=new PoolElementStructurePiece(manager,element,origin,1,rotation,element.getBoundingBox(manager,origin,rotation),LiquidSettings.APPLY_WATERLOGGING);
+            var compiled=VillageFootprint.compile(piece,0,origin,manager,view,new VillageFootprint.Budget(),null);
+            var description=node.invoke(null,piece,manager);var accessor=description.getClass().getDeclaredMethod("feet");accessor.setAccessible(true);
+            var predicted=(List<FoundationSupport.Foot>)accessor.invoke(description);
+            var refusal=description.getClass().getDeclaredMethod("refusal");refusal.setAccessible(true);
+            if(index>=9) {
+                check(compiled.status()==VillageFootprint.Status.UNSUPPORTED && compiled.feet().isEmpty() && predicted.isEmpty() && refusal.invoke(description)!=null,
+                        "Wet/unknown embedding acquired partial or promoted support: "+state+" "+compiled.reason());
+            } else {
+                check(refusal.invoke(description)==null,"Known native bearing acquired an early refusal");
+                int expected=index==8?1:2;check(compiled.qualified() && compiled.feet().size()==expected,"Embedding bearing mismatch: "+state);
+                var early=predicted.stream().map(f->new BlockPos(f.x(),f.y(),f.z())).collect(java.util.stream.Collectors.toSet());
+                check(early.equals(compiled.feet().stream().map(VillageFootprint.Foot::position).collect(java.util.stream.Collectors.toSet())),"Raw/processed bearing policy diverged");
+                check(compiled.feet().stream().allMatch(f->f.original().getY()==0),"An embedding exclusion promoted the roof");
+            }
+            cases++;
+        }
+        return cases;
     }
 }

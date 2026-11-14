@@ -29,6 +29,7 @@ final class VillageFootprintProbe {
         var report=new JsonObject();var rows=new JsonArray();report.add("placements",rows);
         try {
             var level=server.overworld();var manager=server.getStructureManager();
+            report.add("terrainOverlayControls",TerrainOverlayControls.run(level));
             report.addProperty("processorGraphControls",VillageProcessorControls.run(level.registryAccess()));
             var receipt=server.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).resolve("village-support-probe.json");
             if(Files.isRegularFile(receipt)) {
@@ -190,13 +191,25 @@ final class VillageFootprintProbe {
             var expected=level.getBlockState(at);chunk.setBlockState(at,Blocks.AIR.defaultBlockState(),false);
             var refusal=VillageFoundation.realize(one,chunk);check(refusal.writes()==0 && refusal.outcomes().get(first.foot())==VillageFoundation.Outcome.CHANGED_FOOT,"Changed foot acquired support");
             chunk.setBlockState(at,expected,false);controls++;
-            for(var post:List.of(Blocks.OAK_FENCE.defaultBlockState(),Blocks.COBBLESTONE_WALL.defaultBlockState())) {
+            for(var post:List.of(Blocks.OAK_FENCE.defaultBlockState(),Blocks.COBBLESTONE_WALL.defaultBlockState(),
+                    Blocks.BIRCH_STAIRS.defaultBlockState().setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.HALF,
+                            net.minecraft.world.level.block.state.properties.Half.TOP),
+                    Blocks.SCAFFOLDING.defaultBlockState().setValue(net.minecraft.world.level.block.ScaffoldingBlock.DISTANCE,0),
+                    Blocks.CAMPFIRE.defaultBlockState().setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.LIT,false),
+                    Blocks.BARREL.defaultBlockState(),Blocks.FURNACE.defaultBlockState())) {
                 var postFoot=new VillageFootprint.Foot(first.foot().template(),104,at,first.foot().original(),post);
-                chunk.setBlockState(at,post,false);
+                level.setBlock(at,post,2);
+                var entity=level.getBlockEntity(at);
+                if(entity instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity campfire)
+                    campfire.getItems().set(0,new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.POTATO));
+                var nbt=entity==null?null:entity.saveWithFullMetadata(level.registryAccess());
                 var postPlan=VillageFoundation.plan(List.of(postFoot),view,(x,z)->natural,3);
                 var supported=VillageFoundation.realize(postPlan,chunk);
                 check(supported.writes()==3 && supported.outcomes().values().stream().allMatch(VillageFoundation::successful)
                         && chunk.getBlockState(at).equals(post),"Narrow native structural post lost contact or changed shape");
+                if(entity!=null)check(level.getBlockEntity(at)==entity && entity.saveWithFullMetadata(level.registryAccess()).equals(nbt),
+                        "Support changed embedded block entity or contents");
+                if(post.is(Blocks.SCAFFOLDING))check(net.minecraft.world.level.block.ScaffoldingBlock.getDistance(level,at)==0,"Repaired scaffold has no native contact");
                 for(var reset:first.fills())chunk.setBlockState(reset.position(),reset.original(),false);controls++;
             }
             boolean rejected=false;
@@ -205,6 +218,10 @@ final class VillageFootprintProbe {
             catch(IllegalArgumentException expectedRejection) {rejected=true;}
             check(rejected,"A hanging fixture became an architectural support post");controls++;
             chunk.setBlockState(at,expected,false);
+            var tooFar=VillageFoundation.plan(List.of(first.foot()),view,(x,z)->natural,2);
+            var refusedDepth=VillageFoundation.realize(tooFar,chunk);
+            check(refusedDepth.writes()==0 && refusedDepth.outcomes().get(first.foot())==VillageFoundation.Outcome.VOID,
+                    "Three-block fixture exceeded an explicit two-block repair allowance");controls++;
             chunk.setBlockState(first.source(),Blocks.BRICKS.defaultBlockState(),false);
             refusal=VillageFoundation.realize(one,chunk);check(refusal.writes()==0 && refusal.outcomes().get(first.foot())==VillageFoundation.Outcome.CHANGED_SOURCE,"Foreign source acquired support");
             chunk.setBlockState(first.source(),first.sourceState(),false);controls++;

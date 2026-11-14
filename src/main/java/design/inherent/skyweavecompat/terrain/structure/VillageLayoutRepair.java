@@ -25,9 +25,9 @@ import org.sathrek.sky_archipelago.worldgen.generator.terrain.SkyIslandChunkTerr
 /** Read-only support and connector qualification, shared by native planning and commitment. */
 public final class VillageLayoutRepair {
     public enum Role { CENTER, ROAD, BUILDING, FARM, DECORATION }
-    private record Geometry(List<FoundationSupport.Foot> feet, boolean farm,long plane) {}
+    private record Geometry(List<FoundationSupport.Foot> feet, boolean farm,long plane,VillageBearing.Kind refusal) {}
     record Node(StructurePiece piece, Role role, List<FoundationSupport.Foot> feet,
-            List<StructureTemplate.StructureBlockInfo> ports, boolean projected) {}
+            List<StructureTemplate.StructureBlockInfo> ports, boolean projected,VillageBearing.Kind refusal) {}
     private record Port(int node, StructureTemplate.StructureBlockInfo info) {}
     private static final Cache<StructureTemplate.Palette, Geometry> GEOMETRY = CacheBuilder.newBuilder().weakKeys().maximumSize(512).build();
     private static final ThreadLocal<Integer> ORIGINAL_BUILDINGS = new ThreadLocal<>();
@@ -132,6 +132,13 @@ public final class VillageLayoutRepair {
             if (portCount>MAX_PORTS) {
                 VillageDecisionTrace.emit(original,"layout_support","PORT_BUDGET",Map.of("ports",portCount,"limit",MAX_PORTS));return List.of();
             }
+            if(node.refusal()!=null) {
+                StructureBenchmarkRecorder.increment("skyweaveVillageUnknownBearing."+node.role());
+                VillageDecisionTrace.emit(original,"piece_support","UNKNOWN_FOOTPRINT",Map.of(
+                        "piece",nodes.size()-1,"role",node.role(),"template",templateName(piece),
+                        "bounds",piece.getBoundingBox().toString(),"cause",node.refusal().name()));
+                continue;
+            }
             if (node.role()==Role.DECORATION && node.feet().isEmpty()) continue;
             var feet=node.feet();
             if (node.projected()) feet=feet.stream().map(foot -> {
@@ -198,7 +205,7 @@ public final class VillageLayoutRepair {
             VillageDecisionTrace.emit(original,"layout_support","RETAINED_BUILDINGS",Map.of("original",buildings,
                     "retained",retainedBuildings,"requiredFraction",policy.minimumRetainedBuildings()));result.clear();
         }
-        if (!result.isEmpty()) for (int i=0;i<nodes.size();i++) if (!retained.contains(i) && nodes.get(i).role()==Role.DECORATION
+        if (!result.isEmpty()) for (int i=0;i<nodes.size();i++) if (!retained.contains(i) && nodes.get(i).role()==Role.DECORATION && nodes.get(i).refusal()==null
                 && (nodes.get(i).feet().isEmpty() || supported.contains(i))) {
             // Proximity may retain footless authored decoration; it cannot overturn
             // an explicit unsupported-foot decision and float a statue into the void.
@@ -220,14 +227,14 @@ public final class VillageLayoutRepair {
     }
 
     static Node node(StructurePiece piece,StructureTemplateManager templates) {
-        if (!(piece instanceof PoolElementStructurePiece pool)) return new Node(piece,Role.DECORATION,List.of(),List.of(),false);
+        if (!(piece instanceof PoolElementStructurePiece pool)) return new Node(piece,Role.DECORATION,List.of(),List.of(),false,null);
         StructurePoolElement element=pool.getElement();
         for(int depth=0;element instanceof VillageDelegate delegate && depth<8;depth++)element=delegate.skyweave$delegate();
-        if (!(element instanceof SinglePoolElement single)) return new Node(piece,Role.DECORATION,List.of(),List.of(),false);
+        if (!(element instanceof SinglePoolElement single)) return new Node(piece,Role.DECORATION,List.of(),List.of(),false,null);
         var access=(VillageTemplateAccess)single;
         var template=access.skyweave$template(templates);
         var palettes=((VillagePaletteAccess)template).skyweave$palettes();
-        if(palettes.isEmpty())return new Node(piece,Role.DECORATION,List.of(),List.of(),false);
+        if(palettes.isEmpty())return new Node(piece,Role.DECORATION,List.of(),List.of(),false,null);
         var palette=access.skyweave$settings(pool.getRotation(),piece.getBoundingBox(),
                 net.minecraft.world.level.levelgen.structure.templatesystem.LiquidSettings.APPLY_WATERLOGGING,false)
                 .getRandomPalette(palettes,pool.getPosition());
@@ -242,7 +249,7 @@ public final class VillageLayoutRepair {
             return new FoundationSupport.Foot(pos.getX(),pos.getY(),pos.getZ());
         }).toList();
         var ports=pool.getElement().getShuffledJigsawBlocks(templates,pool.getPosition(),pool.getRotation(),net.minecraft.util.RandomSource.create(0));
-        return new Node(piece,role,feet,ports,pool.getElement().getProjection()==StructureTemplatePool.Projection.TERRAIN_MATCHING);
+        return new Node(piece,role,feet,ports,pool.getElement().getProjection()==StructureTemplatePool.Projection.TERRAIN_MATCHING,geometry.refusal());
     }
 
     private static Role role(String path,Geometry geometry) {
@@ -255,8 +262,10 @@ public final class VillageLayoutRepair {
 
     private static Geometry geometry(StructureTemplate.Palette palette,long plane) {
         boolean farm=palette.blocks().stream().anyMatch(block->block.state().is(Blocks.FARMLAND));
-        var feet=VillageFootprint.roots(palette.blocks(),plane).stream().map(block->
+        var roots=VillageFootprint.roots(palette.blocks(),plane);
+        var refusal=roots.stream().map(block->VillageBearing.classify(block.state())).filter(VillageBearing.Kind::unavailable).findFirst().orElse(null);
+        var feet=roots.stream().filter(block->VillageBearing.classify(block.state()).bearing()).map(block->
                 new FoundationSupport.Foot(block.pos().getX(),block.pos().getY(),block.pos().getZ())).toList();
-        return new Geometry(feet,farm,plane);
+        return new Geometry(refusal!=null?List.of():feet,farm,plane,refusal);
     }
 }

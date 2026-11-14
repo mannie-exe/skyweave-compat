@@ -4,15 +4,9 @@ import design.inherent.skyweavecompat.mixin.VillagePaletteAccess;
 import design.inherent.skyweavecompat.mixin.VillageTemplateAccess;
 import java.util.*;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.EmptyBlockGetter;
 import net.minecraft.world.level.LevelReader;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.FenceBlock;
-import net.minecraft.world.level.block.WallBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.levelgen.structure.PoolElementStructurePiece;
@@ -25,7 +19,7 @@ public final class VillageFootprint {
     public record Foot(ResourceLocation template,int piece,BlockPos position,BlockPos original,BlockState expected) {
         public Foot {
             Objects.requireNonNull(template);position=position.immutable();original=original.immutable();
-            if(piece<0 || piece>=Budget.MAX_PIECES || !foot(Objects.requireNonNull(expected)))
+            if(piece<0 || piece>=Budget.MAX_PIECES || !VillageBearing.classify(Objects.requireNonNull(expected)).bearing())
                 throw new IllegalArgumentException("Invalid processed structural foot");
         }
     }
@@ -45,29 +39,16 @@ public final class VillageFootprint {
     }
     private VillageFootprint() {}
     private static Result unavailable(Status status,String reason) { return new Result(status,reason,List.of(),0,0); }
-    private static boolean structural(BlockState state) {
-        return state.blocksMotion() && state.getFluidState().isEmpty() && !state.is(BlockTags.LEAVES)
-                && !state.is(Blocks.JIGSAW) && !state.is(Blocks.STRUCTURE_BLOCK) && !state.is(Blocks.STRUCTURE_VOID);
-    }
     /** Raw authored intent shared by early fitting and native material preparation. */
     static List<StructureTemplate.StructureBlockInfo> roots(List<StructureTemplate.StructureBlockInfo> raw,long plane) {
         var lowest=new HashMap<Long,StructureTemplate.StructureBlockInfo>();
         for(var block:raw) {
-            if(!structural(block.state()))continue;
+            if(!VillageBearing.root(block.state()))continue;
             var pos=block.pos();long key=FoundationSupport.key(pos.getX(),pos.getZ());var previous=lowest.get(key);
             if(previous==null || pos.getY()<previous.pos().getY())lowest.put(key,block);
         }
         return lowest.values().stream().filter(block->block.pos().getY()<=plane)
                 .sorted(Comparator.comparing(StructureTemplate.StructureBlockInfo::pos)).toList();
-    }
-    private static boolean foot(BlockState state) {
-        if(state.hasBlockEntity() || state.getBlock().hasDynamicShape() || !state.getFluidState().isEmpty())return false;
-        if(state.isFaceSturdy(EmptyBlockGetter.INSTANCE,BlockPos.ZERO,Direction.DOWN))return true;
-        // Authored lowest roots at the declared floor also include narrow native
-        // architectural posts; a full square bottom face is not their geometry.
-        if(!(state.getBlock() instanceof FenceBlock || state.getBlock() instanceof WallBlock))return false;
-        var shape=state.getBlockSupportShape(EmptyBlockGetter.INSTANCE,BlockPos.ZERO);
-        return !shape.isEmpty() && shape.min(Direction.Axis.Y)==0;
     }
     private static final class Trace extends StructureProcessor {
         final Map<StructureTemplate.StructureBlockInfo,StructureTemplate.StructureBlockInfo> origins=new IdentityHashMap<>();
@@ -114,9 +95,10 @@ public final class VillageFootprint {
         for(var rawFoot:roots(raw,plane)) {
             var transformed=StructureTemplate.calculateRelativePosition(settings,rawFoot.pos()).offset(piece.getPosition());
             if(clip!=null && !clip.isInside(transformed))continue;
-            if(rawFoot.state().hasBlockEntity() || rawFoot.state().getBlock().hasDynamicShape())
-                return unavailable(Status.UNSUPPORTED,"dynamic_raw_foot");
-            if(foot(rawFoot.state()))candidates.add(rawFoot);
+            var bearing=VillageBearing.classify(rawFoot.state());
+            if(bearing.unavailable())
+                return unavailable(Status.UNSUPPORTED,bearing==VillageBearing.Kind.WET?"wet_raw_bearing":"unknown_raw_bearing");
+            if(bearing.bearing())candidates.add(rawFoot);
         }
         candidates.sort(Comparator.comparing(StructureTemplate.StructureBlockInfo::pos));
         if(!budget.feet(candidates.size()))return unavailable(Status.BUDGET,"feet");
@@ -130,7 +112,10 @@ public final class VillageFootprint {
             var original=trace.origins.get(block);
             if(original==null)return unavailable(Status.UNSUPPORTED,"untracked_processor_output");
             var expected=block.state().mirror(settings.getMirror()).rotate(settings.getRotation());
-            if(!foot(expected))continue;
+            var bearing=VillageBearing.classify(expected);
+            if(bearing.unavailable())return unavailable(Status.UNSUPPORTED,
+                    bearing==VillageBearing.Kind.WET?"wet_processed_bearing":"unknown_processed_bearing");
+            if(!bearing.bearing())continue;
             if(!terrain.contains(block.pos()))return unavailable(Status.UNSUPPORTED,"uncaptured_foot");
             var transformed=StructureTemplate.calculateRelativePosition(settings,original.pos()).offset(piece.getPosition());
             if(block.pos().getX()!=transformed.getX() || block.pos().getZ()!=transformed.getZ())
