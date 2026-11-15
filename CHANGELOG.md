@@ -2,6 +2,16 @@
 
 Generated from Git history. Player-facing release summaries are in [release notes](RELEASE_NOTES.md).
 
+## v0.36.0 · 2026-11-15
+
+### Fixes
+
+- **worldgen:** Bound river repairs and village placement ([8aa3406](https://github.com/mannie-exe/skyweave-compat/commit/8aa3406ae28a008ca20d42921672faba9c2b7a9e))
+
+### Documentation
+
+- Distinguish published and local artifacts ([d59ec93](https://github.com/mannie-exe/skyweave-compat/commit/d59ec9367d73094df3f72aaa5fe9b87311c6646d))
+
 ## v0.35.0 · 2026-11-14
 
 ### Fixes
