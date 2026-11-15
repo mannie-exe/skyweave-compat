@@ -210,7 +210,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                 case YUNG_STRUCTURES -> List.of("YungStructureMixin", "YungBuriedSupportMixin", "YungReplacementMixin", "YungPolicyStateMixin");
                 case YUNG_MINESHAFTS -> List.of("YungMineshaftStructureMixin", "YungMineshaftEntranceMixin", "YungMineshaftSupportMixin", "YungMineshaftFitMixin");
                 case YUNG_WITCH_HUTS -> List.of("YungHutSupportMixin");
-                case GROUND_SUPPORT -> List.of("NaturalStructureCaptureMixin", "StructureBeardifierAccess", "GroundVillageTerrainMixin", "GroundVillagePieceMixin", "GroundVillageBoulderMixin", "GroundVillageLakeMixin", "GroundVillageDiskMixin", "GroundVillageSimpleBlockMixin", "GroundVillageOreMixin", "GroundVillageTreeMixin", "GroundVillageOutputMixin", "GroundVillageProjectionMixin", "GroundVillageTemplateMixin", "GroundVillageCarvingMixin", "GroundVillageCarverBlockMixin");
+                case GROUND_SUPPORT -> List.of("NaturalStructureCaptureMixin", "StructureBeardifierAccess", "GroundVillageTerrainMixin", "GroundVillagePieceMixin", "GroundVillageBoulderMixin", "GroundVillageLakeMixin", "GroundVillageDiskMixin", "GroundVillageSimpleBlockMixin", "GroundVillageOreMixin", "GroundVillageTreeMixin", "MangroveRootPlacementAccess", "GroundVillageOutputMixin", "GroundVillageProjectionMixin", "GroundVillageTemplateMixin", "GroundVillageCarvingMixin", "GroundVillageCarverBlockMixin");
                 case STRUCTURE_DISTRIBUTION -> List.of("StructurePolicyStateMixin", "GeneratorStructurePolicyMixin", "StructurePolicyCategoryMixin", "StructurePolicyJigsawMixin", "StructurePolicySizeMixin",
                         "StructurePolicyAttemptMixin", "StructurePolicyHostsMixin", "StructurePolicySitesMixin",
                         "StructurePolicyVillageMixin", "StructurePolicyUndergroundMixin", "StructurePolicyPortalHeightMixin",
@@ -230,7 +230,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                         "ShoreProjectionClimateMixin", "RiverProjectionClimateMixin", "ShoreLocatorClimateMixin");
                 case DYNAMIC_WATERS -> List.of("water.WaterTerrainMixin", "water.WaterSinksMixin", "water.WaterSchedulerMixin",
                         "water.WaterGeneratorMixin", "water.WaterFieldMixin", "water.WaterEnvelopeMixin",
-                        "water.WaterBiomeMixin", "water.WaterFlowMixin", "water.WaterOceanFlowMixin", "water.WaterProjectionMixin", "water.WaterStoreMixin", "water.WaterColumnQueryMixin", "water.WaterCutOwnershipMixin");
+                        "water.WaterBiomeMixin", "water.WaterFlowMixin", "water.WaterOceanFlowMixin", "water.WaterProjectionMixin", "water.WaterStoreMixin", "water.WaterColumnQueryMixin", "water.WaterCutOwnershipMixin", "water.WaterRepairMixin");
                 case DYNAMIC_WATERS_SABLE -> List.of("water.WaterSableMixin");
                 case SABLE_CLIMATE -> List.of("SableClimateMixin");
                 case ISLAND_SHADER_ENVIRONMENT -> List.of("client.IslandShaderEnvironmentMixin", "client.ShaderClimateMixin");

@@ -1,0 +1,17 @@
+{
+  "seed": 1565854480729239157,
+  "waterY": 0,
+  "captureColumns": true,
+  "points": [
+    {"x": 1073, "z": -544, "waterY": 0, "expectedBlock": "minecraft:air", "airRanges": [[-128, 303]], "note": "reported bank must not extend beneath original contributor"},
+    {"x": 1073, "z": -544, "waterY": -128, "expectedBlock": "minecraft:air"},
+    {"x": 1073, "z": -544, "waterY": 300, "expectedBlock": "minecraft:air"},
+    {"x": 1073, "z": -544, "waterY": 359, "expectedNonAir": true, "expectedWet": false},
+    {"x": 1072, "z": -543, "waterY": 0, "expectedBlock": "minecraft:air"},
+    {"x": 1074, "z": -545, "waterY": 0, "expectedBlock": "minecraft:air"},
+    {"x": 1071, "z": -542, "waterY": 0, "expectedBlock": "minecraft:air"},
+    {"x": 1069, "z": -547, "waterY": 0, "expectedBlock": "minecraft:air"},
+    {"x": 1069, "z": -547, "waterY": 358, "expectedBlock": "minecraft:water"}
+  ],
+  "weatherSweeps": 0
+}

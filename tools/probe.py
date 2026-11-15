@@ -20,6 +20,8 @@ from fixture_files import copy_owned, stage_configs
 ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--mod', type=Path, help='Exact Skyweave: Compatibility Patches JAR for an isolated comparison; defaults to the local build')
+parser.add_argument('--resource-patches', type=Path, help='Exact candidate Resource Patches JAR for the isolated full-profile fixture')
+parser.add_argument('--placement-followup-controls', action='store_true', help='With --village-pools, qualify native soil and rigid decoration-support controls')
 parser.add_argument('--output-dir', type=Path, help='Retained report/log directory; defaults to build/verification')
 parser.add_argument('--server', type=Path, required=True, help='Installed game directory; read-only input')
 parser.add_argument('--java', default='java')
@@ -97,7 +99,7 @@ parser.add_argument('--disable-sable-climate', action='store_true', help='Disabl
 parser.add_argument('--lookup-structure', default='minecraft:ancient_city', help='Exact structure ID for the native lookup check')
 parser.add_argument('--structure-id', help='Managed family key (such as villages), vanilla structure name, or exact namespaced supported ID')
 parser.add_argument('--settlement-review', choices=['allowances', 'fits', 'census', 'repairs', 'blend', 'search-bounds'], help='With --surface-structures, export bounded family allowance, fitting or search metadata diagnostics')
-parser.add_argument('--village-witness', choices=['fortified','west','savanna','north','lagoon'], help='With settlement repairs, inspect one named native witness rather than the complete historical suite')
+parser.add_argument('--village-witness', choices=['fortified','west','savanna','north','lagoon','swamp','desert'], help='With settlement repairs, inspect one named native witness rather than the complete historical suite')
 parser.add_argument('--sky-neighborhood', action='store_true', help='With --surface-structures, check native close-range Sky Villages and actual host blocks')
 parser.add_argument('--structure-debug', action='store_true', help='Enable native decision logs only in the disposable structure fixture')
 parser.add_argument('--structure-clusters', type=int, default=16, help='Accepted main-island clusters for structure sampling (1..64)')
@@ -156,6 +158,8 @@ if args.search_fixture == 'selectors' and args.search_planning: parser.error('--
 if args.search_fixture == 'time' and not args.search_config: parser.error('--search-fixture time requires an explicit short --search-config')
 if args.require_fractured_overlap and not args.overlap: parser.error('--require-fractured-overlap requires --overlap')
 if args.quests and args.minimal: parser.error('--quests requires the installed FTB runtime')
+if args.placement_followup_controls and not args.village_pools:
+    parser.error('--placement-followup-controls requires --village-pools')
 if args.policy_disabled and not args.access: parser.error('--policy-disabled requires --access')
 if not 0 <= args.search_min_matches <= 65536 or args.search_min_matches and not args.structure_search:
     parser.error('--search-min-matches requires --structure-search and a count from 0 through 65536')
@@ -167,7 +171,8 @@ if args.settlement_review and args.sky_neighborhood:
     parser.error('Select one settlement diagnostic')
 if args.village_witness and args.settlement_review != 'repairs':
     parser.error('--village-witness requires --surface-structures --settlement-review repairs')
-review_seed = -1626161469983550673 if args.village_witness == 'fortified' else -6565383426043466991
+review_seed = (1565854480729239157 if args.village_witness in ('swamp','desert') else
+               -1626161469983550673 if args.village_witness == 'fortified' else -6565383426043466991)
 if args.settlement_review in ('repairs','blend') and args.seed != review_seed:
     parser.error(f'repairs/blend fixture requires the recorded seed {review_seed}')
 if args.ocean_fringes and not args.perimeter: parser.error('--ocean-fringes requires --perimeter')
@@ -389,6 +394,8 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
         if retired: raise SystemExit('Remove retired integration artifacts from fixture inputs: ' + ', '.join(sorted(retired)))
         if 'skyweave_compat' in ids:
             continue
+        if args.resource_patches and 'skyweave_resource_patches' in ids:
+            continue
         if args.minimal or args.village_stack or (args.audio and args.audio != 'full'):
             selected = set() if args.wayfinder and args.minimal else {'sky_archipelago'}
             if args.village_stack:selected.update(village_mods)
@@ -417,6 +424,15 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
             raise SystemExit('Dynamic Waters fixture requires the pinned 13.1.0 NeoForge artifact')
         copy_owned(candidate, run / 'mods' / candidate.name, run)
     copy_owned(mod, run / 'mods' / mod.name, run)
+    if args.resource_patches:
+        candidate = args.resource_patches.expanduser().resolve()
+        with zipfile.ZipFile(candidate) as archive:
+            identity = tomllib.loads(archive.read('META-INF/neoforge.mods.toml').decode())
+        if {entry['modId'] for entry in identity.get('mods', [])} != {'skyweave_resource_patches'}:
+            parser.error('--resource-patches must identify only skyweave_resource_patches')
+        if args.minimal or args.village_stack:
+            parser.error('--resource-patches requires the full profile for its native resource dependencies')
+        copy_owned(candidate, run / 'mods' / candidate.name, run)
     copy_owned(fixture, run / 'mods' / fixture.name, run)
     for folder in ['config', 'defaultconfigs']:
         if not args.configuration_writers and not args.minimal and args.audio in (None, 'full') and (server / folder).exists():
@@ -576,7 +592,7 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
         debug.parent.mkdir(parents=True,exist_ok=True)
         debug.write_text('structureDebugEnabled=true\nstructureDebugBroadcastEnabled=false\nstructureAttemptPillarsEnabled=false\n')
     launch_args = next((server / 'libraries/net/neoforged/neoforge').glob('*/unix_args.txt'))
-    command = [args.java, f'-Xmx{args.heap}',
+    command = [args.java, f'-Xmx{args.heap}', '-XX:+ExitOnOutOfMemoryError',
                f'-Dneighbors.probe.inspectSableDiscovery={str(args.inspect_sable_discovery).lower()}',
                f'-Dneighbors.probe.wayfinder={str(args.wayfinder).lower()}',
                f'-Dneighbors.probe.wayfinderDh={str(args.wayfinder_dh).lower()}',
@@ -599,6 +615,7 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
                f'-Dneighbors.probe.surfaceStructures={str(args.surface_structures).lower()}',
                f'-Dneighbors.probe.coverage={str(args.coverage).lower()}',
                f'-Dneighbors.probe.villagePools={str(args.village_pools).lower()}',
+               f'-Dneighbors.probe.placementFollowup={str(args.placement_followup_controls).lower()}',
                f'-Dneighbors.probe.yung={args.yung or ""}',
                f'-Dneighbors.probe.variation={str(bool(args.variation)).lower()}',
                f'-Dneighbors.probe.variationKind={(args.variation or 'fractured').upper()}',
@@ -943,6 +960,8 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
                 raise SystemExit('Observations changed after reopening; inspect generation reports and logs')
             second[match_key] = True
             if args.water_witnesses:
+                if 'nativeRepairReads' in first:
+                    second['initialNativeRepairReads'] = first['nativeRepairReads']
                 for initial, reopened in zip(first['regressionSites'], second['regressionSites'], strict=True):
                     if (initial['x'], initial['z']) != (reopened['x'], reopened['z']):
                         raise SystemExit('Water regression sites changed after reopening')

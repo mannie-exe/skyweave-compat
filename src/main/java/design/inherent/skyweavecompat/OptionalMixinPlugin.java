@@ -27,7 +27,10 @@ public final class OptionalMixinPlugin implements IMixinConfigPlugin {
         return List.copyOf(selected);
     }
 
-    @Override public void onLoad(String mixinPackage) {}
+    @Override public void onLoad(String mixinPackage) {
+        org.spongepowered.asm.mixin.injection.selectors.TargetSelector.register(
+                design.inherent.skyweavecompat.water.WaterCallbackSelector.class, "skyweave");
+    }
     @Override public String getRefMapperConfig() { return null; }
     @Override public boolean shouldApplyMixin(String targetClassName, String mixinClassName) { return true; }
     @Override public void acceptTargets(Set<String> myTargets, Set<String> otherTargets) {}

@@ -24,7 +24,7 @@ final class VillageSupportSurvey {
             return (JsonElement)codec.codec().encodeStart(ops,processor).getOrThrow();
         } catch(ReflectiveOperationException failure) { throw new IllegalStateException("Pinned processor API changed: "+processor.getClass().getName(),failure); }
     }
-    private static JsonElement definition(net.minecraft.world.level.levelgen.structure.templatesystem.StructureProcessor processor,
+    static JsonElement definition(net.minecraft.world.level.levelgen.structure.templatesystem.StructureProcessor processor,
             net.minecraft.resources.RegistryOps<JsonElement> ops,int depth,int[] visits) {
         if(depth>16 || ++visits[0]>4096)throw new IllegalStateException("Processor input graph budget exhausted");
         var result=StructureProcessorType.SINGLE_CODEC.encodeStart(ops,processor).result();

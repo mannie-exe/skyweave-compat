@@ -25,6 +25,30 @@ public final class HydrologyProbe {
     private static final Map<String, JsonObject> generationStages = new HashMap<>();
     private static final Map<String, JsonArray> climateWrites = new HashMap<>();
     private static volatile Map<Long,JsonArray> terrainWrites;
+    private static long dryRepairReads, wetRepairReads, unchangedRepairReads;
+    private static final JsonArray repairExamples = new JsonArray();
+
+    public static synchronized void recordRepairReference(HydrologyManager.RiverCarving cut, int original, int reference) {
+        if (cut.waterLevel != original) throw new AssertionError("Native proposal was changed during the repair read");
+        if (reference != original) {
+            if (!cut.isWatershedWall || reference != cut.targetY)
+                throw new AssertionError("Repair changed a wet or unrelated height read");
+            dryRepairReads++;
+            if (repairExamples.size() < 4) {
+                var example = new JsonObject(); example.addProperty("originalWaterLevel", original);
+                example.addProperty("targetY", cut.targetY); example.addProperty("repairReference", reference);
+                repairExamples.add(example);
+            }
+        } else if (!cut.isWatershedWall && cut.modifies) wetRepairReads++;
+        else unchangedRepairReads++;
+    }
+
+    private static synchronized JsonObject repairReads() {
+        var result = new JsonObject(); result.addProperty("changedDryBankReads", dryRepairReads);
+        result.addProperty("unchangedWetReads", wetRepairReads);
+        result.addProperty("otherUnchangedReads", unchangedRepairReads); result.add("dryExamples", repairExamples.deepCopy());
+        return result;
+    }
 
     public static void recordTerrainWrite(net.minecraft.world.level.chunk.ChunkAccess chunk,
             net.minecraft.core.BlockPos pos,net.minecraft.world.level.block.state.BlockState previous) {
@@ -96,11 +120,29 @@ public final class HydrologyProbe {
     private static JsonObject witnessSample(net.minecraft.world.level.chunk.ChunkAccess chunk, int x, int waterY, int z) {
         var sample = new JsonObject();
         sample.addProperty("actualStatus", chunk.getPersistedStatus().toString());
+        sample.add("nativeRepairReads", repairReads());
         sample.addProperty("storedBiome", chunk.getNoiseBiome(x >> 2, waterY >> 2, z >> 2).getRegisteredName());
         sample.addProperty("atWaterline", chunk.getBlockState(new net.minecraft.core.BlockPos(x, waterY, z)).toString());
         sample.addProperty("wetAtWaterline", chunk.getFluidState(new net.minecraft.core.BlockPos(x, waterY, z))
                 .is(net.minecraft.tags.FluidTags.WATER));
         sample.addProperty("lowSourceCells", lowSources(chunk, x, z));
+        if (regressionFixture != null && regressionFixture.has("captureColumns")
+                && regressionFixture.get("captureColumns").getAsBoolean()) {
+            var intervals = new JsonArray();
+            String previous = null; int bottom = chunk.getMinBuildHeight();
+            var position = new net.minecraft.core.BlockPos.MutableBlockPos();
+            for (int y = bottom; y <= chunk.getMaxBuildHeight(); y++) {
+                String state = y == chunk.getMaxBuildHeight() ? null : chunk.getBlockState(position.set(x, y, z)).toString();
+                if (!Objects.equals(state, previous)) {
+                    if (previous != null) {
+                        var span = new JsonObject(); span.addProperty("bottom", bottom); span.addProperty("top", y - 1);
+                        span.addProperty("state", previous); intervals.add(span);
+                    }
+                    previous = state; bottom = y;
+                }
+            }
+            sample.add("column", intervals);
+        }
         int logs = 0, leaves = 0; var pos = new net.minecraft.core.BlockPos.MutableBlockPos();
         for (int bx = chunk.getPos().getMinBlockX(); bx <= chunk.getPos().getMaxBlockX(); bx++)
             for (int bz = chunk.getPos().getMinBlockZ(); bz <= chunk.getPos().getMaxBlockZ(); bz++)
@@ -129,6 +171,7 @@ public final class HydrologyProbe {
         } else run(server, output);
         if (regression != null) {
             var report=JsonParser.parseString(Files.readString(output)).getAsJsonObject();report.add("regressionSites",regression);
+            report.add("nativeRepairReads", repairReads());
             report.addProperty("complete",false);
             Files.writeString(output,new GsonBuilder().setPrettyPrinting().create().toJson(report)+"\n");
             if(regressionFixture.has("outlet"))report.add("outletPlanning",WaterOutletProbe.planning(server,regressionFixture));
@@ -237,6 +280,14 @@ public final class HydrologyProbe {
                     row.add("nativeFullBedProof",bedAndLowerMaterial(server,x,z,chunk,false));
             }
             var full=level.getChunk(Math.floorDiv(x,16),Math.floorDiv(z,16));
+            if (point.has("airRanges")) for (var range : point.getAsJsonArray("airRanges")) {
+                var pair = range.getAsJsonArray(); int bottom = pair.get(0).getAsInt(), top = pair.get(1).getAsInt();
+                if (bottom < full.getMinBuildHeight() || top >= full.getMaxBuildHeight() || bottom > top)
+                    throw new IllegalArgumentException("Invalid full-column air assertion");
+                for (int y = bottom; y <= top; y++)
+                    if (!full.getBlockState(new net.minecraft.core.BlockPos(x, y, z)).isAir())
+                        throw new AssertionError("Unexpected material below island at " + x + "," + y + "," + z);
+            }
             var pos = new net.minecraft.core.BlockPos(x, waterY, z);
             var biome = level.getBiome(pos);
             row.addProperty("runtimeBiome", biome.getRegisteredName());

@@ -38,7 +38,10 @@ public abstract class WaterCutOwnershipMixin {
         // Post-carver repair otherwise mistakes an already excavated bed for the
         // original surface, and can build a lowland foundation through empty sky.
         var cut = original.call(x, z, top.topY(), sea, generator, level, random);
-        return IslandWaterColumns.fitToSupport(cut, top, maximumY)
-                ? cut : IslandWaterColumns.unchanged(originalY, maximumY);
+        if (!IslandWaterColumns.fitToSupport(cut, top, maximumY))
+            return IslandWaterColumns.unchanged(originalY, maximumY);
+        design.inherent.skyweavecompat.water.WaterRepairScope.admit(Mth.floor(x), Mth.floor(z), cut, top,
+                design.inherent.skyweavecompat.terrain.InteriorConfiguration.profile().shellThickness());
+        return cut;
     }
 }

@@ -1,12 +1,14 @@
-# Skyweave: Compatibility Patches 0.35.0
+# Skyweave: Compatibility Patches 0.36.0
 
-Repair village bearing intent, scaffold seating and connected river outlets. Minecraft remains 1.21.1; NeoForge remains 21.1.265. Optional integration switches and dependency pins are unchanged.
+Keep Dynamic Waters riverbanks within their floating island and preserve authored village foundations. Minecraft remains 1.21.1; NeoForge remains 21.1.265. Existing optional adaptation switches and dependency pins are unchanged.
 
-- Preserve floor-embedded blocks, including campfires and block-entity contents, while sharing structural bearing rules between layout fitting, processed footprints and support realization.
-- Ground native scaffold legs and stair seating with bounded natural-material support. Preserve native scheduled stability and refuse unsupported or unavailable inputs explicitly.
-- Keep connected Dynamic Waters mouths at the routed incoming elevation, distinguish local water from void discharge and refuse uphill receivers without flattening waterfalls or filling cavern air.
-- Isolate writable terrain-overlay palettes so palette growth cannot mutate or invalidate the captured natural source.
+- Repair dry riverbanks from their local admitted height instead of a global sea-level sentinel. Bound post-carver material writes to the correct retained column, preserving real channels, island shells, cavities and separate lower islands.
+- Support an explicit resource-authored ambient-soil processor using the original island palette. The modpack's swamp village lists retain their native roads, paving and wet walkways. Disabled or foreign placement contexts leave authored output native.
+- Omit a conflicting rigid decoration only when its leaf connection can be detached safely. Preserve valid oases and reject ambiguous layouts through the existing traced fallback.
+- Protect admitted village pieces from conflicting native mangrove roots before the tree writes. Unrelated trees and authored piece trees retain their native path.
+- Recognize native bed-bearing dwellings placed outside conventional house folders, including the lighthouse side house.
+- Extend native verification with effective structure/pool/template coverage and reusable riverbank, material and local-conflict witnesses.
 
-These terrain changes advance the saved generation identity to `islands_v1-skyarch-1.4-16` and watersheds to `island_watersheds_v6`. Use a fresh marked world with matching client/server builds, or retain the previous release and original settings for an existing world. Never edit saved markers to bypass the guard. Installation does not delete worlds automatically.
+These terrain changes advance saved generation identity to `islands_v1-skyarch-1.4-17` and watersheds to `island_watersheds_v7`. Use a fresh marked world with matching client/server artifacts, or keep the original release and settings for an existing world. Saved curtains and structures do not repair themselves. Never edit saved markers to bypass the guard; installation does not delete worlds automatically.
 
-The required build passes 424 unit tests and nine release-tool tests. Native checks cover the reported donor buildings, processed floor embeddings, scheduled scaffold ticks, connected river/void flow, palette boundaries and save/reopen. This does not qualify every village template or guarantee complete terrain contact for arbitrary structures. See [verification](docs/development/verification.md) for the exact tested artifacts and limits.
+The [verification guide](docs/development/verification.md) records exact native checks and their limits. Qualified local contact and fitting do not establish that every village is perfectly supported or navigable.

@@ -25,7 +25,7 @@ import org.sathrek.sky_archipelago.worldgen.generator.terrain.SkyIslandChunkTerr
 /** Read-only support and connector qualification, shared by native planning and commitment. */
 public final class VillageLayoutRepair {
     public enum Role { CENTER, ROAD, BUILDING, FARM, DECORATION }
-    private record Geometry(List<FoundationSupport.Foot> feet, boolean farm,long plane,VillageBearing.Kind refusal) {}
+    private record Geometry(List<FoundationSupport.Foot> feet, boolean farm,boolean dwelling,long plane,VillageBearing.Kind refusal) {}
     record Node(StructurePiece piece, Role role, List<FoundationSupport.Foot> feet,
             List<StructureTemplate.StructureBlockInfo> ports, boolean projected,VillageBearing.Kind refusal) {}
     private record Port(int node, StructureTemplate.StructureBlockInfo info) {}
@@ -213,9 +213,52 @@ public final class VillageLayoutRepair {
             if (retained.stream().anyMatch(index -> { var host=nodes.get(index).piece().getBoundingBox(); return x>=host.minX()-2 && x<=host.maxX()+2 && z>=host.minZ()-2 && z<=host.maxZ()+2; }))
                 result.add(nodes.get(i).piece());
         }
+        final List<VillageDecorationConflicts.Conflict> conflicts;
+        try { conflicts=VillageDecorationConflicts.inspect(result,templates,policy.maximumGroundGap()); }
+        catch(VillageDecorationConflicts.Limit exhausted) {
+            VillageDecisionTrace.emit(original,"decoration_support","BUDGET",Map.of("cause",exhausted.getMessage()));return List.of();
+        }
+        var junctionCopies=new IdentityHashMap<PoolElementStructurePiece,PoolElementStructurePiece>();
+        var serialization=new net.minecraft.world.level.levelgen.structure.pieces.StructurePieceSerializationContext(
+                net.minecraft.server.packs.resources.ResourceManager.Empty.INSTANCE,scope.pass().registryAccess(),templates);
+        for(var conflict:conflicts) {
+            int index=pieces.indexOf(conflict.decoration());
+            // A leaf can be omitted locally. Refuse a branching conflict rather than silently severing its children.
+            boolean leaf=nodes.get(index).ports().size()<=1 && links.getOrDefault(index,Set.of()).size()<=1;
+            if(leaf)leaf=detachDecoration(result,nodes.get(index),links.getOrDefault(index,Set.of()).stream().map(nodes::get).toList(),junctionCopies,serialization);
+            VillageDecisionTrace.emit(original,"decoration_support",leaf?"OMITTED_CONFLICTING_LEAF":"REJECTED_CONFLICT",Map.of(
+                    "decoration",templateName(conflict.decoration()),"building",templateName(conflict.building()),
+                    "cut",conflict.cut().toShortString(),"foot",conflict.foot().toShortString(),"maximumGap",policy.maximumGroundGap()));
+            if(!leaf)return List.of();
+            result.remove(conflict.decoration());
+            StructureBenchmarkRecorder.increment("skyweaveVillageDecorationSupportConflict");
+        }
         StructureBenchmarkRecorder.add("skyweaveVillageFoundationColumns",terrain.columns.size());
         StructureBenchmarkRecorder.add("skyweaveVillageRemovedPieces",pieces.size()-result.size());
         return result;
+    }
+
+    /** Remove only one proven reciprocal native junction. Ambiguity refuses the layout, never repairs a guessed edge. */
+    private static boolean detachDecoration(List<StructurePiece> result,Node leaf,List<Node> neighbors,
+            IdentityHashMap<PoolElementStructurePiece,PoolElementStructurePiece> copies,
+            net.minecraft.world.level.levelgen.structure.pieces.StructurePieceSerializationContext serialization) {
+        var piece=(PoolElementStructurePiece)leaf.piece();
+        if(piece.getJunctions().isEmpty())return neighbors.isEmpty();
+        if(piece.getJunctions().size()!=1 || neighbors.size()!=1 || leaf.ports().size()!=1)return false;
+        if(neighbors.getFirst().piece().getClass()!=PoolElementStructurePiece.class)return false;
+        var parent=(PoolElementStructurePiece)neighbors.getFirst().piece();var retained=copies.getOrDefault(parent,parent);
+        var port=leaf.ports().getFirst();var back=piece.getJunctions().getFirst();
+        var peers=neighbors.getFirst().ports().stream().filter(info->info.pos().getX()==back.getSourceX() && info.pos().getZ()==back.getSourceZ()
+                && JigsawBlock.canAttach(info,port)).toList();
+        var joints=retained.getJunctions().stream().filter(joint->joint.getSourceX()==port.pos().getX() && joint.getSourceZ()==port.pos().getZ()
+                && joint.getDeltaY()==-back.getDeltaY()).toList();
+        if(peers.size()!=1 || joints.size()!=1)return false;
+        if(retained==parent) {
+            retained=new PoolElementStructurePiece(serialization,parent.createTag(serialization));
+            int at=result.indexOf(parent);if(at<0)return false;
+            result.set(at,retained);copies.put(parent,retained);
+        }
+        retained.getJunctions().remove(joints.getFirst());return true;
     }
 
     private static String templateName(StructurePiece piece) {
@@ -257,15 +300,19 @@ public final class VillageLayoutRepair {
         if(path.contains("/roads/") || path.contains("/streets/") || path.contains("/terminator"))return Role.ROAD;
         if(path.contains("/house") || path.contains("/jobsite/"))return Role.BUILDING;
         if(geometry.farm())return Role.FARM;
+        if(geometry.dwelling())return Role.BUILDING;
         return Role.DECORATION;
     }
 
     private static Geometry geometry(StructureTemplate.Palette palette,long plane) {
         boolean farm=palette.blocks().stream().anyMatch(block->block.state().is(Blocks.FARMLAND));
+        // Provider folders are not a complete role declaration: T&T's lighthouse
+        // dwelling lives under /side/. A real authored bed supplies positive residence intent.
+        boolean dwelling=palette.blocks().stream().anyMatch(block->block.state().is(net.minecraft.tags.BlockTags.BEDS));
         var roots=VillageFootprint.roots(palette.blocks(),plane);
         var refusal=roots.stream().map(block->VillageBearing.classify(block.state())).filter(VillageBearing.Kind::unavailable).findFirst().orElse(null);
         var feet=roots.stream().filter(block->VillageBearing.classify(block.state()).bearing()).map(block->
                 new FoundationSupport.Foot(block.pos().getX(),block.pos().getY(),block.pos().getZ())).toList();
-        return new Geometry(refusal!=null?List.of():feet,farm,plane,refusal);
+        return new Geometry(refusal!=null?List.of():feet,farm,dwelling,plane,refusal);
     }
 }

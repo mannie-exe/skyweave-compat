@@ -14,7 +14,7 @@ public final class VillageProcessors {
     private static final String CTOV="net.choicetheorem.ctov.worldgen.processor.ModularCompatProcessor";
     private static final Set<String> LEAVES=Set.of(BlockIgnoreProcessor.class.getName(),JigsawReplacementProcessor.class.getName(),
             RuleProcessor.class.getName(),GravityProcessor.class.getName(),NopProcessor.class.getName(),
-            LITHO+"BlockSwapStructureProcessor",LITHO+"SetBlockProcessor");
+            LITHO+"BlockSwapStructureProcessor",LITHO+"SetBlockProcessor",NaturalSoilProcessor.class.getName());
     private static final int MAX_DEPTH=16,MAX_VISITS=4096,MAX_LIST=256;
     private final RegistryAccess registries;
     private final Set<StructureProcessor> active=Collections.newSetFromMap(new IdentityHashMap<>());

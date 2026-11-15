@@ -6,6 +6,7 @@
   "mixins": [
     "WaterStageMixin",
     "WaterWriteMixin",
+    "WaterRepairWitnessMixin",
     "WaterEmitterControlsMixin",
     "ClimateWriteMixin",
     "SavedStartPrecheckMixin",

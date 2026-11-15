@@ -36,6 +36,7 @@ public final class PlacementProbe {
         LocatorProbe.tick(event.getServer());
         HydrologyProbe.tick(event.getServer());
         GroundVillageProbe.tick(event.getServer());
+        VillagePoolProbe.tick(event.getServer());
         StructureLocatorProbe.tick(event.getServer());
         LocatorLifecycleProbe.tick(event.getServer());
         // Sky Archipelago chooses its fallback spawn in another ServerStarted listener.
@@ -292,7 +293,8 @@ public final class PlacementProbe {
                 return;
             }
             if (Boolean.getBoolean("neighbors.probe.villagePools")) {
-                VillagePoolProbe.run(server, Path.of(System.getProperty("neighbors.probe.output")));
+                VillagePoolProbe.start(server, Path.of(System.getProperty("neighbors.probe.output")));
+                asynchronous = true;
                 return;
             }
             if (Boolean.getBoolean("neighbors.probe.villageSupport")) {

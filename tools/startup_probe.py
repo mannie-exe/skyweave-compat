@@ -26,6 +26,7 @@ def main():
     parser.add_argument('--scenario', choices=['standalone', 'all-disabled', 'terrain-disabled', 'terrain', 'full',
                                              'unsupported-disabled', 'unsupported-enabled', 'questlog', 'questlog-disabled', 'jade', 'macaw', 'macaw-disabled'], required=True)
     parser.add_argument('--mod', type=Path)
+    parser.add_argument('--resource-patches', type=Path, help='Read-only candidate resource JAR for full/all-disabled fixtures')
     parser.add_argument('--configuration-pack', type=Path, help='Authored common/server settings for the owned full served fixture')
     parser.add_argument('--serve', action='store_true', help='Keep an owned loopback server running; forward console input until stop')
     parser.add_argument('--without-compat', action='store_true', help='Serve a standalone fixture without the optional server capability')
@@ -35,6 +36,13 @@ def main():
     parser.add_argument('--replay-dh', type=Path, help='Existing cache copy for natural server-to-client LOD transfer')
     parser.add_argument('--enable', action='append', default=[], help='Explicit startup feature key to enable in this disposable fixture')
     args = parser.parse_args()
+    if args.resource_patches:
+        if args.scenario not in {'full','all-disabled'} or args.configuration_pack:
+            parser.error('--resource-patches requires full/all-disabled without --configuration-pack')
+        with zipfile.ZipFile(args.resource_patches) as archive:
+            identity=tomllib.loads(archive.read('META-INF/neoforge.mods.toml').decode())
+        if [entry['modId'] for entry in identity.get('mods',[])]!=['skyweave_resource_patches']:
+            parser.error('--resource-patches must contain only the Resource Patches mod')
     if args.configuration_pack and (not args.serve or args.scenario!='full'):parser.error('--configuration-pack requires full --serve')
     if args.without_compat and (not args.serve or args.scenario != 'standalone'):
         parser.error('--without-compat requires --serve --scenario standalone')
@@ -89,6 +97,8 @@ def main():
                 if retired: raise SystemExit('Remove retired integration artifacts from fixture inputs: ' + ', '.join(sorted(retired)))
                 if 'skyweave_compat' in ids:
                     continue
+                if args.resource_patches and 'skyweave_resource_patches' in ids:
+                    continue
                 if args.scenario in {'terrain', 'terrain-disabled'} and 'sky_archipelago' not in ids:
                     continue
                 if args.scenario in {'questlog', 'questlog-disabled'} and 'questlog' not in ids:
@@ -99,6 +109,10 @@ def main():
                     continue
                 shutil.copy2(source, run / 'mods' / source.name)
                 selected[source.name] = hashlib.sha256(source.read_bytes()).hexdigest()
+        if args.resource_patches:
+            source=args.resource_patches.resolve()
+            copy_owned(source,run / 'mods' / source.name,run)
+            selected[source.name]=hashlib.sha256(source.read_bytes()).hexdigest()
         if args.scenario in {'all-disabled', 'terrain-disabled', 'unsupported-disabled', 'questlog-disabled', 'macaw-disabled'}:
             keys = re.findall(r'\("([a-z_]+\.[a-z_]+)"', (ROOT / 'src/main/java/design/inherent/skyweavecompat/Feature.java').read_text())
             (run / 'config/skyweave/skyweave_compat-features.properties').write_text(''.join(f'{key}=false\n' for key in keys))
@@ -154,7 +168,7 @@ def main():
             f'level-type={preset}\ngenerate-structures=false\nview-distance=2\nsimulation-distance=2\nmax-tick-time=0\n'
             + (f'level-seed={args.seed}\n' if args.islands else '')
             + ('difficulty=peaceful\ngamemode=creative\n' if args.serve else ''))
-        command = [args.java, '-Xmx'+args.heap, '-Dmixin.debug.export=true', '-Dmixin.debug.verbose=true',
+        command = [args.java, '-Xmx'+args.heap, '-XX:+ExitOnOutOfMemoryError', '-Dmixin.debug.export=true', '-Dmixin.debug.verbose=true',
                    '@' + str(launch[0]), 'nogui']
         report['command'] = command
         log_path = output / f'startup-{args.scenario}.log'

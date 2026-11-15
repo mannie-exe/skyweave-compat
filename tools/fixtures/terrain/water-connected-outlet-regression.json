@@ -1,0 +1,13 @@
+{
+  "seed": 955586331452421868,
+  "points": [
+    {"x": 1350, "z": -2053, "waterY": 257, "expectedBlock": "minecraft:air", "expectedWet": false},
+    {"x": 1350, "z": -2047, "waterY": 254, "expectedBlock": "minecraft:water", "expectedWet": true},
+    {"x": 1344, "z": -2069, "waterY": 250}
+  ],
+  "outlet": {
+    "pathWindow": [1286, -2120, 1414, -1980],
+    "junctions": [[1344, -2056, 254]],
+    "flowWindow": [1334, 230, -2078, 1358, 254, -2054]
+  }
+}

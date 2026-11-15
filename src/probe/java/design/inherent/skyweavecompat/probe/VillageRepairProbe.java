@@ -22,7 +22,7 @@ final class VillageRepairProbe {
     private record Witness(String name,int x,int z) {}
     private static final List<Witness> WITNESSES=List.of(new Witness("west",-601,13280),
             new Witness("savanna",10155,6419),new Witness("north",8846,12728),new Witness("lagoon",9375,14868),
-            new Witness("fortified",1904,-1488));
+            new Witness("fortified",1904,-1488),new Witness("swamp",-8080,3312),new Witness("desert",10292,-4351));
     private VillageRepairProbe() {}
     static void run(MinecraftServer server,Path output) throws Exception {
         var level=server.overworld();
@@ -41,7 +41,7 @@ final class VillageRepairProbe {
         var rows=new JsonArray();report.add("witnesses",rows);
         var method=StructureDistribution.class.getDeclaredMethod("plan",StructureSelection.Owner.class,StructureFamily.class);method.setAccessible(true);
         var selected=System.getProperty("neighbors.probe.villageWitness","");
-        var witnesses=WITNESSES.stream().filter(w->selected.isEmpty()?!w.name().equals("fortified"):w.name().equals(selected)).toList();
+        var witnesses=WITNESSES.stream().filter(w->selected.isEmpty()?Set.of("west","savanna","north","lagoon").contains(w.name()):w.name().equals(selected)).toList();
         if(witnesses.isEmpty())throw new IllegalArgumentException("Unknown village witness");
         report.addProperty("selectedWitness",selected);
         for(var witness:witnesses) {
@@ -61,7 +61,9 @@ final class VillageRepairProbe {
                 if(witness.name().equals("lagoon"))row.add("fineRootSurvey",fineRootSurvey(level,distribution,owner));
                 write(output,report);continue;
             }
-            var layout=layouts.getFirst();row.addProperty("structure",layout.id().toString());
+            var layout=Set.of("swamp","desert").contains(selected)?layouts.stream().min(Comparator.comparingDouble(value->
+                    Math.pow(value.site().chunkX()*16.0+8-witness.x(),2)+Math.pow(value.site().chunkZ()*16.0+8-witness.z(),2))).orElseThrow():layouts.getFirst();
+            row.addProperty("structure",layout.id().toString());
             if (candidate) row.addProperty("inhabitedQuality", layout.quality());
             row.add("site",new Gson().toJsonTree(layout.site()));
             var chunks=new LinkedHashSet<ChunkPos>();
@@ -84,6 +86,7 @@ final class VillageRepairProbe {
             row.add("processedFootEvidence",proofs(level,chunks));
             row.add("localDoorPaths",VillageAccessProbe.inspect(level,start));
             row.add("localConnectorPaths",VillageAccessProbe.inspectConnections(level,start));
+            write(output,report);
             row.add("aliasDiscovery",aliases(level,start,candidate));write(output,report);
             if (candidate) {
                 row.add("terminators", VillageTerminatorProbe.inspect(distribution, start));
@@ -432,8 +435,9 @@ final class VillageRepairProbe {
         var selected=(List<?>)targetList.invoke(selection);
         var placementGetter=selected.getFirst().getClass().getDeclaredMethod("placements");placementGetter.setAccessible(true);
         var placements=(List<?>)placementGetter.invoke(selected.getFirst());
-        var jobConstructor=jobType.getDeclaredConstructor(net.minecraft.commands.CommandSourceStack.class,int.class,List.class);jobConstructor.setAccessible(true);
-        var candidateConstructor=candidateType.getDeclaredConstructor(ChunkPos.class,List.class,long.class);candidateConstructor.setAccessible(true);
+        var jobConstructor=jobType.getDeclaredConstructor(net.minecraft.commands.CommandSourceStack.class,int.class,List.class,SearchSettings.class);jobConstructor.setAccessible(true);
+        var candidateConstructor=candidateType.getDeclaredConstructor(ChunkPos.class,long.class);candidateConstructor.setAccessible(true);
+        var limits=new SearchSettings(65536,30,2,5);
         var inspect=locator.getDeclaredMethod("inspect",jobType,candidateType,net.minecraft.world.level.chunk.ChunkAccess.class,boolean.class);inspect.setAccessible(true);
         var seen=jobType.getDeclaredField("seen");seen.setAccessible(true);
         var matches=jobType.getDeclaredField("matches");matches.setAccessible(true);
@@ -444,12 +448,12 @@ final class VillageRepairProbe {
         BlockPos firstPosition=null;
         var result=new JsonObject();
         for(boolean reverse:new boolean[]{false,true}) {
-            var job=jobConstructor.newInstance(source,1024,selected);
+            var job=jobConstructor.newInstance(source,1024,selected,limits);
             for(var start:reverse ? List.of(alias,original):List.of(original,alias)) {
                 var chunk=new net.minecraft.world.level.chunk.ProtoChunk(start.getChunkPos(),net.minecraft.world.level.chunk.UpgradeData.EMPTY,
                         level,level.registryAccess().registryOrThrow(Registries.BIOME),null);
                 chunk.setStartForStructure(start.getStructure(),start);
-                inspect.invoke(null,job,candidateConstructor.newInstance(start.getChunkPos(),placements,0L),chunk,false);
+                inspect.invoke(null,job,candidateConstructor.newInstance(start.getChunkPos(),0L),chunk,false);
             }
             if(((Set<?>)seen.get(job)).size()!=1 || ((List<?>)matches.get(job)).size()!=1)throw new AssertionError("Locator exposed duplicate aliases");
             var match=((List<?>)matches.get(job)).getFirst();var position=match.getClass().getDeclaredMethod("position");position.setAccessible(true);
@@ -464,7 +468,7 @@ final class VillageRepairProbe {
                 var chunk=new net.minecraft.world.level.chunk.ProtoChunk(alias.getChunkPos(),net.minecraft.world.level.chunk.UpgradeData.EMPTY,
                         level,level.registryAccess().registryOrThrow(Registries.BIOME),null);
                 chunk.setStartForStructure(distinct.getStructure(),distinct);
-                inspect.invoke(null,job,candidateConstructor.newInstance(alias.getChunkPos(),placements,0L),chunk,false);
+                inspect.invoke(null,job,candidateConstructor.newInstance(alias.getChunkPos(),0L),chunk,false);
                 if(((Set<?>)seen.get(job)).size()!=2)throw new AssertionError("Locator merged different equal-bounds layouts");
                 break;
             }
@@ -472,13 +476,29 @@ final class VillageRepairProbe {
         }
         result.addProperty("physicalAliases",1);result.addProperty("differentEqualBoundsLayouts",2);result.addProperty("discoveryOrderStable",true);
         var boundarySource = source.withPosition(new net.minecraft.world.phys.Vec3(firstPosition.getX(), firstPosition.getY(), firstPosition.getZ()));
-        var boundary = jobConstructor.newInstance(boundarySource, 1, selected);
-        var enumeration = enumerate.invoke(null, boundary);
-        var candidates = enumeration.getClass().getDeclaredMethod("candidates");candidates.setAccessible(true);
+        var boundary = jobConstructor.newInstance(boundarySource, 1, selected,limits);
+        var incoming=jobType.getDeclaredField("incoming");incoming.setAccessible(true);
+        var running=jobType.getDeclaredField("running");running.setAccessible(true);
+        var queue=(java.util.concurrent.BlockingQueue<Object>)incoming.get(boundary);
         var positionGetter = candidateType.getDeclaredMethod("position");positionGetter.setAccessible(true);
         boolean included = false;
-        for (var item : (List<?>)candidates.invoke(enumeration))
-            if (original.getChunkPos().equals(positionGetter.invoke(item))) included = true;
+        var worker=java.util.concurrent.Executors.newSingleThreadExecutor();
+        var future=worker.submit(()->{
+            try{return enumerate.invoke(null,boundary);}
+            catch(ReflectiveOperationException failure){throw new IllegalStateException(failure);}
+        });
+        try {
+            long deadline=System.nanoTime()+java.util.concurrent.TimeUnit.SECONDS.toNanos(35);
+            while(!future.isDone() || !queue.isEmpty()) {
+                if(System.nanoTime()>=deadline)throw new AssertionError("Bounded native locator enumeration did not terminate");
+                var item=queue.poll(20,java.util.concurrent.TimeUnit.MILLISECONDS);
+                if(item!=null && original.getChunkPos().equals(positionGetter.invoke(item)))included=true;
+            }
+            future.get(1,java.util.concurrent.TimeUnit.SECONDS);
+        } finally {
+            running.setBoolean(boundary,false);future.cancel(true);worker.shutdownNow();
+            if(!worker.awaitTermination(5,java.util.concurrent.TimeUnit.SECONDS))throw new AssertionError("Native locator fixture worker did not stop");
+        }
         if (!((Set<?>)unbounded.get(boundary)).isEmpty()) throw new AssertionError("Village layout envelope was not qualified: " + unbounded.get(boundary));
         if (!included || !(Boolean)range.invoke(null, boundary, original.getChunkPos()))
             throw new AssertionError("Canonical marker inside radius lost its source outside radius");

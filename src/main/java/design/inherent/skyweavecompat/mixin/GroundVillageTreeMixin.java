@@ -15,10 +15,13 @@ import net.minecraft.world.level.levelgen.feature.foliageplacers.FancyFoliagePla
 import net.minecraft.world.level.levelgen.feature.foliageplacers.BushFoliagePlacer;
 import net.minecraft.world.level.levelgen.feature.foliageplacers.AcaciaFoliagePlacer;
 import net.minecraft.world.level.levelgen.feature.foliageplacers.MegaJungleFoliagePlacer;
+import net.minecraft.world.level.levelgen.feature.foliageplacers.RandomSpreadFoliagePlacer;
+import net.minecraft.world.level.levelgen.feature.rootplacers.MangroveRootPlacer;
 import net.minecraft.world.level.levelgen.feature.trunkplacers.FancyTrunkPlacer;
 import net.minecraft.world.level.levelgen.feature.trunkplacers.StraightTrunkPlacer;
 import net.minecraft.world.level.levelgen.feature.trunkplacers.ForkingTrunkPlacer;
 import net.minecraft.world.level.levelgen.feature.trunkplacers.MegaJungleTrunkPlacer;
+import net.minecraft.world.level.levelgen.feature.trunkplacers.UpwardsBranchingTrunkPlacer;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import org.sathrek.sky_archipelago.worldgen.benchmark.StructureBenchmarkRecorder;
 import org.spongepowered.asm.mixin.Mixin;
@@ -34,12 +37,32 @@ public abstract class GroundVillageTreeMixin {
             "net.minecraft.world.level.levelgen.feature.treedecorators.CocoaDecorator",
             "net.minecraft.world.level.levelgen.feature.treedecorators.LeaveVineDecorator",
             "net.minecraft.world.level.levelgen.feature.treedecorators.TrunkVineDecorator");
+    @Unique private static final String SKYWEAVE_ATTACHED="net.minecraft.world.level.levelgen.feature.treedecorators.AttachedToLeavesDecorator";
 
     @WrapOperation(method="doPlace",at=@At(value="INVOKE",target=
             "Lnet/minecraft/world/level/levelgen/feature/TreeFeature;getMaxFreeTreeHeight(Lnet/minecraft/world/level/LevelSimulatedReader;ILnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/levelgen/feature/configurations/TreeConfiguration;)I"))
     private int skyweave$protectVillage(TreeFeature feature,LevelSimulatedReader reader,int height,BlockPos origin,
             TreeConfiguration configuration,Operation<Integer> original,@Local(ordinal=1) int foliageHeight,@Local(ordinal=3) int radius) {
         var trunk=configuration.trunkPlacer.getClass();var foliage=configuration.foliagePlacer.getClass();
+        if(reader instanceof WorldGenLevel level && trunk==UpwardsBranchingTrunkPlacer.class && foliage==RandomSpreadFoliagePlacer.class
+                && configuration.rootPlacer.isPresent() && configuration.rootPlacer.get().getClass()==MangroveRootPlacer.class
+                && configuration.decorators.stream().allMatch(decorator->SKYWEAVE_DECORATORS.contains(decorator.getClass().getName())
+                        || decorator.getClass().getName().equals(SKYWEAVE_ATTACHED))) {
+            var roots=((MangroveRootPlacementAccess)configuration.rootPlacer.get()).skyweave$rootPlacement();
+            // Native root steps never rise and stop moving outward after maxRootWidth+1.
+            // Upward branches take at most height horizontal/rising steps from a trunk log;
+            // random foliage spans +/- its sampled height/radius and attachments add one cell.
+            // Ground dressing chooses the lowest roots, then shifts a circle center
+            // up to four cells and writes two more horizontally, three below.
+            boolean dressing=configuration.decorators.stream().anyMatch(decorator->decorator.getClass()
+                    ==net.minecraft.world.level.levelgen.feature.treedecorators.AlterGroundDecorator.class);
+            int reach=Math.max(roots.maxRootWidth()+(dressing?8:2),height+radius+foliageHeight+3);
+            var bounds=new BoundingBox(origin.getX()-reach,Math.max(level.getMinBuildHeight(),origin.getY()-Math.max(roots.maxRootLength()+(dressing?5:2),foliageHeight+5)),origin.getZ()-reach,
+                    origin.getX()+reach,Math.min(level.getMaxBuildHeight()-1,origin.getY()+2*height+foliageHeight+6),origin.getZ()+reach);
+            if(GroundVillageTerrain.featureConflict(level,bounds)) {
+                StructureBenchmarkRecorder.increment("skyweaveVillageMangroveRefused");return -1;
+            }
+        }
         if(reader instanceof WorldGenLevel level && configuration.rootPlacer.isEmpty()
                 && (trunk==StraightTrunkPlacer.class || trunk==FancyTrunkPlacer.class || trunk==ForkingTrunkPlacer.class || trunk==MegaJungleTrunkPlacer.class)
                 && (foliage==BlobFoliagePlacer.class || foliage==FancyFoliagePlacer.class

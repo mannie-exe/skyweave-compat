@@ -74,8 +74,10 @@ public final class StructureTerrainView implements InvocationHandler {
     private final Map<ChunkPos,ColumnChunk> chunks;
     private final int minY,height;
     private final WorldGenLevel reader;
+    private final StructureTerrainView natural;
 
     private StructureTerrainView(long seed,RegistryAccess registries,Collection<? extends ChunkAccess> sources) {
+        natural=null;
         if(sources.isEmpty() || sources.size()>MAX_CHUNKS)throw new Unavailable("Terrain snapshot chunk budget exceeded");
         var copied=new HashMap<ChunkPos,ColumnChunk>();
         for(var source:sources) {
@@ -89,6 +91,10 @@ public final class StructureTerrainView implements InvocationHandler {
         reader=(WorldGenLevel)Proxy.newProxyInstance(StructureTerrainView.class.getClassLoader(),new Class<?>[]{WorldGenLevel.class},this);
     }
     private StructureTerrainView(long seed,RegistryAccess registries,Map<ChunkPos,ColumnChunk> sources) {
+        this(seed,registries,sources,null);
+    }
+    private StructureTerrainView(long seed,RegistryAccess registries,Map<ChunkPos,ColumnChunk> sources,StructureTerrainView natural) {
+        this.natural=natural;
         if(sources.isEmpty() || sources.size()>MAX_CHUNKS)throw new Unavailable("Retained terrain chunk budget exceeded");
         this.seed=seed;this.registries=Objects.requireNonNull(registries);chunks=Map.copyOf(sources);
         var first=chunks.values().iterator().next();minY=first.minY;height=first.height;
@@ -119,7 +125,7 @@ public final class StructureTerrainView implements InvocationHandler {
             var copied=changed.get(address);
             var at=cell.position();copied.sections.get((at.getY()-copied.minY)>>4).set(at.getX()&15,at.getY()&15,at.getZ()&15,cell.target());
         }
-        var all=new HashMap<>(chunks);all.putAll(changed);return new StructureTerrainView(seed,registries,all);
+        var all=new HashMap<>(chunks);all.putAll(changed);return new StructureTerrainView(seed,registries,all,natural==null?this:natural);
     }
     public boolean contains(BlockPos pos) {
         return pos.getY()>=minY && pos.getY()<minY+height && chunks.containsKey(new ChunkPos(pos));
@@ -130,6 +136,17 @@ public final class StructureTerrainView implements InvocationHandler {
         return result;
     }
     public BlockState state(BlockPos pos) { return chunk(pos.getX(),pos.getZ()).state(pos.getX(),pos.getY(),pos.getZ()); }
+    /** Small authored soil offsets may sit above the original cap; a cavity/water/foreign source is not soil. */
+    BlockState naturalSoil(BlockPos position) {
+        if(natural!=null)return natural.naturalSoil(position);
+        for(int distance=0;distance<=8;distance++) {
+            var at=position.below(distance);if(!contains(at))return null;
+            var state=state(at);
+            if(state.isAir() || design.inherent.skyweavecompat.terrain.NaturalMaterials.clearableDecoration(state))continue;
+            return design.inherent.skyweavecompat.terrain.NaturalMaterials.skin(state)?state:null;
+        }
+        return null;
+    }
     RegistryAccess registries() { return registries; }
     private record HeightKey(Heightmap.Types type,int x,int z) {}
     private final java.util.concurrent.ConcurrentMap<HeightKey,Integer> heights=new java.util.concurrent.ConcurrentHashMap<>();
@@ -142,6 +159,7 @@ public final class StructureTerrainView implements InvocationHandler {
         return switch(method.getName()) {
             case "getSeed" -> seed;
             case "registryAccess" -> registries;
+            case "holderLookup" -> registries.lookupOrThrow((net.minecraft.resources.ResourceKey)args[0]);
             case "isClientSide" -> false;
             case "getMinBuildHeight" -> minY;
             case "getMaxBuildHeight" -> minY+height;

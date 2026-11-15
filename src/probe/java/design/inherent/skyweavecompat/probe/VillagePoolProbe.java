@@ -19,8 +19,46 @@ import org.sathrek.sky_archipelago.worldgen.generator.core.SkyIslandChunkGenerat
 
 /** Exercise the missing upstream NPC branches through native pool/template entity placement. */
 final class VillagePoolProbe {
+    private static Path pendingOutput;
+    private static JsonObject readiness;
+    private static long readinessDeadline;
+    private static int readinessTicks;
+    private static final List<net.minecraft.world.level.ChunkPos> ENTITY_CHUNKS=java.util.stream.IntStream.range(0,4)
+            .mapToObj(x->new net.minecraft.world.level.ChunkPos(x,0)).toList();
+
+    static void start(MinecraftServer server,Path output) {
+        readiness=new JsonObject();var before=new JsonArray();
+        for(var chunk:ENTITY_CHUNKS) {
+            server.overworld().getChunk(chunk.x,chunk.z);
+            before.add(server.overworld().areEntitiesLoaded(chunk.toLong()));
+            server.overworld().setChunkForced(chunk.x,chunk.z,true);
+        }
+        readiness.add("entitiesLoadedAtFullRequest",before);
+        readinessTicks=0;readinessDeadline=System.nanoTime()+java.util.concurrent.TimeUnit.SECONDS.toNanos(30);
+        pendingOutput=output;
+    }
+    static void tick(MinecraftServer server) {
+        if(pendingOutput==null)return;
+        readinessTicks++;
+        boolean ready=ENTITY_CHUNKS.stream().allMatch(chunk->server.overworld().areEntitiesLoaded(chunk.toLong()));
+        if(!ready && readinessTicks<200 && System.nanoTime()<readinessDeadline)return;
+        var output=pendingOutput;pendingOutput=null;
+        readiness.addProperty("actualEntitiesLoadedBeforePlacement",ready);readiness.addProperty("waitedServerTicks",readinessTicks);
+        try {
+            if(!ready) {
+                var failed=new JsonObject();failed.addProperty("complete",false);failed.add("entityReadiness",readiness);
+                Files.writeString(output,failed.toString());throw new AssertionError("Native entity sections never became available");
+            }
+            run(server,output);
+        } catch(Exception failure) {throw new IllegalStateException("Native village pool check failed",failure);}
+        finally {
+            for(var chunk:ENTITY_CHUNKS)server.overworld().setChunkForced(chunk.x,chunk.z,false);
+            server.halt(false);
+        }
+    }
     static void run(MinecraftServer server, Path output) throws Exception {
         var report = new JsonObject(); var rows = new JsonArray(); report.add("pools", rows);
+        if(readiness!=null)report.add("entityReadiness",readiness);
         try {
             var level = server.overworld(); var registry = server.registryAccess().registryOrThrow(Registries.TEMPLATE_POOL);
             var structures = server.registryAccess().registryOrThrow(Registries.STRUCTURE);
@@ -46,6 +84,25 @@ final class VillagePoolProbe {
                     "skyweave_compat:lithostitched/worldgen_modifier/villages/plains/house.json")).isPresent())
                 composition(server, report);
             report.add("supportInputs", VillageSupportSurvey.run(server));
+            var coverage=StructurePlacementCoverage.run(server);report.add("placementCoverage",coverage);
+            if(Boolean.getBoolean("neighbors.probe.placementFollowup")) {
+                boolean dwelling=false,farm=false;
+                for(var value:coverage.getAsJsonObject("variants").asMap().values()) {
+                    var row=value.getAsJsonObject();
+                    if(row.has("template") && row.get("template").getAsString().equals("kaisyn:village/beach_lighthouse/side/beach_main_house_1")) {
+                        if(!row.get("role").getAsString().equals("BUILDING") || row.get("rawBeds").getAsInt()==0)
+                            throw new AssertionError("Native lighthouse dwelling still bypasses inhabited-building fitting");
+                        dwelling=true;
+                    }
+                    if(row.has("template") && row.get("template").getAsString().equals("skyvillages:farm_2")) {
+                        if(!row.get("role").getAsString().equals("FARM") || row.get("rawBeds").getAsInt()==0)
+                            throw new AssertionError("Dwelling fallback replaced existing native farm intent");
+                        farm=true;
+                    }
+                }
+                if(!dwelling)throw new AssertionError("Lighthouse dwelling role control was not exercised");
+                if(!farm)throw new AssertionError("Native farm role precedence control was not exercised");
+            }
             int index = 0;
             for (String id : List.of("kaisyn:village/beach_lighthouse/villager_lighthouse_master",
                     "kaisyn:village/exclusives/mediterranean/villager_bishop",
@@ -65,6 +122,15 @@ final class VillagePoolProbe {
                     throw new AssertionError("Native villager template placement refused: " + id);
                 var villagers = level.getEntitiesOfClass(Villager.class, new AABB(position).inflate(4));
                 row.addProperty("villagers", villagers.size());
+                if(villagers.size()!=1) {
+                    var known=new JsonArray();
+                    for(var entity:level.getAllEntities())if(entity instanceof Villager && known.size()<16) {
+                        var seen=new JsonObject();seen.addProperty("position",entity.position().toString());
+                        seen.addProperty("removed",entity.isRemoved());known.add(seen);
+                    }
+                    row.add("knownVillagersOnFailure",known);
+                    row.addProperty("chunkImmediatelyAvailable",level.getChunkSource().getChunkNow(position.getX()>>4,position.getZ()>>4)!=null);
+                }
                 if (villagers.size() != 1) throw new AssertionError("Expected one native villager from " + id);
                 var villager = villagers.getFirst();
                 row.addProperty("type", villager.getVillagerData().getType().toString());
@@ -72,6 +138,7 @@ final class VillagePoolProbe {
                 row.addProperty("baby", villager.isBaby());
                 villager.discard();
             }
+            if(Boolean.getBoolean("neighbors.probe.placementFollowup"))report.add("placementFollowup",PlacementFollowupControls.run(server));
             report.addProperty("complete", true);
         } catch (Throwable failure) {
             report.addProperty("complete", false); report.addProperty("failure", failure.toString());

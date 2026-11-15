@@ -23,6 +23,10 @@ final class TerrainOverlayControls {
             for(int i=1;i<entries;i++)section.setBlockState(i&15,(i>>8)&15,(i>>4)&15,Block.BLOCK_STATE_REGISTRY.byId(i));
             int encoded=states.getSerializedSize();
             var base=StructureTerrainView.capture(level.getSeed(),level.registryAccess(),List.of(chunk));
+            check(base.reader().holderLookup(net.minecraft.core.registries.Registries.BLOCK)
+                    ==level.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.BLOCK),"Read-only native registry lookup changed");
+            try {base.reader().getChunkSource();throw new AssertionError("Snapshot exposed a live chunk source");}
+            catch(StructureTerrainView.Unavailable expected) {}
             var at=new BlockPos(15,703,15);var next=new BlockPos(14,704,14);
             int before=base.height(Heightmap.Types.WORLD_SURFACE_WG,at.getX(),at.getZ());
             var edits=List.of(new VillageGrading.Cell(at,base.state(at),Blocks.DEEPSLATE.defaultBlockState()),

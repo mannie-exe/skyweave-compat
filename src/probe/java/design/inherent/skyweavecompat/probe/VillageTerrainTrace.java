@@ -12,6 +12,8 @@ import net.minecraft.world.level.levelgen.structure.PoolElementStructurePiece;
 /** Exact reported-witness attribution; never present in the shipped artifact. */
 public final class VillageTerrainTrace {
     private static final Set<BlockPos> POINTS=switch(System.getProperty("neighbors.probe.villageWitness","")) {
+        case "swamp" -> Set.of(new BlockPos(-8073,258,3296),new BlockPos(-8073,257,3296),new BlockPos(-8073,258,3319),new BlockPos(-8073,257,3319));
+        case "desert" -> Set.of(new BlockPos(10287,513,-4353),new BlockPos(10287,512,-4353),new BlockPos(10287,511,-4353));
         case "fortified" -> Set.of(new BlockPos(1931,500,-1476),new BlockPos(1931,499,-1476),
                 new BlockPos(1931,498,-1476),new BlockPos(1880,502,-1484),new BlockPos(1880,501,-1484),new BlockPos(1880,500,-1484));
         case "savanna" -> Set.of(new BlockPos(10155,346,6405),new BlockPos(10151,345,6405),new BlockPos(10201,352,6412),

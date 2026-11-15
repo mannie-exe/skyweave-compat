@@ -15,6 +15,8 @@ public final class SkyweaveCompat {
 
     public SkyweaveCompat(ModContainer container, IEventBus modBus) {
         var selection = OptionalIntegrations.selection();
+        // Pack data can retain this processor when its optional runtime adaptation is disabled.
+        design.inherent.skyweavecompat.terrain.structure.NaturalSoilProcessor.register(modBus);
         if (selection.enabled(Feature.WAYFINDER)) design.inherent.skyweavecompat.wayfinder.Wayfinder.register(modBus);
         com.mojang.logging.LogUtils.getLogger().info("Skyweave: Compatibility Patches active adaptations: {}", selection.active());
         com.mojang.logging.LogUtils.getLogger().debug("Skyweave: Compatibility Patches inactive adaptations: {}", selection.inactive());

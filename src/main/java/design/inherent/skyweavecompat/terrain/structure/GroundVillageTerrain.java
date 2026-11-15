@@ -93,6 +93,15 @@ public final class GroundVillageTerrain {
     }
     /** Native-body anchor runs after all HEAD hooks, including Sky Arch's reference delivery/adaptation. */
     public static void prepare() { var phase=ACTIVE.get();if(phase!=null)phase.prepare(); }
+    /** Preview and actual processors read identical retained inputs, never preceding template writes. */
+    public static BlockState naturalSoil(LevelReader level, BlockPos position) {
+        if(java.lang.reflect.Proxy.isProxyClass(level.getClass())
+                && java.lang.reflect.Proxy.getInvocationHandler(level) instanceof StructureTerrainView view)
+            return view.naturalSoil(position);
+        var phase=ACTIVE.get();
+        return phase!=null && phase.level==level && phase.naturalTerrain!=null
+                ?phase.naturalTerrain.naturalSoil(position):null;
+    }
     /** Known native layouts only; this neither loads chunks nor delivers pending references. */
     public static boolean featureConflict(WorldGenLevel level,BoundingBox writes) {
         var phase=ACTIVE.get();
@@ -171,6 +180,7 @@ public final class GroundVillageTerrain {
         final ChunkAccess chunk;
         VillageFoundation.Plan support;
         StructureTerrainView projectedTerrain;
+        StructureTerrainView naturalTerrain;
         boolean prepared;
         boolean unknownLayout;
         final List<BoundingBox> featureProtection=new ArrayList<>();
@@ -222,6 +232,7 @@ public final class GroundVillageTerrain {
             final StructureTerrainView natural;
             try { natural=NaturalStructureInputs.view(level.getLevel(),chunks); }
             catch(StructureTerrainView.Unavailable missing) { return; }
+            naturalTerrain=natural;
             var adapted=(GeologicalGenerator)(Object)generator;
             var field=adapted.skyweave$field(level.getLevel().getChunkSource().randomState());
             var settings=generator.resolvedSkyIslandSettings();
