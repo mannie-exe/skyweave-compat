@@ -2,6 +2,16 @@
 
 These optional physical-client adapters do not require Sky Archipelago or the Skyweave modpack. [Configuration](../configuration.md#adaptation-switches) owns activation and versions. No renderer classes load on dedicated-server paths.
 
+## Main-menu branding
+
+The optional physical-client `MainMenuBrandingMixin` wraps the single immutable-list build in NeoForge 21.1.265's `BrandingControl.computeBranding`. It retains the completed native/third-party contributions and inserts one localized line before their last line. Keeping the original bottom line in place avoids adding a new collision with the native copyright row. Original relative order, reverse/no-Minecraft views, rendering, spacing and fade alpha remain owned by NeoForge. Its ordinary resource reload listener invalidates both branding views; there is no per-frame metadata/file parsing or separate version configuration.
+
+`MainMenuIdentity` reads the actual loaded Compat version and the Resource Patches `IModInfo.getModProperties()` map. `PackIdentity` accepts the versioned pack contract and falls back on absent or malformed metadata. The pack's [identity builder](https://github.com/mannie-exe/create-skyweave/blob/main/docs/development/build.md#installed-pack-identity) owns the property schema and DEV/release stamping. This adapter does not alter early loading, network brand identifiers or dedicated-server behavior.
+
+At title initialization and resize, `MainMenuLayoutMixin` reserves two pixels above the footer by closing excess vertical gaps between existing button rows. It preserves their X positions, sizes, actions and native copyright button, and never moves a row down or across the native logo. Spacious layouts remain exact. If third-party rows cannot fit between the logo and footer, their native layout remains intact. Native count/copyright text can already exceed the width of a very narrow window; neither line is truncated or hidden here.
+
+For NeoForge/FML updates, inspect the exact branding producer, its one build invocation, both cached views, reload invalidation and native title rendering. Check custom-property typing, ModernFix's builder contribution, title initialization/button rows and the logo/edition bounds before changing hooks. Retain minimum/disabled/server absence controls and actual menu/reload/scale captures; a parsed metadata map alone does not establish the visible result. An equivalent native branding extension may retire these hooks after the same controls pass.
+
 ## Glass backfaces
 
 `create.glass_backfaces` and `fusion.glass_backfaces` are separate default-on client adaptations. They append reverse-facing copies of final processed quads while retaining native neighbor-cull groups. Existing window-material and glass-axis visibility switches remain independent: they decide whether a boundary is exposed; backfaces decide whether its surface can also be viewed from behind.

@@ -109,7 +109,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
 
     public static boolean clientOnly(Feature feature) {
         return switch (feature) {
-            case WAYFINDER_DH -> true;
+            case WAYFINDER_DH, MAIN_MENU_IDENTITY -> true;
             case HOOFPRINT_ZOOM, ISLAND_CLOUDS, ISLAND_VOID, ISLAND_SHADER_ENVIRONMENT, CONFECTIONERY_BACKFACES, BUBBLE_GUM_BACKFACES, ORNATE_GRATE_BACKFACES, INDUSTRIAL_GRATING_BACKFACES, MACAW_GLASS, CONSTRUCT_DISTANCE, CONSTRUCT_OCCLUSION, SHADER_PATCHES, TEXT_DISPLAY_LIGHTING, NAMETAG_LIGHTING, TEXT_DISPLAY_SHADOW, NAMETAG_SHADOW, CREATE_BACKFACES, FUSION_BACKFACES, CREATE_WINDOWS, RECHISELED_GLASS, REDSTONE_RENDERING, AUDIO_TIMELINE, LINEAR_PONDER, COLORWHEEL_SAMPLERS, COLORWHEEL_MATERIALS, LIGHTING_LIFECYCLE, SODIUM_LIGHTING, DH_HANDOFF, FRAMEBUFFER, BALLOON, MATERIAL_IDS, MODEL_DATA, SINGLE_BLOCK_PASSES,
                     FTB_CREATIVE_RETURN, QUESTLOG_INTERFACE, QUESTLOG_NOTIFICATIONS -> true;
             default -> false;
@@ -118,6 +118,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
 
     public static Map<String, String> dependencies(Feature feature) {
         return switch (feature) {
+            case MAIN_MENU_IDENTITY -> Map.of();
             case BETTER_VILLAGE_CONFIG -> Map.of("bettervillage", "3.3.1", "libraryferret", "4.0.0");
             case WAYFINDER -> Map.of();
             case WAYFINDER_DH -> Map.of("distanthorizons", "3.3.3");
@@ -190,6 +191,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
         for (var feature : Feature.values()) {
             if (!enabled(feature)) continue;
             result.addAll(switch (feature) {
+                case MAIN_MENU_IDENTITY -> List.of("client.MainMenuBrandingMixin", "client.MainMenuLayoutMixin");
                 case BETTER_VILLAGE_CONFIG -> List.of("BetterVillageConfigMixin");
                 case FTB_CREATIVE_RETURN -> List.of("client.FtbCreativeReturnMixin");
                 case WAYFINDER, WAYFINDER_DH -> List.of();

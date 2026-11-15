@@ -116,7 +116,7 @@ final class ClientConfigurationProbe {
         var mc = Minecraft.getInstance();
         if (++ticks % 10 != 0 || mc.getOverlay() != null) return;
         try {
-            if (!opened && !Boolean.getBoolean("skyweave_compat.probe.misc") && !Boolean.getBoolean("skyweave_compat.probe.resources") && !Boolean.getBoolean("skyweave_compat.probe.redstone") && !Boolean.getBoolean("skyweave_compat.probe.configuration.journal") && mc.screen instanceof TitleScreen) { opened = true; open(); }
+            if (!opened && !Boolean.getBoolean("skyweave_compat.probe.branding") && !Boolean.getBoolean("skyweave_compat.probe.misc") && !Boolean.getBoolean("skyweave_compat.probe.resources") && !Boolean.getBoolean("skyweave_compat.probe.redstone") && !Boolean.getBoolean("skyweave_compat.probe.configuration.journal") && mc.screen instanceof TitleScreen) { opened = true; open(); }
             Path control = root.resolve("config-review-control.json");
             if (Files.isRegularFile(control) && Files.size(control) < 16384) {
                 var command = JsonParser.parseString(Files.readString(control)).getAsJsonObject();
@@ -124,6 +124,17 @@ final class ClientConfigurationProbe {
                 if (seq != sequence) {
                     sequence = seq; lastError = null;
                     switch (command.get("operation").getAsString()) {
+                        case "branding-proof" -> ClientMainMenuProbe.observe(root, mc, command);
+                        case "branding-reopen" -> {
+                            if (!Boolean.getBoolean("skyweave_compat.probe.branding") || mc.level != null)
+                                throw new IllegalStateException("Expected a disconnected branding fixture");
+                            mc.setScreen(new TitleScreen(true));
+                        }
+                        case "branding-reload" -> {
+                            if (!Boolean.getBoolean("skyweave_compat.probe.branding") || mc.level != null)
+                                throw new IllegalStateException("Expected a disconnected branding fixture");
+                            mc.reloadResourcePacks();
+                        }
                         case "open" -> open();
                         case "server-proof" -> serverProof();
                         case "world" -> world(command.get("slot").getAsInt());

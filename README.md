@@ -129,6 +129,10 @@ Verification can generate and save early chunk metadata. It requests `STRUCTURE_
 
 Search budgets live in `config/skyweave/skyweave_compat-search.json`; publish changes with `/skyweavecompat settings reload search` on the owning server. New searches use the updated budgets. They do not change terrain identity. See [search limits](docs/configuration.md#structure-search) and [maintenance](docs/development/terrain-variation.md#structure-discovery).
 
+## Main-menu identity
+
+The default-on client adaptation adds one footer line while preserving Minecraft, NeoForge/mod count, ModernFix and other existing lines. A recognized Resource Patches identity shows `Create: Skyweave <pack version> + Compat <installed version>`; development builds use `DEV`. Otherwise it shows `Skyweave: Compatibility Patches <installed version>`. The pack baseline and actual loaded Compat version remain separate. This does not change early loading screens or network branding.
+
 ## Configuration
 
 Open **Mods → Skyweave: Compatibility Patches → Config** for searchable gameplay systems and mod pages. Setting links jump within the selected page; owned JSON files and registered scalar TOML settings have inline forms. Journal preferences apply immediately; fix changes save for the next startup. The menu edits local files, not a connected server.

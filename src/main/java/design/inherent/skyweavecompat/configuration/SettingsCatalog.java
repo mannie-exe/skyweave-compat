@@ -9,6 +9,7 @@ import java.util.List;
 public final class SettingsCatalog {
     public enum Category { INTERFACE, RENDERING, MAPS, SHIPS, MACHINES, INVENTORY, AUDIO, WORLD }
     public enum Group {
+        COMPAT_INTERFACE(Category.INTERFACE, "skyweave_compat"),
         NAVIGATION(Category.MAPS, "skyweave_compat"),
         FTB_QUESTS(Category.INTERFACE, "ftbquests"),
         FTB_LIBRARY(Category.INVENTORY, "ftblibrary"), JOURNAL(Category.INTERFACE, "questlog"), AUDIO_CLIENT(Category.AUDIO, "analog_audio"),
@@ -160,6 +161,7 @@ public final class SettingsCatalog {
     }
     public static Group group(Feature feature) {
         return switch (feature) {
+            case MAIN_MENU_IDENTITY -> Group.COMPAT_INTERFACE;
             case BETTER_VILLAGE_CONFIG -> Group.BETTER_VILLAGE;
             case WAYFINDER, WAYFINDER_DH -> Group.NAVIGATION;
             case FTB_ITEM_FILTERS -> Group.FTB_QUESTS;

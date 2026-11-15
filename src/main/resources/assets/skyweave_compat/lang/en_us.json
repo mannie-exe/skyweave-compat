@@ -1,4 +1,8 @@
 {
+  "skyweave_compat.branding.pack": "Create: Skyweave %s + Compat %s",
+  "skyweave_compat.branding.standalone": "Skyweave: Compatibility Patches %s",
+  "skyweave_compat.configuration.feature.interface.main_menu_identity": "Main-menu identity",
+  "skyweave_compat.settings.summary.interface.main_menu_identity": "Add installed pack and Compat versions while preserving existing footer lines.",
   "skyweave_compat.configuration.title": "Skyweave: Compatibility Patches",
   "skyweave_compat.config.minimumGap": "Minimum terrain gap",
   "skyweave_compat.config.maximumGap": "Maximum island distance",

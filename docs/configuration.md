@@ -6,6 +6,12 @@ Skyweave: Compatibility Patches uses `skyweave_compat` resources and configurati
 
 The interior noise salt `create_sky_compat:interiors` remains an opaque deterministic input so the same seed retains its terrain algorithm. DH's `create-sky-lod-world-id` marker and `csky_` cache key format remain persistence contracts, preserving existing cache discovery. They are not public resource aliases. Other serialized owned IDs, including grave recovery metadata, use the new namespace only; this release does not convert existing saved data.
 
+## Main-menu identity
+
+`interface.main_menu_identity` is a default-on physical-client switch under **Interface and accessibility → Skyweave: Compatibility Patches → Fixes**. It adds one native footer line without replacing Minecraft, NeoForge/count, ModernFix or other mods' lines. Small windows close gaps between menu rows when needed to keep the footer clear of buttons. Changes take effect after restarting the client; no server policy or connection is involved.
+
+The pack version comes from the loaded Resource Patches identity, not its own mod version or filename. Compat always reports its actual loaded version. Missing, foreign, unsupported or malformed pack metadata selects the standalone Compat line. Development packs show `DEV`; released packs retain their installed baseline version even when Compat is updated separately. The pack's [build guide](https://github.com/mannie-exe/create-skyweave/blob/main/docs/development/build.md#installed-pack-identity) owns generation and release semantics.
+
 ## Configuration directory
 
 Compat-owned settings live in `config/skyweave/`, retaining their existing filenames and formats. Managed shader recipes live in `config/skyweave/shaders/recipes/`; shader caches and generated shaderpacks retain their separate locations. Other mods keep their own native configuration paths, including files exposed by Compat's settings screen.
@@ -20,6 +26,7 @@ All switches default to `true`; explicit `false` selections remain authoritative
 
 | Switch                                 | Adaptation                                                                                        | Prerequisites                                                                                                                               |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `interface.main_menu_identity`         | Add installed pack/Compat versions to the main menu                                               | Physical client; no optional content mods                                                                                                   |
 | `bettervillage.configuration_writes`   | Preserve unchanged property bytes                                                                 | Better Villages 3.3.1 and Library Ferret 4.0.0; either side                                                                                 |
 | `navigation.wayfinder`                 | Native sight teleport and server policy                                                           | Minecraft; both sides for the G binding                                                                                                     |
 | `navigation.wayfinder_dh`              | Progressive distant terrain targeting                                                             | Active Wayfinder, physical client, DH 3.3.3                                                                                                 |

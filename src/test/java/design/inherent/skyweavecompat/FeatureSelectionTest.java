@@ -12,6 +12,14 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class FeatureSelectionTest {
+    @Test void mainMenuIdentityIsOptionalAndPhysicalClientOnlyWithoutContentMods() {
+        var settings = only(Feature.MAIN_MENU_IDENTITY);
+        assertTrue(Feature.MAIN_MENU_IDENTITY.defaultEnabled);
+        assertEquals(List.of("client.MainMenuBrandingMixin", "client.MainMenuLayoutMixin"), FeatureSelection.select(settings, Map.of(), true).mixins(true));
+        assertTrue(FeatureSelection.select(settings, Map.of(), false).active().isEmpty());
+        assertTrue(FeatureSelection.select(settings, Map.of(), false).mixins(false).isEmpty());
+        assertTrue(FeatureSelection.select(only(), Map.of(), true).mixins(true).isEmpty());
+    }
     @Test void floeWaterLayersRequireBothOptionalOwnersWithoutRequiringTemperature() {
         var mods=Map.of("sky_archipelago","1.4","dynamicwaters","13.1.0");
         var settings=only(Feature.TERRAIN,Feature.DYNAMIC_WATERS,Feature.WATER_SPAWNS);
@@ -561,11 +569,13 @@ class FeatureSelectionTest {
         }
     }
 
-    @Test void noOptionalDependenciesSelectsOnlyNativeWayfinderOnEitherSide() {
+    @Test void noOptionalDependenciesSelectsOnlyNativeFeaturesForThePhysicalSide() {
         for (boolean client : new boolean[]{true, false}) {
             var selection = FeatureSelection.select(new FeatureSettings(Map.of()), Map.of(), client);
-            assertEquals(java.util.Set.of(Feature.WAYFINDER),selection.active());
-            assertEquals(List.of("StructureSearchCacheAccess"),selection.mixins(client));
+            assertEquals(client ? java.util.Set.of(Feature.WAYFINDER, Feature.MAIN_MENU_IDENTITY)
+                    : java.util.Set.of(Feature.WAYFINDER), selection.active());
+            assertEquals(client ? List.of("client.MainMenuBrandingMixin", "client.MainMenuLayoutMixin", "StructureSearchCacheAccess")
+                    : List.of("StructureSearchCacheAccess"), selection.mixins(client));
         }
     }
 

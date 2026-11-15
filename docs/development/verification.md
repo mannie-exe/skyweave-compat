@@ -2,6 +2,16 @@
 
 Evidence below qualifies named artifacts only. Build and native fixture commands live in [testing](testing.md); adapter contracts and update checks live in their domain guides. A later checkout needs its own relevant checks.
 
+## Main-menu identity (0.37.0)
+
+The versioned local candidate SHA-256 `7ca74b7e37a05470f642fe8720af8767d11d46fb1733287f5d58497df48af3b9` passes required Gradle checks/build: 434 unit tests, nine tooling tests and package/upstream/rendering checks. The dedicated-server minimum starts and stops normally, selecting only the existing Wayfinder adaptation and no client menu targets.
+
+The native production ForgeWrapper client matrix uses packaged product/probe JARs rather than source roots. Minimum clients cover standalone, DEV metadata, unsupported-schema fallback and a prerelease version with Japanese/Unicode fonts. Full-pack DEV/release cases use the actual generated Resource Patches JARs and retain all 18 resource packs. The explicit-disabled full-pack control retains exactly Minecraft, ModernFix and NeoForge/count; enabled cases add exactly one line without changing those strings or their relative order. The fixture probe adds one mod to the displayed count.
+
+Native menu reopen, resource/language reload and GUI-scale changes retain one identity line and refresh the native cache on reload. Real framebuffer captures and native widget bounds cover GUI 320×240 and larger layouts. The initial additional row overlapped menu buttons; the corrected native initialization closes only necessary row gaps. The count/copyright width collision at very narrow native windows already exists in the disabled control and remains visible rather than hiding either line.
+
+Fixture corrections are separate from product fixes: a complete Resource Patches JAR requires Create Deco and belongs in the full profile, while the minimum metadata contract uses a metadata-only mod. Copying generated shader ZIPs without their ownership cache correctly triggers the shader runner's unowned-output refusal; corrected full fixtures stage distributed shader inputs and let native assembly create its owned outputs. These menu checks do not qualify new terrain, shader rendering, arbitrary menu frameworks or early loading screens. [Rendering](rendering.md#main-menu-branding) owns hooks and update checks; the pack's build guide owns DEV/release export stamping.
+
 ## Bounded riverbank and village follow-up (0.36.0)
 
 The versioned candidate SHA-256 `9a9242ba31baa53db744f3269f65e33b28856b96037876f1aa6f7178fc2259b0` passes the required Gradle checks/build: 427 unit tests, nine tooling tests and package/upstream/rendering checks. Standalone, terrain-disabled, unsupported-target-disabled, all-disabled with candidate resources, and full foreign-preset dedicated startup also pass this exact artifact. This identifies the local candidate; publication and platform-build identity require their own checks.
