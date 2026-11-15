@@ -1,14 +1,12 @@
-# Skyweave: Compatibility Patches 0.36.0
+# Skyweave: Compatibility Patches 0.37.0
 
-Keep Dynamic Waters riverbanks within their floating island and preserve authored village foundations. Minecraft remains 1.21.1; NeoForge remains 21.1.265. Existing optional adaptation switches and dependency pins are unchanged.
+Show installed pack and Compat versions in the main-menu footer. Minecraft remains 1.21.1; NeoForge remains 21.1.265.
 
-- Repair dry riverbanks from their local admitted height instead of a global sea-level sentinel. Bound post-carver material writes to the correct retained column, preserving real channels, island shells, cavities and separate lower islands.
-- Support an explicit resource-authored ambient-soil processor using the original island palette. The modpack's swamp village lists retain their native roads, paving and wet walkways. Disabled or foreign placement contexts leave authored output native.
-- Omit a conflicting rigid decoration only when its leaf connection can be detached safely. Preserve valid oases and reject ambiguous layouts through the existing traced fallback.
-- Protect admitted village pieces from conflicting native mangrove roots before the tree writes. Unrelated trees and authored piece trees retain their native path.
-- Recognize native bed-bearing dwellings placed outside conventional house folders, including the lighthouse side house.
-- Extend native verification with effective structure/pool/template coverage and reusable riverbank, material and local-conflict witnesses.
+- Add `Create: Skyweave <pack version> + Compat <installed version>` when Resource Patches supplies valid pack metadata. Development builds show `DEV`; standalone installations show the installed Compatibility Patches version.
+- Preserve Minecraft, ModernFix, NeoForge/mod count and other existing lines. Use native branding caching, language/resource reload and fade behavior.
+- Close excess button-row gaps in small windows so the added footer stays clear of menu controls. Keep native button sizes, actions, logo and copyright.
+- Expose the default-on client switch under Interface and accessibility. Dedicated servers select neither menu hook.
 
-These terrain changes advance saved generation identity to `islands_v1-skyarch-1.4-17` and watersheds to `island_watersheds_v7`. Use a fresh marked world with matching client/server artifacts, or keep the original release and settings for an existing world. Saved curtains and structures do not repair themselves. Never edit saved markers to bypass the guard; installation does not delete worlds automatically.
+This is presentation work. Terrain identity remains `islands_v1-skyarch-1.4-17`, with watersheds `island_watersheds_v7`; no world reset is required. Early loading screens and network branding are unchanged.
 
-The [verification guide](docs/development/verification.md) records exact native checks and their limits. Qualified local contact and fitting do not establish that every village is perfectly supported or navigable.
+Required checks pass 434 unit tests and nine release-tool tests. Isolated native minimum/full-pack clients cover standalone, DEV, release, malformed metadata, explicit disablement, ModernFix composition, menu reopen, resource/language reload, GUI scales and Unicode fonts. Native count/copyright text retains its existing very-narrow-window width limitation. See [verification](docs/development/verification.md) for tested artifacts and scope.

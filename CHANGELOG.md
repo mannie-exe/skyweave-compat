@@ -2,6 +2,16 @@
 
 Generated from Git history. Player-facing release summaries are in [release notes](RELEASE_NOTES.md).
 
+## v0.37.0 · 2026-11-15
+
+### Features
+
+- Show installed main-menu identity ([c15ccbb](https://github.com/mannie-exe/skyweave-compat/commit/c15ccbbf25f1e5f4089108256558f7881a1355f6))
+
+### Documentation
+
+- Record published 0.36.0 verification ([4e0a063](https://github.com/mannie-exe/skyweave-compat/commit/4e0a06364dd96831a9077c1f7445890452bd8b7d))
+
 ## v0.36.0 · 2026-11-15
 
 ### Fixes
