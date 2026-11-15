@@ -2,6 +2,33 @@
 
 Evidence below qualifies named artifacts only. Build and native fixture commands live in [testing](testing.md); adapter contracts and update checks live in their domain guides. A later checkout needs its own relevant checks.
 
+## Cohesive transparency (0.38.0)
+
+Minecraft 1.21.1 / NeoForge 21.1.265 / Java 21 on macOS arm64 qualified the packaged client with Create 6.0.10, Copycats+ `3.0.9+mc.1.21.1-neoforge`, Fusion 1.3.16, Sodium 0.8.13, Iris 1.8.14-beta.1 and the pack's selected resources. The full native rendering/reopen artifact was SHA-256 `668bfaf10485df71c84dd4c72f4bdd2682db5105d376d87b134a21cd48fdf993`. Subsequent import cleanup changed four classes' debug/line metadata only: `javap -c -p -constants` output remained exact. Required `check build clientProbeJar` passes all 447 tests, package checks and upstream/Ponder/Iris checks.
+
+The matched public 0.37.0 control reproduces Copycats+ phase-cache contamination: a full block returns 10 finalized quads during same-key source sampling instead of the fresh source's five; a source-first key then returns five during normal rendering. Stairs and multi-material/sloped forms reproduce the same distinction. The repair passes nonempty A/B/A and source-first controls for the same native state, random object, ModelData and layer. Original final-source quad multisets and all packed attributes remain intact. Actual panel/step internal sheets disappear; a two-material interface receives separate inward reverse planes at 0.496094 and 0.503906.
+
+Native controls cover eight core forms, six contact directions including negative/chunk boundaries, ordinary-to-Copycat and reciprocal contacts, adjacent Copycats, internal materials, opaque/air controls, material changes without BlockState changes and exact restoration, and native CT toggles. Four independent real Sodium LevelSlice views produce 16 worker samples equal to serial geometry. Actual Create and Copycats source-view exceptions propagate with restored scope and a valid subsequent gather. Six subjects using two native weighted material variants retain phase equality. Thirteen static controls cover Tiled Glass/panes, tinted glass, mosaic glass/panes, caramel, bubble gum, grates and a registered Rechiseled Create window. Native Macaw windows, one-way glass/panes and bar extrusion retain original output.
+
+Native resource reload covers same-ID priority and winning resource hashes, disable/restore, cross-profile conflicts, exact state exclusions, duplicate keys, nesting, size, invalid providers and 129-profile exhaustion. Returning to baseline restores exact geometry with no wrapper/quad growth. An unreadable-resource control first reproduced a null-message diagnostic publication failure; the corrected path retains original rendering and a bounded diagnostic. The pack-authored mosaic replacement resolves its 32 registered IDs. Normal full-profile diagnostics/fallbacks remain empty.
+
+Seven production-bootstrap client controls cover minimum, Create-only, Fusion-only, Create+Copycats without Fusion, Create+Fusion without Copycats, all glass adapters disabled and a metadata-modified unsupported Copycats version with its adapter disabled. Qualified actual CT/Fusion resources supply separate positive controls; unprocessed vanilla full-glass models retain their original renderer when that provider is absent. The dedicated minimum fixture starts and exits normally with only Wayfinder active. The optional matrix used the earlier 0.38.0 artifact `13e7debaa64212ddbfbcbb719ef86bdb12e89f06fb0964c41f71d230edd67c5a`, before the diagnostic-only error repair.
+
+Fifteen accepted native framebuffer captures cover contact, panel, multi-material, slope and pane scenes with shaders off, Complementary Unbound 5.9.3 + Euphoria 1.10.5 + Skyweave 0.2.0, and BSL 10.1.8 + Colorwheel 1.0.5 + Skyweave 0.2.0. Captures require no screen/overlay and a completed native Sodium mesh queue, and retain actual camera/shader receipts. This qualifies stationary renderer paths; it does not add moving Sable/contraption, arbitrary-mesh or universal GPU qualification.
+
+Bounded query measurements repeat native ModelData gathering and all layers/cull groups, three samples of 100 iterations. These are CPU-thread work/allocation observations, not FPS or world-generation benchmarks. Ordinary glass touching a Copycat now samples its real material geometry and costs more; a global speedup is not claimed.
+
+| Subject                             | Public 0.37 median µs / bytes per query | Corrected median µs / bytes per query |
+| ----------------------------------- | --------------------------------------- | ------------------------------------- |
+| Ordinary glass at a Copycat contact | 28.69 / 20,132                          | 55.72 / 65,348                        |
+| Full Copycat                        | 50.70 / 39,940                          | 30.22 / 44,244                        |
+| Native panel                        | 28.57 / 56,156                          | 31.70 / 52,268                        |
+| Two-material slab                   | 81.63 / 123,764                         | 56.58 / 111,964                       |
+| Stairs                              | 69.07 / 100,872                         | 41.23 / 103,676                       |
+| Slope                               | 43.84 / 93,284                          | 43.99 / 83,012                        |
+
+The pack's native inventory/recipe checks hide duplicate Connected entries from creative and EMI while retaining unique variants. All nine preserved conversion IDs perform actual one-to-one native crafts, and a hidden registered Connected block still uses its native migration. Resource Patches adds only the mosaic profile, nine conversion resources and metadata changes; other authored entries, native physics and mass resources remain unchanged. Pack exports and installed rollout have their own verification owner.
+
 ## Main-menu identity (0.37.0)
 
 The versioned local candidate SHA-256 `7ca74b7e37a05470f642fe8720af8767d11d46fb1733287f5d58497df48af3b9` passes required Gradle checks/build: 434 unit tests, nine tooling tests and package/upstream/rendering checks. The dedicated-server minimum starts and stops normally, selecting only the existing Wayfinder adaptation and no client menu targets.

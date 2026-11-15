@@ -1,12 +1,12 @@
-# Skyweave: Compatibility Patches 0.37.0
+# Skyweave: Compatibility Patches 0.38.0
 
-Show installed pack and Compat versions in the main-menu footer. Minecraft remains 1.21.1; NeoForge remains 21.1.265.
+Correct glass backfaces after native Create/Copycats+ shape assembly, including ordinary glass contacts and multi-material parts. Minecraft remains 1.21.1; NeoForge remains 21.1.265.
 
-- Add `Create: Skyweave <pack version> + Compat <installed version>` when Resource Patches supplies valid pack metadata. Development builds show `DEV`; standalone installations show the installed Compatibility Patches version.
-- Preserve Minecraft, ModernFix, NeoForge/mod count and other existing lines. Use native branding caching, language/resource reload and fade behavior.
-- Close excess button-row gaps in small windows so the added footer stays clear of menu controls. Keep native button sizes, actions, logo and copyright.
-- Expose the default-on client switch under Interface and accessibility. Dedicated servers select neither menu hook.
+- Keep material-source reads separate from finalized Copycats+ cached geometry. Native CT, shape cropping, culling and render layers remain active.
+- Add and separate backfaces on the actual final panel, step, slab, stair and supported slope surfaces. Preserve original geometry and vertex attributes, existing pane seams and intentional two-sided artwork.
+- Add independent default-on client switches for native Create Copycats and Copycats+. Keep the existing glass-family switches and explicit opt-outs.
+- Load typed, bounded transparency profiles through native resource priority, with exclusions, disablement, conflict fallback and consistent reload generations. Resources select implemented providers, not executable handlers.
 
-This is presentation work. Terrain identity remains `islands_v1-skyarch-1.4-17`, with watersheds `island_watersheds_v7`; no world reset is required. Early loading screens and network branding are unchanged.
+Native checks cover stationary geometry with shaders off, patched Complementary/Euphoria and BSL, material/CT changes, resource reload and optional installations. Arbitrary meshes and moving Sable/contraption rendering are not newly qualified. Copied materials gain no new physics properties.
 
-Required checks pass 434 unit tests and nine release-tool tests. Isolated native minimum/full-pack clients cover standalone, DEV, release, malformed metadata, explicit disablement, ModernFix composition, menu reopen, resource/language reload, GUI scales and Unicode fonts. Native count/copyright text retains its existing very-narrow-window width limitation. See [verification](docs/development/verification.md) for tested artifacts and scope.
+Terrain identity remains `islands_v1-skyarch-1.4-17`, with watersheds `island_watersheds_v7`; no world reset is required.

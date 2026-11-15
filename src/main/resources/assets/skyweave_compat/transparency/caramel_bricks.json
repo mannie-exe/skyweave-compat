@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "feature": "confectionery.block_backfaces",
+  "providers": [
+    "plain",
+    "material"
+  ],
+  "targets": [
+    {
+      "family": "caramel_bricks"
+    }
+  ]
+}

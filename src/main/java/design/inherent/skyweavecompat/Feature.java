@@ -83,6 +83,8 @@ public enum Feature {
     INDUSTRIAL_GRATING_BACKFACES("bits_n_bobs.grating_backfaces"),
     SHADER_PATCHES("rendering.shader_patches"),
     CREATE_BACKFACES("create.glass_backfaces"),
+    CREATE_COPYCAT_BACKFACES("create.copycat_backfaces"),
+    COPYCATS_BACKFACES("copycats.glass_backfaces"),
     FUSION_BACKFACES("fusion.glass_backfaces"),
     CREATE_WINDOWS("create.window_culling"),
     RECHISELED_GLASS("rechiseled.glass_culling"),

@@ -25,6 +25,12 @@ public final class SurfaceRegions {
 
     /** Partition once, retaining uncovered areas and merging cells of equal coverage. */
     public static List<Part> partition(Rect source, List<Rect> contacts) {
+        var result = partitionChecked(source, contacts);
+        return result == null ? List.of(new Part(source, false)) : result;
+    }
+
+    /** Null denotes an unqualified budget fallback, not successful uncovered geometry. */
+    public static List<Part> partitionChecked(Rect source, List<Rect> contacts) {
         var clipped = new ArrayList<Rect>();
         var us = new TreeSet<Float>(); var vs = new TreeSet<Float>();
         us.add(source.u0); us.add(source.u1); vs.add(source.v0); vs.add(source.v1);
@@ -39,7 +45,7 @@ public final class SurfaceRegions {
         var u = new ArrayList<>(us); var v = new ArrayList<>(vs);
         int width = u.size() - 1, height = v.size() - 1;
         // Unknown highly subdivided models retain ordinary backfaces rather than failing a mesh build.
-        if ((long) width * height > 4096) return List.of(new Part(source, false));
+        if ((long) width * height > 4096) return null;
         boolean[][] shared = new boolean[height][width], used = new boolean[height][width];
         for (int y = 0; y < height; y++) for (int x = 0; x < width; x++) {
             float a = (u.get(x) + u.get(x + 1)) / 2, b = (v.get(y) + v.get(y + 1)) / 2;

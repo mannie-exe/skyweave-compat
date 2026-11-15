@@ -211,6 +211,7 @@ class FeatureSelectionTest {
 
     @Test void glassBackfacesAreIndependentDefaultOnClientAdapters() {
         for (var feature : java.util.List.of(Feature.CREATE_BACKFACES, Feature.FUSION_BACKFACES,
+                Feature.CREATE_COPYCAT_BACKFACES, Feature.COPYCATS_BACKFACES,
                 Feature.CONFECTIONERY_BACKFACES, Feature.BUBBLE_GUM_BACKFACES,
                 Feature.ORNATE_GRATE_BACKFACES, Feature.INDUSTRIAL_GRATING_BACKFACES)) {
             assertTrue(feature.defaultEnabled);

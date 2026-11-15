@@ -35,7 +35,8 @@ public final class ClientConfiguration {
         if (!glassFeatures.isEmpty())
             modBus.addListener(net.neoforged.bus.api.EventPriority.LOWEST,
                     (net.neoforged.neoforge.client.event.ModelEvent.ModifyBakingResult event) ->
-                            PlainGlassModels.wrap(event, id -> PlainGlassModels.target(id, glassFeatures)));
+                            PlainGlassModels.wrap(event, id -> !GlassBackfaces.vanillaPane(id)
+                                    && TransparencyProfiles.current().wraps(id)));
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationOverview::new);
         if (OptionalIntegrations.enabled(Feature.REDSTONE_RENDERING))
             modBus.addListener((net.neoforged.fml.event.lifecycle.FMLClientSetupEvent event) -> event.enqueueWork(() ->

@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "feature": "fusion.glass_backfaces",
+  "providers": [
+    "fusion",
+    "material"
+  ],
+  "targets": [
+    {
+      "family": "rechiseled_pillars"
+    }
+  ]
+}

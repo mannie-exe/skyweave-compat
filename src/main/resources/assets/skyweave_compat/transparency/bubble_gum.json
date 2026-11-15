@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "feature": "linear_bearing.bubble_gum_backfaces",
+  "providers": [
+    "plain",
+    "material"
+  ],
+  "targets": [
+    {
+      "family": "bubble_gum"
+    }
+  ]
+}

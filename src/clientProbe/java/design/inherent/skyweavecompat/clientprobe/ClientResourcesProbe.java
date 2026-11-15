@@ -46,6 +46,8 @@ final class ClientResourcesProbe {
         worldText = Files.isRegularFile(root.resolve("world-text-review.json")) && net.neoforged.fml.ModList.get().isLoaded("iris")
                 ? new ClientWorldTextProbe() : null;
         NeoForge.EVENT_BUS.addListener(this::tick);
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.RenderFrameEvent.Post event) ->
+                ClientTransparencyProbe.afterFrame(Minecraft.getInstance()));
         if (Boolean.getBoolean("skyweave_compat.probe.terrain_capture")) {
             NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.ViewportEvent.RenderFog event) -> {
                 // Inspection photography only; never installed in the shipping mod.
@@ -235,6 +237,16 @@ final class ClientResourcesProbe {
                                 modelReport.getAsJsonArray(type).add(id.toString());
                             }
                         }
+                        case "transparency-inspect" -> modelReport = ClientTransparencyProbe.inspect(mc, command);
+                        case "transparency-material" -> modelReport = ClientTransparencyProbe.material(mc, command);
+                        case "transparency-confirm-reopen" -> ClientTransparencyProbe.confirmReopen(mc);
+                        case "transparency-profiles" -> modelReport = ClientTransparencyProbe.profiles();
+                        case "transparency-capture" -> ClientTransparencyProbe.capture(mc, command);
+                        case "transparency-sodium-snapshot" -> modelReport = ClientTransparencyProbe.sodiumSnapshot(mc, command);
+                        case "transparency-ct" -> modelReport = ClientTransparencyProbe.connectedTextures(mc, command);
+                        case "transparency-inventory" -> modelReport = ClientTransparencyProbe.inventory(mc);
+                        case "transparency-exception" -> modelReport = ClientTransparencyProbe.exceptionScope(mc, command);
+                        case "transparency-conversions" -> modelReport = ClientTransparencyProbe.conversions(mc);
                         case "inspect" -> {
                             if (mc.level == null) throw new IllegalStateException("Expected isolated world");
                             var pos = new BlockPos(command.get("x").getAsInt(), command.get("y").getAsInt(), command.get("z").getAsInt());

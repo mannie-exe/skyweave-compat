@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "feature": "bits_n_bobs.grating_backfaces",
+  "providers": [
+    "plain",
+    "material"
+  ],
+  "targets": [
+    {
+      "family": "industrial_grating"
+    }
+  ]
+}

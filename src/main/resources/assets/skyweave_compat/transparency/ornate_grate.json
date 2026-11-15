@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "feature": "dndecor.grate_backfaces",
+  "providers": [
+    "plain",
+    "material"
+  ],
+  "targets": [
+    {
+      "family": "ornate_grate"
+    }
+  ]
+}

@@ -252,3 +252,10 @@ modId="c2me_rewrites_chunkio"
 type="optional"
 versionRange="[0,)"
 side="BOTH"
+
+[[dependencies.skyweave_compat]]
+modId="copycats"
+type="optional"
+versionRange="[0,)"
+ordering="AFTER"
+side="CLIENT"

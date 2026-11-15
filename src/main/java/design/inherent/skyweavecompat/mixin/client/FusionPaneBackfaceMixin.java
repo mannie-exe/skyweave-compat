@@ -14,6 +14,7 @@ abstract class FusionPaneBackfaceMixin {
     @Inject(method = "applyModelModifiers(Lnet/minecraft/client/resources/model/ModelBakery;)V",
             at = @At("RETURN"), require = 1)
     private void skyweave$finishedPanes(ModelBakery bakery, CallbackInfo callback) {
-        PlainGlassModels.wrap(bakery.getBakedTopLevelModels(), GlassBackfaces::vanillaPane);
+        PlainGlassModels.wrap(bakery.getBakedTopLevelModels(), id -> GlassBackfaces.vanillaPane(id)
+                && design.inherent.skyweavecompat.client.TransparencyProfiles.current().wraps(id));
     }
 }

@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "feature": "create.glass_backfaces",
+  "providers": [
+    "create_ct",
+    "material"
+  ],
+  "targets": [
+    {
+      "family": "create_glass"
+    }
+  ],
+  "exclusions": [
+    {"family": "create_tiled"}
+  ]
+}

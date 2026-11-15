@@ -109,7 +109,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
 
     public static boolean clientOnly(Feature feature) {
         return switch (feature) {
-            case WAYFINDER_DH, MAIN_MENU_IDENTITY -> true;
+            case WAYFINDER_DH, MAIN_MENU_IDENTITY, CREATE_COPYCAT_BACKFACES, COPYCATS_BACKFACES -> true;
             case HOOFPRINT_ZOOM, ISLAND_CLOUDS, ISLAND_VOID, ISLAND_SHADER_ENVIRONMENT, CONFECTIONERY_BACKFACES, BUBBLE_GUM_BACKFACES, ORNATE_GRATE_BACKFACES, INDUSTRIAL_GRATING_BACKFACES, MACAW_GLASS, CONSTRUCT_DISTANCE, CONSTRUCT_OCCLUSION, SHADER_PATCHES, TEXT_DISPLAY_LIGHTING, NAMETAG_LIGHTING, TEXT_DISPLAY_SHADOW, NAMETAG_SHADOW, CREATE_BACKFACES, FUSION_BACKFACES, CREATE_WINDOWS, RECHISELED_GLASS, REDSTONE_RENDERING, AUDIO_TIMELINE, LINEAR_PONDER, COLORWHEEL_SAMPLERS, COLORWHEEL_MATERIALS, LIGHTING_LIFECYCLE, SODIUM_LIGHTING, DH_HANDOFF, FRAMEBUFFER, BALLOON, MATERIAL_IDS, MODEL_DATA, SINGLE_BLOCK_PASSES,
                     FTB_CREATIVE_RETURN, QUESTLOG_INTERFACE, QUESTLOG_NOTIFICATIONS -> true;
             default -> false;
@@ -146,6 +146,8 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             case INDUSTRIAL_GRATING_BACKFACES -> Map.of("bits_n_bobs", "2.3.5");
             case SHADER_PATCHES -> Map.of("iris", "1.8.14-beta.1+mc1.21.1");
             case CREATE_BACKFACES -> Map.of("create", "6.0.10");
+            case CREATE_COPYCAT_BACKFACES -> Map.of("create", "6.0.10");
+            case COPYCATS_BACKFACES -> Map.of("create", "6.0.10", "copycats", "3.0.9+mc.1.21.1-neoforge");
             case FUSION_BACKFACES -> Map.of("fusion", "1.3.16");
             case CREATE_WINDOWS -> Map.of("create", "6.0.10");
             case RECHISELED_GLASS -> Map.of("rechiseled", "1.2.6");
@@ -290,6 +292,8 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                 case MACAW_LANTERN_SABLE -> List.of("macaw.SableLanternRayMixin");
                 case SHADER_PATCHES -> List.of("client.ShaderAssemblyMixin");
                 case CREATE_BACKFACES -> List.of("client.CreateGlassBackfaceMixin");
+                case CREATE_COPYCAT_BACKFACES -> List.of("client.CreateCopycatBackfaceMixin");
+                case COPYCATS_BACKFACES -> List.of("client.CopycatsBackfaceMixin", "client.CopycatsRenderSessionMixin");
                 case FUSION_BACKFACES -> List.of("client.FusionGlassBackfaceMixin", "client.FusionPaneBackfaceMixin");
                 case CREATE_WINDOWS -> List.of("client.CreateWindowCullingMixin");
                 case RECHISELED_GLASS -> List.of("client.RechiseledGlassCullingMixin");
@@ -311,6 +315,12 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
         if (enabled(Feature.WATER_SPAWNS) && enabled(Feature.DYNAMIC_WATERS)) result.add("water.FloeWaterLevelMixin");
         if (client && (enabled(Feature.TEXT_DISPLAY_LIGHTING) || enabled(Feature.NAMETAG_LIGHTING)))
             result.addAll(List.of("client.WorldTextPipelineMixin", "client.WorldTextShaderMixin"));
+        if (client && (active.stream().anyMatch(feature -> switch (feature) {
+            case CREATE_BACKFACES, FUSION_BACKFACES, MACAW_GLASS, CONFECTIONERY_BACKFACES,
+                    BUBBLE_GUM_BACKFACES, ORNATE_GRATE_BACKFACES, INDUSTRIAL_GRATING_BACKFACES,
+                    CREATE_COPYCAT_BACKFACES, COPYCATS_BACKFACES -> true;
+            default -> false;
+        }))) result.add("client.TransparencyResourcesMixin");
         return List.copyOf(result);
     }
 }

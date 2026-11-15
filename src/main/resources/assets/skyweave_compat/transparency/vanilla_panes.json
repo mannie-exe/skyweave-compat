@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "feature": "fusion.glass_backfaces",
+  "providers": [
+    "plain",
+    "material"
+  ],
+  "targets": [
+    {
+      "family": "vanilla_panes"
+    }
+  ]
+}

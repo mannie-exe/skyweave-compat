@@ -78,6 +78,7 @@ dependencies {
     compileOnly('maven.modrinth:colorwheel:lV874ox8') { transitive = false }
     testRuntimeOnly('maven.modrinth:colorwheel:lV874ox8') { transitive = false }
     compileOnly('maven.modrinth:create:UjX6dr61') { transitive = false }
+    compileOnly('maven.modrinth:copycats:bPYeUWZx') { transitive = false }
     testRuntimeOnly('maven.modrinth:create:UjX6dr61') { transitive = false }
     compileOnly('maven.modrinth:sable-dynamic-lights:vjb0hAWB') { transitive = false }
     testRuntimeOnly('maven.modrinth:sable-dynamic-lights:vjb0hAWB') { transitive = false }
