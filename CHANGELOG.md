@@ -2,6 +2,16 @@
 
 Generated from Git history. Player-facing release summaries are in [release notes](RELEASE_NOTES.md).
 
+## v0.38.0 · 2026-11-15
+
+### Fixes
+
+- **rendering:** Finalize Copycat glass after assembly ([d2bb5a0](https://github.com/mannie-exe/skyweave-compat/commit/d2bb5a01f9cfe04e74798e429c17583c90e121c5))
+
+### Documentation
+
+- Record published menu rollout ([a9b3cf8](https://github.com/mannie-exe/skyweave-compat/commit/a9b3cf83e9d0ced25735036e728867476f67f547))
+
 ## v0.37.0 · 2026-11-15
 
 ### Features
