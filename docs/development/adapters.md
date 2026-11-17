@@ -2,6 +2,10 @@
 
 [Configuration](../configuration.md#adaptation-switches) owns feature keys, defaults, supported versions, and prerequisites. `FeatureSelection` is the code owner of those boundaries. Loader metadata deliberately accepts optional versions; only active adapters enforce supported versions. Build-time SHA-256 checks bind implementation tests to the exact released artifacts.
 
+[Encounter adaptations](encounters.md) owns the Minecraft patrol RNG slice, V&V per-emission loop, exact optional pin, loaded biome/water queries and their update controls. Static trial-template repairs remain pack-owned.
+
+[Attack presentation](combat.md) owns independent CN/Punchy and CN/Moves admission, native critical prediction, qualified visual unthrottling and captured pacing. Requalify its native/Puzzles event ordering, public Punchy APIs and private Moves clock independently of other player-rendering adapters.
+
 Surveyor 1.2.4 and Hoofprint 1.3.0 can expose their pinned Fabric versions with `+1.21` or Connector-normalized `_1.21`. Selection accepts only those exact qualified spelling pairs, not arbitrary separator replacement or a broader version range. Recheck both metadata paths when updating Connector or either target; identical version text does not replace artifact/API qualification.
 
 | Adapter family                                                | Implementation and interactions                                                                                                   | Update and retirement checks                                                                                                                                                                                                                                                                      |
@@ -38,6 +42,10 @@ Run `./gradlew check build` and relevant disposable startup combinations. Includ
 The pack owns static resource/model patches and its explicit feature selections. Skyweave: Compatibility Patches owns runtime hooks. The Atlas consumes runtime exports, not this adapter reference; shader IDs are not recipe or weight data. Update the owning pack/app pipeline only when its actual inputs or interpretation change.
 
 Shader assembly keeps its file-only engine in `shader/`, the Iris coordinator in `client/`, and optional version-qualified scanner hooks in `mixin/client/`. Keep recipe-specific Euphoria selection outside the global Iris dependency gate. [Rendering](rendering.md#shader-assembly) owns the schema and update boundaries.
+
+The independent `iris.hand_effects` adapter targets Iris and Outline Effects, without requiring Punchy. Recheck both hand passes, merged shader-admission methods, native effect targets and once-per-frame composite ownership when either dependency changes. `punchy_moves.touch_n_motion` instead binds Moves' released reflection facade to Touch’n Motion's existing pose/cape owner; recheck the constructor descriptor, the already-completed `Posed.keep` call and all three native cape signatures. Neither adapter belongs under the terrain dependency. Their contracts live in [rendering](rendering.md).
+
+`rendering.construct_coverage` requires DH, Sable and SSRD but no Iris. Recheck source conversion, builder lifetime, upload completion and the actual published quadtree buffer together. Confirmed empty data still needs its native published container. Camera-color admission must not suppress light-space submissions. Keep native chunk/section readiness and every lookup non-creating. This adapter neither activates archived physics nor supplies an absent client mesh; the distance and opaque-depth adaptations remain separate owners.
 
 ## Terrain variation maintenance
 

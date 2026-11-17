@@ -31,6 +31,10 @@ public final class JsonSettings {
     }
     private static String json(Object value) { return new GsonBuilder().setPrettyPrinting().create().toJson(value) + "\n"; }
     private static final List<Definition> DEFINITIONS = new java.util.concurrent.CopyOnWriteArrayList<>(List.of(
+            owned(design.inherent.skyweavecompat.encounters.EncounterConfiguration.FILE, "encounters",
+                    design.inherent.skyweavecompat.encounters.EncounterProfile.DEFAULT,
+                    design.inherent.skyweavecompat.encounters.EncounterConfiguration::parse,
+                    design.inherent.skyweavecompat.encounters.EncounterConfiguration::normalize),
             owned(design.inherent.skyweavecompat.wayfinder.WayfinderSettings.FILE, "wayfinder",
                     design.inherent.skyweavecompat.wayfinder.WayfinderSettings.DEFAULT, design.inherent.skyweavecompat.wayfinder.WayfinderSettings::parse,
                     design.inherent.skyweavecompat.wayfinder.WayfinderSettings::normalize),

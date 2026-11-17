@@ -28,7 +28,9 @@ public final class PatchTest {
         Mixins.addConfiguration("framebuffer-test.mixins.json");
         Mixins.addConfiguration("sdl-original-test.mixins.json");
         Mixins.addConfiguration("iris-nametag-test.mixins.json");
+        Mixins.addConfiguration("iris-outline-original-test.mixins.json");
         Mixins.addConfiguration("rendering-test.mixins.json");
+        Mixins.addConfiguration("coverage-test.mixins.json");
         byte[] original;
         try (var in = service.getResourceAsStream(TARGET.replace('.', '/') + ".class")) {
             original = in.readAllBytes();
@@ -75,6 +77,25 @@ public final class PatchTest {
                 "dev.ryanhcode.sable.sublevel.render.dispatcher.VanillaSubLevelRenderDispatcher");
         assertEquals(1, calls(method(constructDispatcher, "renderSectionLayer"), "skyweave$chunked"));
         assertEquals(1, calls(method(constructDispatcher, "renderAfterSections"), "skyweave$single"));
+        for (String pass : java.util.List.of("renderSectionLayer", "renderAfterSections", "renderBlockEntities"))
+            assertEquals(1, calls(method(constructDispatcher, pass), "skyweave$coverage"));
+        var coverageSection = transformed(service, transformer, "com.seibel.distanthorizons.core.render.QuadTree.LodRenderSection");
+        assertEquals(1, coverageSection.methods.stream().mapToLong(m -> calls(m, "skyweave$bindBuilder")).sum());
+        assertEquals(1, calls(method(coverageSection, "getAndBuildRenderData"), "skyweave$retain"));
+        assertEquals(1, calls(method(coverageSection, "uploadToGpuAsync"), "skyweave$bindUpload"));
+        for (String target : java.util.List.of("com.seibel.distanthorizons.core.dataObjects.render.ColumnRenderSource",
+                "com.seibel.distanthorizons.core.dataObjects.render.bufferBuilding.LodQuadBuilder",
+                "com.seibel.distanthorizons.core.dataObjects.render.bufferBuilding.LodBufferContainer")) {
+            var carrier = transformed(service, transformer, target);
+            assertTrue(carrier.interfaces.contains("design/inherent/skyweavecompat/rendering/CoverageCarrier"));
+            if (target.endsWith("LodQuadBuilder")) assertEquals(1, calls(method(carrier, "close"), "skyweave$releaseSourceOwner"));
+        }
+        var conversion = transformed(service, transformer, "com.seibel.distanthorizons.core.dataObjects.transformers.FullDataToRenderDataTransformer");
+        assertTrue(calls(method(conversion, "transformFullDataToRenderSource"), "skyweave$observe") > 0);
+        var worldRenderer = transformed(service, transformer, "net.minecraft.client.renderer.LevelRenderer");
+        assertEquals(1, calls(method(worldRenderer, "renderLevel"), "skyweave$frame"));
+        for (String event : java.util.List.of("allChanged", "setLevel", "close"))
+            assertEquals(1, calls(method(worldRenderer, event), "skyweave$invalidate"));
         for (String path : java.util.List.of("VanillaCoreTransformer", "VanillaTransformer")) {
             var ast = transformed(service, transformer, "net.irisshaders.iris.pipeline.transform.transformer." + path);
             assertEquals(1, calls(method(ast, "transform"), "skyweave$depth"));
@@ -88,6 +109,17 @@ public final class PatchTest {
         var textPipeline = transformed(service, transformer, "net.irisshaders.iris.pipeline.IrisRenderingPipeline");
         assertEquals(1, calls(method(textPipeline, "destroy"), "skyweave$releaseTextReferences"));
         assertTrue(textPipeline.interfaces.contains("design/inherent/skyweavecompat/client/WorldTextLighting$Pipeline"));
+        assertEquals(1, calls(method(textPipeline, "beginLevelRendering"), "skyweave$beginEffects"));
+        assertEquals(1, calls(method(textPipeline, "finalizeLevelRendering"), "skyweave$finishEffects"));
+        var irisHands = transformed(service, transformer, "net.irisshaders.iris.pathways.HandRenderer");
+        for (String pass : java.util.List.of("renderSolid", "renderTranslucent")) {
+            assertEquals(1, calls(method(irisHands, pass), "skyweave$handPass"));
+        }
+        assertEquals(2, irisHands.methods.stream().mapToLong(m -> calls(m, "skyweave$eligibleHand")).sum());
+        var coreShader = transformed(service, transformer, "net.minecraft.client.renderer.ShaderInstance");
+        assertEquals(1, calls(method(coreShader, "iris$shouldSkipThis"), "skyweave$admitEffect"));
+        assertEquals(1, calls(method(coreShader, "isKnownShader"), "skyweave$keepEffectTarget"));
+        assertEquals(1, calls(method(coreShader, "apply"), "skyweave$effectApply"));
         for (String type : java.util.List.of("BlockDisplayRenderer", "ItemDisplayRenderer")) {
             var control = transformed(service, transformer, "net.minecraft.client.renderer.entity.DisplayRenderer$" + type);
             assertTrue(control.methods.stream().noneMatch(m -> m.name.contains("skipTextDisplayShadow")));

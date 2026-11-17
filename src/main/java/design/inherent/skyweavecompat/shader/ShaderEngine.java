@@ -8,7 +8,7 @@ import java.util.*;
 
 /** File-only composition shared by the client and authoring CLI. No Minecraft classes. */
 public final class ShaderEngine {
-    public static final String REVISION = "1";
+    public static final String REVISION = "2";
     public record Prepared(Path root, ShaderRecipe recipe, Map<String, byte[]> inputs, String key) {}
     private ShaderEngine() {}
 

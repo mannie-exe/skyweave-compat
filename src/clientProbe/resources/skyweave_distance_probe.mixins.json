@@ -5,8 +5,23 @@
   "plugin": "design.inherent.skyweavecompat.clientprobe.ClientDistanceMixinPlugin",
   "compatibilityLevel": "JAVA_21",
   "client": [
+    "CombatMinecraftAccess",
+    "CombatPlayerAccess",
+    "CombatNativeWitnessMixin",
+    "CombatSwingWitnessMixin",
+    "CombatCriticalWitnessMixin",
+    "CombatMovesClockWitnessMixin",
+    "CombatFaultWitnessMixin",
+    "CombatDelayWitnessMixin",
+    "CombatDeferredWitnessMixin",
+    "CombatRemoteInputWitnessMixin",
     "ClientDistanceRenderMixin",
     "ClientDistanceLodMixin",
-    "ClientDistanceActualMixin"
+    "ClientDistanceActualMixin",
+    "HandEffectDrawMixin",
+    "CoverageDrawProbeMixin",
+    "PoseSkinProbeMixin",
+    "PoseCapeProbeMixin",
+    "PoseCapeDrawProbeMixin"
   ]
 }

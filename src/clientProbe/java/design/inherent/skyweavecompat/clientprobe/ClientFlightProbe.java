@@ -17,6 +17,20 @@ import org.slf4j.LoggerFactory;
 public final class ClientFlightProbe {
     private int ticks;
     public ClientFlightProbe() {
+        long renderingFixtures = java.util.stream.Stream.of("shadows", "shaderStatic", "coverage", "handEffects", "playerPoses", "renderStartup", "combat")
+                .filter(name -> Boolean.getBoolean("skyweave_compat.probe." + name)).count();
+        if (renderingFixtures > 1) throw new IllegalStateException("Select one rendering fixture per client");
+        if (Boolean.getBoolean("skyweave_compat.probe.combat")) {
+            if (System.getProperty("skyweave_compat.probe.combat.role") != null) new ClientCombatNetworkProbe();
+            else new ClientCombatProbe();
+            return;
+        }
+        if (Boolean.getBoolean("skyweave_compat.probe.renderStartup")) { new ClientRenderingStartupProbe(); return; }
+        if (Boolean.getBoolean("skyweave_compat.probe.playerPoses")) { new ClientPoseProbe(); return; }
+        if (Boolean.getBoolean("skyweave_compat.probe.shadows")) { new ClientShadowProbe(); return; }
+        if (Boolean.getBoolean("skyweave_compat.probe.shaderStatic")) { new ClientShaderStaticProbe(); return; }
+        if (Boolean.getBoolean("skyweave_compat.probe.coverage")) { new ClientCoverageProbe(); return; }
+        if (Boolean.getBoolean("skyweave_compat.probe.handEffects")) { new ClientHandEffectsProbe(); return; }
         if (Boolean.getBoolean("skyweave_compat.probe.branding")) { new ClientConfigurationProbe(); return; }
         if (Boolean.getBoolean("skyweave_compat.probe.misc")) { new ClientMiscProbe(); return; }
         if (Boolean.getBoolean("skyweave_compat.probe.resources")) {

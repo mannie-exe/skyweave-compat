@@ -5,6 +5,7 @@ import hashlib
 import json
 import re
 import select
+import socket
 import shutil
 import subprocess
 import sys
@@ -26,6 +27,8 @@ def main():
     parser.add_argument('--scenario', choices=['standalone', 'all-disabled', 'terrain-disabled', 'terrain', 'full',
                                              'unsupported-disabled', 'unsupported-enabled', 'questlog', 'questlog-disabled', 'jade', 'macaw', 'macaw-disabled'], required=True)
     parser.add_argument('--mod', type=Path)
+    parser.add_argument('--extra-mod', type=Path, action='append', default=[], help='Additional explicit read-only artifacts for a bounded startup boundary')
+    parser.add_argument('--combat-network', type=Path, help='Owned standalone --serve combat scene; read CN rules from this pack')
     parser.add_argument('--resource-patches', type=Path, help='Read-only candidate resource JAR for full/all-disabled fixtures')
     parser.add_argument('--configuration-pack', type=Path, help='Authored common/server settings for the owned full served fixture')
     parser.add_argument('--serve', action='store_true', help='Keep an owned loopback server running; forward console input until stop')
@@ -36,6 +39,8 @@ def main():
     parser.add_argument('--replay-dh', type=Path, help='Existing cache copy for natural server-to-client LOD transfer')
     parser.add_argument('--enable', action='append', default=[], help='Explicit startup feature key to enable in this disposable fixture')
     args = parser.parse_args()
+    if args.combat_network and (not args.serve or args.scenario != 'standalone'):
+        parser.error('--combat-network requires standalone --serve')
     if args.resource_patches:
         if args.scenario not in {'full','all-disabled'} or args.configuration_pack:
             parser.error('--resource-patches requires full/all-disabled without --configuration-pack')
@@ -83,7 +88,7 @@ def main():
             # Disabled adapters must neither reject their versions nor resolve their APIs.
             metadata = 'modLoader="lowcodefml"\nloaderVersion="[1,)"\nlicense="MIT"\n'
             for target in ['bettervillage', 'libraryferret', 'sky_archipelago', 'skyvillages', 'architectury', 'sable', 'aeronautics_delivery_quests',
-                           'distanthorizons', 'bluemap', 'surveyor', 'lithostitched', 'yungsapi', 'betterdeserttemples', 'betterjungletemples', 'bettermineshafts', 'betterwitchhuts', 'betteroceanmonuments', 'analogaudio', 'analoglib', 'yigd', 'create', 'veil', 'iris', 'sodium', 'aeronautics', 'questlog', 'sabledynlights', 'lambdynlights', 'colorwheel', 'flywheel', 'linearbearing', 'linearbearingsfix', 'simulated', 'aeronautics_utility_objects', 'fusion', 'rechiseled', 'mcwbridges', 'ssrd']:
+                           'distanthorizons', 'bluemap', 'surveyor', 'lithostitched', 'yungsapi', 'betterdeserttemples', 'betterjungletemples', 'bettermineshafts', 'betterwitchhuts', 'betteroceanmonuments', 'analogaudio', 'analoglib', 'yigd', 'create', 'veil', 'iris', 'sodium', 'aeronautics', 'questlog', 'sabledynlights', 'lambdynlights', 'colorwheel', 'flywheel', 'linearbearing', 'linearbearingsfix', 'simulated', 'aeronautics_utility_objects', 'fusion', 'rechiseled', 'mcwbridges', 'ssrd', 'variantsandventures']:
                 metadata += f'[[mods]]\nmodId="{target}"\nversion="999.0.0"\ndisplayName="Fixture {target}"\n'
             with zipfile.ZipFile(run / 'mods/future-targets-fixture.jar', 'w') as fixture:
                 fixture.writestr('META-INF/neoforge.mods.toml', metadata)
@@ -113,9 +118,30 @@ def main():
             source=args.resource_patches.resolve()
             copy_owned(source,run / 'mods' / source.name,run)
             selected[source.name]=hashlib.sha256(source.read_bytes()).hexdigest()
+        for source in args.extra_mod:
+            source = source.expanduser().resolve()
+            destination = run / 'mods' / source.name
+            if not source.is_file() or source.suffix != '.jar' or destination.exists():
+                parser.error('Extra startup artifacts must be existing JARs with unique filenames')
+            copy_owned(source, destination, run)
+            selected[source.name] = hashlib.sha256(source.read_bytes()).hexdigest()
+        if args.combat_network:
+            (run / 'owned-combat-network.json').write_text('{"owner":"startup_probe.py"}\n')
+            probe = ROOT / 'build/probe/skyweave-compat-probe.jar'
+            if not probe.is_file():
+                parser.error('Build probeJar before the network scene')
+            copy_owned(probe, run / 'mods' / probe.name, run)
+            selected[probe.name] = hashlib.sha256(probe.read_bytes()).hexdigest()
+            for source in (args.combat_network / 'overrides/common/config').glob('combatnouveau-*.toml'):
+                copy_owned(source, run / 'config' / source.name, run)
         if args.scenario in {'all-disabled', 'terrain-disabled', 'unsupported-disabled', 'questlog-disabled', 'macaw-disabled'}:
             keys = re.findall(r'\("([a-z_]+\.[a-z_]+)"', (ROOT / 'src/main/java/design/inherent/skyweavecompat/Feature.java').read_text())
             (run / 'config/skyweave/skyweave_compat-features.properties').write_text(''.join(f'{key}=false\n' for key in keys))
+        if args.scenario == 'unsupported-enabled':
+            # One known target owns this refusal; unrelated newer adapters stay disabled.
+            keys = re.findall(r'\("([a-z_]+\.[a-z_]+)"', (ROOT / 'src/main/java/design/inherent/skyweavecompat/Feature.java').read_text())
+            (run / 'config/skyweave/skyweave_compat-features.properties').write_text(
+                ''.join(f'{key}={str(key == "navigation.wayfinder").lower()}\n' for key in keys))
         if args.enable:
             keys = set(re.findall(r'\("([a-z_]+\.[a-z_]+)"', (ROOT / 'src/main/java/design/inherent/skyweavecompat/Feature.java').read_text()))
             if not set(args.enable) <= keys:
@@ -163,13 +189,20 @@ def main():
         # follows startup and refuses any region the new world already created.
         report['replayInputs']=stage_replay(None,args.replay_dh,run,args.seed)
         report['worldPreset']=preset
+        port = 0
+        if args.combat_network:
+            with socket.socket() as listener:
+                listener.bind(('127.0.0.1', 0)); port = listener.getsockname()[1]
         (run / 'server.properties').write_text(
-            'server-ip=127.0.0.1\nserver-port=0\nonline-mode=false\nlevel-name=probe-world\n'
+            f'server-ip=127.0.0.1\nserver-port={port}\nonline-mode=false\nlevel-name=probe-world\n'
             f'level-type={preset}\ngenerate-structures=false\nview-distance=2\nsimulation-distance=2\nmax-tick-time=0\n'
             + (f'level-seed={args.seed}\n' if args.islands else '')
             + ('difficulty=peaceful\ngamemode=creative\n' if args.serve else ''))
         command = [args.java, '-Xmx'+args.heap, '-XX:+ExitOnOutOfMemoryError', '-Dmixin.debug.export=true', '-Dmixin.debug.verbose=true',
                    '@' + str(launch[0]), 'nogui']
+        if args.combat_network:
+            command.insert(4, '-Dneighbors.probe.combatNetwork=true')
+            command.insert(5, '-Dneighbors.probe.output=' + str(run / 'combat-network-server.json'))
         report['command'] = command
         log_path = output / f'startup-{args.scenario}.log'
         started = time.monotonic()
@@ -183,7 +216,7 @@ def main():
                         done = True
                         if args.serve:
                             report['replayInputs'].update(stage_replay(args.replay_regions,None,run,args.seed))
-                            print(json.dumps({'ready': True, 'pid': process.pid, 'run': str(run), 'log': str(log_path)}), flush=True)
+                            print(json.dumps({'ready': True, 'pid': process.pid, 'run': str(run), 'log': str(log_path), 'port': port}), flush=True)
                             while process.poll() is None:
                                 if select.select([sys.stdin], [], [], 0.5)[0]:
                                     line = sys.stdin.readline()
@@ -214,17 +247,30 @@ def main():
                       seconds=round(time.monotonic() - started, 2), transformed_targets=references,
                       active_lines=[line for line in text.splitlines() if 'Skyweave: Compatibility Patches active adaptations:' in line],
                       generated_config=sorted(p.name for p in (run / 'config').iterdir()))
+        report['generated_config_files'] = sorted(str(path.relative_to(run / 'config'))
+                                                for path in (run / 'config').rglob('*') if path.is_file())
+        if args.combat_network:
+            result_file = run / 'combat-network-server.json'
+            report['combatNetwork'] = json.loads(result_file.read_text()) if result_file.exists() else {'complete': False}
         inactive = args.scenario in {'all-disabled', 'terrain-disabled', 'unsupported-disabled', 'questlog-disabled', 'macaw-disabled'}
         report['passed'] = (done and process.returncode == 0 and bool(report['active_lines'])
                             and (not inactive or (not references and any('adaptations: []' in line for line in report['active_lines']))))
         if args.scenario == 'unsupported-enabled':
-            report['passed'] = not done and "Review Wayfinder's coordinate-frame guard for Sable 999.0.0; supported optional version is 2.0.6" in text
+            refusal = ("variantsandventures.spawner_emissions requires variantsandventures 1.0.29; found 999.0.0"
+                       if 'variantsandventures.spawner_emissions' in args.enable else
+                       "Review Wayfinder's coordinate-frame guard for Sable 999.0.0; supported optional version is 2.0.6")
+            report['passed'] = not done and refusal in text
         if args.scenario == 'standalone':
             expected = ['class/design/inherent/skyweavecompat/mixin/StructureSearchCacheAccess.class',
-                        'class/net/minecraft/server/level/ServerChunkCache.class']
+                        'class/net/minecraft/server/level/ServerChunkCache.class',
+                        'class/net/minecraft/world/level/levelgen/PatrolSpawner.class']
             report['passed'] = (done and process.returncode == 0 and
-                (not references if args.without_compat else sorted(references) == expected
-                 and any('adaptations: [WAYFINDER]' in line for line in report['active_lines'])))
+                (not references if args.without_compat else sorted(references) == sorted(expected)
+                 and any('PATROL_CHANCE' in line and 'WAYFINDER' in line for line in report['active_lines'])))
+        if args.combat_network:
+            report['passed'] = report['passed'] and report['combatNetwork'].get('complete') is True
+            side = run / 'combat-network-server.json.dist.json'
+            report['combatSideLoading'] = json.loads(side.read_text()) if side.exists() else None
         (output / f'startup-{args.scenario}.json').write_text(json.dumps(report, indent=2) + '\n')
         print(json.dumps({key: report[key] for key in ['scenario', 'sha256', 'startup', 'exit_code', 'seconds', 'active_lines', 'passed']}, indent=2), flush=True)
         if not report['passed']:

@@ -94,10 +94,18 @@ public final class ShaderWorkspace {
         return new Status(recipe.id(), recipe.output(), reused && !force ? "restored" : "built", "");
     }
     private static void migrate(Path root, ShaderRecipe recipe, JsonObject previous) throws IOException {
-        if (previous == null || previous.get("output").getAsString().equals(recipe.output())) return;
-        String old = ShaderRecipe.filename(previous.get("output").getAsString());
         JsonObject settings = recipe.json().has("settings") ? recipe.json().getAsJsonObject("settings") : new JsonObject();
-        ShaderRecipe.keys(settings, "compatible", "renames", "seedSha256");
+        ShaderRecipe.keys(settings, "compatible", "renames", "seedSha256", "fromInput");
+        String old;
+        if (previous != null) old = ShaderRecipe.filename(previous.get("output").getAsString());
+        else if (settings.has("fromInput")) {
+            var input = recipe.json().getAsJsonObject("inputs").getAsJsonObject(settings.get("fromInput").getAsString());
+            old = ShaderRecipe.filename(Path.of(ShaderRecipe.string(input, "path")).getFileName().toString());
+            // First adoption needs the original playable archive as well as the verified staged input.
+            // A filename, missing old file or user-modified archive does not authorize migration.
+            if (!valid(ShaderEngine.safe(root, "shaderpacks/" + old), ShaderRecipe.string(input, "sha256"))) return;
+        } else return;
+        if (old.equals(recipe.output())) return;
         Path source = ShaderEngine.safe(root, "shaderpacks/" + old + ".txt"), destination = ShaderEngine.safe(root, "shaderpacks/" + recipe.output() + ".txt");
         if (settings.has("compatible") && settings.get("compatible").getAsBoolean() && Files.isRegularFile(source)
                 && (!Files.exists(destination) || settings.has("seedSha256") && valid(destination, settings.get("seedSha256").getAsString()))) {

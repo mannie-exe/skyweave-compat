@@ -1,0 +1,1 @@
+{"required":true,"package":"design.inherent.skyweavecompat.mixin","compatibilityLevel":"JAVA_21","client":["dh.CoverageSourceMixin","dh.CoverageBuilderLifecycleMixin","dh.CoverageBufferMixin","dh.CoverageTransformMixin","dh.CoverageSectionMixin","client.ConstructCoverageDrawMixin","client.ConstructCoverageLifecycleMixin"],"injectors":{"defaultRequire":1}}

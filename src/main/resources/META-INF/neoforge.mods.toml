@@ -24,6 +24,12 @@ type="required"
 versionRange="[21.1.264,21.2)"
 side="BOTH"
 [[dependencies.skyweave_compat]]
+modId="variantsandventures"
+type="optional"
+versionRange="[0,)"
+side="BOTH"
+
+[[dependencies.skyweave_compat]]
 modId="sky_archipelago"
 type="optional"
 versionRange="[0,)"

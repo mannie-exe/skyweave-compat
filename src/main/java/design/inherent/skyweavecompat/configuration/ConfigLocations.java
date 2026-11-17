@@ -10,6 +10,8 @@ import java.util.Set;
 public final class ConfigLocations {
     public static final String DIRECTORY = "skyweave";
     private static final Set<String> OWNED = Set.of(
+            "skyweave_compat-encounters.json",
+            "skyweave_compat-combat-client.toml",
             "skyweave_compat-rendering-client.toml", "skyweave_compat-wayfinder.json", "skyweave_compat-wayfinder-client.toml",
             "skyweave_compat-hoofprint.json", "skyweave_compat-features.properties", "skyweave_compat-common.toml",
             "skyweave_compat-journal-client.toml", "skyweave_compat-generation.json",

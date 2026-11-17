@@ -24,6 +24,22 @@ class ShaderWorkspaceTest {
         Files.writeString(directory.resolve("test.json"), value.toString());
     }
     private ShaderWorkspace.Status run(boolean force) throws Exception { return ShaderWorkspace.assemble(root, Map.of(), force, false).getFirst(); }
+    @Test void composedRecipesRetainEveryOrderedPreconditionWithinTheExpandedBound() throws Exception {
+        var recipe = setup(); var steps = recipe.getAsJsonArray("steps");
+        String value = "old";
+        for (int i = 0; i < 64; i++) {
+            var step = new JsonObject(); step.addProperty("type", "text"); step.addProperty("path", "shaders/shaders.properties");
+            step.addProperty("sha256", ShaderArchives.sha256(value.getBytes())); step.addProperty("find", value);
+            value = "step" + i; step.addProperty("replace", value); step.addProperty("count", 1); steps.add(step);
+        }
+        save(recipe); assertEquals("built", run(false).state());
+        assertEquals("step63", new String(ShaderArchives.read(Files.readAllBytes(root.resolve("shaderpacks/Result.zip"))).get("shaders/shaders.properties")));
+        steps.get(38).getAsJsonObject().addProperty("sha256", "0".repeat(64)); save(recipe);
+        assertEquals("failed", run(true).state());
+        assertEquals("step63", new String(ShaderArchives.read(Files.readAllBytes(root.resolve("shaderpacks/Result.zip"))).get("shaders/shaders.properties")));
+        steps.add(steps.get(63).deepCopy());
+        assertThrows(java.io.IOException.class, () -> ShaderRecipe.parse(recipe.toString()));
+    }
     @Test void cacheRepairAndDeterminism() throws Exception {
         setup(); assertEquals("built", run(false).state());
         Path result = root.resolve("shaderpacks/Result.zip"); byte[] first = Files.readAllBytes(result);
@@ -62,6 +78,33 @@ class ShaderWorkspaceTest {
         Files.writeString(root.resolve("config/iris.properties"), "shaderPack=Other.zip\n");
         recipe.addProperty("output", "Third.zip"); save(recipe); run(false);
         assertEquals("shaderPack=Other.zip\n", Files.readString(root.resolve("config/iris.properties")));
+    }
+    @Test void firstInputAdoptionRequiresTheExactPlayableArchiveAndPreservesExplicitPresets() throws Exception {
+        var recipe = setup(); recipe.getAsJsonObject("settings").addProperty("fromInput", "base"); save(recipe);
+        Files.createDirectories(root.resolve("shaderpacks"));
+        Files.copy(root.resolve("shader-inputs/base.zip"), root.resolve("shaderpacks/base.zip"));
+        Files.writeString(root.resolve("shaderpacks/base.zip.txt"), "QUALITY=custom\n");
+        Files.writeString(root.resolve("shaderpacks/Result.zip.txt"), "QUALITY=explicit\n");
+        Files.writeString(root.resolve("config/iris.properties"), "enableShaders=false\nshaderPack=base.zip\n");
+        assertEquals("built", run(false).state());
+        assertEquals("enableShaders=false\nshaderPack=Result.zip\n", Files.readString(root.resolve("config/iris.properties")));
+        assertEquals("QUALITY=explicit\n", Files.readString(root.resolve("shaderpacks/Result.zip.txt")));
+        assertTrue(Files.exists(root.resolve("shaderpacks/base.zip")), "Unowned source must not be retired");
+    }
+    @Test void firstInputAdoptionDoesNotTrustMissingOrModifiedArchives() throws Exception {
+        var recipe = setup(); recipe.getAsJsonObject("settings").addProperty("fromInput", "base"); save(recipe);
+        Files.createDirectories(root.resolve("shaderpacks"));
+        Files.writeString(root.resolve("shaderpacks/base.zip.txt"), "QUALITY=custom\n");
+        Files.writeString(root.resolve("config/iris.properties"), "shaderPack=base.zip\n");
+        assertEquals("built", run(false).state());
+        assertEquals("shaderPack=base.zip\n", Files.readString(root.resolve("config/iris.properties")));
+        assertFalse(Files.exists(root.resolve("shaderpacks/Result.zip.txt")));
+        Files.delete(root.resolve(".cache/skyweave-shaders/test.json")); Files.delete(root.resolve("shaderpacks/Result.zip"));
+        Files.writeString(root.resolve("shaderpacks/base.zip"), "modified");
+        assertEquals("built", run(false).state());
+        assertEquals("shaderPack=base.zip\n", Files.readString(root.resolve("config/iris.properties")));
+        recipe.getAsJsonObject("settings").addProperty("fromInput", "missing");
+        assertThrows(java.io.IOException.class, () -> ShaderRecipe.parse(recipe.toString()));
     }
     @Test void rejectsTraversalSymlinksCollisionsAndUnknownOperations() throws Exception {
         setup(); assertThrows(Exception.class, () -> ShaderArchives.write(Map.of("../bad", new byte[0])));

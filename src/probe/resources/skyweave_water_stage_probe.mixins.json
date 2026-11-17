@@ -2,6 +2,7 @@
   "required": true,
   "minVersion": "0.8",
   "package": "design.inherent.skyweavecompat.probe.mixin",
+  "plugin": "design.inherent.skyweavecompat.probe.WaterStageProbePlugin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "WaterStageMixin",

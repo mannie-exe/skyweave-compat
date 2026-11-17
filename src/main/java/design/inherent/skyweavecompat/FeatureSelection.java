@@ -91,6 +91,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
     public static Feature prerequisite(Feature feature) {
         return switch (feature) {
             case WAYFINDER_DH -> Feature.WAYFINDER;
+            case MURK_WATER -> Feature.TERRAIN;
             case GROUND_SUPPORT, LITHOSTITCHED_STRUCTURES, YUNG_STRUCTURES -> Feature.STRUCTURE_DISTRIBUTION;
             case YUNG_MINESHAFTS, YUNG_WITCH_HUTS -> Feature.YUNG_STRUCTURES;
             case ORE_PLACEMENT, CARVERS, CAVE_BIOMES, ANCIENT_CITIES, SPAWN, NETHER_ACCESS, C2ME_SEARCH, STRUCTURE_LOCATION, STRUCTURE_COMMAND, STRUCTURE_DISTRIBUTION,
@@ -109,7 +110,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
 
     public static boolean clientOnly(Feature feature) {
         return switch (feature) {
-            case WAYFINDER_DH, MAIN_MENU_IDENTITY, CREATE_COPYCAT_BACKFACES, COPYCATS_BACKFACES -> true;
+            case WAYFINDER_DH, MAIN_MENU_IDENTITY, CREATE_COPYCAT_BACKFACES, COPYCATS_BACKFACES, MOVES_TOUCH_MOTION, HAND_EFFECTS, CONSTRUCT_COVERAGE, CN_PUNCHY, CN_MOVES -> true;
             case HOOFPRINT_ZOOM, ISLAND_CLOUDS, ISLAND_VOID, ISLAND_SHADER_ENVIRONMENT, CONFECTIONERY_BACKFACES, BUBBLE_GUM_BACKFACES, ORNATE_GRATE_BACKFACES, INDUSTRIAL_GRATING_BACKFACES, MACAW_GLASS, CONSTRUCT_DISTANCE, CONSTRUCT_OCCLUSION, SHADER_PATCHES, TEXT_DISPLAY_LIGHTING, NAMETAG_LIGHTING, TEXT_DISPLAY_SHADOW, NAMETAG_SHADOW, CREATE_BACKFACES, FUSION_BACKFACES, CREATE_WINDOWS, RECHISELED_GLASS, REDSTONE_RENDERING, AUDIO_TIMELINE, LINEAR_PONDER, COLORWHEEL_SAMPLERS, COLORWHEEL_MATERIALS, LIGHTING_LIFECYCLE, SODIUM_LIGHTING, DH_HANDOFF, FRAMEBUFFER, BALLOON, MATERIAL_IDS, MODEL_DATA, SINGLE_BLOCK_PASSES,
                     FTB_CREATIVE_RETURN, QUESTLOG_INTERFACE, QUESTLOG_NOTIFICATIONS -> true;
             default -> false;
@@ -119,6 +120,14 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
     public static Map<String, String> dependencies(Feature feature) {
         return switch (feature) {
             case MAIN_MENU_IDENTITY -> Map.of();
+            case PATROL_CHANCE -> Map.of();
+            case VARIANT_SPAWNERS -> Map.of("variantsandventures", "1.0.29");
+            case VARIANT_TRIAL_ALIASES -> Map.of("variantsandventures","1.0.29","lithostitched","1.8.1");
+            case MURK_WATER -> Map.of("variantsandventures", "1.0.29", "sky_archipelago", "1.4");
+            case MOVES_TOUCH_MOTION -> Map.of("punchy_moves", "1.0.9", "touch_n_motion", "1.0.5");
+            case CN_PUNCHY -> Map.of("combatnouveau", "21.1.2", "puzzleslib", "21.1.65", "punchy", "3.2b");
+            case CN_MOVES -> Map.of("combatnouveau", "21.1.2", "puzzleslib", "21.1.65", "punchy_moves", "1.0.9");
+            case HAND_EFFECTS -> Map.of("iris", "1.8.14-beta.1+mc1.21.1", "hmioutline", "2.4.0+mc1.21.1");
             case BETTER_VILLAGE_CONFIG -> Map.of("bettervillage", "3.3.1", "libraryferret", "4.0.0");
             case WAYFINDER -> Map.of();
             case WAYFINDER_DH -> Map.of("distanthorizons", "3.3.3");
@@ -137,6 +146,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             case SABLE_CLIMATE -> Map.of("sky_archipelago", "1.4", "sable", "2.0.6");
             case CONSTRUCT_DISTANCE -> Map.of("ssrd", "1.8.8", "sable", "2.0.6", "iris", "1.8.14-beta.1+mc1.21.1");
             case CONSTRUCT_OCCLUSION -> Map.of("ssrd", "1.8.8", "sable", "2.0.6", "iris", "1.8.14-beta.1+mc1.21.1", "distanthorizons", "3.3.3");
+            case CONSTRUCT_COVERAGE -> Map.of("ssrd", "1.8.8", "sable", "2.0.6", "distanthorizons", "3.3.3");
             case MACAW_LANTERN -> Map.of("mcwbridges", "3.1.2");
             case MACAW_LANTERN_SABLE -> Map.of("mcwbridges", "3.1.2", "sable", "2.0.6");
             case MACAW_GLASS -> Map.of("mcwwindows", "2.4.2");
@@ -194,6 +204,12 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             if (!enabled(feature)) continue;
             result.addAll(switch (feature) {
                 case MAIN_MENU_IDENTITY -> List.of("client.MainMenuBrandingMixin", "client.MainMenuLayoutMixin");
+                case MOVES_TOUCH_MOTION -> List.of("client.MovesTouchMotionApiMixin", "client.TouchMotionCapeInvoker");
+                case CN_PUNCHY -> List.of("client.combat.PunchyAttackBindingMixin", "client.combat.PunchyAttackConsumerMixin", "client.combat.PunchyPlaybackPacingMixin");
+                case CN_MOVES -> List.of("client.combat.MovesAdmittedAttackMixin", "client.combat.MovesLocalInputMixin", "client.combat.MovesPlaybackPacingMixin");
+                case HAND_EFFECTS -> List.of("client.OutlineLayersAccess", "client.OutlineGlowAccess", "client.OutlineMoldAccess",
+                        "client.OutlineShaderCacheAccess", "client.OutlineVanillaHandMixin", "client.OutlineIrisLifecycleMixin",
+                        "client.OutlineIrisHandMixin", "client.OutlineIrisShaderMixin");
                 case BETTER_VILLAGE_CONFIG -> List.of("BetterVillageConfigMixin");
                 case FTB_CREATIVE_RETURN -> List.of("client.FtbCreativeReturnMixin");
                 case WAYFINDER, WAYFINDER_DH -> List.of();
@@ -206,6 +222,10 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                 case CAVE_BIOMES -> List.of("DeepDarkFeatureMixin", "DeepDarkPlantMixin", "DeepDarkPieceMixin", "DeepDarkSpawnMixin", "DeepDarkSpreadMixin", "CaveBiomeMixin", "ProjectedCaveBiomeMixin", "DeepDarkContextAccessor", "DeepDarkProjectorAccess", "NativeClimateSourceMixin", "StableClimateTreeMixin", "RawHostClimateMixin", "RawHostCacheMixin");
                 case ANCIENT_CITIES -> List.of("AncientCityRoutingMixin", "AncientCityPlacementMixin", "AncientCityHeightMixin", "AncientCityTerrainMixin");
                 case SPAWN -> List.of("SpawnFallbackMixin");
+                case PATROL_CHANCE -> List.of("encounters.PatrolChanceMixin");
+                case VARIANT_SPAWNERS -> List.of("encounters.VariantSpawnerMixin");
+                case VARIANT_TRIAL_ALIASES -> List.of("encounters.VariantsTrialAliasesMixin");
+                case MURK_WATER -> List.of("encounters.MurkDepthMixin", "encounters.MurkGoalMixin");
                 case NETHER_ACCESS -> List.of("PortalIgnitionMixin", "PortalCreationMixin", "NetherPortalAccessMixin", "DimensionTravelMixin", "ClosedDimensionRespawnMixin", "ClosedDimensionTeleportMixin", "ClosedDimensionLoginMixin");
                 case STRUCTURE_COMMAND -> List.of("StructureCommandMixin");
                 case C2ME_SEARCH -> List.of("C2meSearchWorkerMixin", "C2meSearchStorageMixin");
@@ -277,6 +297,8 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                 case CONSTRUCT_DISTANCE, MACAW_GLASS, CONFECTIONERY_BACKFACES, BUBBLE_GUM_BACKFACES,
                         ORNATE_GRATE_BACKFACES, INDUSTRIAL_GRATING_BACKFACES -> List.of();
                 case CONSTRUCT_OCCLUSION -> List.of("client.ConstructShaderMixin", "client.ConstructDepthLifecycleMixin", "client.ConstructSamplerBudgetAccessor");
+                case CONSTRUCT_COVERAGE -> List.of("dh.CoverageSourceMixin", "dh.CoverageBuilderLifecycleMixin", "dh.CoverageBufferMixin", "dh.CoverageTransformMixin",
+                        "dh.CoverageSectionMixin", "client.ConstructCoverageDrawMixin", "client.ConstructCoverageLifecycleMixin");
                 case MATERIAL_IDS -> List.of("client.ConstructMaterialMixin");
                 case COLORWHEEL_SAMPLERS -> List.of("client.ColorwheelSamplerMixin");
                 case COLORWHEEL_MATERIALS -> List.of("client.ColorwheelMaterialMixin");
@@ -306,6 +328,8 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
         if (enabled(Feature.TERRAIN) || enabled(Feature.WAYFINDER)) result.add("StructureSearchCacheAccess");
         if (enabled(Feature.TERRAIN) || enabled(Feature.VILLAGE_PLACEMENT)) result.add("PlacementSaltAccessor");
         if (enabled(Feature.STRUCTURE_LOCATION) || enabled(Feature.YUNG_STRUCTURES)) result.add("StructureLocateCheckMixin");
+        if (client && (enabled(Feature.CN_PUNCHY) || enabled(Feature.CN_MOVES)))
+            result.addAll(List.of("client.combat.NativeAttackScopeMixin", "client.combat.NativeCriticalResultMixin", "client.combat.NativeRetainedMissMixin"));
         if (client && (enabled(Feature.CONSTRUCT_DISTANCE) || enabled(Feature.CONSTRUCT_OCCLUSION)))
             result.addAll(List.of("client.ConstructDrawMixin", "client.ConstructBufferMixin", "client.ConstructProgramMixin"));
         if (client && enabled(Feature.CLIMATE)) result.addAll(List.of("client.WeatherClimateMixin", "client.ChunkClimateMixin"));

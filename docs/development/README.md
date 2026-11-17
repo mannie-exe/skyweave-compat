@@ -14,6 +14,10 @@ See [DH integration](lod.md) for optional lifecycle and cache fixes, pinned impl
 
 [Wayfinder](wayfinder.md) owns sight targeting, destination validation, packet lifetimes and its optional read-only DH data adapter.
 
+See [encounter adaptations](encounters.md) for independent patrol, ordinary-spawner and Murk water rules.
+
+See [attack presentation](combat.md) for optional Combat Nouveau/Punchy/Moves admission, critical prediction, captured pacing and update boundaries.
+
 See [testing](testing.md) for build, server and client probe procedures.
 
 See the [configuration interface](configuration.md) for settings ownership, safe startup editing, native UI fixtures, and platform update checks.

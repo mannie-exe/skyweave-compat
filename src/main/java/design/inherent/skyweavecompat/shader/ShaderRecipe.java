@@ -23,8 +23,14 @@ public record ShaderRecipe(JsonObject json, String id, String output, boolean en
             filename(output);
             if (!output.endsWith(".zip")) throw new IOException("Output must be a ZIP filename");
             string(value, "version"); string(value, "base");
-            if (value.getAsJsonObject("inputs").size() > 12 || value.getAsJsonArray("steps").size() > 32)
+            if (value.getAsJsonObject("inputs").size() > 12 || value.getAsJsonArray("steps").size() > 64)
                 throw new IOException("Recipe exceeds operation limits");
+            if (value.has("settings")) {
+                var settings = value.getAsJsonObject("settings");
+                keys(settings, "compatible", "renames", "seedSha256", "fromInput");
+                if (settings.has("fromInput") && !value.getAsJsonObject("inputs").has(string(settings, "fromInput")))
+                    throw new IOException("Unknown settings input");
+            }
             return new ShaderRecipe(value, id, output, !value.has("enabled") || value.get("enabled").getAsBoolean());
         } catch (IllegalStateException | NullPointerException | IllegalArgumentException failure) {
             throw new IOException("Invalid shader recipe", failure);

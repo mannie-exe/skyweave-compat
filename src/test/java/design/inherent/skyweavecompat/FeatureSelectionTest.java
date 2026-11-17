@@ -12,6 +12,104 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class FeatureSelectionTest {
+    @Test void trialAliasInteropRequiresOnlyTheTwoPinnedOwners() {
+        var versions=Map.of("variantsandventures","1.0.29","lithostitched","1.8.1");
+        for(boolean client:List.of(false,true)) {
+            var selected=FeatureSelection.select(only(Feature.VARIANT_TRIAL_ALIASES),versions,client);
+            assertTrue(selected.enabled(Feature.VARIANT_TRIAL_ALIASES));
+            assertEquals(List.of("encounters.VariantsTrialAliasesMixin"),selected.mixins(client));
+            assertTrue(FeatureSelection.select(only(Feature.VARIANT_TRIAL_ALIASES),Map.of("variantsandventures","1.0.29"),client).mixins(client).isEmpty());
+            assertDoesNotThrow(()->FeatureSelection.select(only(),Map.of("variantsandventures","future","lithostitched","future"),client));
+            assertThrows(IllegalStateException.class,()->FeatureSelection.select(only(Feature.VARIANT_TRIAL_ALIASES),Map.of("variantsandventures","1.0.29","lithostitched","future"),client));
+        }
+    }
+
+    @Test void encountersKeepTheirIndependentMetadataAndHostBoundaries() {
+        for(boolean client:List.of(false,true)) {
+            var patrol=FeatureSelection.select(only(Feature.PATROL_CHANCE),Map.of(),client);
+            assertEquals(java.util.Set.of(Feature.PATROL_CHANCE),patrol.active());
+            assertEquals(List.of("encounters.PatrolChanceMixin"),patrol.mixins(client));
+            var variants=Map.of("variantsandventures","1.0.29");
+            assertTrue(FeatureSelection.select(only(Feature.VARIANT_SPAWNERS),variants,client).enabled(Feature.VARIANT_SPAWNERS));
+            assertTrue(FeatureSelection.select(only(Feature.VARIANT_SPAWNERS),Map.of(),client).mixins(client).isEmpty());
+            assertTrue(FeatureSelection.select(only(Feature.MURK_WATER),variants,client).mixins(client).isEmpty());
+            var host=Map.of("variantsandventures","1.0.29","sky_archipelago","1.4");
+            assertTrue(FeatureSelection.select(only(Feature.TERRAIN,Feature.MURK_WATER),host,client).enabled(Feature.MURK_WATER));
+            assertFalse(FeatureSelection.select(only(Feature.TERRAIN,Feature.MURK_WATER),Map.of("sky_archipelago","1.4"),client).enabled(Feature.MURK_WATER));
+            assertDoesNotThrow(()->FeatureSelection.select(only(),Map.of("variantsandventures","future"),client));
+            assertThrows(IllegalStateException.class,()->FeatureSelection.select(only(Feature.VARIANT_SPAWNERS),Map.of("variantsandventures","future"),client));
+        }
+    }
+
+    @Test void constructCoverageIsIndependentOfIrisAndSelectsNoServerOrAbsentTargets() {
+        var feature = Feature.CONSTRUCT_COVERAGE;
+        var mods = Map.of("ssrd", "1.8.8", "sable", "2.0.6", "distanthorizons", "3.3.3");
+        var selected = FeatureSelection.select(only(feature), mods, true);
+        assertTrue(selected.enabled(feature));
+        assertTrue(selected.mixins(true).contains("dh.CoverageTransformMixin"));
+        assertTrue(selected.mixins(true).contains("client.ConstructCoverageDrawMixin"));
+        for (String absent : mods.keySet()) {
+            var missing = new HashMap<>(mods); missing.remove(absent);
+            assertTrue(FeatureSelection.select(only(feature), missing, true).mixins(true).isEmpty());
+        }
+        var future = Map.of("ssrd", "future", "sable", "future", "distanthorizons", "future");
+        assertTrue(FeatureSelection.select(only(feature), future, false).mixins(false).isEmpty());
+        assertTrue(FeatureSelection.select(only(), future, true).mixins(true).isEmpty());
+        assertThrows(IllegalStateException.class, () -> FeatureSelection.select(only(feature), future, true));
+    }
+
+    @Test void irisHandEffectsAreOptionalAndDoNotRequirePunchy() {
+        var feature = Feature.HAND_EFFECTS;
+        var mods = Map.of("iris", "1.8.14-beta.1+mc1.21.1", "hmioutline", "2.4.0+mc1.21.1");
+        assertTrue(FeatureSelection.select(only(feature), mods, true).enabled(feature));
+        for (String absent : mods.keySet()) {
+            var missing = new HashMap<>(mods); missing.remove(absent);
+            assertTrue(FeatureSelection.select(only(feature), missing, true).mixins(true).isEmpty());
+        }
+        var future = Map.of("iris", "future", "hmioutline", "future");
+        assertTrue(FeatureSelection.select(only(feature), future, false).mixins(false).isEmpty());
+        assertTrue(FeatureSelection.select(only(), future, true).mixins(true).isEmpty());
+        assertThrows(IllegalStateException.class, () -> FeatureSelection.select(only(feature), future, true));
+    }
+
+    @Test void combatBridgesAreIndependentAndMetadataFirst() {
+        for (var feature : List.of(Feature.CN_PUNCHY, Feature.CN_MOVES)) {
+            var mods = new HashMap<>(FeatureSelection.dependencies(feature));
+            var selected = FeatureSelection.select(only(feature), mods, true);
+            assertEquals(java.util.Set.of(feature), selected.active());
+            assertTrue(selected.mixins(true).contains("client.combat.NativeAttackScopeMixin"));
+            assertEquals(1, selected.mixins(true).stream().filter(name -> name.equals("client.combat.NativeAttackScopeMixin")).count());
+            assertTrue(FeatureSelection.select(only(feature), mods, false).mixins(false).isEmpty());
+            assertTrue(FeatureSelection.select(only(), mods, true).mixins(true).isEmpty());
+            for (String missing : mods.keySet()) {
+                var incomplete = new HashMap<>(mods); incomplete.remove(missing);
+                assertTrue(FeatureSelection.select(only(feature), incomplete, true).mixins(true).isEmpty());
+            }
+            mods.replaceAll((key, value) -> "unsupported");
+            assertThrows(IllegalStateException.class, () -> FeatureSelection.select(only(feature), mods, true));
+            assertTrue(FeatureSelection.select(only(feature), mods, false).mixins(false).isEmpty());
+            assertTrue(FeatureSelection.select(only(), mods, true).mixins(true).isEmpty());
+        }
+        var both = Map.of("combatnouveau", "21.1.2", "puzzleslib", "21.1.65", "punchy", "3.2b", "punchy_moves", "1.0.9");
+        var selected = FeatureSelection.select(only(Feature.CN_PUNCHY, Feature.CN_MOVES), both, true);
+        assertEquals(1, selected.mixins(true).stream().filter(name -> name.equals("client.combat.NativeAttackScopeMixin")).count());
+    }
+
+    @Test void movesTouchBridgeRequiresOnlyThePinnedClientOwners() {
+        var feature = Feature.MOVES_TOUCH_MOTION;
+        var versions = Map.of("punchy_moves", "1.0.9", "touch_n_motion", "1.0.5");
+        var selected = FeatureSelection.select(only(feature), versions, true);
+        assertEquals(java.util.Set.of(feature), selected.active());
+        assertEquals(List.of("client.MovesTouchMotionApiMixin", "client.TouchMotionCapeInvoker"), selected.mixins(true));
+        assertTrue(feature.defaultEnabled);
+        for (var missing : List.of(Map.of("punchy_moves", "1.0.9"), Map.of("touch_n_motion", "1.0.5"), Map.<String,String>of()))
+            assertTrue(FeatureSelection.select(only(feature), missing, true).mixins(true).isEmpty());
+        var future = Map.of("punchy_moves", "future", "touch_n_motion", "future");
+        assertTrue(FeatureSelection.select(only(feature), future, false).mixins(false).isEmpty());
+        assertTrue(FeatureSelection.select(only(), future, true).mixins(true).isEmpty());
+        assertThrows(IllegalStateException.class, () -> FeatureSelection.select(only(feature), future, true));
+    }
+
     @Test void mainMenuIdentityIsOptionalAndPhysicalClientOnlyWithoutContentMods() {
         var settings = only(Feature.MAIN_MENU_IDENTITY);
         assertTrue(Feature.MAIN_MENU_IDENTITY.defaultEnabled);
@@ -573,10 +671,10 @@ class FeatureSelectionTest {
     @Test void noOptionalDependenciesSelectsOnlyNativeFeaturesForThePhysicalSide() {
         for (boolean client : new boolean[]{true, false}) {
             var selection = FeatureSelection.select(new FeatureSettings(Map.of()), Map.of(), client);
-            assertEquals(client ? java.util.Set.of(Feature.WAYFINDER, Feature.MAIN_MENU_IDENTITY)
-                    : java.util.Set.of(Feature.WAYFINDER), selection.active());
-            assertEquals(client ? List.of("client.MainMenuBrandingMixin", "client.MainMenuLayoutMixin", "StructureSearchCacheAccess")
-                    : List.of("StructureSearchCacheAccess"), selection.mixins(client));
+            assertEquals(client ? java.util.Set.of(Feature.WAYFINDER, Feature.MAIN_MENU_IDENTITY, Feature.PATROL_CHANCE)
+                    : java.util.Set.of(Feature.WAYFINDER, Feature.PATROL_CHANCE), selection.active());
+            assertEquals(client ? List.of("client.MainMenuBrandingMixin", "client.MainMenuLayoutMixin", "encounters.PatrolChanceMixin", "StructureSearchCacheAccess")
+                    : List.of("encounters.PatrolChanceMixin", "StructureSearchCacheAccess"), selection.mixins(client));
         }
     }
 

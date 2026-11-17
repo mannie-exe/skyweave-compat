@@ -1,0 +1,8 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "design.inherent.skyweavecompat.probe.mixin",
+  "plugin": "design.inherent.skyweavecompat.probe.mixin.EncounterWitnessPlugin",
+  "compatibilityLevel": "JAVA_21",
+  "injectors": {"defaultRequire": 1}
+}

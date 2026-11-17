@@ -15,6 +15,11 @@ public final class SkyweaveCompat {
 
     public SkyweaveCompat(ModContainer container, IEventBus modBus) {
         var selection = OptionalIntegrations.selection();
+        if(selection.enabled(Feature.PATROL_CHANCE)||selection.enabled(Feature.VARIANT_SPAWNERS))
+            design.inherent.skyweavecompat.encounters.EncounterConfiguration.load(
+                    design.inherent.skyweavecompat.configuration.ConfigLocations.ownedDirectory(net.neoforged.fml.loading.FMLPaths.CONFIGDIR.get()));
+        if(selection.enabled(Feature.VARIANT_SPAWNERS))
+            NeoForge.EVENT_BUS.addListener((ServerAboutToStartEvent event)->design.inherent.skyweavecompat.encounters.VariantsPolicy.verify());
         // Pack data can retain this processor when its optional runtime adaptation is disabled.
         design.inherent.skyweavecompat.terrain.structure.NaturalSoilProcessor.register(modBus);
         if (selection.enabled(Feature.WAYFINDER)) design.inherent.skyweavecompat.wayfinder.Wayfinder.register(modBus);

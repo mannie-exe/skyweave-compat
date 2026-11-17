@@ -48,6 +48,11 @@ configurations {
 sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
 sourceSets.test.runtimeClasspath += sourceSets.main.runtimeClasspath
 dependencies {
+    compileOnly('maven.modrinth:combat-nouveau:us081FGF') { transitive = false }
+    compileOnly('maven.modrinth:puzzles-lib:kiX1lfse') { transitive = false }
+    compileOnly('maven.modrinth:punchy-fpa:aVZEe0j8') { transitive = false }
+    compileOnly('maven.modrinth:punchymoves:SYcipAjI') { transitive = false }
+    compileOnly('maven.modrinth:variants-and-ventures:v5OIE4J8') { transitive = false }
     compileOnly('dev.ftb.mods:ftb-quests-neoforge:2101.1.38') { transitive = false }
     testRuntimeOnly('dev.ftb.mods:ftb-quests-neoforge:2101.1.38') { transitive = false }
     c2meSource('maven.modrinth:c2me-neoforge:VACgDPOc') { transitive = false }
@@ -84,6 +89,7 @@ dependencies {
     testRuntimeOnly('maven.modrinth:sable-dynamic-lights:vjb0hAWB') { transitive = false }
     compileOnly('maven.modrinth:questlog:qnCcrOl2') { transitive = false }
     compileOnly('maven.modrinth:distanthorizons:9w34y8ai') { transitive = false }
+    testRuntimeOnly('maven.modrinth:distanthorizons:9w34y8ai') { transitive = false }
     compileOnly('maven.modrinth:bluemap:8iJcPOHJ') { transitive = false }
     compileOnly('maven.modrinth:surveyor:egJBsDTn') { transitive = false }
     sodiumSource('maven.modrinth:sodium:uMOpc5uV') { transitive = false }
@@ -148,12 +154,18 @@ tasks.register('verifyUpstream') {
             if (actual != expected) throw new GradleException("Unexpected ${name}: ${actual}")
         }
 
-        ['surveyor': '4c4534517021e5b7212346e25510123944558e5b0fcf1d605189548b6811a6a0',
+        ['combat-nouveau': '57b95249fa1b5b3c38a02628cbd83f45ec3d1619392ace15cb83f593df9090b0',
+         'puzzles-lib': '5317fe131954accbe884b079f75713d6f9024b291085314d6c23b3a697fc2771',
+         'punchy-fpa': '05c8258943d9cbd9aec4c929b78d00a4d42eb6126fbed761dc2f4bef3affdbbd',
+         'punchymoves': 'c5b080a6994d8d0f2cfcea3c1923f87d78c19241d7eb939501624671dedebbe6',
+         'surveyor': '4c4534517021e5b7212346e25510123944558e5b0fcf1d605189548b6811a6a0',
          'macaws-bridges': '070b817d3282760d9789b22ce13779613c8b558e02012fd5884d343175d88fd9',
          'fusion-connected-textures': '29920a6838f4f942947d208349480d7f5737f9fac6411c6eac5f3e824a438048',
          'rechiseled': 'cd638bb122d7e1afce4f38b1c7da3af99be7b9f523869cfbc15e5347db5f8d9a',
          'yigd': 'dd2142a3c6a9d5b990ab36220be482f7aa9f528755f93b8fef8996f509ddcda2',
-         'analog-audio': 'effc623ad0b3e332bb29252f5c41f767cb194a47ce5ae195d186f442124807a3'].each { name, expected ->
+         'analog-audio': 'effc623ad0b3e332bb29252f5c41f767cb194a47ce5ae195d186f442124807a3',
+         'variants-and-ventures': 'c9cb10777088ec1382a0e98a303a4a741bd47931720f27d0512f14bb9eb74b38',
+         'lithostitched': 'e0da669fa5facc61a09b9b7bae21b322993de1fcd1eb05787adffb7309598cca'].each { name, expected ->
             def artifact = configurations.compileClasspath.resolvedConfiguration.resolvedArtifacts.find {
                 it.moduleVersion.id.group == 'maven.modrinth' && it.name == name
             }?.file

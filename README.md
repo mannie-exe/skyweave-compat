@@ -6,7 +6,7 @@ Optional terrain, gameplay, and rendering adaptations for Minecraft 1.21.1. Ever
 
 Install this mod with **Java 21 and NeoForge 21.1.264 or later in the 21.1 series**. No content mod is required. Native-terrain Wayfinder is available without optional mods; dependency-specific adaptations activate only when their targets qualify. Use it on the client for rendering fixes; install it on both sides with matching configuration when using the expanded island preset.
 
-Edit `config/skyweave/skyweave_compat-features.properties` before startup to disable unwanted features. Changes require a full process restart. Disabled adaptations select no target mixins, callbacks, or data packs and do not constrain target versions. An enabled adaptation activates only when its full dependency combination is present on the applicable side; unsupported active combinations fail clearly. See [all switches and supported combinations](docs/configuration.md#adaptation-switches).
+Edit `config/skyweave/skyweave_compat-features.properties` before startup to disable unwanted features. Changes require a full process restart. Disabled adaptations select no target mixins, callbacks, or data packs and do not constrain target versions. An enabled adaptation activates only when its full dependency combination is present on the applicable side; unsupported active combinations fail clearly. See [all switches and supported combinations](docs/configuration.md#adaptation-switches). [Encounter rules](docs/configuration.md#encounter-rules) explains the native/per-emission choice, mutual-exclusion requirement and local-water scope.
 
 | Optional integration                            | Supported version                                                                              | Behavior                                                                                                  |
 | ----------------------------------------------- | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
@@ -16,6 +16,9 @@ Edit `config/skyweave/skyweave_compat-features.properties` before startup to dis
 | Glass backfaces                                 | Create 6.0.10 or Fusion 1.3.16                                                                 | Independent default-on two-sided glass retaining native connected textures                                |
 | Copycat glass                                   | Create 6.0.10; optional Copycats+ 3.0.9+mc.1.21.1-neoforge                                     | Final-shape backfaces and material contact separation; independent client switches                        |
 | Rechiseled                                      | 1.2.6                                                                                          | Client rotated-glass culling correction, including Rechiseled Create windows                              |
+| Minecraft patrols                               | 1.21.1                                                                                         | Optional server-owned check probability; standalone default 20% retains native RNG                        |
+| Variants & Ventures                             | 1.0.29                                                                                         | Optional ordinary-spawner per-emission mode and active-preset Murk water correction                       |
+| Variants & Ventures + Lithostitched             | 1.0.29 + 1.8.1                                                                                 | Optional trial-alias interoperability preserving native V&V switches                                      |
 | Sky Villages + Architectury                     | 1.0.6 + 13.x (tested 13.0.11)                                                                  | Village clearance and placement; needs Sky Archipelago                                                    |
 | Sable                                           | 2.0.6                                                                                          | Island pressure and optional parent-world temperature; client model-data correction                       |
 | Aeronautics Delivery Quests                     | 1.1.1                                                                                          | Separate route distance, chunk loading, and village landing adaptations                                   |
@@ -44,6 +47,9 @@ Edit `config/skyweave/skyweave_compat-features.properties` before startup to dis
 | Colorwheel                                      | 1.3.2+mc1.21.1                                                                                 | Separate non-OIT sampler allocation and direct Sable material metadata repairs                            |
 | Sable + Iris + Sodium                           | 2.0.6 + the Iris version above + 0.8.13+mc1.21.1                                               | Shader block IDs and single-block render passes                                                           |
 | SSRD + Sable + Iris                             | 1.8.8 + 2.0.6 + the Iris version above                                                         | Distant construct shader range; separate opaque-terrain occlusion with DH 3.3.3                           |
+| DH + Sable + SSRD                               | 3.3.3 + 2.0.6 + 1.8.8                                                                          | Independent intervening coverage gate; confirmed void remains valid; Iris optional                        |
+| Iris + Outline Effects                          | Iris version above + runtime `hmioutline` 2.4.0+mc1.21.1                                       | Native hand outline/rune/glow lifecycle and narrowly scoped program admission                             |
+| Moves + Touch’n Motion                          | 1.0.9 + 1.0.5                                                                                  | Released body, pose-copy, and cape API bridge; native animation owners retained                           |
 
 Remove Veil Iris Fix when enabling the incorporated framebuffer adaptation. Remove Sky Village Neighbors when enabling Skyweave: Compatibility Patches' village adaptations. Upstream mods retain their own dependencies. Create/Propulsion ore IDs are optional members of the relative-placement tags, not required mods.
 
@@ -70,6 +76,12 @@ Colorwheel supplies Iris-aware Flywheel backends for compatible shaders. It does
 ## Moving lights
 
 With Sable Dynamic Lights and LambDynamicLights installed, independent client adaptations repair the selected Sodium API, keep transient illumination out of integrated-server lighting and clear Create light owners when leaving a world. Neither requires the island preset or Iris. These are optional repairs, not another lighting engine or a general cabin-occlusion fix. See [lighting](docs/development/lighting.md) for dependencies and known limits.
+
+## Attack presentation
+
+With Combat Nouveau and the qualified Punchy or Punchy Moves installed, independent client adaptations make attack animations follow admitted native swings. Rejected clicks no longer start local Moves attacks, and Punchy's critical animation uses the matching native prediction. Full-charge attacks avoid a redundant visual limiter. Combat Nouveau and the server retain attack eligibility, damage, and recharge.
+
+First- and third-person attack pacing are separate live preferences under **Rendering → Player animation**. They default on for qualified clips and preserve native timing for unknown resources. Disabling pacing retains the correctness repairs. See [configuration](docs/configuration.md#attack-presentation) for controls and [attack presentation](docs/development/combat.md) for supported resources and maintenance.
 
 ## Wayfinder
 

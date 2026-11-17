@@ -14,6 +14,12 @@ import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 @Mod(value = SkyweaveCompat.ID, dist = Dist.CLIENT)
 public final class ClientConfiguration {
     public ClientConfiguration(ModContainer container, IEventBus modBus) {
+        if (design.inherent.skyweavecompat.client.combat.ClientAttackBridge.admitted()) {
+            design.inherent.skyweavecompat.client.combat.ClientAttackBridge.register(modBus);
+            container.registerConfig(ModConfig.Type.CLIENT, design.inherent.skyweavecompat.client.combat.CombatPreferences.SPEC,
+                    design.inherent.skyweavecompat.configuration.ConfigLocations.registeredName(
+                            design.inherent.skyweavecompat.client.combat.CombatPreferences.FILE));
+        }
         if (OptionalIntegrations.enabled(Feature.WAYFINDER)) {
             WayfinderClient.register(modBus);
             container.registerConfig(ModConfig.Type.CLIENT,WayfinderPreferences.SPEC,

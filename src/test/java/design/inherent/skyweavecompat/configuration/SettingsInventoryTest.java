@@ -39,6 +39,7 @@ class SettingsInventoryTest {
             }
         }
         nativeFile("skyweave_compat-rendering-client.toml", design.inherent.skyweavecompat.client.RenderingPreferences.SPEC, "CLIENT");
+        nativeFile("skyweave_compat-combat-client.toml", design.inherent.skyweavecompat.client.combat.CombatPreferences.SPEC, "CLIENT");
         nativeFile("skyweave_compat-wayfinder-client.toml", design.inherent.skyweavecompat.client.WayfinderPreferences.SPEC, "CLIENT");
         nativeFile("skyweave_compat-journal-client.toml", design.inherent.skyweavecompat.questlog.client.JournalPreferences.SPEC, "CLIENT");
         nativeFile("skyweave_compat-common.toml", design.inherent.skyweavecompat.NeighborConfig.SPEC, "COMMON");

@@ -52,8 +52,12 @@ public final class ProfileJson {
             } else {
                 if (!value.isJsonPrimitive()) throw new IllegalArgumentException("Expected scalar for " + key);
                 var scalar = value.getAsJsonPrimitive();
-                if (field == boolean.class ? !scalar.isBoolean() : !scalar.isNumber())
+                boolean textual = field == String.class || field.isEnum();
+                if (textual ? !scalar.isString() : field == boolean.class ? !scalar.isBoolean() : !scalar.isNumber())
                     throw new IllegalArgumentException("Wrong value type for " + key);
+                if (field.isEnum() && Arrays.stream(field.getEnumConstants())
+                        .noneMatch(item -> ((Enum<?>)item).name().equals(scalar.getAsString())))
+                    throw new IllegalArgumentException("Unknown choice for " + key);
                 if (field == int.class) try { scalar.getAsBigDecimal().intValueExact(); }
                 catch (ArithmeticException error) {
                     var invalid = new ArithmeticException("Expected integer for " + key);

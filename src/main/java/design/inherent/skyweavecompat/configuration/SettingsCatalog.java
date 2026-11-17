@@ -10,11 +10,13 @@ public final class SettingsCatalog {
     public enum Category { INTERFACE, RENDERING, MAPS, SHIPS, MACHINES, INVENTORY, AUDIO, WORLD }
     public enum Group {
         COMPAT_INTERFACE(Category.INTERFACE, "skyweave_compat"),
+        ENCOUNTERS(Category.WORLD, "encounters"),
         NAVIGATION(Category.MAPS, "skyweave_compat"),
         FTB_QUESTS(Category.INTERFACE, "ftbquests"),
         FTB_LIBRARY(Category.INVENTORY, "ftblibrary"), JOURNAL(Category.INTERFACE, "questlog"), AUDIO_CLIENT(Category.AUDIO, "analog_audio"),
         DH_CLIENT(Category.MAPS, "distant_horizons"), SABLE_CLIENT(Category.RENDERING, "sable"),
         VEIL(Category.RENDERING, "veil"), IRIS(Category.RENDERING, "iris"), AERONAUTICS(Category.RENDERING, "aeronautics"),
+        PLAYER_ANIMATION(Category.RENDERING, "punchy_moves"),
         SSRD(Category.MAPS, "ssrd"), COLORWHEEL(Category.RENDERING, "colorwheel"), LIGHTS(Category.RENDERING, "lighting"),
         CREATE_CLIENT(Category.RENDERING, "create"), FUSION(Category.RENDERING, "fusion"),
         RECHISELED(Category.RENDERING, "rechiseled"), MACAW_GLASS(Category.RENDERING, "mcwwindows"),
@@ -92,6 +94,12 @@ public final class SettingsCatalog {
                     ? page.groups().contains(Group.IRIS) : page.groups().contains(Group.ISLAND_SKY));
         }
         public Feature fieldOwner(String key) {
+            if (help.equals("combat_client")) return switch (key) {
+                case "punchyPacing" -> Feature.CN_PUNCHY;
+                case "movesPacing" -> Feature.CN_MOVES;
+                default -> throw new IllegalArgumentException("Unowned attack preference: " + key);
+            };
+            if (help.equals("encounters")) return key.startsWith("spawners.") ? Feature.VARIANT_SPAWNERS : Feature.PATROL_CHANCE;
             if (!help.equals("rendering_client")) return null;
             if (key.startsWith("clouds.")) return Feature.ISLAND_CLOUDS;
             if (key.startsWith("voidAtmosphere.")) return Feature.ISLAND_VOID;
@@ -114,7 +122,7 @@ public final class SettingsCatalog {
         public String summaryKey() { return "skyweave_compat.settings.file." + help; }
         public Timing timing() {
             return switch (help) {
-                case "rendering_client", "journal", "wayfinder_client", "link_gui_client", "link_gui_common" -> Timing.IMMEDIATE;
+                case "rendering_client", "combat_client", "journal", "wayfinder_client", "link_gui_client", "link_gui_common" -> Timing.IMMEDIATE;
                 case "hoofprint_zoom" -> Timing.IMMEDIATE;
                 case "wayfinder", "structure_search" -> Timing.SERVER_START;
                 case "villages" -> Timing.NEW_WORLD;
@@ -162,6 +170,8 @@ public final class SettingsCatalog {
     public static Group group(Feature feature) {
         return switch (feature) {
             case MAIN_MENU_IDENTITY -> Group.COMPAT_INTERFACE;
+            case PATROL_CHANCE, VARIANT_SPAWNERS, VARIANT_TRIAL_ALIASES, MURK_WATER -> Group.ENCOUNTERS;
+            case MOVES_TOUCH_MOTION, CN_PUNCHY, CN_MOVES -> Group.PLAYER_ANIMATION;
             case BETTER_VILLAGE_CONFIG -> Group.BETTER_VILLAGE;
             case WAYFINDER, WAYFINDER_DH -> Group.NAVIGATION;
             case FTB_ITEM_FILTERS -> Group.FTB_QUESTS;
@@ -181,10 +191,10 @@ public final class SettingsCatalog {
             case QUESTLOG_INTERFACE, QUESTLOG_NOTIFICATIONS -> Group.JOURNAL;
             case AUDIO_TIMELINE -> Group.AUDIO_CLIENT;
             case DH_HANDOFF -> Group.DH_CLIENT;
-            case CONSTRUCT_DISTANCE, CONSTRUCT_OCCLUSION -> Group.SSRD;
+            case CONSTRUCT_DISTANCE, CONSTRUCT_OCCLUSION, CONSTRUCT_COVERAGE -> Group.SSRD;
             case MODEL_DATA, MATERIAL_IDS, SINGLE_BLOCK_PASSES -> Group.SABLE_CLIENT;
             case FRAMEBUFFER -> Group.VEIL;
-            case SHADER_PATCHES, TEXT_DISPLAY_LIGHTING, NAMETAG_LIGHTING, TEXT_DISPLAY_SHADOW, NAMETAG_SHADOW -> Group.IRIS;
+            case SHADER_PATCHES, HAND_EFFECTS, TEXT_DISPLAY_LIGHTING, NAMETAG_LIGHTING, TEXT_DISPLAY_SHADOW, NAMETAG_SHADOW -> Group.IRIS;
             case BALLOON -> Group.AERONAUTICS;
             case COLORWHEEL_SAMPLERS, COLORWHEEL_MATERIALS -> Group.COLORWHEEL;
             case LIGHTING_LIFECYCLE, SODIUM_LIGHTING -> Group.LIGHTS;
@@ -222,6 +232,10 @@ public final class SettingsCatalog {
         return Arrays.stream(Group.values()).filter(group -> group.category == category).toList();
     }
     public static final List<FileEntry> FILES = List.of(
+            new FileEntry("skyweave_compat-combat-client.toml", "skyweave_compat:combat_client", Group.PLAYER_ANIMATION, "combat_client",
+                    List.of(Feature.CN_PUNCHY, Feature.CN_MOVES), SectionKind.PREFERENCES),
+            new FileEntry("skyweave_compat-encounters.json", "skyweave_compat:encounters", Group.ENCOUNTERS, "encounters",
+                    List.of(Feature.PATROL_CHANCE,Feature.VARIANT_SPAWNERS), SectionKind.TUNING),
             new FileEntry("skyweave_compat-rendering-client.toml", "skyweave_compat:rendering_client", Group.ISLAND_SKY, "rendering_client",
                     List.of(Feature.ISLAND_CLOUDS, Feature.ISLAND_VOID, Feature.ISLAND_SHADER_ENVIRONMENT,
                             Feature.TEXT_DISPLAY_LIGHTING, Feature.NAMETAG_LIGHTING, Feature.TEXT_DISPLAY_SHADOW, Feature.NAMETAG_SHADOW), SectionKind.PREFERENCES),

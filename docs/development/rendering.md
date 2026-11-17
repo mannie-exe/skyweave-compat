@@ -2,6 +2,8 @@
 
 These optional physical-client adapters do not require Sky Archipelago or the Skyweave modpack. [Configuration](../configuration.md#adaptation-switches) owns activation and versions. No renderer classes load on dedicated-server paths.
 
+[Attack presentation](combat.md) owns the independent Combat Nouveau/Punchy/Moves bridges and captured per-playback pacing. Their correctness rules, client preferences and session lifetime remain separate from shader, cape and glass adapters.
+
 ## Main-menu branding
 
 The optional physical-client `MainMenuBrandingMixin` wraps the single immutable-list build in NeoForge 21.1.265's `BrandingControl.computeBranding`. It retains the completed native/third-party contributions and inserts one localized line before their last line. Keeping the original bottom line in place avoids adding a new collision with the native copyright row. Original relative order, reverse/no-Minecraft views, rendering, spacing and fade alpha remain owned by NeoForge. Its ordinary resource reload listener invalidates both branding views; there is no per-frame metadata/file parsing or separate version configuration.
@@ -75,6 +77,24 @@ When updating Create, inspect both block overrides and `CTModel` against the rel
 
 Upstream context: [Create 6.0.10 CT model](https://github.com/Creators-of-Create/Create/blob/mc1.21.1-6.0.10/src/main/java/com/simibubi/create/foundation/block/connected/CTModel.java) and [Fusion issue 148](https://github.com/SuperMartijn642/Fusion/issues/148). The latter explains the separation between texture connections and block culling; it is not an exact upstream report of this Create defect. Native results and remaining limits belong in [verification](verification.md).
 
+## Item effects in Iris hand passes
+
+`iris.hand_effects` connects Outline Effects runtime `hmioutline` 2.4.0+mc1.21.1 to Iris 1.8.14-beta.1+mc1.21.1. Punchy is optional. Metadata-first selection excludes the hooks when either dependency is absent, unsupported, disabled, or on a dedicated server. The switch applies at game restart. Native Outline Effects settings retain their own live behavior.
+
+Iris bypasses the ordinary hand entry used by Outline Effects. A pipeline/level frame owner enters only after Iris admits a real solid or translucent hand draw, retains the hand flag through buffered emission, and shares one native mask across both passes. The native glow composite runs once after the completed world frame only when an eligible mask was captured. Empty, hidden, spectator, skipped, and failed passes receive no synthetic composite. Native vanilla callbacks are suppressed only while this adapter owns that Iris path.
+
+Shader admission compares the actual registered outline, rune, downsample, blur, and composite instances. Global `allowUnknownShaders` stays false. Geometry keeps Iris's native target routing; mask/post-effect programs retain their own framebuffer destinations. `EffectGlState` restores distinct read/draw targets, viewport, native shader/cache references, program, texture units, depth/write/blend/cull state, and vertex/buffer bindings. The adapter owns no GL images or shaders and never closes the mod's resources. Pipeline destruction, reload, and world changes clear frame references.
+
+For updates, inspect both mods' exact hand guards, deferred flush and callback order, registered shader identities, repeated apply/clear behavior, output attachments, and resource destruction. Requalify actual visible effects and exceptional cleanup; shader invocation counts alone do not establish appearance. Remove this adapter when the released mods provide an equivalent Iris hand lifecycle and narrow program admission.
+
+## Moves and Touch’n Motion
+
+`punchy_moves.touch_n_motion` bridges Moves 1.0.9 to the released Touch’n Motion 1.0.5 client API. Moves resolves an absent `CapeFollow` helper; the released owner is `CapeAndElytra`. Compat redirects that exact lookup to a facade whose methods delegate through native invokers. Native matrix computation, pose retention, cape following, and cleanup remain in Touch’n Motion.
+
+Moves already calls the released `Posed.keep`. Its subsequent legacy `Drawn.keep` invoker targets another absent class; only that duplicate call is skipped. `applyAll`, native body/contact behavior, authored Moves animation, protected arm states, and equipment copies retain their owners. The pinned caller passes null for its unused fourth cape argument; a different contract is refused rather than silently returning an invented transform.
+
+This is a startup-selectable API repair, not a locomotion or cape engine. Keep one cape animation authority in the pack. 3D Skin Layers supplies overlay geometry separately. Another cape mod, remote-player transport, moving control frames, and arbitrary future versions need their own qualification. On updates, inspect constructor descriptors, reflection names, actual helper methods, native snapshot/foot-grounding order, overlay copies, and ownership cleanup before changing the exact version gates.
+
 ## Distant constructs with shaders
 
 `rendering.construct_distance` requires SSRD, Sable and Iris on the physical client. It scopes Iris's `far` uniform to the greater of its current value and SSRD's effective, server-capped range. It does not change view distance, tracking, simulation or the projection. `rendering.construct_occlusion` independently adds DH opaque-terrain depth testing; DH is not required by the distance correction. Both switches default on and require a game restart when changed.
@@ -92,6 +112,20 @@ Block entities use Sable's separate buffered entity-renderer path. Flywheel and 
 On updates, inspect Sable's selected dispatcher, both draw boundaries and Minecraft's immediate uploader apply/draw order, SSRD's range/cap and projection scopes, Iris's `ExtendedShader` construction, both GLSL transformers, sampler allocator, frame counter and DH texture-copy timing. Recheck actual DH draw/reconstruction matrices, viewport/render scale, depth conventions, custom fragment depth, texture-unit limits and pipeline destruction. Retire a hook only when a released upstream repair covers the same responsibility and passes the corresponding native controls.
 
 Upstream tracks [shader visibility](https://github.com/RanoldStranold/SSRD/issues/50), [DH/shader interaction](https://github.com/RanoldStranold/SSRD/issues/68), and [distance fading](https://github.com/RanoldStranold/SSRD/issues/64). See [verification](verification.md#ssrd-shader-adaptations) for tested scope.
+
+## Intervening construct coverage
+
+`rendering.construct_coverage` independently requires DH 3.3.3, Sable 2.0.6, and SSRD 1.8.8 on the physical client. Iris is optional. It filters the selected vanilla Sable dispatcher's chunked, single-block, and vanilla block-entity color submissions before batching. Nearby complete bounds and orthographic shadow/preview submissions retain native behavior. Independent Flywheel/Colorwheel engines are outside this gate.
+
+Coverage has three states: unknown, confirmed empty, and populated with a published mesh. During native full-to-render conversion, complete column generation steps qualify nonzero render spans or explicit void data. Missing and upsampled incomplete columns remain unknown. An immutable 64×64 observation follows the exact source through its native builder/upload future to the published buffer, bound to the active DH level, section, and resolution. Buffer/builder closure releases its attachment. A valid published old mesh remains usable while a replacement is pending; disk data or an allocated buffer alone grants nothing.
+
+The camera cell and the whole construct footprint define a conservative horizontal corridor. Each required cell needs existing native chunk coverage with compiled occupied sections in the relevant height band, or the active DH quadtree's uploaded, rendering-enabled source. Sodium's pinned `isSectionCompiled` override already supplies native section readiness. Confirmed void is valid. Opaque occlusion remains the separate depth guard; water does not become opaque.
+
+The render-thread queue holds at most 128 requests, 4,096 cells per request, and 8,192 cell reads per frame. Deferred requests receive first turn on later frames. Answers are fresh for the current frame and owner; incomplete, oversized, and budget-exhausted requests receive no partial or stale visible credit. World, renderer, reload, disconnect, and large camera changes clear authority. Queries perform no disk access, packet sends, chunk creation, or physics activation. Debug logging for `ConstructCoverage` reports each refusal category at most once per context; ordinary logging and chat remain quiet.
+
+Discovery remains Sable/SSRD's responsibility and respects its effective server cap. The pinned holding-map reload path activates a server sublevel; it is not a render-only archive API. Compat does not invoke it from coverage queries. Already delivered constructs can pass this gate; a dormant construct never delivered to the client cannot be revealed by it. Fixture-only native force-load tickets isolate rendering tests and are not product behavior or archive qualification.
+
+On DH updates, recheck generation-step downsampling, explicit void storage, pooled source/builder lifetime, asynchronous upload/publication, quadtree rendering ownership, and client-level replacement. On Sable/SSRD updates, recheck the actual selected dispatcher, iterable consumption, archive/tracking authority, server caps, and separate visual engines. Requalify native/LOD handoff, unknown-to-ready transitions, real voids, stale callbacks, opt-outs, reload, and actual opaque-depth rejection before retiring hooks or widening supported versions.
 
 ## Framebuffer state
 
@@ -185,7 +219,7 @@ For an enabled Euphoria recipe and the exact supported Euphoria Patcher version,
 
 Schema 1 defines `id`, `version`, `output`, `base`, `inputs`, ordered `steps`, optional `enabled`, exact runtime `requires`, a qualified payload-tree `expected` digest, and optional `settings`. Disabled recipes do not read inputs or constrain runtime versions. Inputs specify an instance-relative path and SHA-256. They may read verified archives from `shader-inputs/` or runtime JARs from `mods/`.
 
-Supported steps are deliberately bounded:
+Recipes admit at most 64 ordered steps, 12 inputs, and 16 independently named outputs per workspace. Engine revision 2 includes the expanded step bound; it does not grant arbitrary execution. Supported steps are deliberately bounded:
 
 - `overlay`: read an input archive or its named `member`; require the preceding payload-tree `before` digest, then overlay only `shaders/` files.
 - `euphoria-1.10.5`: require `before`, normalize the Complementary TAR, invoke the exact digest-qualified shaded BSDIFF engine, validate its output and restore Unbound style. Recipes cannot select a Java class or another executable engine.
@@ -197,7 +231,7 @@ Empack owns source inputs and authored recipes. The runner owns its recorded ZIP
 
 An instance lock serializes assembly. Sorted stored ZIP entries and fixed timestamps make authoring and recipient bytes reproducible. The key includes canonical recipe contents, actual verified input digests and engine revision; exact requirements are part of that recipe. Cached outputs are checked against their receipt. Missing or corrupt outputs can be restored from the verified cache. A forced rebuild still uses the same verification. A failed build keeps the last verified bytes; those bytes are eligible only under the current key and qualified environment.
 
-Publication uses temporary files and atomic replacement, with a pending receipt for recovery between output and receipt publication. A name collision without an ownership record is an error. A corrupt receipt is not authority to remove files. Completed output-name changes retire only a previously recorded, unchanged ZIP. `settings.compatible` permits copying a previous preset only when the destination has none or matches an explicitly recorded `settings.seedSha256`; optional `settings.renames` maps exact option names. Iris selection moves only from the previous output of that recipe. Enablement and other selections are preserved. Keep instance-local cache directories when moving the installation if its generated shaders should remain runner-managed.
+Publication uses temporary files and atomic replacement, with a pending receipt for recovery between output and receipt publication. A name collision without an ownership record is an error. A corrupt receipt is not authority to remove files. Completed output-name changes retire only a previously recorded, unchanged ZIP. `settings.compatible` permits copying a previous preset only when the destination has none or matches an explicitly recorded `settings.seedSha256`; optional `settings.renames` maps exact option names. Iris selection normally moves only from the previous output of that recipe. For first adoption, `settings.fromInput` names a verified recipe input; migration additionally requires an exact matching playable archive still present in `shaderpacks/`. A missing or user-modified old archive does not grant migration authority. If installation already removed that archive, select the generated output once in Iris. The input is never retired by this migration. Enablement and other selections are preserved. Keep instance-local cache directories when moving the installation if its generated shaders should remain runner-managed.
 
 ### Updating
 
