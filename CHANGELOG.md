@@ -2,6 +2,16 @@
 
 Generated from Git history. Player-facing release summaries are in [release notes](RELEASE_NOTES.md).
 
+## v0.39.0 · 2026-11-17
+
+### Features
+
+- Integrate combat, rendering and encounter adaptations ([829fee2](https://github.com/mannie-exe/skyweave-compat/commit/829fee221f6aeb6d0078cbea557f64ae214fb0e0))
+
+### Documentation
+
+- Record published transparency replay ([7e5b031](https://github.com/mannie-exe/skyweave-compat/commit/7e5b0315dc50be4573f1fd1e51b0fc05ef12e9d4))
+
 ## v0.38.0 · 2026-11-15
 
 ### Fixes
