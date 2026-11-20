@@ -13,7 +13,7 @@ import tempfile
 import time
 import tomllib
 
-from combat_probe import REPOSITORY, argument_file, mod_ids
+from client_bootstrap import REPOSITORY, argument_file, mod_ids
 
 
 def digest(path):
