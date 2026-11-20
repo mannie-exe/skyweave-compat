@@ -1,16 +1,12 @@
 package design.inherent.skyweavecompat.configuration;
 
 import design.inherent.skyweavecompat.wayfinder.WayfinderSettings;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.*;
 
 class SettingDefinitionTest {
-    @TempDir Path directory;
     enum Mode { FIRST, SECOND }
     public record Sample(long exact, double decimal, Mode mode, List<String> labels) {}
 
@@ -35,21 +31,20 @@ class SettingDefinitionTest {
         assertEquals(SettingDefinition.InputState.VALID, field.inspect("0").state());
         assertEquals(0, WayfinderSettings.DEFAULT.cooldownTicks());
     }
-    @Test void sharedBoundsRejectThroughBothRuntimeConstructorAndEditor() throws Exception {
+    @Test void runtimeAndDeclaredFieldUseTheSameBounds() {
         var definition = JsonSettings.find(WayfinderSettings.FILE);
-        Files.writeString(directory.resolve(definition.filename()), definition.defaults());
-        var edits = new JsonEdits(directory, definition);
-        assertEquals(new java.math.BigDecimal(64), edits.field("placementLookupHeight").maximum());
-        edits.set("placementLookupHeight", "65");
-        assertEquals("placementLookupHeight", edits.issues().getFirst().field());
-        assertEquals("maximum", edits.issues().getFirst().code());
-        assertThrows(SettingIssue.InvalidValue.class, edits::save);
+        var field = definition.field("placementLookupHeight");
+        assertEquals(new java.math.BigDecimal(64), field.maximum());
+        var issue = assertThrows(SettingIssue.InvalidValue.class, () -> field.parse("65"));
+        assertEquals("placementLookupHeight", issue.issue().field());
+        assertEquals("maximum", issue.issue().code());
         var source = com.google.gson.JsonParser.parseString(definition.defaults()).getAsJsonObject();
         source.addProperty("placementLookupHeight", 65);
         assertThrows(SettingIssue.InvalidValue.class, () -> WayfinderSettings.parse(source.toString()));
-        edits.set("placementLookupHeight", "64"); edits.save();
-        assertEquals(64, WayfinderSettings.parse(Files.readString(directory.resolve(definition.filename()))).placementLookupHeight());
+        source.addProperty("placementLookupHeight", 64);
+        assertEquals(64, WayfinderSettings.parse(source.toString()).placementLookupHeight());
     }
+
     @Test void textCollectionBoundsAndShapeComeFromTheOwner() throws Exception {
         var definition = JsonSettings.find(WayfinderSettings.FILE);
         var field = definition.field("blockedBlocks"); assertEquals(256, field.maximumEntries());
@@ -60,34 +55,31 @@ class SettingDefinitionTest {
             assertThrows(SettingIssue.InvalidValue.class, () -> field.parse(input));
         var tooMany = new java.util.ArrayList<>(ids); tooMany.add("example:last");
         assertThrows(SettingIssue.InvalidValue.class, () -> field.parse(gson.toJson(tooMany)));
-        Files.writeString(directory.resolve(definition.filename()), definition.defaults());
-        var edits = new JsonEdits(directory, definition); edits.strings("blockedBlocks", ids); edits.save();
-        assertEquals(ids, WayfinderSettings.parse(Files.readString(directory.resolve(definition.filename()))).blockedBlocks());
+        var value = com.google.gson.JsonParser.parseString(definition.defaults()).getAsJsonObject();
+        value.add("blockedBlocks", gson.toJsonTree(ids));
+        assertEquals(ids, WayfinderSettings.parse(value.toString()).blockedBlocks());
     }
-    @Test void everyOwnedDocumentHasTypedFieldsAndKeepsItsDefaultSerialization() throws Exception {
+    @Test void everyOwnedDocumentDeclaresTypedDefaultsAcceptedByItsRuntimeParser() {
         for (var definition : JsonSettings.FILES) {
             assertFalse(definition.fields().isEmpty(), definition.filename());
-            Files.writeString(directory.resolve(definition.filename()), definition.defaults());
-            var edits = new JsonEdits(directory, definition);
-            assertEquals(edits.keys(), definition.fields().stream().map(SettingDefinition::key).toList());
-            for (var field : definition.fields()) {
-                assertDoesNotThrow(() -> field.parse(edits.defaultValue(field.key())), field.key());
-                edits.reset(field.key());
-            }
-            assertFalse(edits.dirty(), definition.filename());
-            assertTrue(edits.issues().isEmpty(), definition.filename());
+            for (var field : definition.fields())
+                assertDoesNotThrow(() -> field.parse(field.defaultText()), field.key());
+            assertDoesNotThrow(() -> definition.validate().accept(definition.defaults()), definition.filename());
         }
     }
-    @Test void crossFieldIssuesDoNotPretendTheLastEditedFieldIsResponsible() throws Exception {
+
+    @Test void crossFieldIssuesDoNotPretendTheLastEditedFieldIsResponsible() {
         var definition = JsonSettings.find("skyweave_compat-hoofprint.json");
-        Files.writeString(directory.resolve(definition.filename()), definition.defaults());
-        var edits = new JsonEdits(directory, definition);
-        edits.set("zoomMinimum", "4");
-        var issue = edits.issues().getFirst();
+        var value = com.google.gson.JsonParser.parseString(definition.defaults()).getAsJsonObject();
+        value.addProperty("zoomMinimum", 4);
+        var invalid = assertThrows(IllegalArgumentException.class, () -> definition.validate().accept(value.toString()));
+        var issue = SettingIssue.find(invalid);
+        assertNotNull(issue);
         assertEquals("zoomInitial", issue.field());
         assertEquals(List.of("zoomMinimum", "zoomMaximum"), issue.related());
         assertEquals("zoom_range", issue.code());
     }
+
     @Test void ownedSetParsingCannotSilentlyDeduplicateMalformedSavedValues() {
         var definition = JsonSettings.find("skyweave_compat-bluemap.json");
         var value = com.google.gson.JsonParser.parseString(definition.defaults()).getAsJsonObject();
@@ -107,17 +99,16 @@ class SettingDefinitionTest {
         var hugeScale = assertThrows(SettingIssue.InvalidValue.class, () -> probability.adjust("1e-1000000000", 1));
         assertEquals("precision", hugeScale.issue().code());
     }
-    @Test void decimalBoundsUseTheNativeTypeWhileRetainingAuthoredPrecision() throws Exception {
+    @Test void decimalBoundsUseTheNativeTypeWhileRetainingAuthoredPrecision() {
         var definition = JsonSettings.find("skyweave_compat-shapes.json");
-        Files.writeString(directory.resolve(definition.filename()), definition.defaults());
-        var edits = new JsonEdits(directory, definition);
+        var field = definition.field("fractures.deepDarkChance");
         String boundary = "0.100000000000000001";
-        edits.set("fractures.deepDarkChance", boundary);
-        assertTrue(edits.issues().isEmpty());
-        assertEquals(.1, design.inherent.skyweavecompat.terrain.ShapeConfiguration.parse(edits.candidate()).fractures().deepDarkChance());
-        assertEquals(boundary, edits.value("fractures.deepDarkChance"));
-        edits.set("fractures.deepDarkChance", "0.1000000000000001");
-        assertEquals("maximum", edits.issues().getFirst().code());
-        assertThrows(SettingIssue.InvalidValue.class, edits::candidate);
+        assertEquals(new java.math.BigDecimal(boundary), field.parse(boundary));
+        var value = com.google.gson.JsonParser.parseString(definition.defaults()).getAsJsonObject();
+        value.getAsJsonObject("fractures").addProperty("deepDarkChance", new java.math.BigDecimal(boundary));
+        assertEquals(.1, design.inherent.skyweavecompat.terrain.ShapeConfiguration.parse(value.toString()).fractures().deepDarkChance());
+        var invalid = assertThrows(SettingIssue.InvalidValue.class, () -> field.parse("0.1000000000000001"));
+        assertEquals("maximum", invalid.issue().code());
     }
+
 }

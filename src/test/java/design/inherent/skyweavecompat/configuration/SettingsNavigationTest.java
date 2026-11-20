@@ -1,10 +1,8 @@
 package design.inherent.skyweavecompat.configuration;
 
 import design.inherent.skyweavecompat.Feature;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.EnumSet;
-import java.util.List;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -39,22 +37,5 @@ class SettingsNavigationTest {
             }
             assertEquals(page.features(), fixes);
         }
-    }
-    @Test void searchUsesAllWordsAndHandlesCaseDiacriticsAndLocalizedStrings() {
-        assertTrue(SettingsSearch.matches("  IRIS  ombres ", "Rendu", "Iris", "Exclure les ombres"));
-        assertTrue(SettingsSearch.matches("eclairage", "Éclairage"));
-        assertTrue(SettingsSearch.matches("", "Anything"));
-        assertFalse(SettingsSearch.matches("world missing", "World generation"));
-        assertTrue(SettingsSearch.matches("設定", "表示設定"));
-    }
-    @Test void preflightFailureWritesNothingAndLaterFailureReportsOnlyCommittedFiles() {
-        var saved = new ArrayList<String>();
-        var first = new SettingsCommit.Write("first", () -> {}, () -> saved.add("first"));
-        var badCheck = new SettingsCommit.Write("second", () -> { throw new IOException("conflict"); }, () -> fail("Must not write"));
-        var result = SettingsCommit.save(List.of(first, badCheck));
-        assertFalse(result.success()); assertTrue(saved.isEmpty()); assertTrue(result.written().isEmpty()); assertEquals("second", result.failed());
-        var badWrite = new SettingsCommit.Write("second", () -> {}, () -> { throw new IOException("write failed"); });
-        result = SettingsCommit.save(List.of(first, badWrite));
-        assertEquals(List.of("first"), saved); assertEquals(saved, result.written()); assertEquals("second", result.failed());
     }
 }

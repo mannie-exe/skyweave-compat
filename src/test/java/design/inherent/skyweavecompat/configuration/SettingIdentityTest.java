@@ -40,17 +40,26 @@ class SettingIdentityTest {
             assertSame(SettingsCatalog.document("skyweave_compat:features"), file);
         }
     }
-    @Test void realJsonBindingsShareCatalogIdentitiesAcrossIndependentSessions() throws Exception {
+    @Test void realJsonStoresExposeStableDocumentsAndIndependentDrafts() throws Exception {
         var definition = JsonSettings.find("skyweave_compat-search.json");
-        Files.writeString(directory.resolve(definition.filename()), definition.defaults());
-        var first = new JsonEdits(directory, definition); var second = new JsonEdits(directory, definition);
-        for (String key : first.keys()) {
-            assertEquals(SettingsCatalog.field(definition.filename(), key), first.binding(key).id());
-            assertEquals(first.binding(key).id(), second.binding(key).id());
+        Files.createDirectories(ConfigLocations.ownedDirectory(directory));
+        var path = ConfigLocations.file(directory, definition.filename());
+        Files.writeString(path, definition.defaults());
+        var first = ReformJsonStore.map(directory, definition);
+        var second = ReformJsonStore.map(directory, definition);
+        assertEquals(SettingsCatalog.file(definition.filename()).id(), first.definition().id().toString());
+        assertEquals(first.definition().id(), second.definition().id());
+        var a = first.read().draft().orElseThrow();
+        var b = second.read().draft().orElseThrow();
+        for (var field : definition.fields()) {
+            assertTrue(a.contains(ReformDocuments.path(field.key())));
+            assertTrue(b.contains(ReformDocuments.path(field.key())));
         }
-        first.set("timeLimitSeconds", "300");
-        assertEquals(first.binding("timeLimitSeconds").id(), second.binding("timeLimitSeconds").id());
-        assertEquals("600", second.value("timeLimitSeconds"));
+        var changed = a.change(ReformDocuments.path("timeLimitSeconds"),
+                ignored -> new design.inherent.reform.edit.DraftNode.Scalar("300"));
+        assertEquals("300", ((design.inherent.reform.edit.DraftNode.Scalar) changed.at(ReformDocuments.path("timeLimitSeconds"))).raw());
+        assertEquals("600", ((design.inherent.reform.edit.DraftNode.Scalar) b.at(ReformDocuments.path("timeLimitSeconds"))).raw());
+        assertEquals(definition.defaults(), Files.readString(path));
     }
     @Test void everyRegisteredOwnedJsonDefinitionUsesAnAdmittedDocumentWithoutFieldCollisions() {
         var ids = new HashSet<SettingId>();

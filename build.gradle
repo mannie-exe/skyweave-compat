@@ -62,8 +62,6 @@ configurations {
 }
 sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
 sourceSets.test.runtimeClasspath += sourceSets.main.runtimeClasspath
-// Pre-migration comparison fixtures are never compiled into the product or its sources JAR.
-sourceSets.test.java.srcDir 'src/baseline/java'
 dependencies {
     implementation("design.inherent:reform:${reformVersion}") { transitive = false }
     compileOnly('maven.modrinth:modefite-item-definition-backport:cy8BkRZc') { transitive = false }

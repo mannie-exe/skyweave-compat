@@ -1,8 +1,6 @@
 package design.inherent.skyweavecompat.configuration;
 
 import com.AdamNew.dynamicwaters.Config;
-import com.electronwill.nightconfig.core.CommentedConfig;
-import com.electronwill.nightconfig.toml.TomlWriter;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -10,17 +8,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashSet;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.*;
 
 class NativeSettingsMetadataTest {
-    @TempDir Path directory;
-
     @Test void completePinnedDynamicWatersSpecHasTypedEditableDefaultsAndDistinctIdentities() throws Exception {
-        var config = CommentedConfig.inMemory(); Config.SPEC.correct(config);
         String filename = "dynamicwaters-common.toml";
-        Files.writeString(directory.resolve(filename), new TomlWriter().writeToString(config));
-        var edits = new RegisteredEdits(directory, filename, Config.SPEC);
+        var fields = NativeFields.collect(Config.SPEC);
         var nativeNames = new java.util.IdentityHashMap<Object, String>();
         for (var field : Config.class.getDeclaredFields()) if (java.lang.reflect.Modifier.isStatic(field.getModifiers())
                 && net.neoforged.neoforge.common.ModConfigSpec.ConfigValue.class.isAssignableFrom(field.getType())) {
@@ -28,18 +21,17 @@ class NativeSettingsMetadataTest {
         }
         var readers = readers(Config.class);
         var keys = new HashSet<String>(); var inventory = new JsonArray();
-        for (var field : edits.fields()) {
+        for (var field : fields) {
             assertTrue(keys.add(field.key()), field.key());
             var definition = field.definition();
-            assertDoesNotThrow(() -> definition.parse(edits.defaultValue(field.key())), field.key());
-            assertNull(edits.binding(field.key()).issue(), field.key());
+            assertDoesNotThrow(() -> definition.parse(definition.defaultText()), field.key());
+            assertTrue(field.spec().test(field.defaultValue()), field.key());
             if (definition.kind() == SettingDefinition.Kind.STRINGS) {
-                var binding = edits.binding(field.key());
-                assertEquals(field.defaultValue(), binding.readElements().get());
-                for (String value : binding.readElements().get()) assertNull(binding.elementIssue(value), field.key());
+                assertTrue(((java.util.List<?>) field.defaultValue()).stream().allMatch(String.class::isInstance));
+                assertTrue(field.spec().test(field.defaultValue()), field.key());
             }
             var item = new JsonObject();
-            item.addProperty("document", edits.binding(field.key()).id().document());
+            item.addProperty("document", SettingsCatalog.file(filename).id());
             item.addProperty("field", field.key()); item.addProperty("type", definition.kind().name());
             String nativeName = nativeNames.get(field.binding());
             assertNotNull(nativeName, field.key());
@@ -56,7 +48,7 @@ class NativeSettingsMetadataTest {
             }
             inventory.add(item);
         }
-        assertFalse(keys.isEmpty()); assertFalse(edits.dirty()); assertDoesNotThrow(edits::candidate);
+        assertFalse(keys.isEmpty()); assertEquals(fields.size(), keys.size());
         // Inspection artifact from the actual admitted spec, not another manually maintained schema.
         Path report = Path.of("build/reports/config-system-dynamic-waters.json");
         Files.createDirectories(report.getParent());

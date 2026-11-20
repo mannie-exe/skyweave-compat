@@ -35,6 +35,89 @@ import static org.junit.jupiter.api.Assertions.*;
 class ReformProfileBatchTest {
     @TempDir Path root;
 
+    @Test void validFinalPairWithoutASafePersistedPrefixRefusesBeforeWriting() throws Exception {
+        Files.createDirectories(ConfigLocations.ownedDirectory(root));
+        var generationPath = authored(GenerationConfiguration.FILE);
+        var shapePath = authored(ShapeConfiguration.FILE);
+        var generationJson = ProfileJson.object(Files.readString(generationPath));
+        generationJson.addProperty("spacing", 95); generationJson.addProperty("jitter", 0);
+        generationJson.addProperty("minimumClusterGap", 0);
+        generationJson.addProperty("anchorMinRadius", 100); generationJson.addProperty("anchorMaxRadius", 100);
+        generationJson.addProperty("companionMinOrbit", 0); generationJson.addProperty("companionMaxOrbit", 0);
+        generationJson.addProperty("companionMinRadius", 1); generationJson.addProperty("companionMaxRadius", 1);
+        var shapeJson = ProfileJson.object(Files.readString(shapePath));
+        shapeJson.getAsJsonObject("outline").addProperty("aspectChance", 1);
+        shapeJson.getAsJsonObject("outline").addProperty("maximumAspectRatio", 1.1025);
+        shapeJson.getAsJsonObject("fringe").addProperty("enabled", false);
+        shapeJson.getAsJsonObject("fringe").addProperty("disintegratingScale", 1);
+        String originalGeneration = generationJson.toString(), originalShape = shapeJson.toString();
+        Files.writeString(generationPath, originalGeneration);
+        Files.writeString(shapePath, originalShape);
+        var beforeShapes = ShapeConfiguration.parse(originalShape);
+        var before = readGeneration(generationPath, shapePath);
+        try (var context = new OwnerContext(Runnable::run, Runnable::run, () -> {}, OwnerContext.Limits.STANDARD)) {
+            var access = context.access(() -> true, () -> true);
+            var generationStore = ReformDocuments.json(root, GenerationConfiguration.FILE, ProfileEditPlan.GENERATION);
+            var shapeStore = ReformDocuments.json(root, ShapeConfiguration.FILE, ProfileEditPlan.SHAPES);
+            try (var generation = editor(context, access, defaults(context, generationStore), generationStore);
+                    var shapes = editor(context, access, defaults(context, shapeStore), shapeStore)) {
+                await(generation.edit(EntryPoint.GUI, "spacing", "434"));
+                await(generation.edit(EntryPoint.GUI, "anchorMinRadius", "500"));
+                await(generation.edit(EntryPoint.GUI, "anchorMaxRadius", "500"));
+                await(shapes.edit(EntryPoint.GUI, "outline.maximumAspectRatio", "1"));
+                await(shapes.edit(EntryPoint.GUI, "fringe.enabled", "true"));
+                try (var batch = new DocumentBatch(context, access, new DocumentId("skyweave_compat", "profile_review"),
+                        List.of(DocumentBatch.member(generation, DocumentBatch.Intent.COMMIT), DocumentBatch.member(shapes, DocumentBatch.Intent.COMMIT)),
+                        ProfileEditPlan::review, DocumentBatch.Limits.STANDARD)) {
+                    var review = await(batch.review(EntryPoint.GUI));
+                    var after = review.values().candidate(ProfileEditPlan.GENERATION).orElseThrow();
+                    var afterShapes = review.values().candidate(ProfileEditPlan.SHAPES).orElseThrow();
+                    assertEquals(8, before.conflictCells(beforeShapes)); assertEquals(8, after.conflictCells(afterShapes));
+                    assertEquals(9, before.conflictCells(afterShapes)); assertEquals(9, after.conflictCells(beforeShapes));
+                    assertFalse(review.valid());
+                    assertEquals("profile.order", review.check().documents().get(ProfileEditPlan.GENERATION.id()).issues().getFirst().code());
+                    assertEquals(originalGeneration, Files.readString(generationPath));
+                    assertEquals(originalShape, Files.readString(shapePath));
+                    assertTrue(generation.view().dirty()); assertTrue(shapes.view().dirty());
+                }
+            }
+        }
+    }
+
+    @Test void omittedPartnerAndInvalidFinalPairRefuseWithoutMaterializingDependencies() throws Exception {
+        Files.createDirectories(ConfigLocations.ownedDirectory(root));
+        var generationPath = authored(GenerationConfiguration.FILE);
+        var shapePath = ConfigLocations.file(root, ShapeConfiguration.FILE);
+        String original = Files.readString(generationPath);
+        try (var context = new OwnerContext(Runnable::run, Runnable::run, () -> {}, OwnerContext.Limits.STANDARD)) {
+            var access = context.access(() -> true, () -> true);
+            var generationStore = ReformDocuments.json(root, GenerationConfiguration.FILE, ProfileEditPlan.GENERATION);
+            var shapeStore = ReformDocuments.json(root, ShapeConfiguration.FILE, ProfileEditPlan.SHAPES);
+            try (var generation = editor(context, access, defaults(context, generationStore), generationStore)) {
+                await(generation.edit(EntryPoint.GUI, "spacing", "400"));
+                await(generation.edit(EntryPoint.GUI, "jitter", "0"));
+                try (var batch = new DocumentBatch(context, access, new DocumentId("skyweave_compat", "profile_review"),
+                        List.of(DocumentBatch.member(generation, DocumentBatch.Intent.COMMIT)), ProfileEditPlan::review, DocumentBatch.Limits.STANDARD)) {
+                    var review = await(batch.review(EntryPoint.GUI));
+                    assertFalse(review.valid());
+                    assertEquals("profile.dependency", review.check().documents().get(ProfileEditPlan.GENERATION.id()).issues().getFirst().code());
+                    assertFalse(Files.exists(shapePath));
+                }
+                authored(ShapeConfiguration.FILE);
+                try (var shapes = editor(context, access, defaults(context, shapeStore), shapeStore);
+                        var batch = new DocumentBatch(context, access, new DocumentId("skyweave_compat", "profile_review"),
+                                List.of(DocumentBatch.member(generation, DocumentBatch.Intent.COMMIT), DocumentBatch.member(shapes, DocumentBatch.Intent.CHECK)),
+                                ProfileEditPlan::review, DocumentBatch.Limits.STANDARD)) {
+                    var review = await(batch.review(EntryPoint.GUI));
+                    assertFalse(review.valid());
+                    assertEquals("profile.pair", review.check().documents().get(ProfileEditPlan.GENERATION.id()).issues().getFirst().code());
+                }
+                assertEquals(original, Files.readString(generationPath));
+                assertTrue(generation.view().dirty());
+            }
+        }
+    }
+
     @Test void changedCheckOnlyShapeStopsGenerationAfterAnEarlierVerifiedWrite() throws Exception {
         Files.createDirectories(ConfigLocations.ownedDirectory(root));
         var generationPath = authored(GenerationConfiguration.FILE);

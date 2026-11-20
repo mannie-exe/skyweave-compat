@@ -1,7 +1,5 @@
 package design.inherent.skyweavecompat.configuration;
 
-import com.electronwill.nightconfig.core.CommentedConfig;
-import com.electronwill.nightconfig.toml.TomlWriter;
 import com.google.gson.*;
 import design.inherent.skyweavecompat.Feature;
 import design.inherent.skyweavecompat.FeatureSelection;
@@ -11,12 +9,10 @@ import java.nio.file.Path;
 import java.util.*;
 import net.neoforged.neoforge.common.ModConfigSpec;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.*;
 
 /** Review artifact derived from actual owned records and pinned registered specs, never a second schema. */
 class SettingsInventoryTest {
-    @TempDir Path directory;
     private final Set<SettingId> identities = new HashSet<>();
     private final Set<String> documents = new HashSet<>();
     private final JsonArray entries = new JsonArray();
@@ -25,16 +21,15 @@ class SettingsInventoryTest {
         var definitions = new ArrayList<>(JsonSettings.FILES);
         if (definitions.stream().noneMatch(definition -> definition.filename().equals("skyweave_compat-rivers.json"))) {
             var rivers = design.inherent.skyweavecompat.terrain.RiverConfiguration.definition();
-            JsonSettings.register(rivers); // Same schema registration as the admitted owner; no runtime values installed.
             definitions.add(rivers);
         }
         for (var definition : definitions) {
             var file = document(definition.filename());
-            Files.writeString(directory.resolve(file.filename()), definition.defaults());
-            var edits = new JsonEdits(directory, definition);
-            assertEquals(edits.keys(), definition.fields().stream().map(SettingDefinition::key).toList());
+            var store = ReformJsonStore.map(Path.of("config"), definition);
+            var defaults = design.inherent.reform.edit.DraftTree.from(store.definition().type(), store.definition().defaults(), store.draftLimits());
+            assertTrue(store.inspectDraft(defaults).report().valid(), definition.filename());
             for (var field : definition.fields()) {
-                assertDoesNotThrow(() -> field.parse(edits.defaultValue(field.key())));
+                assertDoesNotThrow(() -> field.parse(field.defaultText()));
                 entry(file, field, "owned-json");
             }
         }
@@ -69,11 +64,9 @@ class SettingsInventoryTest {
         var file = SettingsCatalog.file(filename); assertNotNull(file, filename); assertTrue(documents.add(file.id()), file.id()); return file;
     }
     private void nativeFile(String filename, ModConfigSpec spec, String registration) throws Exception {
-        var file = document(filename); var config = CommentedConfig.inMemory(); spec.correct(config);
-        Files.writeString(directory.resolve(filename), new TomlWriter().writeToString(config));
-        var edits = new RegisteredEdits(directory, filename, spec);
-        for (var field : edits.fields()) {
-            assertDoesNotThrow(() -> field.definition().parse(edits.defaultValue(field.key())));
+        var file = document(filename);
+        for (var field : NativeFields.collect(spec)) {
+            assertDoesNotThrow(() -> field.definition().parse(field.definition().defaultText()));
             var row = entry(file, field.definition(), "registered-toml");
             row.addProperty("timing", field.timing(filename).name());
             row.addProperty("native_registration", registration); row.addProperty("native_restart", field.spec().restartType().name());
@@ -87,8 +80,8 @@ class SettingsInventoryTest {
         row.addProperty("filename", file.filename()); row.addProperty("backend", backend); row.addProperty("type", definition.kind().name());
         row.addProperty("default", definition.defaultText()); row.addProperty("timing", timing.name());
         row.add("constraints", new Gson().toJsonTree(definition.constraints()));
-        row.addProperty("declared_integrated_policy_service", Arrays.stream(ServerSettingsContext.Document.values())
-                .anyMatch(document -> document.filename().equals(file.filename())));
+        row.addProperty("declared_integrated_policy_service", java.util.List.of(PolicyDefinitions.WAYFINDER, PolicyDefinitions.SEARCH).stream()
+                .anyMatch(policy -> policy.id().toString().equals(file.id())));
         row.add("admission_owners", new Gson().toJsonTree(file.owners().stream().map(feature -> feature.key).toList()));
         if (definition.minimum() != null) row.addProperty("minimum", definition.minimum());
         if (definition.maximum() != null) row.addProperty("maximum", definition.maximum());

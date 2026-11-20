@@ -23,6 +23,26 @@ import static org.junit.jupiter.api.Assertions.*;
 class ReformStartupTest {
     @TempDir Path root;
 
+    @Test void nativeReplacementPreservesCommentsOmissionsAndNoOpBytes() throws Exception {
+        String original = "# retain me\r\nquestlog.interface : true\r\n! retained too\r\nterrain.preset=false";
+        var path = properties(original);
+        var active = FeatureSettings.read(new StringReader(original));
+        var store = ReformDocuments.startup(root, active, Map.of(), true);
+        var read = store.read();
+        var draft = read.draft().orElseThrow();
+        assertEquals(design.inherent.reform.storage.OwnedFile.Persistence.UNCHANGED,
+                store.write(store.prepareWrite(read, draft), () -> {}).persistence().state());
+        assertEquals(original, Files.readString(path));
+        assertEquals(design.inherent.reform.storage.OwnedFile.Persistence.SAVED,
+                store.write(store.prepareWrite(read, edit(draft, Feature.QUESTLOG_INTERFACE, false)), () -> {}).persistence().state());
+        String saved = Files.readString(path);
+        assertEquals("# retain me\r\nquestlog.interface=false\r\n! retained too\r\nterrain.preset=false", saved);
+        var parsed = FeatureSettings.read(new StringReader(saved));
+        assertFalse(parsed.enabled(Feature.QUESTLOG_INTERFACE));
+        assertFalse(parsed.values().containsKey(Feature.SABLE_GRAVES));
+        assertTrue(active.enabled(Feature.QUESTLOG_INTERFACE));
+    }
+
     @Test void serializedOutputIsRefusedBeforeAnEffectCanBePrepared() throws Exception {
         String baseline = "#" + "a".repeat(ConfigFile.LIMIT - 2) + "\n";
         var path = properties(baseline);

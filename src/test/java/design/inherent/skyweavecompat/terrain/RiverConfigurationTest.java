@@ -1,6 +1,11 @@
 package design.inherent.skyweavecompat.terrain;
 
 import com.google.gson.*;
+import design.inherent.reform.definition.FieldPath;
+import design.inherent.reform.edit.DraftNode;
+import design.inherent.reform.edit.DraftTree;
+import design.inherent.reform.storage.OwnedFile;
+import design.inherent.reform.storage.TextStore;
 import design.inherent.skyweavecompat.configuration.*;
 import java.nio.file.*;
 import java.util.List;
@@ -11,11 +16,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class RiverConfigurationTest {
     @TempDir Path directory;
     private JsonSettings.Definition definition() {
-        var found = JsonSettings.find(RiverConfiguration.FILE);
-        if (found != null) return found;
-        var definition = RiverConfiguration.definition();
-        JsonSettings.register(definition);
-        return definition;
+        return RiverConfiguration.definition();
     }
 
     @Test void nativeFieldsExposeTypedBindingsInsteadOfUnboundedNumberFallbacks() {
@@ -32,39 +33,48 @@ class RiverConfigurationTest {
 
     @Test void nestedNativeSettingsRoundTripWithoutOverwritingSiblingFields() throws Exception {
         var definition = definition();
-        var file = directory.resolve(definition.filename());
+        Files.createDirectories(ConfigLocations.ownedDirectory(directory));
+        var file = ConfigLocations.file(directory, definition.filename());
         Files.writeString(file, definition.defaults());
-        var edits = new JsonEdits(directory, definition);
-        assertTrue(edits.keys().contains("anchors.minimum_width"));
-        assertEquals(JsonEdits.Kind.STRING, edits.kind("temperate_biome"));
-        edits.set("anchors.minimum_width", "14");
-        assertThrows(RuntimeException.class, edits::save);
+        var store = ReformJsonStore.map(directory, definition);
+        var read = store.read();
+        assertEquals(TextStore.State.READY, read.state(), read.report().toString());
+        var draft = edit(read.draft().orElseThrow(), "anchors.minimum_width", "14");
+        assertFalse(store.inspectDraft(draft).report().valid());
         assertEquals(definition.defaults(), Files.readString(file));
-        edits.set("anchors.maximum_width", "16");
-        edits.set("temperate_biome", "minecraft:stony_shore");
-        edits.strings("excluded_biomes", List.of("minecraft:desert"));
-        edits.save();
+        draft = edit(draft, "anchors.maximum_width", "16");
+        draft = edit(draft, "temperate_biome", "minecraft:stony_shore");
+        draft = draft.change(FieldPath.ROOT.field("excluded_biomes"), ignored -> new DraftNode.Sequence(
+                List.of(DraftNode.Row.create(new DraftNode.Scalar("minecraft:desert")))));
+        assertEquals(OwnedFile.Persistence.SAVED,
+                store.write(store.prepareWrite(read, draft), () -> {}).persistence().state());
         var saved = RiverConfiguration.parse(Files.readString(file));
         assertEquals(14, saved.anchors().minimumWidth());
         assertEquals(16, saved.anchors().maximumWidth());
         assertEquals(6, saved.satellites().maximumWidth());
         assertEquals("minecraft:stony_shore", saved.temperateBiome().toString());
         assertEquals(1, saved.excludedBiomes().size());
-        edits.reset("anchors.minimum_width");
-        edits.reset("anchors.maximum_width");
-        edits.save();
+        read = store.read();
+        draft = edit(read.draft().orElseThrow(), "anchors.minimum_width", definition.field("anchors.minimum_width").defaultText());
+        draft = edit(draft, "anchors.maximum_width", definition.field("anchors.maximum_width").defaultText());
+        assertEquals(OwnedFile.Persistence.SAVED,
+                store.write(store.prepareWrite(read, draft), () -> {}).persistence().state());
         assertEquals(6, RiverConfiguration.parse(Files.readString(file)).anchors().minimumWidth());
     }
 
     @Test void everyLeafUsesTypedMetadataAndItsNativeDefault() throws Exception {
-        var definition = definition(); Files.writeString(directory.resolve(definition.filename()), definition.defaults());
-        var edits = new JsonEdits(directory, definition);
-        assertEquals(edits.keys(), definition.fields().stream().map(SettingDefinition::key).toList());
+        var definition = definition();
+        var store = ReformJsonStore.map(directory, definition);
+        var defaults = DraftTree.from(store.definition().type(), store.definition().defaults(), store.draftLimits());
         for (var field : definition.fields()) {
-            assertEquals(edits.defaultValue(field.key()), field.defaultText(), field.key());
             assertDoesNotThrow(() -> field.parse(field.defaultText()), field.key());
-            assertEquals(SettingsCatalog.field(definition.filename(), field.key()), edits.binding(field.key()).id());
+            assertTrue(defaults.contains(ReformDocuments.path(field.key())), field.key());
+            assertEquals(SettingsCatalog.field(definition.filename(), field.key()).field(), field.key());
         }
+    }
+
+    private static DraftTree edit(DraftTree draft, String field, String raw) {
+        return draft.change(ReformDocuments.path(field), ignored -> new DraftNode.Scalar(raw));
     }
 
     @Test void numericPresentationBoundsAgreeWithThePinnedCodecAtAndBeyondEachBoundary() {
