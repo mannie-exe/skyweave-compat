@@ -22,9 +22,10 @@ import net.neoforged.neoforge.event.server.ServerStartedEvent;
 
 /** Authored command destinations only; there is no caller-selected path or generic config mutation. */
 public final class SettingsReload {
-    public static <T extends Record> void registerPolicy(String destination, String filename, Class<T> type, T defaults,
+    public static <T> void registerPolicy(String destination, String filename, design.inherent.reform.definition.DocumentDefinition<T> definition,
             Function<MinecraftServer, SettingsPolicy<T>> domain) {
-        var definition = ReformDocuments.record(filename, type, defaults);
+        if (!definition.id().equals(DocumentId.parse(SettingsCatalog.file(filename).id())))
+            throw new IllegalArgumentException("Policy definition and native source differ");
         NeoForge.EVENT_BUS.addListener((ServerStartedEvent event) -> {
             var owner = domain.apply(event.getServer());
             var container = ModList.get().getModContainerById(SkyweaveCompat.ID).orElseThrow();

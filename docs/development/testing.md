@@ -8,6 +8,14 @@ Use JDK 21 and the checked-in wrapper:
 
 Probe JARs are separate from the released mod. Use disposable instances and exact artifact/configuration digests; a successful build is not native verification. [Verification](verification.md) owns retained results and their limits.
 
+## Shared settings
+
+`tools/reform_probe.py` opens the actual native Configure entry in a marked disposable client. Supply Java 21, the pinned mapped Minecraft JAR, the packaged Compat/client-probe JARs, the exact re:form JAR, the scenario's required mods through repeated `--mod` arguments, and a new `--output` receipt path. The runner uses isolated config and world paths and records artifact hashes. It never edits personal instances.
+
+`--native-preferences` checks the complete local catalog route set, unopened editor state, a Redstone Link GUI native client save and its real registered reader. `--integrated-policy` opens the separate running-host workflow, selects Wayfinder's work field and verifies the same server's actual policy plus `SAVED / APPLIED` revision. `--startup-property` checks an escaped/continued existing property, exact retained comments/line endings and unchanged running admission. `--terrain-pair` checks the required generation/shape review and unchanged partner. The Hoofprint scene checks an actual existing map view and the live client publication. Inspect the runner's current scenario inputs before launch; a fixture must navigate the controls actually presented by its pinned artifact.
+
+`src/baseline/java` retains pre-migration file/session comparisons for unit tests and explicit headless probe modes. These classes are absent from product/source JARs. Their results qualify the historical comparison path. Use current shared-owner or actual Configure/command checks for migration claims. Retain original artifact identities when comparing before and after; do not infer equivalent runtime coverage from the baseline helper tests.
+
 ## Boundary evidence
 
 Separate a codec roundtrip, direct handler call, queued mutation and actual TCP dispatch. For a packet control, record the sender's real game mode/permissions, current menu and dimension, and whether the target lookup creates or loads a chunk. Recheck authority after enqueue at the mutation point. A native fake or embedded player is useful for controlled behavior but does not prove a remote transport path. Preserve an ordinary positive action alongside malformed or unauthorized controls.

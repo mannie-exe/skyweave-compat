@@ -11,7 +11,7 @@ public final class ProfileJson {
     private static final Gson JSON = new Gson();
     /** Startup and editor validation must reject the same ambiguous input. */
     public static JsonObject object(String text) {
-        try { return JsonEdits.object(text); }
+        try { return ConfigJson.object(text); }
         catch (java.io.IOException invalid) { throw new IllegalArgumentException(invalid.getMessage(), invalid); }
     }
     public static GenerationProfile generation(String text) {

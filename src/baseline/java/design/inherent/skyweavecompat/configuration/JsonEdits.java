@@ -1,10 +1,7 @@
 package design.inherent.skyweavecompat.configuration;
 
 import com.google.gson.*;
-import com.google.gson.stream.JsonReader;
-import com.google.gson.stream.JsonToken;
 import java.io.IOException;
-import java.io.StringReader;
 import java.math.BigDecimal;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
@@ -65,16 +62,7 @@ public final class JsonEdits {
         if (kind(key) != Kind.STRINGS) throw new IllegalArgumentException("Not a string list");
         return textArray(value(key));
     }
-    static List<String> textArray(String raw) {
-        try {
-            var wrapper = object("{\"value\":" + raw + "}");
-            var array = wrapper.getAsJsonArray("value");
-            if (wrapper.size() != 1 || array == null || array.asList().stream().anyMatch(item ->
-                    !item.isJsonPrimitive() || !item.getAsJsonPrimitive().isString()))
-                throw new IllegalArgumentException("Expected text entries");
-            return array.asList().stream().map(JsonElement::getAsString).toList();
-        } catch (IOException invalid) { throw new IllegalArgumentException(invalid.getMessage(), invalid); }
-    }
+    static List<String> textArray(String raw) { return ConfigJson.textArray(raw); }
     public void strings(String key, List<String> values) { set(key, new Gson().toJson(values)); }
     public boolean dirty() { return session.dirty(); }
     public boolean edited(String key) { return session.edited(key); }
@@ -169,7 +157,7 @@ public final class JsonEdits {
     }
     public void save() throws IOException {
         if (!dirty()) return;
-        ProfileEditPlan.prepare(file.path().getParent(), List.of(prepare())).save().requireSuccess();
+        BaselineProfileEditPlan.prepare(file.path().getParent(), List.of(prepare())).save().requireSuccess();
     }
 
     private Map<String, String> displayed(JsonObject object) {
@@ -204,37 +192,5 @@ public final class JsonEdits {
         return parent(object, key).get(key.substring(key.lastIndexOf('.') + 1));
     }
 
-    // Reject duplicate keys rather than letting Gson silently discard one value.
-    public static JsonObject object(String text) throws IOException {
-        try (var reader = new JsonReader(new StringReader(text))) {
-            var value = read(reader, 0);
-            if (!value.isJsonObject() || reader.peek() != JsonToken.END_DOCUMENT)
-                throw new IOException("Expected one JSON object");
-            return value.getAsJsonObject();
-        }
-    }
-    private static JsonElement read(JsonReader reader, int depth) throws IOException {
-        if (depth > 16) throw new IOException("JSON nesting exceeds configuration limit");
-        return switch (reader.peek()) {
-            case BEGIN_OBJECT -> {
-                var object = new JsonObject(); reader.beginObject();
-                while (reader.hasNext()) {
-                    String name = reader.nextName();
-                    if (object.has(name)) throw new IOException("Duplicate JSON key: " + name);
-                    object.add(name, read(reader, depth + 1));
-                }
-                reader.endObject(); yield object;
-            }
-            case BEGIN_ARRAY -> {
-                var array = new JsonArray(); reader.beginArray();
-                while (reader.hasNext()) array.add(read(reader, depth + 1));
-                reader.endArray(); yield array;
-            }
-            case STRING -> new JsonPrimitive(reader.nextString());
-            case NUMBER -> new JsonPrimitive(new BigDecimal(reader.nextString()));
-            case BOOLEAN -> new JsonPrimitive(reader.nextBoolean());
-            case NULL -> { reader.nextNull(); yield JsonNull.INSTANCE; }
-            default -> throw new IOException("Unexpected JSON token");
-        };
-    }
+    public static JsonObject object(String text) throws IOException { return ConfigJson.object(text); }
 }

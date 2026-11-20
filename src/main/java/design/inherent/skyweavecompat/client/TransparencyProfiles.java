@@ -2,7 +2,7 @@ package design.inherent.skyweavecompat.client;
 
 import design.inherent.skyweavecompat.Feature;
 import design.inherent.skyweavecompat.OptionalIntegrations;
-import design.inherent.skyweavecompat.configuration.JsonEdits;
+import design.inherent.skyweavecompat.configuration.ConfigJson;
 import design.inherent.skyweavecompat.rendering.TransparencyProfile;
 import design.inherent.skyweavecompat.rendering.TransparencyProfile.Provider;
 import design.inherent.skyweavecompat.rendering.TransparencyProfile.Selector;
@@ -78,7 +78,7 @@ public final class TransparencyProfiles {
             try (var stream = entry.getValue().open()) {
                 byte[] bytes = stream.readNBytes(65537);
                 if (bytes.length > 65536) throw new IllegalArgumentException("Profile exceeds 64 KiB");
-                profiles.put(entry.getKey(), TransparencyProfile.parse(JsonEdits.object(new String(bytes, StandardCharsets.UTF_8))));
+                profiles.put(entry.getKey(), TransparencyProfile.parse(ConfigJson.object(new String(bytes, StandardCharsets.UTF_8))));
             } catch (Exception invalid) {
                 diagnostics.put(entry.getKey(), invalid.getMessage() == null ? invalid.getClass().getSimpleName() : invalid.getMessage());
             }

@@ -1,4 +1,9 @@
 {
+  "skyweave_compat.settings.local_files": "Local files",
+  "skyweave_compat.settings.running_server": "Running singleplayer server",
+  "skyweave_compat.settings.controls": "Key bindings",
+  "skyweave_compat.settings.controls_help": "Edit Compatibility Patches key bindings through native Minecraft Controls. Other keys keep their own owner.",
+  "skyweave_compat.settings.context_choice_help": "Local files contain client preferences and installation defaults. Running server policies apply to this singleplayer world. Remote servers use native operator commands.",
   "skyweave_compat.branding.pack": "Create: Skyweave %s + Compat %s",
   "skyweave_compat.branding.standalone": "Skyweave: Compatibility Patches %s",
   "skyweave_compat.configuration.feature.interface.main_menu_identity": "Main-menu identity",

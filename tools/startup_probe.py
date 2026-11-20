@@ -24,7 +24,7 @@ def main():
     parser.add_argument('--server', type=Path, required=True, help='Read-only installed game directory')
     parser.add_argument('--java', required=True)
     parser.add_argument('--heap', choices=['4G','6G','8G'], default='4G', help='Owned fixture maximum heap; full replay scenes may require6G')
-    parser.add_argument('--scenario', choices=['standalone', 'all-disabled', 'terrain-disabled', 'terrain', 'full',
+    parser.add_argument('--scenario', choices=['standalone', 'library-missing', 'library-unsupported', 'all-disabled', 'terrain-disabled', 'terrain', 'full',
                                              'unsupported-disabled', 'unsupported-enabled', 'questlog', 'questlog-disabled', 'jade', 'macaw', 'macaw-disabled'], required=True)
     parser.add_argument('--mod', type=Path)
     parser.add_argument('--extra-mod', type=Path, action='append', default=[], help='Additional explicit read-only artifacts for a bounded startup boundary')
@@ -107,7 +107,7 @@ def main():
                 metadata += f'[[mods]]\nmodId="{target}"\nversion="999.0.0"\ndisplayName="Fixture {target}"\n'
             with zipfile.ZipFile(run / 'mods/future-targets-fixture.jar', 'w') as fixture:
                 fixture.writestr('META-INF/neoforge.mods.toml', metadata)
-        elif args.scenario != 'standalone':
+        elif args.scenario not in {'standalone', 'library-missing', 'library-unsupported'}:
             for source in sorted((server / 'mods').glob('*.jar')):
                 with zipfile.ZipFile(source) as jar:
                     meta = (tomllib.loads(jar.read('META-INF/neoforge.mods.toml').decode())
@@ -129,6 +129,13 @@ def main():
                     continue
                 shutil.copy2(source, run / 'mods' / source.name)
                 selected[source.name] = hashlib.sha256(source.read_bytes()).hexdigest()
+        if args.scenario == 'library-unsupported':
+            fixture = run / 'mods/unsupported-reform-fixture.jar'
+            with zipfile.ZipFile(fixture, 'w') as archive:
+                archive.writestr('META-INF/neoforge.mods.toml',
+                                 'modLoader="lowcodefml"\nloaderVersion="[1,)"\nlicense="MIT"\n'
+                                 '[[mods]]\nmodId="reform"\nversion="0.0.0"\ndisplayName="Unsupported re:form fixture"\n')
+            selected[fixture.name] = hashlib.sha256(fixture.read_bytes()).hexdigest()
         if args.resource_patches:
             source=args.resource_patches.resolve()
             copy_owned(source,run / 'mods' / source.name,run)
@@ -275,6 +282,14 @@ def main():
                        if 'variantsandventures.spawner_emissions' in args.enable else
                        "Review Wayfinder's coordinate-frame guard for Sable 999.0.0; supported optional version is 2.0.6")
             report['passed'] = not done and refusal in text
+        if args.scenario in {'library-missing', 'library-unsupported'}:
+            report['libraryDiagnostics'] = [line for line in text.splitlines() if 'reform' in line.lower() or 'mandatory dependencies' in line.lower()][:24]
+            expected = '[MISSING]' if args.scenario == 'library-missing' else '0.0.0'
+            report['passed'] = (not done and process.returncode in (0, 1) and not report['active_lines']
+                                and 'Missing or unsupported mandatory dependencies' in text
+                                and "Mod ID: 'reform', Requested by: 'skyweave_compat'" in text
+                                and 'Error during pre-loading phase: Mod skyweave_compat requires reform ' in text
+                                and expected in '\n'.join(report['libraryDiagnostics']))
         if args.scenario == 'standalone':
             expected = ['class/design/inherent/skyweavecompat/mixin/StructureSearchCacheAccess.class',
                         'class/net/minecraft/server/level/ServerChunkCache.class',

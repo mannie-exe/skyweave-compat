@@ -3,7 +3,6 @@ package design.inherent.skyweavecompat.client;
 import design.inherent.reform.definition.DocumentDefinition;
 import design.inherent.reform.definition.DocumentId;
 import design.inherent.reform.definition.FieldPath;
-import design.inherent.reform.neoforge.client.ClientEditingWorkflow;
 import design.inherent.reform.neoforge.client.ClientFileSettings;
 import design.inherent.reform.neoforge.client.ClientForm;
 import design.inherent.reform.neoforge.client.ClientWorkflowLayout;
@@ -17,9 +16,7 @@ import design.inherent.skyweavecompat.configuration.SettingsCatalog;
 import design.inherent.skyweavecompat.terrain.GenerationConfiguration;
 import design.inherent.skyweavecompat.terrain.ShapeConfiguration;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -29,27 +26,23 @@ import net.neoforged.fml.loading.FMLPaths;
 final class TerrainProfileForms {
     private static final String KEY = "skyweave_compat.settings.";
     private final List<ClientForm> forms;
-    private final ClientWorkflowLayout layout;
+    private final ClientWorkflowLayout.ReviewScope review;
 
     TerrainProfileForms(IEventBus bus, ModContainer container) {
         forms = List.of(profile(bus, container, GenerationConfiguration.FILE, ProfileEditPlan.GENERATION),
                 profile(bus, container, ShapeConfiguration.FILE, ProfileEditPlan.SHAPES));
-        var placements = forms.stream().map(form -> new ClientWorkflowLayout.Placement(form.document(), form.route(),
-                form.title(), Optional.empty())).toList();
-        var review = new ClientWorkflowLayout.ReviewScope(new DocumentId("skyweave_compat", "terrain_profiles"),
+        review = new ClientWorkflowLayout.ReviewScope(new DocumentId("skyweave_compat", "terrain_profiles"),
                 Component.translatable(KEY + "profile_review"),
                 Set.of(ProfileEditPlan.GENERATION.id(), ProfileEditPlan.SHAPES.id()), Set.of(), true, ProfileEditPlan::review);
-        layout = new ClientWorkflowLayout(List.of(new ClientWorkflowLayout.Group(
-                Component.translatable(KEY + "tuning"), placements, List.of())), List.of(review));
     }
 
     static boolean owns(String filename) {
         return filename.equals(GenerationConfiguration.FILE) || filename.equals(ShapeConfiguration.FILE);
     }
 
-    Screen screen(Screen parent) {
-        return ClientEditingWorkflow.open(parent, Component.translatable(KEY + "profile_review"), forms, layout).screen();
-    }
+    List<ClientForm> forms() { return forms; }
+
+    ClientWorkflowLayout.ReviewScope review() { return review; }
 
     private static <T> ClientForm profile(IEventBus bus, ModContainer container, String name, DocumentDefinition<T> definition) {
         var store = ReformDocuments.json(FMLPaths.CONFIGDIR.get(), name, definition);

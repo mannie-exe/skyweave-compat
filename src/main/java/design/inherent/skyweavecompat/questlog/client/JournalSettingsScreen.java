@@ -60,11 +60,11 @@ public final class JournalSettingsScreen extends Screen {
         private boolean focused;
         private final class Row {
             final String key, group;
-            final Runnable action;
+            final java.util.function.Supplier<java.util.concurrent.CompletionStage<Void>> action;
             int top, height, buttonY;
             List<net.minecraft.util.FormattedCharSequence> label, description;
             JournalButton button;
-            Row(String key, String group, Runnable action) { this.key = key; this.group = group; this.action = action; }
+            Row(String key, String group, java.util.function.Supplier<java.util.concurrent.CompletionStage<Void>> action) { this.key = key; this.group = group; this.action = action; }
         }
         SettingsContent() {
             rows.add(new Row("images", "display", JournalPreferences::toggleImages));
@@ -85,14 +85,19 @@ public final class JournalSettingsScreen extends Screen {
                 row.label = font.split(JournalRows.text(row.key), available);
                 row.description = font.split(JournalRows.text(row.key + "_description"), available);
                 row.button = new JournalButton(0, 0, available, value(i), skin, () -> {
-                    try { row.action.run(); available = -1; measure(); ensureVisible(index); }
-                    catch (RuntimeException failure) {
-                        scroll = pane.getScrollAmount();
-                        minecraft.setScreen(new net.minecraft.client.gui.screens.AlertScreen(
-                                () -> minecraft.setScreen(JournalSettingsScreen.this),
-                                Component.translatable("skyweave_compat.settings.change_failed"),
-                                Component.literal(String.valueOf(failure.getMessage()))));
-                    }
+                    if (JournalPreferences.busy()) return;
+                    try { row.action.get().whenCompleteAsync((ignored, failure) -> {
+                        if (minecraft.screen != JournalSettingsScreen.this) {
+                            if (failure != null) net.minecraft.client.gui.components.toasts.SystemToast.add(minecraft.getToasts(),
+                                    net.minecraft.client.gui.components.toasts.SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+                                    Component.translatable("skyweave_compat.settings.change_failed"),
+                                    Component.literal(String.valueOf(failure.getMessage())));
+                            return;
+                        }
+                        if (failure == null) { available = -1; measure(); ensureVisible(index); }
+                        else failed(failure);
+                    }, minecraft); }
+                    catch (RuntimeException failure) { failed(failure); }
                 });
                 int group = row.group == null ? 0 : font.lineHeight + 10;
                 row.buttonY = group + row.label.size() * font.lineHeight + 4;
@@ -113,6 +118,7 @@ public final class JournalSettingsScreen extends Screen {
             for (int i = 0; i < rows.size(); i++) {
                 Row row = rows.get(i); int at = y + row.top;
                 row.button.setPosition(x, at + row.buttonY);
+                row.button.active = !JournalPreferences.busy();
                 row.button.setFocused(focused && selected == i);
                 if (row.top + row.height < owner.getScrollAmount() || row.top > owner.getScrollAmount() + owner.height) continue;
                 if (row.group != null) {
@@ -124,6 +130,13 @@ public final class JournalSettingsScreen extends Screen {
                 at = y + row.top + row.buttonY + row.button.getHeight() + 5;
                 for (var line : row.description) { graphics.drawString(font, line, x, at, Questlog.getConfig().colors.textColor, false); at += font.lineHeight; }
             }
+        }
+        private void failed(Throwable failure) {
+            scroll = pane.getScrollAmount();
+            minecraft.setScreen(new net.minecraft.client.gui.screens.AlertScreen(
+                    () -> minecraft.setScreen(JournalSettingsScreen.this),
+                    Component.translatable("skyweave_compat.settings.change_failed"),
+                    Component.literal(String.valueOf(failure.getMessage()))));
         }
         @Override public boolean mouseClicked(double mx, double my, int button) {
             measure(); if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) return false;

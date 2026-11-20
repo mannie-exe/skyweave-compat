@@ -28,12 +28,12 @@ class ProfileEditPlanTest {
         var runningGeneration = GenerationConfiguration.profile(); var runningShapes = ShapeConfiguration.profile();
         var generation = create(GenerationConfiguration.FILE); var shapes = create(ShapeConfiguration.FILE);
         compact(generation); shapes.set("enabled", "false");
-        var result = ProfileEditPlan.prepare(directory, List.of(generation.prepare(), shapes.prepare())).save();
+        var result = BaselineProfileEditPlan.prepare(directory, List.of(generation.prepare(), shapes.prepare())).save();
         assertTrue(result.success(), String.valueOf(result.failure()));
         assertEquals(List.of(ShapeConfiguration.FILE, GenerationConfiguration.FILE), result.written());
         validOnDisk(); assertFalse(generation.dirty()); assertFalse(shapes.dirty());
         generation.reset("spacing"); generation.reset("jitter"); shapes.set("enabled", "true");
-        result = ProfileEditPlan.prepare(directory, List.of(shapes.prepare(), generation.prepare())).save();
+        result = BaselineProfileEditPlan.prepare(directory, List.of(shapes.prepare(), generation.prepare())).save();
         assertTrue(result.success());
         assertEquals(List.of(GenerationConfiguration.FILE, ShapeConfiguration.FILE), result.written());
         validOnDisk(); assertSame(runningGeneration, GenerationConfiguration.profile()); assertSame(runningShapes, ShapeConfiguration.profile());
@@ -42,7 +42,7 @@ class ProfileEditPlanTest {
         var generation = create(GenerationConfiguration.FILE); var shapes = create(ShapeConfiguration.FILE);
         String original = Files.readString(directory.resolve(GenerationConfiguration.FILE));
         compact(generation);
-        assertThrows(IllegalArgumentException.class, () -> ProfileEditPlan.prepare(directory, List.of(generation.prepare())));
+        assertThrows(IllegalArgumentException.class, () -> BaselineProfileEditPlan.prepare(directory, List.of(generation.prepare())));
         assertEquals(original, Files.readString(directory.resolve(GenerationConfiguration.FILE)));
         Files.delete(directory.resolve(ShapeConfiguration.FILE)); generation.set("spacing", "2600");
         assertThrows(IOException.class, generation::save);
@@ -75,7 +75,7 @@ class ProfileEditPlanTest {
         assertEquals(8, before.conflictCells(beforeShapes)); assertEquals(8, after.conflictCells(afterShapes));
         assertEquals(9, before.conflictCells(afterShapes)); assertEquals(9, after.conflictCells(beforeShapes));
         var refused = assertThrows(IllegalArgumentException.class,
-                () -> ProfileEditPlan.prepare(directory, List.of(generation.prepare(), shapes.prepare())));
+                () -> BaselineProfileEditPlan.prepare(directory, List.of(generation.prepare(), shapes.prepare())));
         assertTrue(refused.getMessage().contains("no safe partial-save order"));
         assertEquals(originalGeneration, Files.readString(directory.resolve(GenerationConfiguration.FILE)));
         assertEquals(originalShape, Files.readString(directory.resolve(ShapeConfiguration.FILE)));
@@ -87,7 +87,7 @@ class ProfileEditPlanTest {
         var submitted = generation.prepare();
         var failing = new SettingsCommit.Write(submitted.filename(), submitted.text(), submitted::check,
                 () -> { throw new IOException("native writer refused"); });
-        var result = ProfileEditPlan.prepare(directory, List.of(failing, shapes.prepare())).save();
+        var result = BaselineProfileEditPlan.prepare(directory, List.of(failing, shapes.prepare())).save();
         assertFalse(result.success()); assertEquals(List.of(ShapeConfiguration.FILE), result.written());
         assertEquals(GenerationConfiguration.FILE, result.failed()); validOnDisk();
         assertTrue(generation.dirty()); assertFalse(shapes.dirty());
@@ -96,13 +96,13 @@ class ProfileEditPlanTest {
         var generation = create(GenerationConfiguration.FILE); create(ShapeConfiguration.FILE);
         generation.set("spacing", "2600");
         var shapePath = directory.resolve(ShapeConfiguration.FILE); String original = Files.readString(shapePath);
-        var firstPlan = ProfileEditPlan.prepare(directory, List.of(generation.prepare()));
+        var firstPlan = BaselineProfileEditPlan.prepare(directory, List.of(generation.prepare()));
         Files.writeString(shapePath, original + " ");
         var refused = firstPlan.save(); assertTrue(refused.failure() instanceof ConfigFile.ChangedOnDisk);
         assertTrue(refused.written().isEmpty()); assertTrue(generation.dirty());
         Files.writeString(shapePath, original);
         var external = new SettingsCommit.Write("other", () -> {}, () -> Files.writeString(shapePath, original + " "));
-        var result = ProfileEditPlan.prepare(directory, List.of(external, generation.prepare())).save();
+        var result = BaselineProfileEditPlan.prepare(directory, List.of(external, generation.prepare())).save();
         assertEquals(List.of("other"), result.written()); assertEquals(GenerationConfiguration.FILE, result.failed());
         assertTrue(result.failure() instanceof ConfigFile.ChangedOnDisk);
         assertEquals(2400, ProfileJson.generation(Files.readString(directory.resolve(GenerationConfiguration.FILE))).spacing());
@@ -111,10 +111,10 @@ class ProfileEditPlanTest {
         var generation = create(GenerationConfiguration.FILE); create(ShapeConfiguration.FILE);
         generation.set("spacing", "2600");
         var write = generation.prepare();
-        assertThrows(IllegalArgumentException.class, () -> ProfileEditPlan.prepare(directory, List.of(write, write)));
+        assertThrows(IllegalArgumentException.class, () -> BaselineProfileEditPlan.prepare(directory, List.of(write, write)));
         var shape = directory.resolve(ShapeConfiguration.FILE); var outside = directory.resolve("outside.json");
         Files.move(shape, outside); Files.createSymbolicLink(shape, outside);
-        assertThrows(IOException.class, () -> ProfileEditPlan.prepare(directory, List.of(generation.prepare())));
+        assertThrows(IOException.class, () -> BaselineProfileEditPlan.prepare(directory, List.of(generation.prepare())));
         assertTrue(generation.dirty());
     }
 }

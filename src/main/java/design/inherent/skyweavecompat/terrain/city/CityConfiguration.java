@@ -4,7 +4,7 @@ import design.inherent.skyweavecompat.configuration.SettingSpec;
 import design.inherent.skyweavecompat.configuration.RecordSettings;
 import design.inherent.skyweavecompat.configuration.ConfigFile;
 import com.google.gson.*;
-import design.inherent.skyweavecompat.configuration.JsonEdits;
+import design.inherent.skyweavecompat.configuration.ConfigJson;
 import java.io.IOException;
 import java.nio.file.*;
 import java.util.Set;
@@ -24,7 +24,7 @@ public final class CityConfiguration {
     public static Policy policy() { return policy; }
     public static Policy parse(String text) {
         JsonObject value;
-        try { value = JsonEdits.object(text); }
+        try { value = ConfigJson.object(text); }
         catch (IOException error) { throw new IllegalArgumentException("Invalid Ancient City JSON", error); }
         if (!value.keySet().equals(Set.of("minimumBuriedFraction"))
                 || !value.get("minimumBuriedFraction").isJsonPrimitive()

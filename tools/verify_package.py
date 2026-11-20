@@ -20,6 +20,13 @@ with zipfile.ZipFile(root / f'build/libs/skyweave-compat-{version}-mc1.21.1-neof
     assert deps['reform']['versionRange'] == f'[{reform_version}]'
     assert deps['reform']['side'] == 'BOTH'
     assert not any(name.startswith('design/inherent/reform/') for name in names), 're:form is a separate base library'
+    retired = ['client/ConfigurationOverview', 'client/SettingsPanel', 'client/SettingsControls',
+               'client/ServerSettingsView', 'configuration/JsonEdits', 'configuration/RegisteredEdits',
+               'configuration/StartupEdits', 'configuration/SettingsCommit', 'configuration/EditSession',
+               'configuration/ServerSettingsContext']
+    assert not any(any(name.startswith('design/inherent/skyweavecompat/' + entry + '.') or
+                       name.startswith('design/inherent/skyweavecompat/' + entry + '$')
+                       for entry in retired) for name in names), 'Retired settings belong only to baseline fixtures'
     for name, dependency in deps.items():
         if name not in required:
             assert dependency['type'] == 'optional', name

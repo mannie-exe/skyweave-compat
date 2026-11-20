@@ -404,46 +404,50 @@ final class ClientCombatControls {
     private boolean configuration(int n) throws Exception {
         if (n == 1) {
             begin("native_client_pacing_configuration");
-            var screen = ClientConfigurationProbe.openScreen(mc().screen);
-            mc().setScreen(screen);
-            var search = screen.getClass().getDeclaredField("search"); search.setAccessible(true);
-            ((net.minecraft.client.gui.components.EditBox) search.get(screen)).setValue("attack pacing");
+            mc().setScreen(ClientConfigurationProbe.openScreen(mc().screen));
         }
-        if (n == 4) {
-            var page = design.inherent.skyweavecompat.configuration.SettingsCatalog.page(
-                    design.inherent.skyweavecompat.configuration.SettingsCatalog.Group.PLAYER_ANIMATION);
-            var links = (java.util.Map<?, ?>) field(mc().screen, "links");
-            var link = links.get(page.id());
-            check(link instanceof net.minecraft.client.gui.components.Button button && button.active, "Punchy! + Moves navigation is unavailable");
-            ((net.minecraft.client.gui.components.Button) link).onPress();
-            var panel = field(mc().screen, "content");
-            for (var entry : (java.util.List<?>) field(panel, "rows")) {
-                var key = (String) field(entry, "key");
-                if (key == null || !key.contains("punchyPacing")) continue;
-                var jump = panel.getClass().getDeclaredMethod("jump", String.class); jump.setAccessible(true); jump.invoke(panel, key);
-            }
+        if (n == 4) clickSetting("Local files");
+        if (n == 7) {
+            var search = ClientConfigurationProbe.widgets(mc().screen).stream()
+                    .filter(widget -> widget instanceof net.minecraft.client.gui.components.EditBox
+                            && widget.getMessage().getString().equals("Search documents")).findFirst().orElseThrow();
+            ((net.minecraft.client.gui.components.EditBox) search).setValue("skyweave_compat:files/rendering/punchy_moves/combat_client");
         }
-        if (n < 10) return false;
-        check(mc().screen instanceof design.inherent.skyweavecompat.client.ConfigurationOverview, "Native settings screen did not remain open");
+        if (n == 10) clickSetting("Open");
+        if (n < 20) return false;
+        check(mc().screen instanceof design.inherent.reform.neoforge.client.SettingsScreen<?>, "Shared native settings screen did not remain open");
+        var screen = (design.inherent.reform.neoforge.client.SettingsScreen<?>) mc().screen;
+        check(screen.document().equals(design.inherent.reform.definition.DocumentId.parse("skyweave_compat:combat_client")),
+                "The form opened another native document");
+        var actions = screen.editingActions();
+        if (actions.view().availability() == design.inherent.reform.owner.EditorActor.Availability.LOADING && n < 120) return false;
+        check(actions.view().availability() == design.inherent.reform.owner.EditorActor.Availability.READY,
+                "Native client preference editor did not load");
         check(CombatPreferences.SPEC.isLoaded(), "Native client preference specification is unavailable");
-        var panel = field(mc().screen, "content");
-        var fields = new JsonArray(); String lastAnchor = null;
-        for (var entry : (java.util.List<?>) field(panel, "rows")) {
-            var key = (String) field(entry, "key");
-            if (key == null || !(key.contains("punchyPacing") || key.contains("movesPacing"))) continue;
-            var controls = (java.util.List<?>) field(entry, "controls");
-            check(!controls.isEmpty() && ((net.minecraft.client.gui.components.AbstractWidget) controls.getFirst()).active, "Pacing field is not editable");
-            fields.add(((net.minecraft.network.chat.Component) field(entry, "label")).getString()); lastAnchor = key;
-        }
-        check(fields.size() == 2, "Both pacing fields are not presented on the selected page");
-        if (n == 10) {
-            row.add("fields", fields); row.addProperty("firstPerson", CombatPreferences.punchy()); row.addProperty("thirdPerson", CombatPreferences.moves());
+        var selectors = actions.fields().fields().stream().map(field -> field.selector()).collect(java.util.stream.Collectors.toSet());
+        check(selectors.equals(java.util.Set.of("punchyPacing", "movesPacing")), "Both pacing fields are not in the real native definition");
+        check(ClientConfigurationProbe.widgets(screen).stream().filter(widget -> widget.active
+                && (widget.getMessage().getString().equals("true") || widget.getMessage().getString().equals("false"))).count() == 2,
+                "Both native pacing controls must remain editable");
+        if (n == 20) {
+            row.add("fields", new com.google.gson.Gson().toJsonTree(selectors));
+            row.addProperty("firstPerson", CombatPreferences.punchy()); row.addProperty("thirdPerson", CombatPreferences.moves());
             net.minecraft.client.Screenshot.grab(mc().gameDirectory, "combat-settings.png", mc().getMainRenderTarget(), ignored -> {});
         }
-        if (n == 12) { var jump = panel.getClass().getDeclaredMethod("jump", String.class); jump.setAccessible(true); jump.invoke(panel, lastAnchor); }
-        if (n < 15) return false;
+        if (n == 22) clickSetting(net.minecraft.network.chat.Component.translatable(
+                "skyweave_compat.settings.combat.moves_pacing").getString());
+        if (n < 25) return false;
         net.minecraft.client.Screenshot.grab(mc().gameDirectory, "combat-settings-last.png", mc().getMainRenderTarget(), ignored -> {});
+        screen.onClose();
+        if (mc().screen != null) mc().screen.onClose();
         mc().setScreen(null); return true;
+    }
+    private void clickSetting(String label) {
+        var widget = ClientConfigurationProbe.widgets(mc().screen).stream()
+                .filter(value -> value.active && value.getMessage().getString().equals(label)).findFirst().orElseThrow();
+        double x = widget.getX() + widget.getWidth() / 2.0, y = widget.getY() + widget.getHeight() / 2.0;
+        check(mc().screen.mouseClicked(x, y, 0), "Native settings click was refused: " + label);
+        mc().screen.mouseReleased(x, y, 0);
     }
     static final class ControlledAttackFault extends RuntimeException {}
     private boolean unknownRecovery(int n) throws Exception {

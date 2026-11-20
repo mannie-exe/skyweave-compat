@@ -12,42 +12,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import design.inherent.skyweavecompat.configuration.NativeFields.Field;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 /** Staged scalars and string lists; the registered spec owns validation and persistence. */
 public final class RegisteredEdits {
-    public record Field(ModConfigSpec.ConfigValue<?> binding) {
-        public String key() { return String.join(".", binding.getPath()); }
-        public ModConfigSpec.ValueSpec spec() { return binding.getSpec(); }
-        public Object defaultValue() { return binding.getDefault(); }
-        public SettingsCatalog.Timing timing(String filename) {
-            var declared = SettingsCatalog.timing(filename, key());
-            if (declared == SettingsCatalog.Timing.NEW_WORLD) return declared;
-            return switch (spec().restartType()) {
-                case NONE -> declared;
-                case WORLD -> SettingsCatalog.Timing.SERVER_START;
-                case GAME -> SettingsCatalog.Timing.GAME_RESTART;
-            };
-        }
-        public List<String> choices() {
-            if (defaultValue() instanceof Boolean) return List.of("false", "true");
-            if (defaultValue() instanceof Enum<?> value) return java.util.Arrays.stream(value.getDeclaringClass().getEnumConstants()).map(Enum::name).toList();
-            return List.of();
-        }
-        public SettingDefinition definition() {
-            Object initial = defaultValue();
-            Class<?> type = initial instanceof List<?> ? List.class : initial instanceof Enum<?> value ? value.getDeclaringClass() : initial.getClass();
-            var range = spec().getRange();
-            Number minimum = range != null && range.getMin() instanceof Number value ? value : null;
-            Number maximum = range != null && range.getMax() instanceof Number value ? value : null;
-            var constraints = SettingConstraints.nativeRange(minimum, maximum, initial instanceof Integer || initial instanceof Long,
-                    String.join(".", binding.getPath().subList(0, binding.getPath().size() - 1)));
-            if (spec() instanceof ModConfigSpec.ListValueSpec list && list.getSizeRange() != null)
-                constraints = new SettingConstraints(constraints.minimum(), constraints.maximum(), false, constraints.step(), "", constraints.group(),
-                        list.getSizeRange().getMax(), -1, false, "");
-            return new SettingDefinition(key(), type, initial, constraints);
-        }
-    }
     private final String filename;
     private final ConfigFile file;
     private final ModConfigSpec spec;

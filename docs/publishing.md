@@ -8,6 +8,14 @@ Update `mod_version`, release notes and verification evidence before tagging. Af
 
 Pending native client checks must remain explicit in release notes and verification. Background checks do not establish GPU or gameplay rendering behavior.
 
+## Shared settings dependency
+
+Compat requires the exact `design.inherent:reform` version in `gradle.properties` on both installed sides. Its portable build resolves the combined release JAR through the artifact-only GitHub Ivy pattern declared in `build.gradle`. The game supplies the serialization dependencies; do not bundle re:form classes or its development core JAR. Gradle, expanded NeoForge metadata and the modpack's client/server inventory must select the same qualified artifact.
+
+An explicit `-Preform_repository=<staged-maven-repository>` selects an owned development candidate. Keep machine-local paths out of tracked configuration and release CI. Before publication, verify a clean consumer checkout against the intended immutable release filename and compare its digest. A local mirror verifies resolution mechanics and candidate bytes; it does not prove public release availability. Publish re:form before a Compat release that requires it, then update the modpack's two-sided dependency set. No build or local candidate test authorizes publication or personal-instance rollout.
+
+When updating re:form, requalify current format/validation boundaries, required generation/shape scopes, native callbacks, live client and integrated policy effects, retained drafts/receipts, keybindings and operator/search lifecycles. Keep Compat's canonical domain definitions and native feature gates. The [configuration development guide](development/configuration.md) owns the affected adapters and [verification](development/verification.md#shared-settings-owners) records exact qualified artifacts.
+
 ## Modrinth selections
 
 Modrinth publication is deferred. Use these fields if publication is approved:

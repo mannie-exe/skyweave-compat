@@ -105,6 +105,15 @@ class Client:
         self.act('hoofprint-proof')
         return json.loads((self.root / 'hoofprint-observation.json').read_text())
 
+    def open_form(self, query, context='Local files'):
+        self.act('open')
+        self.wait_active(context)
+        self.click(context)
+        self.act('reform-catalog-proof')
+        self.field('', query, 'Search documents')
+        self.wait_active('Open')
+        self.click('Open')
+
 
 def verify(client, config, migrated):
     client.until(lambda: client.state('misc').get('loaded'), 'integrated fixture did not join')
@@ -113,14 +122,17 @@ def verify(client, config, migrated):
     assert before['preferences']['zoomMaximum'] == 32 and before['skyweave$scale'] > .75, before
     live_connection = before['connectionIdentity']
     initial = digest(config)
-    client.act('open')
-    client.field('', 'Hoofprint', 'Search settings…')
-    client.wait_active('Hoofprint')
-    client.click('Hoofprint')
     if migrated:
-        client.click('Edit settings')
+        client.open_form('skyweave_compat:files/maps/hoofprint/hoofprint_zoom')
+        client.wait_active('Maximum zoom')
+        client.click('Maximum zoom')
         client.until(lambda: any(w.get('value') == '32' for w in client.state().get('widgets', [])),
                      'the authored bare JSON did not load in the shared form')
+    else:
+        client.act('open')
+        client.field('', 'Hoofprint', 'Search settings…')
+        client.wait_active('Hoofprint')
+        client.click('Hoofprint')
     save = 'Save and apply' if migrated else 'Save changes'
     client.field('32', '0.75')
     client.wait_active(save)
@@ -135,6 +147,7 @@ def verify(client, config, migrated):
         assert receipt['persistence'] == 'SAVED' and receipt['application'] == 'APPLIED', receipt
         assert Path(receipt['source']).resolve() == config.resolve(), receipt
         assert receipt['savedRevision'] == 'sha256:' + digest(config), receipt
+        client.act('key', key=256)
         client.act('key', key=256)
     client.act('key', key=256)
     after = client.map()
@@ -154,16 +167,9 @@ def verify_terrain_pair(client, config):
     shapes = config / 'skyweave_compat-shapes.json'
     before = {path.name: digest(path) for path in (generation, shapes)}
     original = json.loads(generation.read_text())
-    client.act('open')
-    client.field('', 'Island shape and spacing', 'Search settings…')
-    client.wait_active('Sky Archipelago')
-    client.click('Sky Archipelago')
-    editor = 'Edit island profiles'
-    client.wait_active(editor)
-    client.click(editor)
-    client.field('', 'Island shape and spacing', 'Search documents')
-    client.wait_active('Open')
-    client.click('Open')
+    client.open_form('skyweave_compat:files/world/sky_archipelago/generation')
+    client.wait_active('Cluster spacing')
+    client.click('Cluster spacing')
     previous = str(original['spacing'])
     client.until(lambda: any(w.get('value') == previous for w in client.state().get('widgets', [])),
                  'the authored generation profile did not load in the shared form')
@@ -202,11 +208,9 @@ def verify_integrated_policy(client, config):
 
     original = effective()
     assert before == original['wayfinder'], original
-    client.act('open')
-    client.wait_active('Context: Local files')
-    client.click('Context: Local files')
-    client.wait_active('Edit running policy')
-    client.click('Edit running policy')
+    client.open_form('skyweave_compat:server/wayfinder', 'Running singleplayer server')
+    client.wait_active('Query work per tick')
+    client.click('Query work per tick')
     client.until(lambda: any(w.get('value') == str(before['stepsPerTick']) for w in client.state().get('widgets', [])),
                  'integrated re:form did not load the saved Wayfinder policy')
     client.field(str(before['stepsPerTick']), '128')
@@ -229,15 +233,7 @@ def verify_startup_property(client, config):
     client.until(lambda: client.state('misc').get('loaded'), 'integrated fixture did not join')
     path = config / 'skyweave_compat-features.properties'
     before = path.read_bytes()
-    client.act('open')
-    client.wait_active('Status & files')
-    client.act('scroll', x=48, y=client.state()['height'] // 2, amount=-10)
-    client.click('Status & files')
-    client.wait_active('Edit settings')
-    client.click('Edit settings')
-    client.field('', 'Wayfinder', 'Search documents')
-    client.wait_active('Open')
-    client.click('Open')
+    client.open_form('skyweave_compat:features/navigation.wayfinder')
     client.wait_active('true')
     client.click('true')
     client.wait_active('Save for restart')
@@ -254,6 +250,34 @@ def verify_startup_property(client, config):
     return dict(before=before.decode(), after=after.decode(), receipt=receipt, remainsActive=True)
 
 
+def verify_native_preferences(client, config):
+    client.until(lambda: client.state('misc').get('loaded'), 'integrated fixture did not join')
+
+    def native():
+        client.act('native-preferences-proof')
+        return json.loads((client.root / 'native-preferences-proof.json').read_text())
+
+    before = native()
+    client.open_form('skyweave_compat:files/machines/redstone_link_gui/link_gui_client')
+    client.wait_active(before['clientClickMode'])
+    client.click(before['clientClickMode'])
+    client.wait_active('Save native settings')
+    assert native() == before
+    client.click('Save native settings')
+    changed = client.until(lambda: state if (state := native()) != before else None,
+                           'the real registered client reader did not observe its native save')
+    client.act('reform-receipt')
+    receipt = json.loads((client.root / 'reform-receipt.json').read_text())
+    assert receipt['persistence'] == 'SAVED' and receipt['application'] == 'STAGED', receipt
+    source = client.root / 'config/createredstonelinkgui-client.toml'
+    assert receipt['savedRevision'] == 'sha256:' + digest(source)
+    catalog = json.loads((client.root / 'reform-catalog-proof.json').read_text())
+    assert {owner['route'] for owner in catalog['owners']} == set(catalog['expectedRoutes']), catalog
+    assert catalog['documents'] == len(catalog['expectedRoutes']) and catalog['placements'] > 120, catalog
+    assert all(not owner['opened'] for owner in catalog['owners']), catalog
+    return dict(before=before, after=changed, receipt=receipt, reader='Native ClientConfig.CLICK_MODE.get', catalog=catalog)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('java', 'clean', 'output', 'compat', 'probe'):
@@ -263,18 +287,19 @@ def main():
     scenario.add_argument('--terrain-pair', action='store_true')
     scenario.add_argument('--integrated-policy', action='store_true')
     scenario.add_argument('--startup-property', action='store_true')
+    scenario.add_argument('--native-preferences', action='store_true')
     parser.add_argument('--mod', action='append', required=True, type=Path)
     args = parser.parse_args()
     if args.output.exists():
         parser.error('Choose a new receipt path')
-    if (args.terrain_pair or args.integrated_policy or args.startup_property) and not args.reform:
+    if (args.terrain_pair or args.integrated_policy or args.startup_property or args.native_preferences) and not args.reform:
         parser.error('This settings scenario requires a re:form artifact')
     artifacts = [args.compat, args.probe, *args.mod]
     if args.reform:
         artifacts.append(args.reform)
     evidence = {'artifacts': {path.name: digest(path) for path in artifacts},
                 'connectorCleanSha256': digest(args.clean),
-                'scenario': ('startup-property' if args.startup_property else 'terrain-pair' if args.terrain_pair
+                'scenario': ('native-preferences' if args.native_preferences else 'startup-property' if args.startup_property else 'terrain-pair' if args.terrain_pair
                              else 'integrated-policy' if args.integrated_policy
                              else 'migrated' if args.reform else 'baseline')}
     started = time.monotonic()
@@ -306,6 +331,8 @@ def main():
                     evidence['observations'] = verify_integrated_policy(client, config.parent)
                 elif args.startup_property:
                     evidence['observations'] = verify_startup_property(client, config.parent)
+                elif args.native_preferences:
+                    evidence['observations'] = verify_native_preferences(client, config.parent)
                 else:
                     evidence['observations'] = verify(client, config, bool(args.reform))
                 client.act('quit')

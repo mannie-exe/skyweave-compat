@@ -83,7 +83,7 @@ public final class Wayfinder {
                     if (state != null && state.jobs.containsKey(player.getUUID())) finish(state,state.jobs.get(player.getUUID()),"cancelled");
                     return 1;
                 })))));
-        SettingsReload.registerPolicy("wayfinder", WayfinderSettings.FILE, WayfinderSettings.class, WayfinderSettings.DEFAULT,
+        SettingsReload.registerPolicy("wayfinder", WayfinderSettings.FILE, design.inherent.skyweavecompat.configuration.PolicyDefinitions.WAYFINDER,
                 server -> SERVERS.get(server).policy);
         NeoForge.EVENT_BUS.addListener(Wayfinder::tick);
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.level.LevelEvent.Unload event) -> {

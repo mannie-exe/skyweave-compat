@@ -77,8 +77,10 @@ public final class ConfigFile {
         }
     }
 
+    @FunctionalInterface public interface Writer { void run() throws Exception; }
+
     /** Registered owners keep their serializer and reload events; coordinate only this handoff. */
-    public String throughOwner(String baseline, SettingsCommit.Operation save) throws Exception {
+    public String throughOwner(String baseline, Writer save) throws Exception {
         synchronized (WRITERS.computeIfAbsent(path, ignored -> new Object())) {
             check(baseline);
             if (!Files.isWritable(path)) throw new IOException("Configuration is not writable");

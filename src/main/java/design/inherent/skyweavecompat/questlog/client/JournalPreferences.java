@@ -1,5 +1,11 @@
 package design.inherent.skyweavecompat.questlog.client;
 
+import design.inherent.reform.neoforge.client.ClientRegisteredSettings;
+import design.inherent.reform.operation.DocumentActions;
+import design.inherent.reform.operation.OperationDescriptor;
+import design.inherent.reform.owner.PolicyRefusal;
+import java.util.concurrent.CompletionStage;
+import net.minecraft.client.Minecraft;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 /** Presentation preferences are independent from immutable optional-hook selection. */
@@ -24,20 +30,38 @@ public final class JournalPreferences {
                 .translation("skyweave_compat.journal.notifications").defineEnum("notifications", Notifications.PROGRESS_AND_COMPLETION);
         SPEC = builder.build();
     }
-    public static void toggleImages() { set(ITEM_IMAGES, !ITEM_IMAGES.get()); }
-    public static void toggleSymbols() { set(CONDITION_SYMBOLS, !CONDITION_SYMBOLS.get()); }
-    public static void cycleNotifications() {
-        var options = Notifications.values(); set(NOTIFICATIONS, options[(NOTIFICATIONS.get().ordinal() + 1) % options.length]);
+    private static ClientRegisteredSettings owner;
+    private static boolean busy;
+
+    public static void bind(ClientRegisteredSettings binding) {
+        if (owner != null) throw new IllegalStateException("Journal preferences already have a native owner");
+        owner = java.util.Objects.requireNonNull(binding);
     }
-    private static <T> void set(ModConfigSpec.ConfigValue<T> value, T next) {
-        try {
-            var edits=new design.inherent.skyweavecompat.configuration.RegisteredEdits(
-                    design.inherent.skyweavecompat.configuration.ConfigLocations.ownedDirectory(net.neoforged.fml.loading.FMLPaths.CONFIGDIR.get()),FILE,SPEC);
-            if(!edits.nativeMatchesFile())throw new java.io.IOException("Preference file and registered values differ; let the native reload finish and review the configuration screen");
-            edits.set(String.join(".",value.getPath()),next instanceof Enum<?> choice?choice.name():String.valueOf(next));
-            edits.save();
-            if(edits.warning()!=null)com.mojang.logging.LogUtils.getLogger().warn("Journal preferences: {}",edits.warning());
-        } catch(Exception failure){throw new IllegalStateException("Cannot save journal preferences: "+failure.getMessage(),failure);}
+
+    public static boolean busy() { return busy; }
+    public static CompletionStage<Void> toggleImages() { return set(ITEM_IMAGES, !ITEM_IMAGES.get()); }
+    public static CompletionStage<Void> toggleSymbols() { return set(CONDITION_SYMBOLS, !CONDITION_SYMBOLS.get()); }
+    public static CompletionStage<Void> cycleNotifications() {
+        var options = Notifications.values(); return set(NOTIFICATIONS, options[(NOTIFICATIONS.get().ordinal() + 1) % options.length]);
+    }
+    private static <T> CompletionStage<Void> set(ModConfigSpec.ConfigValue<T> value, T next) {
+        if (owner == null || busy) throw new IllegalStateException("Journal preferences are not ready for another save");
+        var actions = owner.openActions();
+        busy = true;
+        var client = Minecraft.getInstance();
+        var entry = OperationDescriptor.EntryPoint.GUI;
+        String text = next instanceof Enum<?> choice ? choice.name() : String.valueOf(next);
+        return DocumentActions.result(actions.edit(entry, String.join(".", value.getPath()), text))
+                .thenComposeAsync(ignored -> DocumentActions.result(actions.save(entry)), client)
+                .thenAcceptAsync(saved -> {
+                    if (!saved.editorReport().valid()) throw new PolicyRefusal(saved.editorReport());
+                    var receipt = saved.receipt().orElseThrow(() -> new IllegalStateException("Native save returned no receipt"));
+                    if (!receipt.acknowledgesBaseline()) throw new IllegalStateException("Native save was " + receipt.persistence());
+                }, client).whenCompleteAsync((ignored, failure) -> {
+                    busy = false;
+                    actions.close();
+                    if (failure != null) com.mojang.logging.LogUtils.getLogger().warn("Cannot save journal preferences", failure);
+                }, client);
     }
     private JournalPreferences() {}
 }

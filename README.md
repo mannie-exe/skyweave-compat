@@ -4,7 +4,7 @@ Optional terrain, gameplay, and rendering adaptations for Minecraft 1.21.1. Ever
 
 ## Installation
 
-Install this mod with **Java 21 and NeoForge 21.1.264 or later in the 21.1 series**. No content mod is required. Native-terrain Wayfinder is available without optional mods; dependency-specific adaptations activate only when their targets qualify. Use it on the client for rendering fixes; install it on both sides with matching configuration when using the expanded island preset.
+Install this mod with **Java 21, NeoForge 21.1.265 or later in the 21.1 series, and re:form 0.1.0**. re:form is a separate required settings library on both installed sides. No content mod or modpack is required. Native-terrain Wayfinder is available without optional mods; dependency-specific adaptations activate only when their targets qualify. Use it on the client for rendering fixes; install it on both sides with matching configuration when using the expanded island preset.
 
 Edit `config/skyweave/skyweave_compat-features.properties` before startup to disable unwanted features. Changes require a full process restart. Disabled adaptations select no target mixins, callbacks, or data packs and do not constrain target versions. An enabled adaptation activates only when its full dependency combination is present on the applicable side; unsupported active combinations fail clearly. See [all switches and supported combinations](docs/configuration.md#adaptation-switches). [Encounter rules](docs/configuration.md#encounter-rules) explains the native/per-emission choice, mutual-exclusion requirement and local-water scope.
 

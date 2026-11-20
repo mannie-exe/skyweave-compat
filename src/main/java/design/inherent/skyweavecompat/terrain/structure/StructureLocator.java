@@ -145,7 +145,7 @@ public final class StructureLocator {
         var locator = new StructureLocator();
         NeoForge.EVENT_BUS.addListener((ServerAboutToStartEvent event) -> servers.put(event.getServer(),
                 new State(event.getServer(), SearchSettings.load(ConfigLocations.ownedDirectory(FMLPaths.CONFIGDIR.get())))));
-        SettingsReload.registerPolicy("search", SearchSettings.FILE, SearchSettings.class, SearchSettings.DEFAULT,
+        SettingsReload.registerPolicy("search", SearchSettings.FILE, design.inherent.skyweavecompat.configuration.PolicyDefinitions.SEARCH,
                 server -> servers.get(server).policy);
         NeoForge.EVENT_BUS.addListener(locator::commands);
         NeoForge.EVENT_BUS.addListener(locator::tick);

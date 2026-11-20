@@ -104,7 +104,7 @@ public record SettingDefinition(String key, Class<?> valueType, Object defaultVa
                 }
                 case CHOICE -> Enum.valueOf((Class) valueType, raw);
                 case STRING -> raw;
-                case STRINGS -> JsonEdits.textArray(raw);
+                case STRINGS -> ConfigJson.textArray(raw);
             };
             Object nativeValue = value;
             if (value instanceof BigDecimal decimal && kind() == Kind.DECIMAL) {

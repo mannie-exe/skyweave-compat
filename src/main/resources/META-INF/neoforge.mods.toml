@@ -21,7 +21,7 @@ side="BOTH"
 [[dependencies.skyweave_compat]]
 modId="neoforge"
 type="required"
-versionRange="[21.1.264,21.2)"
+versionRange="[21.1.265,21.2)"
 side="BOTH"
 [[dependencies.skyweave_compat]]
 modId="reform"

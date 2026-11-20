@@ -6,7 +6,6 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import design.inherent.skyweavecompat.Feature;
 import design.inherent.skyweavecompat.OptionalIntegrations;
-import design.inherent.skyweavecompat.client.ConfigurationOverview;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -33,7 +32,6 @@ final class ClientConfigurationProbe {
     private net.minecraft.server.MinecraftServer firstServer;
     private java.util.UUID firstActor;
     private design.inherent.skyweavecompat.configuration.SettingsPolicy.Revision firstRevision;
-    private design.inherent.skyweavecompat.configuration.ServerSettingsContext.SavedRevision firstSaved;
     ClientConfigurationProbe() {
         if (!Files.isRegularFile(root.resolve("config-review-fixture.json"))) throw new IllegalStateException("Configuration probe requires its disposable-fixture marker");
         NeoForge.EVENT_BUS.addListener(this::tick);
@@ -58,15 +56,8 @@ final class ClientConfigurationProbe {
         var mc=Minecraft.getInstance(); var server=mc.getSingleplayerServer();
         if (server==null || mc.player==null) throw new IllegalStateException("Expected a running integrated fixture");
         var actor=mc.player.getUUID(); int requested=sequence;
-        if (mc.screen instanceof ConfigurationOverview overview && firstSaved==null) {
-            var field=ConfigurationOverview.class.getDeclaredField("serverSettings");field.setAccessible(true); Object view=field.get(overview);
-            var method=view.getClass().getDeclaredMethod("receipts");method.setAccessible(true);
-            for (Object value : (java.util.List<?>)method.invoke(view)) {
-                var receipt=(design.inherent.skyweavecompat.configuration.ServerSettingsContext.Receipt)value;
-                if (receipt.saved()!=null) {firstSaved=receipt.saved();break;}
-            }
-        }
-        var previousServer=firstServer; var previousActor=firstActor; var previousRevision=firstRevision; var previousSaved=firstSaved;
+
+        var previousServer=firstServer; var previousActor=firstActor; var previousRevision=firstRevision;
         server.submit(() -> {
             var player=server.getPlayerList().getPlayer(actor); var result=new JsonObject();
             try {
@@ -80,11 +71,7 @@ final class ClientConfigurationProbe {
                     try { design.inherent.skyweavecompat.wayfinder.Wayfinder.applyPolicy(player.createCommandSourceStack(),previousRevision,actual.value()); }
                     catch (IllegalStateException expected) {refused=true;}
                     result.addProperty("oldEffectiveRevisionRefused",refused);
-                    if (previousSaved!=null) {
-                        var next=design.inherent.skyweavecompat.configuration.ServerSettingsContext.open(player); boolean stale=false;
-                        try {next.retry(previousSaved);}catch(IllegalArgumentException expected){stale=true;}finally{next.close();}
-                        result.addProperty("oldSavedContextRefused",stale);
-                    }
+
                 }
                 if (previousServer==null) mc.execute(() -> {firstServer=server;firstActor=actor;firstRevision=actual.revision();});
             } catch (Exception failure) {result.addProperty("error",failure.toString());}
@@ -148,6 +135,8 @@ final class ClientConfigurationProbe {
                         case "hoofprint-proof" -> hoofprint(mc);
                         case "reform-receipt" -> reformReceipt(mc);
                         case "reform-batch-proof" -> reformBatchProof(mc);
+                        case "reform-catalog-proof" -> reformCatalogProof(mc);
+                        case "native-preferences-proof" -> nativePreferencesProof();
                         case "hoofprint" -> {
                             if (!OptionalIntegrations.enabled(Feature.HOOFPRINT_ZOOM) || mc.player == null)
                                 throw new IllegalStateException("Expected an admitted Hoofprint connection");
@@ -240,7 +229,10 @@ final class ClientConfigurationProbe {
                 }
             }
             write(lastError);
-        } catch (Exception failure) { lastError = failure.toString(); write(lastError); }
+        } catch (Exception failure) {
+            com.mojang.logging.LogUtils.getLogger().warn("Configuration fixture action failed", failure);
+            lastError = failure.toString(); write(lastError);
+        }
     }
     private void journalPreferences() throws Exception {
         if (!OptionalIntegrations.enabled(Feature.QUESTLOG_INTERFACE)) throw new IllegalStateException("Expected the admitted journal owner");
@@ -251,7 +243,7 @@ final class ClientConfigurationProbe {
         ProbeStateFiles.write(root.resolve("journal-preferences-observation.json"),new GsonBuilder().setPrettyPrinting().create().toJson(result));
     }
     private void narration(Minecraft mc) throws Exception {
-        if (!(mc.screen instanceof ConfigurationOverview)) throw new IllegalStateException("Expected the configuration screen");
+        if (mc.screen == null) throw new IllegalStateException("Expected a configuration screen");
         var result = new JsonArray();
         class Output implements net.minecraft.client.gui.narration.NarrationElementOutput {
             private final int depth;
@@ -325,6 +317,34 @@ final class ClientConfigurationProbe {
         evidence.addProperty("source", receipt.observation().orElseThrow().provenance().location().orElseThrow());
         ProbeStateFiles.write(root.resolve("reform-receipt.json"), evidence.toString());
     }
+    private void reformCatalogProof(Minecraft mc) throws Exception {
+        if (!mc.screen.getClass().getName().equals("design.inherent.reform.neoforge.client.ClientEditingWorkflow$Overview"))
+            throw new IllegalStateException("Expected the real shared workflow overview");
+        var owner = mc.screen.getClass().getDeclaredField("this$0"); owner.setAccessible(true);
+        var workflow = (design.inherent.reform.neoforge.client.ClientEditingWorkflow) owner.get(mc.screen);
+        var layout = workflow.getClass().getDeclaredField("layout"); layout.setAccessible(true);
+        var declared = (design.inherent.reform.neoforge.client.ClientWorkflowLayout) layout.get(workflow);
+        var proof = new JsonObject();
+        proof.addProperty("groups", declared.groups().size());
+        proof.addProperty("placements", declared.groups().stream().mapToLong(group -> group.placements().size()).sum());
+        proof.addProperty("documents", workflow.documents().size());
+        var expected = new JsonArray();
+        if (mc.screen.getTitle().getString().equals(net.minecraft.network.chat.Component.translatable("skyweave_compat.settings.running_server").getString())) {
+            expected.add("skyweave_compat:wayfinder"); expected.add("skyweave_compat:search");
+        } else {
+            design.inherent.skyweavecompat.configuration.SettingsCatalog.FILES.forEach(entry -> expected.add(entry.id()));
+            expected.add("skyweave_compat:controls");
+        }
+        proof.add("expectedRoutes", expected);
+        var documents = new JsonArray();
+        workflow.documents().forEach(state -> {
+            var row = new JsonObject(); row.addProperty("route", state.document().toString());
+            row.addProperty("owner", state.ownerDocument().toString()); row.addProperty("available", state.available());
+            row.addProperty("opened", state.opened()); row.addProperty("summary", state.summary().getString()); documents.add(row);
+        });
+        proof.add("owners", documents);
+        ProbeStateFiles.write(root.resolve("reform-catalog-proof.json"), new GsonBuilder().setPrettyPrinting().create().toJson(proof));
+    }
     private void reformBatchProof(Minecraft mc) throws Exception {
         if (!(mc.screen instanceof design.inherent.reform.neoforge.client.BatchReviewScreen screen))
             throw new IllegalStateException("Expected the actual shared batch review screen");
@@ -335,6 +355,17 @@ final class ClientConfigurationProbe {
         evidence.addProperty("valid", review.valid());
         ProbeStateFiles.write(root.resolve("reform-batch-proof.json"), evidence.toString());
     }
+
+    private void nativePreferencesProof() throws Exception {
+        var evidence = new JsonObject();
+        var client = Class.forName("com.ggrgg.createredstonelinkgui.ClientConfig");
+        var common = Class.forName("com.ggrgg.createredstonelinkgui.Config");
+        var click = (net.neoforged.neoforge.common.ModConfigSpec.ConfigValue<?>) client.getField("CLICK_MODE").get(null);
+        var range = (net.neoforged.neoforge.common.ModConfigSpec.ConfigValue<?>) common.getField("MOVE_RANGE").get(null);
+        evidence.addProperty("clientClickMode", String.valueOf(click.get()));
+        evidence.addProperty("commonMoveRange", ((Number) range.get()).intValue());
+        ProbeStateFiles.write(root.resolve("native-preferences-proof.json"), evidence.toString());
+    }
     private static boolean visibleTarget(GuiEventListener listener, AbstractWidget target, double x, double y) {
         if (listener == target) return target.visible && target.active;
         if (listener instanceof ContainerEventHandler container) for (var child : container.children())
@@ -342,7 +373,7 @@ final class ClientConfigurationProbe {
                 return listener instanceof net.minecraft.client.gui.screens.Screen || listener.isMouseOver(x,y);
         return false;
     }
-    private static ArrayList<AbstractWidget> widgets(GuiEventListener listener) {
+    static ArrayList<AbstractWidget> widgets(GuiEventListener listener) {
         var found = new ArrayList<AbstractWidget>();
         if (listener instanceof AbstractWidget widget) found.add(widget);
         if (listener instanceof ContainerEventHandler container) for (var child : container.children()) found.addAll(widgets(child));
@@ -397,86 +428,7 @@ final class ClientConfigurationProbe {
                 }
                 choiceState.add("keys", choices); choiceState.addProperty("scroll", list.getScrollAmount()); report.add("chooser", choiceState);
             }
-            if (mc.screen instanceof ConfigurationOverview overview) {
-                for (String name : java.util.List.of("page", "query", "feedback")) {
-                    var field = ConfigurationOverview.class.getDeclaredField(name); field.setAccessible(true);
-                    Object value = field.get(overview);
-                    report.addProperty(name, value instanceof net.minecraft.network.chat.Component text ? text.getString() : String.valueOf(value));
-                }
-                var saveReport = ConfigurationOverview.class.getDeclaredField("saveReport"); saveReport.setAccessible(true);
-                var results = new JsonArray();
-                for (Object value : (java.util.List<?>) saveReport.get(overview)) results.add(((net.minecraft.network.chat.Component) value).getString());
-                report.add("saveReport", results);
-                var draftsField = ConfigurationOverview.class.getDeclaredField("json"); draftsField.setAccessible(true);
-                var files = new JsonObject();
-                for (Object value : ((java.util.Map<?, ?>) draftsField.get(overview)).values()) {
-                    var edits = (design.inherent.skyweavecompat.configuration.JsonEdits) value;
-                    var entry = new JsonObject(); entry.addProperty("dirty", edits.dirty());
-                    for (String key : edits.keys()) entry.addProperty(key, edits.value(key));
-                    files.add(edits.definition().filename(), entry);
-                }
-                report.add("files", files);
-                var nativeDrafts = ConfigurationOverview.class.getDeclaredField("toml"); nativeDrafts.setAccessible(true);
-                var registered = new JsonObject();
-                for (Object value : ((java.util.Map<?, ?>) nativeDrafts.get(overview)).values()) {
-                    var edits = (design.inherent.skyweavecompat.configuration.RegisteredEdits) value;
-                    var entry = new JsonObject(); entry.addProperty("dirty", edits.dirty());
-                    var live = new JsonObject();
-                    for (var field : edits.fields()) { entry.addProperty(field.key(), edits.value(field.key())); live.addProperty(field.key(), String.valueOf(field.binding().getRaw())); }
-                    entry.add("live", live);
-                    registered.add(edits.filename(), entry);
-                }
-                report.add("registered", registered);
-                var serverField=ConfigurationOverview.class.getDeclaredField("serverSettings");serverField.setAccessible(true);
-                Object view=serverField.get(overview); var serverState=new JsonObject();
-                for (String property : java.util.List.of("selected","busy","ready","retryable")) {
-                    var method=view.getClass().getDeclaredMethod(property);method.setAccessible(true);
-                    serverState.addProperty(property,(Boolean)method.invoke(view));
-                }
-                var receiptMethod=view.getClass().getDeclaredMethod("receipts");receiptMethod.setAccessible(true);
-                var receipts=new JsonArray();
-                for (var value : (java.util.List<?>)receiptMethod.invoke(view)) {
-                    var receipt=(design.inherent.skyweavecompat.configuration.ServerSettingsContext.Receipt)value;
-                    var result=new JsonObject();result.addProperty("document",receipt.document());
-                    result.addProperty("persistence",receipt.persistence().name());result.addProperty("application",receipt.application().name());
-                    result.addProperty("hasSavedRevision",receipt.saved()!=null);result.addProperty("hasEffectiveRevision",receipt.effective()!=null);
-                    if (receipt.effective()!=null) result.add("effectiveValues",new GsonBuilder().create().toJsonTree(receipt.effective().value()));
-                    if (receipt.failure()!=null) result.addProperty("failure",receipt.failure().toString());receipts.add(result);
-                }
-                serverState.add("receipts",receipts);report.add("serverContext",serverState);
-                var linkField = ConfigurationOverview.class.getDeclaredField("links"); linkField.setAccessible(true);
-                var navigationKeys = new JsonArray();
-                for (Object key : ((java.util.Map<?, ?>) linkField.get(overview)).keySet()) navigationKeys.add(String.valueOf(key));
-                report.add("navigation.keys", navigationKeys);
-                for (String name : java.util.List.of("content", "navigation")) {
-                    var panelField = ConfigurationOverview.class.getDeclaredField(name); panelField.setAccessible(true);
-                    Object panel = panelField.get(overview);
-                    if (name.equals("content")) {
-                        var rowField = panel.getClass().getDeclaredField("rows"); rowField.setAccessible(true);
-                        var anchors = new JsonArray(); var groups = new JsonArray();
-                        for (Object row : (java.util.List<?>) rowField.get(panel)) {
-                            var anchor = row.getClass().getDeclaredMethod("anchor"); anchor.setAccessible(true);
-                            var boundary = row.getClass().getDeclaredMethod("boundary"); boundary.setAccessible(true);
-                            Object key = anchor.invoke(row);
-                            if (key != null) anchors.add(String.valueOf(key));
-                            if (((Number) boundary.invoke(row)).intValue() == 1) groups.add(String.valueOf(key));
-                        }
-                        report.add("content.anchors", anchors); report.add("content.groups", groups);
-                    }
-                    for (String property : java.util.List.of("scroll", "activeSection", "maximumScroll", "focusKey", "highlighted")) {
-                        var method = panel.getClass().getDeclaredMethod(property); method.setAccessible(true);
-                        Object value = method.invoke(panel);
-                        report.addProperty(name + "." + property, value == null ? null : value.toString());
-                    }
-                }
-                var field = ConfigurationOverview.class.getDeclaredField("nextStartup"); field.setAccessible(true);
-                var observed = (design.inherent.skyweavecompat.FeatureSettings) field.get(overview);
-                if (observed != null) {
-                    var saved = new JsonObject();
-                    for (Feature feature : Feature.values()) saved.addProperty(feature.key, observed.enabled(feature));
-                    report.add("saved", saved);
-                }
-            }
+
             var active = new JsonArray(); for (Feature feature : OptionalIntegrations.selection().active()) active.add(feature.key); report.add("active", active);
             ProbeStateFiles.write(root.resolve("config-review-state.json"), new GsonBuilder().setPrettyPrinting().create().toJson(report));
         } catch (Exception failure) { throw new IllegalStateException(failure); }

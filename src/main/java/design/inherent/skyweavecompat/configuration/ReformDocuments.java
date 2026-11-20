@@ -13,7 +13,6 @@ import design.inherent.reform.edit.DraftTree;
 import design.inherent.reform.presentation.NumericDisplay;
 import design.inherent.reform.serialization.DecimalText;
 import design.inherent.reform.serialization.JsonLimits;
-import design.inherent.reform.storage.JsonStore;
 import design.inherent.reform.storage.OwnedFile;
 import design.inherent.reform.storage.PropertiesStore;
 import design.inherent.reform.storage.StorageBinding;
@@ -128,16 +127,34 @@ public final class ReformDocuments {
         return draft.inspect(definition, JSON).candidate().orElseThrow();
     }
 
-    private static <T extends Number> ValueType<T> display(ValueType<T> value, SettingConstraints bounds) {
+    static <T extends Number> ValueType<T> display(ValueType<T> value, SettingConstraints bounds) {
         if (bounds.unit().isBlank()) return value;
-        var unit = new NumericDisplay.Unit(bounds.unit(), bounds.unit().replace('_', ' '), BigDecimal.ONE);
-        return ValueTypes.numericDisplay(value, new NumericDisplay(unit.id(), List.of(unit), bounds.step(),
-                Optional.empty(), DecimalText.Limits.CONFIGURATION));
+        var unit = new NumericDisplay.Unit(bounds.unit().toLowerCase(java.util.Locale.ROOT), bounds.unit().replace('_', ' '), BigDecimal.ONE);
+        var display = new NumericDisplay(unit.id(), List.of(unit), bounds.step(), Optional.empty(), DecimalText.Limits.CONFIGURATION);
+        if (bounds.minimum() != null && bounds.maximum() != null && bounds.maximum().compareTo(bounds.minimum()) > 0
+                && (bounds.unit().equals("probability") || bounds.unit().equals("percent"))) display = display.withSlider();
+        return ValueTypes.numericDisplay(value, display);
     }
 
-    public static <T> JsonStore<T> json(Path configRoot, String filename, DocumentDefinition<T> definition) {
-        return new JsonStore<>(definition, ownedFile(configRoot, filename), JsonStore.Format.EXISTING_BARE,
-                JSON, DraftLimits.CONFIGURATION);
+    public static FieldPath path(String field) {
+        var result = FieldPath.ROOT;
+        for (String part : field.split("\\.")) result = result.field(part);
+        return result;
+    }
+
+    public static ValidationReport invalid(RuntimeException failure) {
+        var domain = SettingIssue.find(failure);
+        var issue = domain == null ? Issue.error("compat.validation", FieldPath.ROOT,
+                failure.getMessage() == null ? "Complete configuration is invalid" : failure.getMessage())
+                : new Issue(domain.code(), Issue.Severity.ERROR, path(domain.field()),
+                        domain.related().stream().map(ReformDocuments::path).toList(), Map.of(), domain.message());
+        return new ValidationReport(List.of(issue), true);
+    }
+
+    public static <T> ReformJsonStore<T> json(Path configRoot, String filename, DocumentDefinition<T> definition) {
+        var source = JsonSettings.find(filename);
+        if (source == null) throw new IllegalArgumentException("The existing JSON owner is not admitted: " + filename);
+        return new ReformJsonStore<>(configRoot, source, definition);
     }
 
     private static OwnedFile ownedFile(Path configRoot, String filename) {

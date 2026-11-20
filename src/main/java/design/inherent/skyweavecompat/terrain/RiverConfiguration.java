@@ -3,7 +3,7 @@ package design.inherent.skyweavecompat.terrain;
 import design.inherent.skyweavecompat.configuration.ConfigFile;
 import com.google.gson.*;
 import com.mojang.serialization.JsonOps;
-import design.inherent.skyweavecompat.configuration.JsonEdits;
+import design.inherent.skyweavecompat.configuration.ConfigJson;
 import design.inherent.skyweavecompat.configuration.JsonSettings;
 import design.inherent.skyweavecompat.configuration.SettingConstraints;
 import design.inherent.skyweavecompat.configuration.SettingDefinition;
@@ -60,7 +60,7 @@ public final class RiverConfiguration {
     }
     public static RiverSettings parse(String text) {
         try {
-            var value = JsonEdits.object(text);
+            var value = ConfigJson.object(text);
             shape(DEFAULTS, value, "");
             return RiverSettings.CODEC.parse(JsonOps.INSTANCE, value).getOrThrow();
         } catch (IOException invalid) { throw new IllegalArgumentException(invalid.getMessage(), invalid); }
