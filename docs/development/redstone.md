@@ -1,6 +1,6 @@
 # Redstone adapters
 
-The optional adapters target Create: Redstone Link GUI 1.21.1-1.9.2 and Create: Redstone Additions 1.0.5 with Create 6.0.10. Upstream JARs remain unchanged. Terrain generation is not required. Configuration owns the individual switches.
+The optional adapters target Create: Redstone Link GUI 1.21.1-1.9.2 and Create: Redstone Additions 1.0.6 with Create 6.0.10. Upstream JARs remain unchanged. Terrain generation is not required. Configuration owns the individual switches.
 
 ## Link editing and relocation
 
@@ -12,16 +12,12 @@ Relocation is restricted to `create:redstone_link` without factory-panel connect
 
 `RedstoneEditEvent` lets integrations veto edits or either relocation endpoint. It exposes physical and projected positions. These checks do not establish compatibility with every external claims mod. Tiny/Void Link implementations are not in the tested pack; their reflection-based upstream paths remain unverified.
 
-## Gates and scraping
+## Crossroad signal scope
 
-Input queries no longer place Conjunctors into the world. Placement records partial inputs, steady inputs do not perpetually reschedule ticks, and output changes notify neighbors. Crossroads read both axes without feeding their own strong output back into their inputs. Strong output into solid blocks loses one signal level, allowing feedback loops to decay; ordinary wire behavior is preserved. This distinction matters when designing analog circuits.
+Redstone Additions 1.0.6 supplies pure Conjunctor placement, support loss, the unpowered Disjunctor default, settled gate updates, Crossroad feedback attenuation and native Create wrench behavior. It also supplies tool-event Verdigris, nine block-drop tables, Ponder names and cutout models for both inverter states.
 
-Unsupported gates use vanilla support-loss handling. Disjunctors begin unpowered. The independent wrench adapter uses Create's rotation and recovery interactions, including neighbor updates when a gate turns.
+Crossroad's native feedback guard temporarily stores a position on the singleton block. An exact `redstone_additions.logic` adapter scopes the read to the querying thread, level and block position. It retains both native input queries and direct-signal attenuation. The [native fixture](testing.md) checks a same-position read in a second dimension while the first read is active.
 
-Verdigris is awarded only for a non-simulated axe scrape with an actual copper weathering transition. A canceled modification awards nothing. Yield remains 3–6; normal block-drop rules still apply. This replaces the upstream early right-click listener, which could award material before a successful scrape. The client transparency adapter gives the lit inverter its cutout render layer.
+When upgrading an independently managed configuration, remove the retired `redstone_additions.scraping`, `redstone_additions.wrench` and `redstone_additions.transparency` entries from the startup properties. The pack's managed configuration already omits them.
 
-## Resource ownership and updates
-
-Loot tables and missing Ponder tag translations belong to the installing pack. Version 1.0.5 stores block tables under the pre-1.21 directory; provide the nine ordinary self-drops under `data/create_redstone_additions/loot_table/blocks/`. Skyweave: Compatibility Patches does not distribute upstream models, schematics or language files.
-
-Review [upstream repair PR #6](https://github.com/SiliconCarbideCube/create-redstone-additions/pull/6) when updating Additions. Its placement, feedback, support and scraping findings informed these independently authored hooks; this is not a bundled fork. Compare actual signal semantics and remove overlaps individually after native verification. Link GUI hooks also depend on exact published packet lambda signatures and menu initialization; source filenames alone do not establish them. Recheck Create ghost behavior, Sable projection and client widget tooltip ownership when any of those dependencies changes.
+Recheck Additions' native `getInputSignalIgnoringOwnOutput`, its one guarded direct-signal read and its normal and exceptional cleanup paths before changing version admission. Link GUI hooks depend on exact packet lambda signatures and native menu initialization. Recheck Create ghost slots, Sable projection and client tooltip ownership when those dependencies change.

@@ -43,16 +43,18 @@ configurations {
     flywheelSource
     analogSource
     c2meSource
+    accessoriesLayerSource
     runtimeClasspath.extendsFrom localRuntime
 }
 sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
 sourceSets.test.runtimeClasspath += sourceSets.main.runtimeClasspath
 dependencies {
+    compileOnly('maven.modrinth:modefite-item-definition-backport:cy8BkRZc') { transitive = false }
     compileOnly('maven.modrinth:combat-nouveau:us081FGF') { transitive = false }
     compileOnly('maven.modrinth:puzzles-lib:kiX1lfse') { transitive = false }
     compileOnly('maven.modrinth:punchy-fpa:aVZEe0j8') { transitive = false }
     compileOnly('maven.modrinth:punchymoves:SYcipAjI') { transitive = false }
-    compileOnly('maven.modrinth:variants-and-ventures:v5OIE4J8') { transitive = false }
+    compileOnly('maven.modrinth:variants-and-ventures:Efvt97uC') { transitive = false }
     compileOnly('dev.ftb.mods:ftb-quests-neoforge:2101.1.38') { transitive = false }
     testRuntimeOnly('dev.ftb.mods:ftb-quests-neoforge:2101.1.38') { transitive = false }
     c2meSource('maven.modrinth:c2me-neoforge:VACgDPOc') { transitive = false }
@@ -75,19 +77,23 @@ dependencies {
     testRuntimeOnly('maven.modrinth:create-aeronautics-transmission-linkage:WoUjC6d4') { transitive = false }
     compileOnly('maven.modrinth:create-redstone-link-gui:s8Yw7I6l') { transitive = false }
     testRuntimeOnly('maven.modrinth:create-redstone-link-gui:s8Yw7I6l') { transitive = false }
-    compileOnly('maven.modrinth:create-redstone-additions:4P4QJB3m') { transitive = false }
-    testRuntimeOnly('maven.modrinth:create-redstone-additions:4P4QJB3m') { transitive = false }
+    compileOnly('maven.modrinth:create-redstone-additions:Hvlv9gb6') { transitive = false }
+    testRuntimeOnly('maven.modrinth:create-redstone-additions:Hvlv9gb6') { transitive = false }
     compileOnly('maven.modrinth:linear-bearing:8SJdnoXS') { transitive = false }
     testRuntimeOnly('maven.modrinth:linear-bearing:8SJdnoXS') { transitive = false }
     flywheelSource('maven.modrinth:create:UjX6dr61') { transitive = false }
     compileOnly('maven.modrinth:colorwheel:lV874ox8') { transitive = false }
     testRuntimeOnly('maven.modrinth:colorwheel:lV874ox8') { transitive = false }
     compileOnly('maven.modrinth:create:UjX6dr61') { transitive = false }
-    compileOnly('maven.modrinth:copycats:bPYeUWZx') { transitive = false }
+    compileOnly('maven.modrinth:accessories:dy9BbDEy') { transitive = false }
+    compileOnly('maven.modrinth:accessories-compat-layer:UB8bxpVn') { transitive = false }
+    accessoriesLayerSource('maven.modrinth:accessories-compat-layer:UB8bxpVn') { transitive = false }
+    compileOnly('maven.modrinth:curios:KJsZIQrT') { transitive = false }
+    compileOnly('maven.modrinth:copycats:zLlVJXf0') { transitive = false }
     testRuntimeOnly('maven.modrinth:create:UjX6dr61') { transitive = false }
     compileOnly('maven.modrinth:sable-dynamic-lights:vjb0hAWB') { transitive = false }
     testRuntimeOnly('maven.modrinth:sable-dynamic-lights:vjb0hAWB') { transitive = false }
-    compileOnly('maven.modrinth:questlog:qnCcrOl2') { transitive = false }
+    compileOnly('maven.modrinth:questlog:McoSDHAk') { transitive = false }
     compileOnly('maven.modrinth:distanthorizons:9w34y8ai') { transitive = false }
     testRuntimeOnly('maven.modrinth:distanthorizons:9w34y8ai') { transitive = false }
     compileOnly('maven.modrinth:bluemap:8iJcPOHJ') { transitive = false }
@@ -106,7 +112,7 @@ dependencies {
     compileOnly('maven.modrinth:sky-archipelago:XPc17YJD') { transitive = false }
     localRuntime('maven.modrinth:sky-archipelago:XPc17YJD') { transitive = false }
     localRuntime('maven.modrinth:sky-villages:3InSHTOp') { transitive = false }
-    localRuntime('dev.architectury:architectury-neoforge:13.0.11') { transitive = false }
+    localRuntime('dev.architectury:architectury-neoforge:13.0.12') { transitive = false }
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
@@ -154,7 +160,12 @@ tasks.register('verifyUpstream') {
             if (actual != expected) throw new GradleException("Unexpected ${name}: ${actual}")
         }
 
-        ['combat-nouveau': '57b95249fa1b5b3c38a02628cbd83f45ec3d1619392ace15cb83f593df9090b0',
+        ['modefite-item-definition-backport': '959272d5a7acc809881da7bcadda84ec8b1bf75ffcd8f84e989758a262bc6696',
+         'accessories': 'cbecac21acbaf323349afa263b22cda67c3e836f928f6cf3f951ba460c196d15',
+         'accessories-compat-layer': '837a2c80a7b481d9ba44770cdec2d8d41f0e0900497e5338bcf4c6f048fb9f1e',
+         'curios': '5ae6703ac25a5cfb138ce34924799b642021c8109aacef578e899e8591d67a3e',
+         'copycats': 'eab9c71e0cc133c38f1063fc9c892599207240a1f0559ce1e3ecddc4ad7aa759',
+         'combat-nouveau': '57b95249fa1b5b3c38a02628cbd83f45ec3d1619392ace15cb83f593df9090b0',
          'puzzles-lib': '5317fe131954accbe884b079f75713d6f9024b291085314d6c23b3a697fc2771',
          'punchy-fpa': '05c8258943d9cbd9aec4c929b78d00a4d42eb6126fbed761dc2f4bef3affdbbd',
          'punchymoves': 'c5b080a6994d8d0f2cfcea3c1923f87d78c19241d7eb939501624671dedebbe6',
@@ -164,7 +175,7 @@ tasks.register('verifyUpstream') {
          'rechiseled': 'cd638bb122d7e1afce4f38b1c7da3af99be7b9f523869cfbc15e5347db5f8d9a',
          'yigd': 'dd2142a3c6a9d5b990ab36220be482f7aa9f528755f93b8fef8996f509ddcda2',
          'analog-audio': 'effc623ad0b3e332bb29252f5c41f767cb194a47ce5ae195d186f442124807a3',
-         'variants-and-ventures': 'c9cb10777088ec1382a0e98a303a4a741bd47931720f27d0512f14bb9eb74b38',
+         'variants-and-ventures': '76a0b3a4577b7423ab7ca0fecde7488bd7c7ed4b0a4d4defadba81102e9cbc37',
          'lithostitched': 'e0da669fa5facc61a09b9b7bae21b322993de1fcd1eb05787adffb7309598cca'].each { name, expected ->
             def artifact = configurations.compileClasspath.resolvedConfiguration.resolvedArtifacts.find {
                 it.moduleVersion.id.group == 'maven.modrinth' && it.name == name
@@ -181,7 +192,7 @@ tasks.register('verifyUpstream') {
         }
 
         ['create-redstone-link-gui': '34cb29227e7aa2a497956aa6f5bb74f07f40f134346ca847c0d4350b87345c97',
-         'create-redstone-additions': 'e030a25518b757c037d80e9ba25f9631074d3936d157f4d6fd129337b434e706'].each { name, expected ->
+         'create-redstone-additions': '766292f66f19557c5b2c21d790a01ae4db69d2a3cea30551b2507d18fce6245e'].each { name, expected ->
             def artifact = configurations.compileClasspath.resolvedConfiguration.resolvedArtifacts.find {
                 it.moduleVersion.id.group == 'maven.modrinth' && it.name == name
             }?.file
@@ -254,7 +265,7 @@ tasks.register('verifyUpstream') {
             it.moduleVersion.id.group == 'maven.modrinth' && it.name == 'questlog'
         }?.file
         if (questlog == null || java.security.MessageDigest.getInstance('SHA-256').digest(questlog.bytes).encodeHex().toString()
-                != '7f0a449d26b75abc12a15a4795ecb3dc30525bdcedd81c576b23d56c70df1020') {
+                != '44537dea6ecca72772890af004753b382922bae0987802884940b2ecdda3d395') {
             throw new GradleException('Unexpected Questlog compile-only dependency')
         }
 
@@ -337,6 +348,14 @@ def pinnedNestedJar = { String taskName, source, String entry, String outerHash,
     }
     files(output).builtBy(extraction)
 }
+def accessoriesLayerPlatform = pinnedNestedJar('extractAccessoriesMixinPlatform', configurations.accessoriesLayerSource,
+        'META-INF/jars/mixinsquared-neoforge-0.3.4.jar',
+        '837a2c80a7b481d9ba44770cdec2d8d41f0e0900497e5338bcf4c6f048fb9f1e',
+        'f08ca14ea25cf9a0cf9be8f7f6c944aa254384e73818dc4e48aa6d45cbb01258')
+def accessoriesMixinApi = pinnedNestedJar('extractAccessoriesMixinApi', accessoriesLayerPlatform,
+        'META-INF/jars/MixinSquared-0.3.4.jar',
+        'f08ca14ea25cf9a0cf9be8f7f6c944aa254384e73818dc4e48aa6d45cbb01258',
+        '4561541f8bb863ded1f45a901e0324f9f3c959aa9bb7aa46eda8a8b17ce09650')
 def glslJar = pinnedNestedJar('extractIrisGlsl', configurations.irisSource,
         'META-INF/jarjar/glsl-transformer-3.0.0-pre3.jar',
         '60d5f8bf52f25e9986440f4a4270a6bd986d9cff994510e1108ac1547063b314',
@@ -374,6 +393,7 @@ def sodiumTestJar = pinnedNestedJar('extractSodium', configurations.sodiumSource
         '575d187b15328d7bddd8a9b1bee64333c22c14735f5780ec49eac0cd5503c08d',
         'd71acbffafd3d177add7624710114d8570cdd70d5553a2b5c8ab371852c59ce3')
 dependencies {
+    compileOnly accessoriesMixinApi
     compileOnly c2meStorageJar
     compileOnly glslJar
     testImplementation glslJar

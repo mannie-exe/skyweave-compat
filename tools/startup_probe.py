@@ -28,6 +28,9 @@ def main():
                                              'unsupported-disabled', 'unsupported-enabled', 'questlog', 'questlog-disabled', 'jade', 'macaw', 'macaw-disabled'], required=True)
     parser.add_argument('--mod', type=Path)
     parser.add_argument('--extra-mod', type=Path, action='append', default=[], help='Additional explicit read-only artifacts for a bounded startup boundary')
+    parser.add_argument('--output', type=Path, help='New owned evidence directory; preserve other probe reports')
+    parser.add_argument('--fixture-config', type=Path, help='Explicit read-only config tree for this disposable fixture')
+    parser.add_argument('--capture-config', action='store_true', help='Retain bounded generated fixture configs with the evidence')
     parser.add_argument('--combat-network', type=Path, help='Owned standalone --serve combat scene; read CN rules from this pack')
     parser.add_argument('--resource-patches', type=Path, help='Read-only candidate resource JAR for full/all-disabled fixtures')
     parser.add_argument('--configuration-pack', type=Path, help='Authored common/server settings for the owned full served fixture')
@@ -63,7 +66,9 @@ def main():
     launch = list((server / 'libraries/net/neoforged/neoforge').glob('21.1.265/unix_args.txt'))
     if len(launch) != 1:
         parser.error('Expected the supported NeoForge 21.1.265 launch configuration')
-    output = ROOT / 'build/verification'
+    output = args.output.expanduser().resolve() if args.output else ROOT / 'build/verification'
+    if args.output and output.exists():
+        parser.error('Explicit evidence directory must not already exist')
     output.mkdir(parents=True, exist_ok=True)
     report = {'scenario': args.scenario, 'artifact': str(mod), 'sha256': hashlib.sha256(mod.read_bytes()).hexdigest()}
     selected = {}
@@ -73,6 +78,16 @@ def main():
         (run / 'mods').mkdir()
         (run / 'config').mkdir()
         (run / 'config/skyweave').mkdir()
+        if args.fixture_config:
+            source_root = args.fixture_config.expanduser().resolve()
+            if not source_root.is_dir():
+                parser.error('Fixture config input must be an existing directory')
+            report['fixtureConfig'] = {}
+            for source in sorted(source_root.rglob('*')):
+                if source.is_file():
+                    relative = source.relative_to(source_root)
+                    copy_owned(source, run / 'config' / relative, run)
+                    report['fixtureConfig'][relative.as_posix()] = hashlib.sha256(source.read_bytes()).hexdigest()
         # Full-pack startup includes its established external prerequisite: Zfastnoise's
         # biome redirect conflicts with Sky Archipelago even when Compat is absent.
         # Keep Compat's own switches controlled below rather than importing them here.
@@ -256,7 +271,7 @@ def main():
         report['passed'] = (done and process.returncode == 0 and bool(report['active_lines'])
                             and (not inactive or (not references and any('adaptations: []' in line for line in report['active_lines']))))
         if args.scenario == 'unsupported-enabled':
-            refusal = ("variantsandventures.spawner_emissions requires variantsandventures 1.0.29; found 999.0.0"
+            refusal = ("variantsandventures.spawner_emissions requires variantsandventures 1.0.30; found 999.0.0"
                        if 'variantsandventures.spawner_emissions' in args.enable else
                        "Review Wayfinder's coordinate-frame guard for Sable 999.0.0; supported optional version is 2.0.6")
             report['passed'] = not done and refusal in text
@@ -271,6 +286,15 @@ def main():
             report['passed'] = report['passed'] and report['combatNetwork'].get('complete') is True
             side = run / 'combat-network-server.json.dist.json'
             report['combatSideLoading'] = json.loads(side.read_text()) if side.exists() else None
+        if args.capture_config:
+            configs = sorted(path for path in (run / 'config').rglob('*') if path.is_file())
+            if len(configs) > 64 or sum(path.stat().st_size for path in configs) > 4 * 1024 * 1024:
+                raise ValueError('Fixture config capture exceeds 64 files or 4 MiB')
+            report['capturedConfigs'] = {}
+            for source in configs:
+                relative = source.relative_to(run / 'config')
+                copy_owned(source, output / 'config' / relative, output)
+                report['capturedConfigs'][relative.as_posix()] = hashlib.sha256(source.read_bytes()).hexdigest()
         (output / f'startup-{args.scenario}.json').write_text(json.dumps(report, indent=2) + '\n')
         print(json.dumps({key: report[key] for key in ['scenario', 'sha256', 'startup', 'exit_code', 'seconds', 'active_lines', 'passed']}, indent=2), flush=True)
         if not report['passed']:

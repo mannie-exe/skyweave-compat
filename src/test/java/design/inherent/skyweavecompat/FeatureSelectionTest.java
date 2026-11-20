@@ -12,15 +12,34 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class FeatureSelectionTest {
+    @Test void typedDefinitionsRequireOnlyThePinnedClientOwnerAndRespectOptOut() {
+        var feature = Feature.ITEM_DEFINITIONS;
+        var selected = FeatureSelection.select(only(feature), Map.of("modefite", "1.0.1+1.21.1"), true);
+        assertTrue(selected.enabled(feature));
+        assertEquals(6, selected.mixins(true).size());
+        assertTrue(selected.mixins(true).contains("client.definitions.DefinitionRenderingMixin"));
+        assertTrue(FeatureSelection.select(only(feature), Map.of(), true).mixins(true).isEmpty());
+        assertTrue(FeatureSelection.select(only(feature), Map.of("modefite", "future"), false).mixins(false).isEmpty());
+        assertTrue(FeatureSelection.select(only(), Map.of("modefite", "future"), true).mixins(true).isEmpty());
+        assertThrows(IllegalStateException.class, () -> FeatureSelection.select(only(feature), Map.of("modefite", "future"), true));
+    }
+    @Test void modernModelRotationsAreClientOnlyAndRespectOptionalVersionAndOptOut() {
+        var feature = Feature.MODEL_ROTATIONS;
+        assertEquals(List.of("client.MultiAxisModelMixin"), FeatureSelection.select(only(feature), Map.of("modefite", "1.0.1+1.21.1"), true).mixins(true));
+        assertTrue(FeatureSelection.select(only(feature), Map.of(), true).mixins(true).isEmpty());
+        assertTrue(FeatureSelection.select(only(feature), Map.of("modefite", "future"), false).mixins(false).isEmpty());
+        assertTrue(FeatureSelection.select(only(), Map.of("modefite", "future"), true).mixins(true).isEmpty());
+        assertThrows(IllegalStateException.class, () -> FeatureSelection.select(only(feature), Map.of("modefite", "future"), true));
+    }
     @Test void trialAliasInteropRequiresOnlyTheTwoPinnedOwners() {
-        var versions=Map.of("variantsandventures","1.0.29","lithostitched","1.8.1");
+        var versions=Map.of("variantsandventures","1.0.30","lithostitched","1.8.1");
         for(boolean client:List.of(false,true)) {
             var selected=FeatureSelection.select(only(Feature.VARIANT_TRIAL_ALIASES),versions,client);
             assertTrue(selected.enabled(Feature.VARIANT_TRIAL_ALIASES));
             assertEquals(List.of("encounters.VariantsTrialAliasesMixin"),selected.mixins(client));
-            assertTrue(FeatureSelection.select(only(Feature.VARIANT_TRIAL_ALIASES),Map.of("variantsandventures","1.0.29"),client).mixins(client).isEmpty());
+            assertTrue(FeatureSelection.select(only(Feature.VARIANT_TRIAL_ALIASES),Map.of("variantsandventures","1.0.30"),client).mixins(client).isEmpty());
             assertDoesNotThrow(()->FeatureSelection.select(only(),Map.of("variantsandventures","future","lithostitched","future"),client));
-            assertThrows(IllegalStateException.class,()->FeatureSelection.select(only(Feature.VARIANT_TRIAL_ALIASES),Map.of("variantsandventures","1.0.29","lithostitched","future"),client));
+            assertThrows(IllegalStateException.class,()->FeatureSelection.select(only(Feature.VARIANT_TRIAL_ALIASES),Map.of("variantsandventures","1.0.30","lithostitched","future"),client));
         }
     }
 
@@ -29,11 +48,11 @@ class FeatureSelectionTest {
             var patrol=FeatureSelection.select(only(Feature.PATROL_CHANCE),Map.of(),client);
             assertEquals(java.util.Set.of(Feature.PATROL_CHANCE),patrol.active());
             assertEquals(List.of("encounters.PatrolChanceMixin"),patrol.mixins(client));
-            var variants=Map.of("variantsandventures","1.0.29");
+            var variants=Map.of("variantsandventures","1.0.30");
             assertTrue(FeatureSelection.select(only(Feature.VARIANT_SPAWNERS),variants,client).enabled(Feature.VARIANT_SPAWNERS));
             assertTrue(FeatureSelection.select(only(Feature.VARIANT_SPAWNERS),Map.of(),client).mixins(client).isEmpty());
             assertTrue(FeatureSelection.select(only(Feature.MURK_WATER),variants,client).mixins(client).isEmpty());
-            var host=Map.of("variantsandventures","1.0.29","sky_archipelago","1.4");
+            var host=Map.of("variantsandventures","1.0.30","sky_archipelago","1.4");
             assertTrue(FeatureSelection.select(only(Feature.TERRAIN,Feature.MURK_WATER),host,client).enabled(Feature.MURK_WATER));
             assertFalse(FeatureSelection.select(only(Feature.TERRAIN,Feature.MURK_WATER),Map.of("sky_archipelago","1.4"),client).enabled(Feature.MURK_WATER));
             assertDoesNotThrow(()->FeatureSelection.select(only(),Map.of("variantsandventures","future"),client));
@@ -53,6 +72,20 @@ class FeatureSelectionTest {
             assertTrue(FeatureSelection.select(only(feature), missing, true).mixins(true).isEmpty());
         }
         var future = Map.of("ssrd", "future", "sable", "future", "distanthorizons", "future");
+        assertTrue(FeatureSelection.select(only(feature), future, false).mixins(false).isEmpty());
+        assertTrue(FeatureSelection.select(only(), future, true).mixins(true).isEmpty());
+        assertThrows(IllegalStateException.class, () -> FeatureSelection.select(only(feature), future, true));
+    }
+
+    @Test void heldMaterialsRequireOnlyTheirPinnedClientRenderers() {
+        var feature = Feature.HELD_MATERIALS;
+        var versions = Map.of("iris", "1.8.14-beta.1+mc1.21.1", "punchy", "3.2b");
+        assertEquals(4, FeatureSelection.select(only(feature), versions, true).mixins(true).size());
+        for (String absent : versions.keySet()) {
+            var missing = new HashMap<>(versions); missing.remove(absent);
+            assertTrue(FeatureSelection.select(only(feature), missing, true).mixins(true).isEmpty());
+        }
+        var future = Map.of("iris", "future", "punchy", "future");
         assertTrue(FeatureSelection.select(only(feature), future, false).mixins(false).isEmpty());
         assertTrue(FeatureSelection.select(only(), future, true).mixins(true).isEmpty());
         assertThrows(IllegalStateException.class, () -> FeatureSelection.select(only(feature), future, true));
@@ -541,7 +574,7 @@ class FeatureSelectionTest {
 
     private static final Map<String, String> SUPPORTED = Map.ofEntries(
             Map.entry("sky_archipelago", "1.4"), Map.entry("skyvillages", "1.0.6"),
-            Map.entry("architectury", "13.0.11"), Map.entry("sable", "2.0.6"),
+            Map.entry("architectury", "13.0.12"), Map.entry("sable", "2.0.6"),
             Map.entry("aeronautics_delivery_quests", "1.1.1"), Map.entry("distanthorizons", "3.3.3"),
             Map.entry("bluemap", "5.7"), Map.entry("surveyor", "1.2.4_1.21"), Map.entry("analogaudio", "0.1.5-hotfix.1"),
             Map.entry("create", "6.0.10"), Map.entry("veil", "4.3.2"),
@@ -570,8 +603,9 @@ class FeatureSelectionTest {
 
     @Test void journalFeaturesNeedOnlyQuestlogAndRespectPhysicalSides() {
         var settings = only(Feature.QUESTLOG_INTERFACE, Feature.QUESTLOG_NOTIFICATIONS, Feature.QUESTLOG_REWARD_VALIDATION);
-        var versions = Map.of("questlog", "3.5.3");
+        var versions = Map.of("questlog", "3.5.4");
         assertEquals(3, FeatureSelection.select(settings, Map.of("questlog", "3.5.0"), true).active().size());
+        assertEquals(3, FeatureSelection.select(settings, Map.of("questlog", "3.5.3"), true).active().size());
         assertEquals(3, FeatureSelection.select(settings, versions, true).active().size());
         var server = FeatureSelection.select(settings, versions, false);
         assertEquals(java.util.Set.of(Feature.QUESTLOG_REWARD_VALIDATION), server.active());
@@ -773,7 +807,7 @@ class FeatureSelectionTest {
         assertThrows(IllegalArgumentException.class, () -> FeatureSettings.read(new StringReader("terrain.preset=true\nterrain.preset=false")));
         var defaults = FeatureSettings.load(directory);
         assertTrue(defaults.enabled(Feature.TERRAIN));
-        for (Feature feature : Feature.values()) assertTrue(defaults.enabled(feature), feature.key);
+        for (Feature feature : Feature.values()) assertEquals(feature != Feature.ACCESSORIES_CURIOS_BINDINGS, defaults.enabled(feature), feature.key);
         Files.writeString(directory.resolve(FeatureSettings.FILE), "terrain.preset=false\n");
         assertFalse(FeatureSettings.load(directory).enabled(Feature.TERRAIN));
         assertEquals("terrain.preset=false\n", Files.readString(directory.resolve(FeatureSettings.FILE)));
@@ -786,4 +820,19 @@ class FeatureSelectionTest {
         Files.writeString(legacy, "enabled = true\n");
         assertFalse(FeatureSettings.load(directory).enabled(Feature.VILLAGE_CLEARANCE));
     }
+
+    @Test void curiosBindingsAreExplicitlyEnabledForTheExactOptionalSet() {
+        var supported = Map.of("curios", "9.6.0+1.21.1", "accessories", "1.1.0-beta.54+1.21.1", "accessories_compat_layer", "0.1.13");
+        var feature = Feature.ACCESSORIES_CURIOS_BINDINGS;
+        assertFalse(new FeatureSettings(Map.of()).enabled(feature));
+        for (boolean client : new boolean[]{false, true}) {
+            assertEquals(java.util.Set.of(feature), FeatureSelection.select(only(feature), supported, client).active());
+            assertTrue(FeatureSelection.select(only(), supported, client).mixins(client).isEmpty());
+            assertFalse(FeatureSelection.select(only(feature), Map.of("curios", "9.6.0+1.21.1"), client).enabled(feature));
+        }
+        var changed = new java.util.HashMap<>(supported);
+        changed.put("accessories_compat_layer", "0.1.14");
+        assertThrows(IllegalStateException.class, () -> FeatureSelection.select(only(feature), changed, false));
+    }
+
 }

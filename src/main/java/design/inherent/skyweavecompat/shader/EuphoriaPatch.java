@@ -1,68 +1,64 @@
 package design.inherent.skyweavecompat.shader;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
-import java.util.*;
-import java.util.zip.*;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
+import java.util.Comparator;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.regex.Pattern;
+import java.util.zip.ZipInputStream;
 
-/** Adapter for the exact reviewed shaded BSDIFF engine, never a recipe-selected plugin. */
+/** Calls the exact bundled ShaderPatcher API without starting the Euphoria mod. */
 final class EuphoriaPatch {
-    private static final String PIN = "fe64a1fad6b6f39a95f22ea6ba9506b712e36b96c46b80f1cf38fe144900a4b2";
-    private static final String SHADE = "com.euphoriapatches.shadow.";
+    private static final String PIN = "44f11bebc249f59ec71f72b36bd9bb9014f62d3732030cfa9b9c68f3e7ac6638";
+    private static final String API = "com.euphoriapatches.shadow.com.euphoriapatches.shaderpatcher.";
+    private static final String PATCH_FILE = "/EuphoriaPatches_1.11.1.patch";
+    private static final String COMMON = "shaders/lib/common.glsl";
+    private static final Pattern STYLE = Pattern.compile("SHADER_STYLE [14]");
+
     private EuphoriaPatch() {}
-    static Map<String, byte[]> apply(Map<String, byte[]> files, byte[] original, byte[] patcher, Path work) throws Exception {
-        if (!ShaderArchives.sha256(patcher).equals(PIN)) throw new IOException("Unreviewed Euphoria patch engine");
-        var source = new TreeMap<>(files);
-        String common = "shaders/lib/common.glsl";
-        source.put(common, style(source.get(common), "1"));
+
+    static Map<String, byte[]> apply(Map<String, byte[]> files, byte[] original, byte[] engine, Path work) throws Exception {
+        if (!ShaderArchives.sha256(engine).equals(PIN)) throw new IOException("Unreviewed Euphoria patch engine");
         Files.createDirectories(work);
         Path temporary = Files.createTempDirectory(work, "euphoria-");
         try {
-            Path jar = temporary.resolve("engine.jar"), base = temporary.resolve("base.tar"), result = temporary.resolve("result.tar"), delta = temporary.resolve("euphoria.patch");
-            Files.write(jar, patcher);
-            Files.write(delta, ShaderEngine.member(patcher, "EuphoriaPatches_1.10.5.patch"));
-            try (var loader = new URLClassLoader(new java.net.URL[]{jar.toUri().toURL()}, ClassLoader.getPlatformClassLoader())) {
-                var entryType = loader.loadClass(SHADE + "org.apache.commons.compress.archivers.tar.TarArchiveEntry");
-                var streamType = loader.loadClass(SHADE + "org.apache.commons.compress.archivers.tar.TarArchiveOutputStream");
-                var archiveType = loader.loadClass(SHADE + "org.apache.commons.compress.archivers.ArchiveEntry");
-                var directories = new TreeSet<String>(); directories.add("");
-                try (var zip = new ZipInputStream(new ByteArrayInputStream(original))) {
-                    ZipEntry entry;
-                    while ((entry = zip.getNextEntry()) != null) {
-                        if (entry.isDirectory()) directories.add(ShaderArchives.path(entry.getName().replaceFirst("/$", "")));
-                    }
+            Path jar = temporary.resolve("engine.jar");
+            Path base = Files.createDirectory(temporary.resolve("ComplementaryUnbound_r5.10"));
+            // Upstream hashes empty directories as well as shader files.
+            try (var zip = new ZipInputStream(new ByteArrayInputStream(original))) {
+                for (var entry = zip.getNextEntry(); entry != null; entry = zip.getNextEntry())
+                    if (entry.isDirectory()) Files.createDirectories(base.resolve(ShaderArchives.path(entry.getName().replaceFirst("/$", ""))));
+            }
+            for (var entry : files.entrySet()) {
+                Path destination = base.resolve(ShaderArchives.path(entry.getKey()));
+                Files.createDirectories(destination.getParent());
+                Files.write(destination, entry.getKey().equals(COMMON) ? style(entry.getValue(), "1") : entry.getValue());
+            }
+            Files.write(jar, engine);
+            try (var loader = new URLClassLoader(new java.net.URL[] {jar.toUri().toURL()}, ClassLoader.getPlatformClassLoader())) {
+                Class<?> sourceType = loader.loadClass(API + "PatchSource");
+                Class<?> patcherType = loader.loadClass(API + "ShaderPatcher");
+                Object source = sourceType.getMethod("classpath", Class.class, String.class).invoke(null, patcherType, PATCH_FILE);
+                Object builder = patcherType.getMethod("builder", sourceType).invoke(null, source);
+                Object patcher = builder.getClass().getMethod("build").invoke(builder);
+                var parent = Files.createDirectory(temporary.resolve("output"));
+                Object result;
+                try {
+                    result = patcherType.getMethod("apply", Path.class, Path.class).invoke(patcher, base, parent);
+                } catch (java.lang.reflect.InvocationTargetException error) {
+                    throw new IOException("ShaderPatcher refused the base: " + error.getCause().getMessage(), error.getCause());
                 }
-                for (String name : source.keySet()) {
-                    int at = name.lastIndexOf('/');
-                    while (at >= 0) { directories.add(name.substring(0, at)); at = name.lastIndexOf('/', at - 1); }
-                }
-                var names = new TreeSet<>(directories); names.addAll(source.keySet());
-                try (var bytes = Files.newOutputStream(base); var tar = (OutputStream) streamType.getConstructor(OutputStream.class).newInstance(bytes)) {
-                    for (String name : names) {
-                        boolean directory = directories.contains(name);
-                        // The upstream normalization uses File entries, including the root directory.
-                        Path path = temporary.resolve("tree").resolve(name);
-                        if (directory) Files.createDirectories(path);
-                        else { Files.createDirectories(path.getParent()); Files.write(path, source.get(name)); }
-                        Object entry = entryType.getConstructor(File.class, String.class).newInstance(path.toFile(), name);
-                        entryType.getMethod("setModTime", long.class).invoke(entry, 0L);
-                        entryType.getMethod("setSize", long.class).invoke(entry, directory ? 0L : (long) source.get(name).length);
-                        entryType.getMethod("setIds", int.class, int.class).invoke(entry, 0, 0);
-                        entryType.getMethod("setNames", String.class, String.class).invoke(entry, "", "");
-                        entryType.getMethod("setMode", int.class).invoke(entry, 0100644);
-                        streamType.getMethod("putArchiveEntry", archiveType).invoke(tar, entry);
-                        if (!directory) tar.write(source.get(name));
-                        streamType.getMethod("closeArchiveEntry").invoke(tar);
-                    }
-                    streamType.getMethod("finish").invoke(tar);
-                }
-                if (Files.size(base) != 1651200) throw new IOException("Changed normalized Complementary TAR");
-                loader.loadClass(SHADE + "io.sigpipe.jbsdiff.ui.FileUI").getMethod("patch", File.class, File.class, File.class)
-                    .invoke(null, base.toFile(), result.toFile(), delta.toFile());
-                var patched = readTar(ShaderEngine.bounded(result, ShaderArchives.TOTAL_LIMIT));
-                patched.put(common, style(patched.get(common), "4"));
+                Path output = (Path) result.getClass().getMethod("getOutputDir").invoke(result);
+                if (!parent.equals(output.getParent()) || !Files.isDirectory(output, LinkOption.NOFOLLOW_LINKS))
+                    throw new IOException("ShaderPatcher returned an invalid output directory");
+                var patched = readOutput(output);
+                patched.put(COMMON, style(patched.get(COMMON), "4"));
                 return patched;
             }
         } finally {
@@ -71,33 +67,29 @@ final class EuphoriaPatch {
             }
         }
     }
-    private static byte[] style(byte[] bytes, String value) throws IOException {
-        if (bytes == null) throw new IOException("Missing shader style");
-        String text = new String(bytes, StandardCharsets.UTF_8);
-        var matcher = java.util.regex.Pattern.compile("SHADER_STYLE [14]").matcher(text);
-        if (!matcher.find()) throw new IOException("Changed shader style declaration");
-        return matcher.replaceFirst("SHADER_STYLE " + value).getBytes(StandardCharsets.UTF_8);
-    }
-    private static Map<String, byte[]> readTar(byte[] bytes) throws IOException {
-        var result = new TreeMap<String, byte[]>(); int total = 0;
-        for (int at = 0, count = 0; at + 512 <= bytes.length; ) {
-            if (bytes[at] == 0) break;
-            if (++count > 12000) throw new IOException("Too many TAR entries");
-            String name = new String(bytes, at, 100, StandardCharsets.UTF_8).split("\\x00", 2)[0];
-            String sizeText = new String(bytes, at + 124, 12, StandardCharsets.US_ASCII).replace("\0", "").trim();
-            int size;
-            try { size = Integer.parseInt(sizeText, 8); } catch (NumberFormatException e) { throw new IOException("Invalid TAR size", e); }
-            byte type = bytes[at + 156];
-            if (size < 0 || size > ShaderArchives.ENTRY_LIMIT || (total += size) > ShaderArchives.TOTAL_LIMIT || at + 512L + size > bytes.length)
-                throw new IOException("Oversized/truncated TAR");
-            if (type == '0' || type == 0) {
-                if (name.startsWith("./")) name = name.substring(2);
-                ShaderArchives.path(name);
-                if (result.putIfAbsent(name, Arrays.copyOfRange(bytes, at + 512, at + 512 + size)) != null) throw new IOException("Duplicate TAR entry");
-            } else if (type != '5') throw new IOException("Unsupported TAR entry type");
-            at += 512 + ((size + 511) / 512) * 512;
+
+    private static Map<String, byte[]> readOutput(Path output) throws IOException {
+        var files = new TreeMap<String, byte[]>();
+        int total = 0;
+        try (var paths = Files.walk(output)) {
+            var entries = paths.iterator();
+            while (entries.hasNext()) {
+                Path path = entries.next();
+                if (Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) continue;
+                if (files.size() >= 12000) throw new IOException("Too many Euphoria files");
+                String name = ShaderArchives.path(output.relativize(path).toString().replace(java.io.File.separatorChar, '/'));
+                byte[] data = ShaderEngine.bounded(path, Math.min(ShaderArchives.TOTAL_LIMIT - total, ShaderArchives.ENTRY_LIMIT));
+                total += data.length;
+                files.put(name, data);
+            }
         }
-        if (result.isEmpty()) throw new IOException("Empty patched TAR");
-        return result;
+        return files;
+    }
+
+    private static byte[] style(byte[] bytes, String version) throws IOException {
+        if (bytes == null) throw new IOException("Missing shader style");
+        var matcher = STYLE.matcher(new String(bytes, StandardCharsets.UTF_8));
+        if (!matcher.find()) throw new IOException("Changed shader style declaration");
+        return matcher.replaceFirst("SHADER_STYLE " + version).getBytes(StandardCharsets.UTF_8);
     }
 }

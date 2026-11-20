@@ -51,7 +51,7 @@ public final class ClientPoseProbe {
     private final Path root = FMLPaths.GAMEDIR.get();
     private final JsonObject report = new JsonObject();
     private final JsonArray samples = new JsonArray();
-    private final List<String> shaders = List.of("off", "Complementary Unbound r5.9.3 + Euphoria 1.10.5 + Skyweave 0.3.0.zip", "BSL_v10.1.8 + Clrwl_1.0.5 + Skyweave_0.3.0.zip");
+    private final List<String> shaders = List.of("off", "Complementary Unbound r5.10 + Euphoria 1.11.1 + Skyweave 0.4.0.zip", "BSL_v10.1.8 + Clrwl_1.0.5 + Skyweave_0.3.0.zip");
     private CompletableFuture<?> pending;
     private RemotePlayer remote;
     private boolean opened, prepared, stopped;

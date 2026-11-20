@@ -18,6 +18,8 @@ public final class SkyweaveCompat {
         if(selection.enabled(Feature.PATROL_CHANCE)||selection.enabled(Feature.VARIANT_SPAWNERS))
             design.inherent.skyweavecompat.encounters.EncounterConfiguration.load(
                     design.inherent.skyweavecompat.configuration.ConfigLocations.ownedDirectory(net.neoforged.fml.loading.FMLPaths.CONFIGDIR.get()));
+        if (selection.enabled(Feature.ACCESSORIES_CURIOS_BINDINGS))
+            design.inherent.skyweavecompat.accessories.CuriosEntityBindings.register();
         if(selection.enabled(Feature.VARIANT_SPAWNERS))
             NeoForge.EVENT_BUS.addListener((ServerAboutToStartEvent event)->design.inherent.skyweavecompat.encounters.VariantsPolicy.verify());
         // Pack data can retain this processor when its optional runtime adaptation is disabled.
@@ -25,8 +27,6 @@ public final class SkyweaveCompat {
         if (selection.enabled(Feature.WAYFINDER)) design.inherent.skyweavecompat.wayfinder.Wayfinder.register(modBus);
         com.mojang.logging.LogUtils.getLogger().info("Skyweave: Compatibility Patches active adaptations: {}", selection.active());
         com.mojang.logging.LogUtils.getLogger().debug("Skyweave: Compatibility Patches inactive adaptations: {}", selection.inactive());
-        if (selection.enabled(Feature.REDSTONE_SCRAPING))
-            design.inherent.skyweavecompat.redstone.RedstoneScraping.register();
         if (selection.enabled(Feature.FTB_ITEM_FILTERS))
             modBus.addListener((net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent event) ->
                     event.enqueueWork(design.inherent.skyweavecompat.quests.QuestItemFilters::register));

@@ -63,6 +63,10 @@ def main():
     mod = args.mod or ROOT / f'build/libs/skyweave-compat-{version}-mc1.21.1-neoforge.jar'
     runtime = json.loads(subprocess.check_output(['node', str(args.pack / 'web/scripts/runtime-inputs.mjs'), str(args.pack)], text=True))
     excluded = {'skyweave-compat', 'linear-bearing', 'linear-bearings-fix'}
+    if args.redstone_gui:
+        excluded.add('create-redstone-link-gui')
+    if args.redstone_additions:
+        excluded.add('create-redstone-additions')
     if args.yigd:
         excluded.add('yigd')
     if args.linkage:
@@ -77,7 +81,7 @@ def main():
     if not args.minimal:
         files.extend((args.pack / 'overrides/common/mods').glob('*.jar'))
     files.append(mod)
-    for target, expected in [(args.redstone_gui, '34cb29227e7aa2a497956aa6f5bb74f07f40f134346ca847c0d4350b87345c97'), (args.redstone_additions, 'e030a25518b757c037d80e9ba25f9631074d3936d157f4d6fd129337b434e706')]:
+    for target, expected in [(args.redstone_gui, '34cb29227e7aa2a497956aa6f5bb74f07f40f134346ca847c0d4350b87345c97'), (args.redstone_additions, '766292f66f19557c5b2c21d790a01ae4db69d2a3cea30551b2507d18fce6245e')]:
         if target:
             if digest(target) != expected:
                 parser.error('Unexpected redstone target bytes')
@@ -147,8 +151,8 @@ def main():
         if args.redstone_baseline:
             settings = run / 'config/skyweave/skyweave_compat-features.properties'
             import re
-            text = re.sub(r'(?m)^(redstone_link_gui|redstone_additions)\.[^\n]*\n?', '', settings.read_text() if settings.exists() else '')
-            keys = ['redstone_link_gui.interactions', 'redstone_link_gui.relocation', 'redstone_link_gui.ship_access', 'redstone_additions.logic', 'redstone_additions.scraping', 'redstone_additions.wrench', 'redstone_additions.transparency']
+            text = re.sub(r'(?m)^redstone_link_gui\.[^\n]*\n?', '', settings.read_text() if settings.exists() else '')
+            keys = ['redstone_link_gui.interactions', 'redstone_link_gui.relocation', 'redstone_link_gui.ship_access']
             settings.write_text(text + '\n' + ''.join(key + '=false\n' for key in keys))
         blue = run / 'config/bluemap'
         blue.mkdir(exist_ok=True)

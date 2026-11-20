@@ -34,27 +34,21 @@ class RedstoneSelectionTest {
         var withoutAccess = FeatureSelection.select(only(Feature.LINK_GUI_SABLE), future, true);
         assertTrue(withoutAccess.active().isEmpty());
     }
-    @Test void additionsHasIndependentRepairsAndPhysicalClientRendering() {
-        var settings = only(Feature.REDSTONE_LOGIC, Feature.REDSTONE_SCRAPING, Feature.REDSTONE_WRENCH, Feature.REDSTONE_RENDERING);
-        var versions = Map.of("create", "6.0.10", "create_redstone_additions", "1.0.5");
+    @Test void crossroadReadsRequireTheQualifiedAdditionsAndCreateOnEitherSide() {
+        var settings = only(Feature.REDSTONE_LOGIC);
+        var versions = Map.of("create", "6.0.10", "create_redstone_additions", "1.0.6");
         for (boolean client : new boolean[]{false, true}) {
             var selection = FeatureSelection.select(settings, versions, client);
-            assertTrue(selection.enabled(Feature.REDSTONE_LOGIC));
-            assertTrue(selection.enabled(Feature.REDSTONE_SCRAPING));
-            assertTrue(selection.enabled(Feature.REDSTONE_WRENCH));
-            assertEquals(client, selection.enabled(Feature.REDSTONE_RENDERING));
+            assertEquals(java.util.Set.of(Feature.REDSTONE_LOGIC), selection.active());
+            assertEquals(java.util.List.of("redstone.CrossroadMixin"), selection.mixins(client));
         }
         for (String missing : versions.keySet()) {
-            var absent = new java.util.HashMap<>(versions); absent.remove(missing);
+            var absent = new java.util.HashMap<>(versions);
+            absent.remove(missing);
             assertTrue(FeatureSelection.select(settings, absent, true).active().isEmpty());
         }
-        var wrenchOnly = FeatureSelection.select(only(Feature.REDSTONE_WRENCH), versions, false);
-        assertEquals(java.util.Set.of(Feature.REDSTONE_WRENCH), wrenchOnly.active());
-        assertEquals(java.util.List.of("redstone.GateWrenchMixin"), wrenchOnly.mixins(false));
-    }
-    @Test void additionsVersionGateAppliesOnlyToEnabledPresentTargets() {
-        var future = Map.of("create", "6.0.10", "create_redstone_additions", "1.0.6");
+        var future = Map.of("create", "6.0.10", "create_redstone_additions", "999.0.0");
         assertTrue(FeatureSelection.select(only(), future, true).active().isEmpty());
-        assertThrows(IllegalStateException.class, () -> FeatureSelection.select(only(Feature.REDSTONE_LOGIC), future, false));
+        assertThrows(IllegalStateException.class, () -> FeatureSelection.select(settings, future, false));
     }
 }

@@ -42,6 +42,14 @@ Lamb's universal JAR contains a native NeoForge runtime and supporting libraries
 
 ## Configuration and limits
 
+### Diagnosing held and placed lights
+
+A dark-looking boundary beside a placed torch is not, by itself, evidence that held light reduced stored world light. SDL's pinned `WorldPosResolver.getCombinedWorldLight` returns the maximum of incoming block light and its eligible world/dynamic contributions. `SodiumLightingMixin` also refuses a lower result and changes only the block-light bits. Neither contract proves that mesh interpolation, ambient occlusion or the perceived contrast between neighboring faces is correct.
+
+For a reported moving-held-light artifact, compare an unchanged camera and placed source with empty hand, stationary held torch and moving held torch. Record the actual active source positions, owning level/frame, raw light-engine samples and Sodium packed-light/AO values around the same faces. Capture chunk rebuild boundaries, resource reloads and the Lamb update mode; test shaders off before attributing a defect to Iris. A torch-adjacent sample already brighter than the held contribution cannot establish that the dynamic source activated, so include darker points near the hand.
+
+Numeric observations and screenshots are separate evidence: zero GL errors or preserved raw light do not prove the reported visual artifact absent. The reported held-light shadowing remains unqualified. If a repeatable failure is isolated, repair its owning source/frame, cache invalidation or mesh sampling boundary; do not change server lighting, raise global brightness or disable dynamic lights as a substitute.
+
 Keep Lamb's normal lighting and rebuild settings under Lamb's configuration. When shaders already light a held item, disable Lamb's first-person source if it produces duplicate illumination. SDL also adds a held BlockItem fallback independently; Lamb's self switch alone does not establish that every held-light contribution is disabled. This hook does not automatically switch preferences with shaders.
 
 Lamb's radial dynamic lighting is not a general occlusion solution. SDL additionally projects virtual sources between main-world and plot coordinates; walls represented in one space are not necessarily present in another. A Sodium API repair does not establish sealed-cabin lighting. Do not advertise this adapter as fixing every [wall-leak report](https://github.com/fr0nick/Sable-Dynamic-Lights/issues/4).

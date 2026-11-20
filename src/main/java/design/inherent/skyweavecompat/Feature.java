@@ -49,10 +49,8 @@ public enum Feature {
     LINK_GUI_INTERACTIONS("redstone_link_gui.interactions"),
     LINK_GUI_RELOCATION("redstone_link_gui.relocation"),
     LINK_GUI_SABLE("redstone_link_gui.ship_access"),
+    ACCESSORIES_CURIOS_BINDINGS("accessories_compat_layer.curios_bindings", false),
     REDSTONE_LOGIC("redstone_additions.logic"),
-    REDSTONE_SCRAPING("redstone_additions.scraping"),
-    REDSTONE_WRENCH("redstone_additions.wrench"),
-    REDSTONE_RENDERING("redstone_additions.transparency"),
     LINEAR_BOOTSTRAP("linear_bearing.bootstrap"),
     LINEAR_CARRIAGE("linear_bearing.carriage"),
     LINEAR_TRANSMISSION("linear_bearing.transmission"),
@@ -78,6 +76,9 @@ public enum Feature {
     CN_PUNCHY("combat_nouveau.punchy_attacks"),
     CN_MOVES("combat_nouveau.moves_attacks"),
     HAND_EFFECTS("iris.hand_effects"),
+    HELD_MATERIALS("iris.held_materials"),
+    MODEL_ROTATIONS("modefite.model_rotations"),
+    ITEM_DEFINITIONS("modefite.item_definitions"),
     MATERIAL_IDS("rendering.construct_material_ids"),
     COLORWHEEL_SAMPLERS("rendering.colorwheel_samplers"),
     COLORWHEEL_MATERIALS("rendering.colorwheel_materials"),
@@ -109,7 +110,11 @@ public enum Feature {
     public final boolean defaultEnabled;
 
     Feature(String key) {
+        this(key, true);
+    }
+
+    Feature(String key, boolean defaultEnabled) {
         this.key = key;
-        this.defaultEnabled = true;
+        this.defaultEnabled = defaultEnabled;
     }
 }

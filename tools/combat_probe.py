@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the opt-in combat witness with packaged JARs in a new disposable client."""
+"""Run opt-in combat and rendering witnesses with packaged JARs in a disposable client."""
 import argparse
 import hashlib
 import json
@@ -13,6 +13,22 @@ import tomllib
 import zipfile
 
 REPOSITORY = Path(__file__).resolve().parents[1]
+
+
+def resource_format_range(path):
+    """Read legacy pack ranges for this pinned1.21.1 fixture; native admission remains authoritative."""
+    with zipfile.ZipFile(path) as archive:
+        pack = json.loads(archive.read('pack.mcmeta'))['pack']
+    declared = pack.get('supported_formats', pack['pack_format'])
+    if isinstance(declared, dict):
+        minimum, maximum = declared['min_inclusive'], declared['max_inclusive']
+    elif isinstance(declared, list) and len(declared) == 2:
+        minimum, maximum = declared
+    else:
+        minimum = maximum = declared
+    if any(type(value) is not int for value in (minimum, maximum)) or minimum > maximum:
+        raise ValueError('Candidate has no understood legacy integer pack range: ' + str(path))
+    return minimum, maximum
 
 
 def mod_ids(path):
@@ -45,7 +61,15 @@ def main():
     parser.add_argument('--network-role', choices=('actor', 'observer'), help='Real loopback client role instead of the integrated scene')
     parser.add_argument('--address', help='Explicit 127.0.0.1:port for the network scene')
     parser.add_argument('--source-prism', type=Path, help='Read-only owned stage made from a native Prism export and instance install')
-    parser.add_argument('--scene', choices=('combat', 'poses', 'hand-effects'), default='combat')
+    parser.add_argument('--scene', choices=('combat', 'poses', 'hand-effects', 'visual-options', 'resource-evolution', 'foliage'), default='combat')
+    parser.add_argument('--foliage-control', action='store_true', help='Remove only the foliage shader repair from the owned Visual Patches copy')
+    parser.add_argument('--resource-control', action='store_true', help='Resource scene without the selected evolution packs or maintained Visual Patches')
+    parser.add_argument('--resource-focus', choices=('all', 'rotations', 'music', 'equipment', 'formats', 'interactive', 'ores', 'mobs'), default='all', help='Held gallery, rotations, discs, equipped Artifacts, formats, scripted placement, ore/ingots, or native mob pose controls')
+    parser.add_argument('--resource-pack', type=Path, action='append', default=[], help='Read-only candidate ZIP copied into this resource scene; at most four')
+    parser.add_argument('--resource-allow-incompatible', action='store_true', help='Fixture-only native acknowledgment for explicit candidate packs; preserve metadata and report compatibility')
+    parser.add_argument('--visual-menu-only', action='store_true', help='Inspect native pack option controls without opening a world')
+    parser.add_argument('--visual-torch-ui', action='store_true', help='Change both torch choices through native UI and verify save/reload/restore')
+    parser.add_argument('--visual-accessories', action='store_true', help='Qualify independent workstation accessories, native save/reload and coordinate seeds')
     parser.add_argument('--heap', choices=('4G', '6G', '8G'), default='4G')
     parser.add_argument('--shader', choices=('off', 'complementary', 'bsl'), default='off', help='Hand-effects fixture shader')
     parser.add_argument('--connector-clean', type=Path, help='NeoForm clean renamed1.21.1 JAR for Connector development bootstrap')
@@ -53,6 +77,25 @@ def main():
     parser.add_argument('--sprint-crits', choices=('on', 'off'), default='on')
     parser.add_argument('--timeout', type=int, default=600, choices=range(60, 901), metavar='60..900')
     args = parser.parse_args()
+    if args.foliage_control and args.scene != 'foliage':
+        parser.error('--foliage-control requires the foliage scene')
+    if args.resource_control and args.scene != 'resource-evolution':
+        parser.error('--resource-control requires the resource-evolution scene')
+    if args.resource_focus != 'all' and args.scene != 'resource-evolution':
+        parser.error('--resource-focus requires the resource-evolution scene')
+    if args.resource_pack and (args.scene != 'resource-evolution' or len(args.resource_pack) > 4):
+        parser.error('--resource-pack requires the resource-evolution scene and at most four archives')
+    if args.resource_allow_incompatible and not args.resource_pack:
+        parser.error('--resource-allow-incompatible requires explicit resource candidates')
+    for path in args.resource_pack:
+        if not path.is_file() or path.stat().st_size > 64 * 1024 * 1024 or not zipfile.is_zipfile(path):
+            parser.error('Resource candidate must be a ZIP file no larger than 64 MiB')
+    if args.visual_menu_only and args.scene != 'visual-options':
+        parser.error('--visual-menu-only requires the visual-options scene')
+    if args.visual_torch_ui and (args.scene != 'visual-options' or args.visual_menu_only):
+        parser.error('--visual-torch-ui requires its own visual-options world scene')
+    if args.visual_accessories and (args.scene != 'visual-options' or args.visual_menu_only or args.visual_torch_ui):
+        parser.error('--visual-accessories requires its own visual-options world scene')
     if args.settings_only and (args.extended or args.startup_targets or args.network_role or args.scene != 'combat'):
         parser.error('Settings-only is a separate title-screen scene')
     if args.network_role and (args.extended or args.startup_targets or not args.address or not re.fullmatch(r'127\.0\.0\.1:[0-9]{1,5}', args.address)):
@@ -77,13 +120,38 @@ def main():
             if 'skyweave_compat' in mod_ids(path): path.unlink()
         subtle = root / 'config/subtle_effects/general.toml'
         if subtle.is_file():
-            text, count = re.subn(r'(?m)^(\s*enableEasterEggs\s*=\s*)true\s*$', r'\g<1>false', subtle.read_text())
+            text, count = re.subn(r'(?m)^(\s*enableEasterEggs\s*=\s*)(?:true|false)\s*$', r'\g<1>false', subtle.read_text())
             if count != 1: raise RuntimeError('Expected one native development easter-egg fixture preference')
             subtle.write_text(text)
     if args.scene != 'combat':
         if not args.source_prism or args.network_role or args.startup_targets or args.extended:
             parser.error('Rendering scenes require their owned full-pack source without another scene selector')
         (root / 'rendering-review-fixture.json').write_text('{"owner":"combat_probe.py"}\n')
+    foliage_input = None
+    if args.visual_accessories:
+        visual = pack / 'overrides/client/resourcepacks/skyweave-visual-patches-0.1.0.zip'
+        shutil.copy2(visual, root / 'resourcepacks' / visual.name)
+    if args.scene == 'foliage':
+        visual = pack / 'overrides/client/resourcepacks/skyweave-visual-patches-0.1.0.zip'
+        destination = root / 'resourcepacks' / visual.name
+        shader_path = 'assets/mc2_interactivefoliage/shaders/core/foliage_legacy.vsh'
+        with zipfile.ZipFile(visual) as archive:
+            if shader_path not in archive.namelist():
+                parser.error('Prepare the foliage repair through the owning Visual Patches builder first')
+            foliage_input = {'archiveSha256': hashlib.sha256(visual.read_bytes()).hexdigest(),
+                             'shaderSha256': hashlib.sha256(archive.read(shader_path)).hexdigest(),
+                             'control': args.foliage_control}
+            if args.foliage_control:
+                with zipfile.ZipFile(destination, 'w') as control:
+                    for entry in archive.infolist():
+                        if entry.filename != shader_path: control.writestr(entry, archive.read(entry.filename))
+            else:
+                shutil.copy2(visual, destination)
+        foliage_input['installedArchiveSha256'] = hashlib.sha256(destination.read_bytes()).hexdigest()
+        selected_packs = next((json.loads(line.split(':', 1)[1]) for line in
+                               (root / 'options.txt').read_text().splitlines() if line.startswith('resourcePacks:')), [])
+        if 'file/' + visual.name not in selected_packs:
+            parser.error('Foliage scene requires the selected Visual Patches pack')
     # The pinned Moves JAR supplies punchy_expressions through its declared Jar-in-Jar metadata.
     selected = {'combatnouveau', 'puzzleslib', 'punchy', 'punchy_moves'}
     if args.startup_targets:
@@ -132,8 +200,66 @@ def main():
         f'punchyPacing={str(args.pacing == "on").lower()}\nmovesPacing={str(args.pacing == "on").lower()}\n')
     resource = pack / 'pack/resourcepacks/Fluid & Foolish 1.0.1.zip'
     shutil.copy2(resource, root / 'resourcepacks' / resource.name)
+    if args.resource_control:
+        removed = {'file/' + name for name in ('Artifacts 3D.zip', 'FA+Quivers-v2.3.zip', 'FreshVines_v1.1.zip',
+                   'Just 3D Potions 1.21 Backport.zip', '§9Bray\'s Zombie Overhaul FA v1.4.zip', 'skyweave-visual-patches-0.1.0.zip')}
+        options = root / 'options.txt'
+        lines = options.read_text().splitlines()
+        for i, line in enumerate(lines):
+            if line.startswith('resourcePacks:'):
+                lines[i] = 'resourcePacks:' + json.dumps([key for key in json.loads(line.split(':', 1)[1]) if key not in removed])
+        options.write_text('\n'.join(lines) + '\n')
+    if args.scene == 'resource-evolution':
+        expected_mods = json.loads((args.source_prism / 'owned-combat-stage.json').read_text()).get('expectedClientMods', []) if args.source_prism else []
+        if (not isinstance(expected_mods, list) or len(expected_mods) > 4
+                or any(not isinstance(value, str) or not re.fullmatch(r'[a-z][a-z0-9_]{1,63}', value) for value in expected_mods)):
+            parser.error('Owned stage has malformed expected client mod IDs')
+        (root / 'resource-mod-candidates.json').write_text(json.dumps(expected_mods) + '\n')
+        candidates = []
+        for index, path in enumerate(args.resource_pack):
+            name = f'resource-candidate-{index}-{path.name}'
+            destination = root / 'resourcepacks' / name
+            shutil.copy2(path, destination)
+            minimum, maximum = resource_format_range(destination)
+            candidates.append({'file': name, 'sha256': hashlib.sha256(destination.read_bytes()).hexdigest(),
+                               'declaredFormats': [minimum, maximum],
+                               'acknowledgedIncompatible': args.resource_allow_incompatible and not minimum <= 34 <= maximum})
+        (root / 'resource-candidates.json').write_text(json.dumps(candidates, indent=2) + '\n')
+        # Authored geometry controls, never foreign assets or a published pack.
+        body = {'textures': {'all': 'minecraft:block/stone', 'particle': 'minecraft:block/stone'},
+                'elements': [{'from': [3, 4, 5], 'to': [11, 12, 13], 'rotation': {'origin': [4, 8, 12], 'axis': 'x', 'angle': 22.5},
+                              'faces': {face: {'texture': '#all', 'uv': [1, 2, 3, 4]} for face in ('north', 'south', 'east', 'west', 'up', 'down')}}]}
+        modern = json.loads(json.dumps(body))
+        modern['elements'][0]['rotation'] = {'origin': [4, 8, 12], 'x': 22.5, 'y': 0, 'z': 0}
+        fixture = root / 'resourcepacks/resource-geometry-fixture.zip'
+        with zipfile.ZipFile(fixture, 'w') as archive:
+            archive.writestr('pack.mcmeta', json.dumps({'pack': {'pack_format': 34, 'description': 'Owned resource geometry controls'}}))
+            archive.writestr('assets/minecraft/models/item/clay_ball.json', json.dumps(body))
+            archive.writestr('assets/minecraft/models/item/slime_ball.json', json.dumps(modern))
+        options = root / 'options.txt'; lines = options.read_text().splitlines()
+        for i, line in enumerate(lines):
+            if line.startswith('resourcePacks:'):
+                lines[i] = 'resourcePacks:' + json.dumps(json.loads(line.split(':', 1)[1]) +
+                    ['file/' + candidate['file'] for candidate in candidates] + ['file/' + fixture.name])
+        if args.resource_allow_incompatible:
+            prefix = 'incompatibleResourcePacks:'
+            # Native Options also drops a compatible pack on the boot that clears a stale acknowledgment.
+            acknowledgments = ['file/' + candidate['file'] for candidate in candidates if candidate['acknowledgedIncompatible']]
+            for i, line in enumerate(lines):
+                if line.startswith(prefix):
+                    lines[i] = prefix + json.dumps(list(dict.fromkeys(json.loads(line[len(prefix):]) + acknowledgments)))
+                    break
+            else:
+                lines.append(prefix + json.dumps(acknowledgments))
+        options.write_text('\n'.join(lines) + '\n')
     if not args.source_prism:
         (root / 'options.txt').write_text('resourcePacks:' + json.dumps(['vanilla', 'mod_resources', 'file/' + resource.name]) + '\npauseOnLostFocus:false\nfullscreen:false\nrenderDistance:3\nsimulationDistance:3\nmaxFps:60\n')
+    elif args.visual_accessories:
+        options = root / 'options.txt'
+        text = options.read_text()
+        text, count = re.subn(r'(?m)^pauseOnLostFocus:(?:true|false)$', 'pauseOnLostFocus:false', text)
+        if count != 1: raise RuntimeError('Expected one disposable-client focus preference')
+        options.write_text(text)
 
     # Keep the pinned ModDev loader/bootstrap, but remove content mods and project source roots.
     # The only gameplay/probe artifacts must be the packaged JARs above.
@@ -166,6 +292,11 @@ def main():
                 parser.error('Connector clean artifact has an unexpected Minecraft identity')
         vm.append('-Dconnector.clean.path=' + str(clean))
         connector_input = {'sha256': hashlib.sha256(clean.read_bytes()).hexdigest(), 'neoformMetadataSha256': hashlib.sha256(metadata.read_bytes()).hexdigest(), 'mc':'1.21.1'}
+    shader = 'off'
+    if args.scene in {'resource-evolution', 'visual-options', 'hand-effects'} and args.shader != 'off':
+        recipe_name = {'complementary': 'complementary-euphoria-skyweave', 'bsl': 'bsl-colorwheel'}[args.shader]
+        recipe = root / 'config/skyweave/shaders/recipes' / (recipe_name + '.json')
+        shader = json.loads(recipe.read_text())['output']
     if args.startup_targets:
         (root / 'rendering-review-fixture.json').write_text('{"owner":"combat_probe.py"}\n')
         vm += ['-Dskyweave_compat.probe.renderStartup=true', '-Dskyweave_compat.probe.combatStartup=true']
@@ -176,9 +307,24 @@ def main():
         vm.append('-Dskyweave_compat.probe.combat=true')
     elif args.scene == 'poses':
         vm.append('-Dskyweave_compat.probe.playerPoses=true')
+    elif args.scene == 'foliage':
+        vm += ['-Dskyweave_compat.probe.foliage=true',
+               '-Dskyweave_compat.probe.foliage.repaired=' + str(not args.foliage_control).lower()]
+    elif args.scene == 'resource-evolution':
+        vm += ['-Dskyweave_compat.probe.resourceEvolution=true',
+               '-Dskyweave_compat.probe.resourceEvolution.shader=' + shader,
+               '-Dskyweave_compat.probe.resourceEvolution.focus=' + args.resource_focus,
+               '-Dskyweave_compat.probe.resourceEvolution.control=' + str(args.resource_control).lower()]
+    elif args.scene == 'visual-options':
+        vm.append('-Dskyweave_compat.probe.visualOptions=true')
+        vm.append('-Dskyweave_compat.probe.visualOptions.shader=' + shader)
+        if args.visual_menu_only:
+            vm.append('-Dskyweave_compat.probe.visualOptions.menuOnly=true')
+        if args.visual_torch_ui:
+            vm.append('-Dskyweave_compat.probe.visualOptions.torchUi=true')
+        if args.visual_accessories:
+            vm.append('-Dskyweave_compat.probe.visualOptions.accessories=true')
     else:
-        shader = {'off':'off','complementary':'Complementary Unbound r5.9.3 + Euphoria 1.10.5 + Skyweave 0.3.0.zip',
-                  'bsl':'BSL_v10.1.8 + Clrwl_1.0.5 + Skyweave_0.3.0.zip'}[args.shader]
         vm += ['-Dskyweave_compat.probe.handEffects=true', '-Dskyweave_compat.probe.handEffects.shader=' + shader,
                '-Dskyweave_compat.probe.handEffects.trace=true']
     if args.network_role:
@@ -205,8 +351,9 @@ def main():
     configurations = {str(path.relative_to(root)): hashlib.sha256(path.read_bytes()).hexdigest() for path in (root / 'config').rglob('*') if path.is_file()}
     (root / 'launch.json').write_text(json.dumps({'command': command, 'artifacts': artifacts, 'connectorCleanArtifact': connector_input,
         'configurationsBeforeBoot': configurations, 'selectedResourceSha256': hashlib.sha256(resource.read_bytes()).hexdigest(),
+        'foliageInput': foliage_input,
         'bootstrap': 'Pinned ModDev forgeclientdev; packaged gameplay/probe JARs; no project source roots'}, indent=2) + '\n')
-    print(f'Launching owned combat client: {root}', flush=True)
+    print(f'Launching owned {args.scene} client: {root}', flush=True)
     environment = {key: value for key, value in os.environ.items() if key not in ('MOD_CLASSES', 'FML_MOD_FOLDERS')}
     with (root / 'client.log').open('w') as log:
         with subprocess.Popen(command, cwd=root, env=environment, stdout=log, stderr=subprocess.STDOUT) as process:
@@ -222,7 +369,8 @@ def main():
                     process.wait()
                 raise RuntimeError(f'Owned client timed out; inspect {root / "client.log"}')
     report = root / ('rendering-startup-results.json' if args.startup_targets else 'combat-network-client.json' if args.network_role
-                     else 'pose-results.json' if args.scene == 'poses' else 'hand-effects-results.json' if args.scene == 'hand-effects' else 'combat-report.json')
+                     else 'foliage-veil-results.json' if args.scene == 'foliage'
+                     else 'resource-evolution-results.json' if args.scene == 'resource-evolution' else 'pose-results.json' if args.scene == 'poses' else 'visual-options-results.json' if args.scene == 'visual-options' else 'hand-effects-results.json' if args.scene == 'hand-effects' else 'combat-report.json')
     if result or not report.exists():
         raise RuntimeError(f'Client exited {result}; inspect {root / "client.log"}')
     data = json.loads(report.read_text())
@@ -230,7 +378,13 @@ def main():
         raise RuntimeError(data['failure'])
     if args.scene != 'combat':
         if data.get('complete') is not True: raise RuntimeError('Rendering fixture did not complete')
-        print(json.dumps({'root': str(root), 'scene': args.scene, 'samples': len(data.get('samples', [])), 'complete': True}, indent=2))
+        if args.resource_pack:
+            requested = json.loads((root / 'resource-candidates.json').read_text())
+            missing = ['file/' + entry['file'] for entry in requested if 'file/' + entry['file'] not in data.get('selectedPacks', [])]
+            if missing: raise RuntimeError(f'Requested resource candidates were not selected: {missing}')
+        count_key = 'passes' if args.scene == 'foliage' else 'samples'
+        rows = data.get('profiles' if args.scene == 'visual-options' else count_key, [])
+        print(json.dumps({'root': str(root), 'scene': args.scene, count_key: len(rows), 'complete': True}, indent=2))
         return
     if args.network_role:
         print(json.dumps({'root': str(root), 'network': data}, indent=2))

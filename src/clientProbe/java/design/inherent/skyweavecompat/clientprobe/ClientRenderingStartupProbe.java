@@ -24,7 +24,8 @@ final class ClientRenderingStartupProbe {
         var mc = Minecraft.getInstance(); if (finished || mc.getOverlay() != null || !(mc.screen instanceof TitleScreen) || ++ticks < 40) return;
         finished = true; var report = new JsonObject();
         try {
-            for (var feature : new Feature[]{Feature.HAND_EFFECTS, Feature.MOVES_TOUCH_MOTION, Feature.CONSTRUCT_COVERAGE}) {
+            for (var feature : new Feature[]{Feature.HAND_EFFECTS, Feature.HELD_MATERIALS, Feature.MODEL_ROTATIONS,
+                    Feature.ITEM_DEFINITIONS, Feature.MOVES_TOUCH_MOTION, Feature.CONSTRUCT_COVERAGE}) {
                 boolean active = OptionalIntegrations.enabled(feature); report.addProperty(feature.name(), active);
                 if (active) throw new AssertionError("Unexpected optional target activation: " + feature);
             }

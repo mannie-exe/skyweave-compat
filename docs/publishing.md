@@ -27,7 +27,7 @@ Modrinth publication is deferred. Use these fields if publication is approved:
 
 For the current prerelease, select **Beta**, **Minecraft 1.21.1**, and **NeoForge**. Upload `skyweave-compat-<version>-mc1.21.1-neoforge.jar` as the primary file. Declare all integrated content mods optional, including Sky Archipelago. Use the [configuration matrix](configuration.md#adaptation-switches) for supported versions and multi-mod requirements instead of maintaining another dependency list.
 
-Sky Villages declares Architectury API as its own required dependency. Its 13.0.11 release is the tested runtime. Do not upload dependency JARs or the test fixture. Install the same Skyweave: Compatibility Patches version and applicable integrations on client and server. Check client-only mixins and server startup before distributing an update.
+Sky Villages declares Architectury API as its own required dependency. Its 13.0.12 release is the tested runtime. Do not upload dependency JARs or the test fixture. Install the same Skyweave: Compatibility Patches version and applicable integrations on client and server. Check client-only mixins and server startup before distributing an update.
 
 ## Upload process
 

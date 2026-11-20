@@ -65,7 +65,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                 String version = mods.get(entry.getKey()), expected = entry.getValue();
                 if (!(expected.endsWith(".") ? version.startsWith(expected) : version.equals(expected))
                         && !fabricVersionSpelling(entry.getKey(), version, expected)
-                        && !(entry.getKey().equals("questlog") && expected.equals("3.5.0") && version.equals("3.5.3")))
+                        && !(entry.getKey().equals("questlog") && expected.equals("3.5.0") && (version.equals("3.5.3") || version.equals("3.5.4"))))
                     throw new IllegalStateException("Skyweave: Compatibility Patches " + feature.key + " requires "
                             + entry.getKey() + " " + expected + "; found " + version
                             + ". Disable this adaptation in " + FeatureSettings.FILE + " or install the supported version.");
@@ -110,8 +110,8 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
 
     public static boolean clientOnly(Feature feature) {
         return switch (feature) {
-            case WAYFINDER_DH, MAIN_MENU_IDENTITY, CREATE_COPYCAT_BACKFACES, COPYCATS_BACKFACES, MOVES_TOUCH_MOTION, HAND_EFFECTS, CONSTRUCT_COVERAGE, CN_PUNCHY, CN_MOVES -> true;
-            case HOOFPRINT_ZOOM, ISLAND_CLOUDS, ISLAND_VOID, ISLAND_SHADER_ENVIRONMENT, CONFECTIONERY_BACKFACES, BUBBLE_GUM_BACKFACES, ORNATE_GRATE_BACKFACES, INDUSTRIAL_GRATING_BACKFACES, MACAW_GLASS, CONSTRUCT_DISTANCE, CONSTRUCT_OCCLUSION, SHADER_PATCHES, TEXT_DISPLAY_LIGHTING, NAMETAG_LIGHTING, TEXT_DISPLAY_SHADOW, NAMETAG_SHADOW, CREATE_BACKFACES, FUSION_BACKFACES, CREATE_WINDOWS, RECHISELED_GLASS, REDSTONE_RENDERING, AUDIO_TIMELINE, LINEAR_PONDER, COLORWHEEL_SAMPLERS, COLORWHEEL_MATERIALS, LIGHTING_LIFECYCLE, SODIUM_LIGHTING, DH_HANDOFF, FRAMEBUFFER, BALLOON, MATERIAL_IDS, MODEL_DATA, SINGLE_BLOCK_PASSES,
+            case WAYFINDER_DH, MAIN_MENU_IDENTITY, CREATE_COPYCAT_BACKFACES, COPYCATS_BACKFACES, MOVES_TOUCH_MOTION, HAND_EFFECTS, HELD_MATERIALS, MODEL_ROTATIONS, ITEM_DEFINITIONS, CONSTRUCT_COVERAGE, CN_PUNCHY, CN_MOVES -> true;
+            case HOOFPRINT_ZOOM, ISLAND_CLOUDS, ISLAND_VOID, ISLAND_SHADER_ENVIRONMENT, CONFECTIONERY_BACKFACES, BUBBLE_GUM_BACKFACES, ORNATE_GRATE_BACKFACES, INDUSTRIAL_GRATING_BACKFACES, MACAW_GLASS, CONSTRUCT_DISTANCE, CONSTRUCT_OCCLUSION, SHADER_PATCHES, TEXT_DISPLAY_LIGHTING, NAMETAG_LIGHTING, TEXT_DISPLAY_SHADOW, NAMETAG_SHADOW, CREATE_BACKFACES, FUSION_BACKFACES, CREATE_WINDOWS, RECHISELED_GLASS, AUDIO_TIMELINE, LINEAR_PONDER, COLORWHEEL_SAMPLERS, COLORWHEEL_MATERIALS, LIGHTING_LIFECYCLE, SODIUM_LIGHTING, DH_HANDOFF, FRAMEBUFFER, BALLOON, MATERIAL_IDS, MODEL_DATA, SINGLE_BLOCK_PASSES,
                     FTB_CREATIVE_RETURN, QUESTLOG_INTERFACE, QUESTLOG_NOTIFICATIONS -> true;
             default -> false;
         };
@@ -120,13 +120,15 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
     public static Map<String, String> dependencies(Feature feature) {
         return switch (feature) {
             case MAIN_MENU_IDENTITY -> Map.of();
+            case MODEL_ROTATIONS, ITEM_DEFINITIONS -> Map.of("modefite", "1.0.1+1.21.1");
             case PATROL_CHANCE -> Map.of();
-            case VARIANT_SPAWNERS -> Map.of("variantsandventures", "1.0.29");
-            case VARIANT_TRIAL_ALIASES -> Map.of("variantsandventures","1.0.29","lithostitched","1.8.1");
-            case MURK_WATER -> Map.of("variantsandventures", "1.0.29", "sky_archipelago", "1.4");
+            case VARIANT_SPAWNERS -> Map.of("variantsandventures", "1.0.30");
+            case VARIANT_TRIAL_ALIASES -> Map.of("variantsandventures","1.0.30","lithostitched","1.8.1");
+            case MURK_WATER -> Map.of("variantsandventures", "1.0.30", "sky_archipelago", "1.4");
             case MOVES_TOUCH_MOTION -> Map.of("punchy_moves", "1.0.9", "touch_n_motion", "1.0.5");
             case CN_PUNCHY -> Map.of("combatnouveau", "21.1.2", "puzzleslib", "21.1.65", "punchy", "3.2b");
             case CN_MOVES -> Map.of("combatnouveau", "21.1.2", "puzzleslib", "21.1.65", "punchy_moves", "1.0.9");
+            case HELD_MATERIALS -> Map.of("iris", "1.8.14-beta.1+mc1.21.1", "punchy", "3.2b");
             case HAND_EFFECTS -> Map.of("iris", "1.8.14-beta.1+mc1.21.1", "hmioutline", "2.4.0+mc1.21.1");
             case BETTER_VILLAGE_CONFIG -> Map.of("bettervillage", "3.3.1", "libraryferret", "4.0.0");
             case WAYFINDER -> Map.of();
@@ -157,7 +159,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             case SHADER_PATCHES -> Map.of("iris", "1.8.14-beta.1+mc1.21.1");
             case CREATE_BACKFACES -> Map.of("create", "6.0.10");
             case CREATE_COPYCAT_BACKFACES -> Map.of("create", "6.0.10");
-            case COPYCATS_BACKFACES -> Map.of("create", "6.0.10", "copycats", "3.0.9+mc.1.21.1-neoforge");
+            case COPYCATS_BACKFACES -> Map.of("create", "6.0.10", "copycats", "3.0.11+mc.1.21.1-neoforge");
             case FUSION_BACKFACES -> Map.of("fusion", "1.3.16");
             case CREATE_WINDOWS -> Map.of("create", "6.0.10");
             case RECHISELED_GLASS -> Map.of("rechiseled", "1.2.6");
@@ -175,7 +177,9 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             case LINKAGE_JADE -> Map.of("aeronautics_utility_objects", "0.2.9", "jade", "15.10.6+neoforge");
             case LINK_GUI_INTERACTIONS, LINK_GUI_RELOCATION -> Map.of("createredstonelinkgui", "1.21.1-1.9.2", "create", "6.0.10");
             case LINK_GUI_SABLE -> Map.of("createredstonelinkgui", "1.21.1-1.9.2", "create", "6.0.10", "sable", "2.0.6");
-            case REDSTONE_LOGIC, REDSTONE_SCRAPING, REDSTONE_WRENCH, REDSTONE_RENDERING -> Map.of("create_redstone_additions", "1.0.5", "create", "6.0.10");
+            case ACCESSORIES_CURIOS_BINDINGS -> Map.of("curios", "9.6.0+1.21.1", "accessories", "1.1.0-beta.54+1.21.1",
+                    "accessories_compat_layer", "0.1.13");
+            case REDSTONE_LOGIC -> Map.of("create_redstone_additions", "1.0.6", "create", "6.0.10");
             case LINEAR_BOOTSTRAP -> Map.of("linearbearing", "1.3.5");
             case LINEAR_CARRIAGE, LINEAR_TRANSMISSION -> Map.of("linearbearing", "1.3.5", "create", "6.0.10", "sable", "2.0.6", "simulated", "1.3.2");
             case LINEAR_GYRO -> Map.of("linearbearing", "1.3.5", "create", "6.0.10", "sable", "2.0.6");
@@ -204,9 +208,15 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             if (!enabled(feature)) continue;
             result.addAll(switch (feature) {
                 case MAIN_MENU_IDENTITY -> List.of("client.MainMenuBrandingMixin", "client.MainMenuLayoutMixin");
+                case MODEL_ROTATIONS -> List.of("client.MultiAxisModelMixin");
+                case ITEM_DEFINITIONS -> List.of("client.definitions.DefinitionLoadingMixin", "client.definitions.DefinitionBakeryMixin",
+                        "client.definitions.DefinitionBindingMixin", "client.definitions.DefinitionRegistryMixin",
+                        "client.definitions.DefinitionResolverMixin", "client.definitions.DefinitionRenderingMixin");
                 case MOVES_TOUCH_MOTION -> List.of("client.MovesTouchMotionApiMixin", "client.TouchMotionCapeInvoker");
                 case CN_PUNCHY -> List.of("client.combat.PunchyAttackBindingMixin", "client.combat.PunchyAttackConsumerMixin", "client.combat.PunchyPlaybackPacingMixin");
                 case CN_MOVES -> List.of("client.combat.MovesAdmittedAttackMixin", "client.combat.MovesLocalInputMixin", "client.combat.MovesPlaybackPacingMixin");
+                case HELD_MATERIALS -> List.of("client.materials.MaterialHandsAccess", "client.materials.MaterialIrisMixin",
+                        "client.materials.MaterialPunchyMixin", "client.materials.MaterialItemMixin");
                 case HAND_EFFECTS -> List.of("client.OutlineLayersAccess", "client.OutlineGlowAccess", "client.OutlineMoldAccess",
                         "client.OutlineShaderCacheAccess", "client.OutlineVanillaHandMixin", "client.OutlineIrisLifecycleMixin",
                         "client.OutlineIrisHandMixin", "client.OutlineIrisShaderMixin");
@@ -276,10 +286,9 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                 case LINKAGE_JADE -> List.of("linkage.ConversionStateAccessor");
                 case LINK_GUI_INTERACTIONS -> List.of("redstone.GuiPacketMixin", "redstone.GuiOpenPacketMixin", "redstone.GuiSwapPacketMixin", "redstone.GuiMenuMixin");
                 case LINK_GUI_RELOCATION -> client ? List.of("redstone.GuiRelocationMixin", "client.GuiRelocationScreenMixin") : List.of("redstone.GuiRelocationMixin");
-                case LINK_GUI_SABLE, REDSTONE_RENDERING -> List.of();
-                case REDSTONE_LOGIC -> List.of("redstone.ConjunctorMixin", "redstone.CrossroadMixin", "redstone.GateSupportMixin", "redstone.DisjunctorMixin", "redstone.GateLightMixin");
-                case REDSTONE_SCRAPING -> List.of("redstone.VerdigrisMixin");
-                case REDSTONE_WRENCH -> List.of("redstone.GateWrenchMixin");
+                case LINK_GUI_SABLE -> List.of();
+                case ACCESSORIES_CURIOS_BINDINGS -> List.of("accessories.CuriosEarlyBindingsMixin", "accessories.AccessoriesEntityBindingsMixin");
+                case REDSTONE_LOGIC -> List.of("redstone.CrossroadMixin");
                 case LINEAR_BOOTSTRAP -> client ? List.of() : List.of("linear.LinearBootstrapMixin");
                 case LINEAR_CARRIAGE -> List.of("linear.DockingBrakeAccessor", "linear.LinearMovingMixin", "linear.LinearCasingMixin", "linear.LinearAssemblyMixin", "linear.LinearCasingBlockMixin");
                 case LINEAR_TRANSMISSION -> List.of("linear.TransmissionMixin", "linear.MagneticPortMixin");

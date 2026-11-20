@@ -16,17 +16,16 @@ public final class SettingsCatalog {
         FTB_LIBRARY(Category.INVENTORY, "ftblibrary"), JOURNAL(Category.INTERFACE, "questlog"), AUDIO_CLIENT(Category.AUDIO, "analog_audio"),
         DH_CLIENT(Category.MAPS, "distant_horizons"), SABLE_CLIENT(Category.RENDERING, "sable"),
         VEIL(Category.RENDERING, "veil"), IRIS(Category.RENDERING, "iris"), AERONAUTICS(Category.RENDERING, "aeronautics"),
-        PLAYER_ANIMATION(Category.RENDERING, "punchy_moves"),
+        PLAYER_ANIMATION(Category.RENDERING, "punchy_moves"), MODEFITE(Category.RENDERING, "modefite"),
         SSRD(Category.MAPS, "ssrd"), COLORWHEEL(Category.RENDERING, "colorwheel"), LIGHTS(Category.RENDERING, "lighting"),
         CREATE_CLIENT(Category.RENDERING, "create"), FUSION(Category.RENDERING, "fusion"),
         RECHISELED(Category.RENDERING, "rechiseled"), MACAW_GLASS(Category.RENDERING, "mcwwindows"),
         CONFECTIONERY(Category.RENDERING, "confectionery"), DNDECOR(Category.RENDERING, "dndecor"),
         BITS_N_BOBS(Category.RENDERING, "bits_n_bobs"), GUI_CLIENT(Category.MACHINES, "redstone_link_gui"),
-        LINEAR_GLASS(Category.RENDERING, "linear_bearing"), LINEAR_CLIENT(Category.MACHINES, "linear_bearing"), REDSTONE_CLIENT(Category.MACHINES, "redstone_additions"),
-        LINK_GUI(Category.MACHINES, "redstone_link_gui"), REDSTONE(Category.MACHINES, "redstone_additions"),
+        LINEAR_GLASS(Category.RENDERING, "linear_bearing"), LINEAR_CLIENT(Category.MACHINES, "linear_bearing"), LINK_GUI(Category.MACHINES, "redstone_link_gui"), REDSTONE(Category.MACHINES, "redstone_additions"),
         LINKAGE(Category.MACHINES, "transmission_linkage"), LINEAR(Category.MACHINES, "linear_bearing"),
         MACAW(Category.SHIPS, "mcwbridges"),
-        GRAVES(Category.INVENTORY, "yigd"), AUDIO(Category.AUDIO, "analog_audio"),
+        GRAVES(Category.INVENTORY, "yigd"), ACCESSORIES(Category.INVENTORY, "accessories_compat_layer"), AUDIO(Category.AUDIO, "analog_audio"),
         DELIVERY(Category.SHIPS, "delivery"), QUESTLOG_SERVER(Category.INTERFACE, "questlog"),
         HOOFPRINT(Category.MAPS, "hoofprint"), DH(Category.MAPS, "distant_horizons"), BLUEMAP(Category.MAPS, "bluemap"), SURVEYOR(Category.MAPS, "surveyor"),
         BETTER_VILLAGE(Category.WORLD, "bettervillage"), C2ME(Category.WORLD, "c2me"), TERRAIN(Category.WORLD, "sky_archipelago"), LITHOSTITCHED(Category.WORLD, "lithostitched"), YUNG(Category.WORLD, "yungsapi"), YUNG_MINESHAFTS(Category.WORLD, "bettermineshafts"), YUNG_WITCH_HUTS(Category.WORLD, "betterwitchhuts"), WATERSHEDS(Category.WORLD, "dynamic_waters"), ISLAND_SKY(Category.RENDERING, "sky_archipelago"), VILLAGES(Category.WORLD, "sky_villages"),
@@ -170,6 +169,7 @@ public final class SettingsCatalog {
     public static Group group(Feature feature) {
         return switch (feature) {
             case MAIN_MENU_IDENTITY -> Group.COMPAT_INTERFACE;
+            case MODEL_ROTATIONS, ITEM_DEFINITIONS -> Group.MODEFITE;
             case PATROL_CHANCE, VARIANT_SPAWNERS, VARIANT_TRIAL_ALIASES, MURK_WATER -> Group.ENCOUNTERS;
             case MOVES_TOUCH_MOTION, CN_PUNCHY, CN_MOVES -> Group.PLAYER_ANIMATION;
             case BETTER_VILLAGE_CONFIG -> Group.BETTER_VILLAGE;
@@ -194,18 +194,18 @@ public final class SettingsCatalog {
             case CONSTRUCT_DISTANCE, CONSTRUCT_OCCLUSION, CONSTRUCT_COVERAGE -> Group.SSRD;
             case MODEL_DATA, MATERIAL_IDS, SINGLE_BLOCK_PASSES -> Group.SABLE_CLIENT;
             case FRAMEBUFFER -> Group.VEIL;
-            case SHADER_PATCHES, HAND_EFFECTS, TEXT_DISPLAY_LIGHTING, NAMETAG_LIGHTING, TEXT_DISPLAY_SHADOW, NAMETAG_SHADOW -> Group.IRIS;
+            case SHADER_PATCHES, HAND_EFFECTS, HELD_MATERIALS, TEXT_DISPLAY_LIGHTING, NAMETAG_LIGHTING, TEXT_DISPLAY_SHADOW, NAMETAG_SHADOW -> Group.IRIS;
             case BALLOON -> Group.AERONAUTICS;
             case COLORWHEEL_SAMPLERS, COLORWHEEL_MATERIALS -> Group.COLORWHEEL;
             case LIGHTING_LIFECYCLE, SODIUM_LIGHTING -> Group.LIGHTS;
             case LINEAR_PONDER -> Group.LINEAR_CLIENT;
             case LINKAGE_INTERACTIONS, LINKAGE_JADE -> Group.LINKAGE;
             case LINK_GUI_INTERACTIONS, LINK_GUI_RELOCATION, LINK_GUI_SABLE -> Group.LINK_GUI;
-            case REDSTONE_LOGIC, REDSTONE_SCRAPING, REDSTONE_WRENCH -> Group.REDSTONE;
-            case REDSTONE_RENDERING -> Group.REDSTONE_CLIENT;
+            case REDSTONE_LOGIC -> Group.REDSTONE;
             case LINEAR_BOOTSTRAP, LINEAR_CARRIAGE, LINEAR_TRANSMISSION, LINEAR_GYRO, LINEAR_JADE -> Group.LINEAR;
             case FTB_CREATIVE_RETURN -> Group.FTB_LIBRARY;
             case SABLE_GRAVES -> Group.GRAVES;
+            case ACCESSORIES_CURIOS_BINDINGS -> Group.ACCESSORIES;
             case ANALOG_AUDIO -> Group.AUDIO;
             case DELIVERY_DISTANCE, DELIVERY_CHUNKS, DELIVERY_LANDING -> Group.DELIVERY;
             case QUESTLOG_REWARD_VALIDATION -> Group.QUESTLOG_SERVER;

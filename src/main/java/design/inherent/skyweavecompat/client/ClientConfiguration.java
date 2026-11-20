@@ -32,6 +32,9 @@ public final class ClientConfiguration {
                     event.enqueueWork(design.inherent.skyweavecompat.maps.MapZoomSettings::load));
         if (OptionalIntegrations.enabled(Feature.CLIMATE)) ClimateClient.register();
         modBus.addListener(ClientResourceRevision::register);
+        if (OptionalIntegrations.enabled(Feature.HELD_MATERIALS)) HandMaterials.register(modBus);
+        if (OptionalIntegrations.enabled(Feature.ITEM_DEFINITIONS))
+            design.inherent.skyweavecompat.client.model.ItemDefinitions.register();
         if (OptionalIntegrations.enabled(Feature.ISLAND_CLOUDS)) modBus.addListener(IslandSky::register);
         if (OptionalIntegrations.enabled(Feature.CONSTRUCT_OCCLUSION))
             modBus.addListener((net.neoforged.fml.event.lifecycle.FMLClientSetupEvent event) ->
@@ -44,11 +47,6 @@ public final class ClientConfiguration {
                             PlainGlassModels.wrap(event, id -> !GlassBackfaces.vanillaPane(id)
                                     && TransparencyProfiles.current().wraps(id)));
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationOverview::new);
-        if (OptionalIntegrations.enabled(Feature.REDSTONE_RENDERING))
-            modBus.addListener((net.neoforged.fml.event.lifecycle.FMLClientSetupEvent event) -> event.enqueueWork(() ->
-                    net.minecraft.client.renderer.ItemBlockRenderTypes.setRenderLayer(
-                            net.minecraft.core.registries.BuiltInRegistries.BLOCK.get(net.minecraft.resources.ResourceLocation.parse("create_redstone_additions:inverter")),
-                            net.minecraft.client.renderer.RenderType.cutout())));
         if (OptionalIntegrations.enabled(Feature.LINEAR_PONDER))
             design.inherent.skyweavecompat.linear.client.LinearPonder.register();
         if (OptionalIntegrations.enabled(Feature.QUESTLOG_INTERFACE)

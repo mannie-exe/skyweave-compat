@@ -4,7 +4,7 @@ Questlog remains the authority for definitions, objectives, progress and reward 
 
 ## Upstream boundary
 
-Compile against Questlog 3.5.0, Modrinth version `Pykla7tJ`, SHA-256 `a78b76ff010ea227fcfabc133689bffd24c76e1572d88ec26a26258ca1b96bd0`. The inspected [source revision](https://github.com/InfernalStudios/Questlog/tree/c77a41eb54e6fce28981e8d6694862863704268e) is `c77a41eb54e6fce28981e8d6694862863704268e`. Its Apache-2.0 source and binaries are not bundled. Questlog is compile-only; feature selection checks its version only for active adapters. Missing or disabled adapters resolve no Questlog classes. Client hooks are excluded from dedicated servers.
+Compile against Questlog 3.5.4, Modrinth version `McoSDHAk`, SHA-256 `44537dea6ecca72772890af004753b382922bae0987802884940b2ecdda3d395`. The 3.5.4 changes relative to 3.5.3 are confined to editor scrolling and build metadata. The details, bookmark, notification, synchronization and reward handler classes are byte-identical. The previously qualified 3.5.0 and 3.5.3 targets remain admitted. Questlog is compile-only. Missing or disabled adaptations resolve no Questlog classes. Dedicated servers select only the reward handler.
 
 Minecraft/Questlog APIs supply text, item rendering, textures, inputs, narration and toasts. Cloth Config, YACL, Architectury and owo were considered; none removes this screen's coupled layout/input work enough to justify another UI dependency. Playground informed constrained sizing, shared hit geometry, proportional thumbs and cache invalidation, not a framework port.
 

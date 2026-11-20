@@ -45,7 +45,7 @@ public final class ShaderAssembly {
         Path root = FMLPaths.GAMEDIR.get();
         try {
             for (var recipe : ShaderWorkspace.recipes(root))
-                if (recipe.enabled() && recipe.json().getAsJsonArray("steps").asList().stream().anyMatch(s -> s.getAsJsonObject().get("type").getAsString().equals("euphoria-1.10.5"))) {
+                if (recipe.enabled() && recipe.json().getAsJsonArray("steps").asList().stream().anyMatch(s -> s.getAsJsonObject().get("type").getAsString().equals(ShaderEngine.EUPHORIA_STEP))) {
                     Path output = root.resolve("shaderpacks").resolve(recipe.output());
                     if (ShaderWorkspace.owned(root, output)) return output;
                 }

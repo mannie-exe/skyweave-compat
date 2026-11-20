@@ -415,7 +415,7 @@ final class ClientCombatControls {
                     design.inherent.skyweavecompat.configuration.SettingsCatalog.Group.PLAYER_ANIMATION);
             var links = (java.util.Map<?, ?>) field(mc().screen, "links");
             var link = links.get(page.id());
-            check(link instanceof net.minecraft.client.gui.components.Button button && button.active, "Player animation navigation is unavailable");
+            check(link instanceof net.minecraft.client.gui.components.Button button && button.active, "Punchy! + Moves navigation is unavailable");
             ((net.minecraft.client.gui.components.Button) link).onPress();
             var panel = field(mc().screen, "content");
             for (var entry : (java.util.List<?>) field(panel, "rows")) {

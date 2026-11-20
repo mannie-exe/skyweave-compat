@@ -10,6 +10,7 @@ public final class ClientDistanceMixinPlugin implements IMixinConfigPlugin {
     public void onLoad(String name) {}
     public String getRefMapperConfig() { return null; }
     public boolean shouldApplyMixin(String target, String mixin) {
+        if (mixin.endsWith(".FoliageDrawProbeMixin")) return Boolean.getBoolean("skyweave_compat.probe.foliage");
         if (mixin.substring(mixin.lastIndexOf('.') + 1).startsWith("Combat")) return Boolean.getBoolean("skyweave_compat.probe.combat");
         if (mixin.endsWith(".HandEffectDrawMixin")) return Boolean.getBoolean("skyweave_compat.probe.handEffects.trace");
         if (mixin.endsWith(".CoverageDrawProbeMixin")) return Boolean.getBoolean("skyweave_compat.probe.coverage");

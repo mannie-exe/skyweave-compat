@@ -8,7 +8,9 @@ import java.util.*;
 
 /** File-only composition shared by the client and authoring CLI. No Minecraft classes. */
 public final class ShaderEngine {
-    public static final String REVISION = "2";
+    public static final String REVISION = "3";
+    public static final String EUPHORIA_STEP = "euphoria-1.11.1";
+    public static final String EUPHORIA_VERSION = "1.11.1-r5.10-neoforge";
     public record Prepared(Path root, ShaderRecipe recipe, Map<String, byte[]> inputs, String key) {}
     private ShaderEngine() {}
 
@@ -70,7 +72,7 @@ public final class ShaderEngine {
                             throw new IOException("Overlay escapes shader sources");
                         files.putAll(overlay);
                     }
-                    case "euphoria-1.10.5" -> {
+                    case EUPHORIA_STEP -> {
                         ShaderRecipe.keys(step, "type", "input", "before");
                         if (!treeHash(files).equals(ShaderRecipe.string(step, "before"))) throw new IOException("Euphoria input state changed");
                         files = new TreeMap<>(EuphoriaPatch.apply(files,

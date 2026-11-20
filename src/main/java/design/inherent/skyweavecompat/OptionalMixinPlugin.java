@@ -1,5 +1,6 @@
 package design.inherent.skyweavecompat;
 
+import design.inherent.skyweavecompat.shader.ShaderEngine;
 import org.objectweb.asm.tree.ClassNode;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
@@ -13,11 +14,11 @@ public final class OptionalMixinPlugin implements IMixinConfigPlugin {
         if (OptionalIntegrations.enabled(Feature.SHADER_PATCHES)) {
             var mod = net.neoforged.fml.loading.LoadingModList.get().getMods().stream()
                 .filter(m -> m.getModId().equals("euphoria_patcher")).findFirst();
-            if (mod.isPresent() && mod.get().getVersion().toString().equals("1.10.5-r5.9.3-neoforge")) {
+            if (mod.isPresent() && mod.get().getVersion().toString().equals(ShaderEngine.EUPHORIA_VERSION)) {
                 try {
                     boolean eligible = design.inherent.skyweavecompat.shader.ShaderWorkspace.recipes(net.neoforged.fml.loading.FMLPaths.GAMEDIR.get()).stream()
                         .anyMatch(r -> r.enabled() && r.json().getAsJsonArray("steps").asList().stream()
-                            .anyMatch(step -> step.getAsJsonObject().get("type").getAsString().equals("euphoria-1.10.5")));
+                            .anyMatch(step -> step.getAsJsonObject().get("type").getAsString().equals(ShaderEngine.EUPHORIA_STEP)));
                     if (eligible) selected.addAll(List.of("client.EuphoriaAssemblyMixin", "client.EuphoriaOwnedOutputMixin", "client.EuphoriaDetectorMixin"));
                 } catch (java.io.IOException | RuntimeException failure) {
                     com.mojang.logging.LogUtils.getLogger().error("Cannot qualify Euphoria shader recipe", failure);
@@ -28,6 +29,8 @@ public final class OptionalMixinPlugin implements IMixinConfigPlugin {
     }
 
     @Override public void onLoad(String mixinPackage) {
+        if (OptionalIntegrations.enabled(Feature.ACCESSORIES_CURIOS_BINDINGS))
+            design.inherent.skyweavecompat.accessories.CuriosBindingAdjuster.register();
         org.spongepowered.asm.mixin.injection.selectors.TargetSelector.register(
                 design.inherent.skyweavecompat.water.WaterCallbackSelector.class, "skyweave");
     }
