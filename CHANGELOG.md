@@ -12,6 +12,8 @@ Generated from Git history. Player-facing release summaries are in [release note
 
 - **configuration:** Bind startup switches to shared staged saves ([619c90b](https://github.com/mannie-exe/skyweave-compat/commit/619c90b024d7801f1b6f62896e5f93acf0139ad0))
 
+- **villages:** Retain authored content ([04d9d97](https://github.com/mannie-exe/skyweave-compat/commit/04d9d9722272650e00cea7974167916978806134))
+
 ### Fixes
 
 - **config:** Separate range identities ([c167e9b](https://github.com/mannie-exe/skyweave-compat/commit/c167e9b31134b3b90070bdc788b563db09dacf7a))
@@ -22,15 +24,21 @@ Generated from Git history. Player-facing release summaries are in [release note
 
 - **config:** Adopt shared catalog owners ([8b1e3c0](https://github.com/mannie-exe/skyweave-compat/commit/8b1e3c0c6407efdee6e25d4df6cb3b36b6aa1277))
 
+- **tools:** Share client inputs ([c954a22](https://github.com/mannie-exe/skyweave-compat/commit/c954a221c3e2a41f765b9f91b61eb222384ebdf7))
+
 ### Documentation
 
 - **config:** Record final pack qualification ([c1d50fc](https://github.com/mannie-exe/skyweave-compat/commit/c1d50fc4b3e5c2184d695225641f52cc3e8acc18))
+
+- Refresh maintenance references ([d376da3](https://github.com/mannie-exe/skyweave-compat/commit/d376da3b78f2a1109880b4758f5bae31943ac224))
 
 ### Build and verification
 
 - **config:** Exercise shared native owners ([9397c67](https://github.com/mannie-exe/skyweave-compat/commit/9397c673fe7448a6a6b300bfe75fca7a6ec19f27))
 
 - **build:** Check actual Ivy release requests ([87a12c4](https://github.com/mannie-exe/skyweave-compat/commit/87a12c49b6760b17b9b0f518b9ed786725e7bdd5))
+
+- **config:** Retire comparison backend ([9bde63d](https://github.com/mannie-exe/skyweave-compat/commit/9bde63d5daaa777d0f2196bcdfd67777d5cd62a5))
 
 ## v0.40.0 · 2026-11-20
 
