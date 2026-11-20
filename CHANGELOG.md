@@ -2,6 +2,32 @@
 
 Generated from Git history. Player-facing release summaries are in [release notes](RELEASE_NOTES.md).
 
+## v0.41.0 · 2026-11-20
+
+### Features
+
+- **settings:** Bind live map preferences to re:form ([6784b73](https://github.com/mannie-exe/skyweave-compat/commit/6784b730d5b884b0bb58d17faecf159cdf0cb55c))
+
+- **configuration:** Adopt shared profile and policy owners ([0271ee6](https://github.com/mannie-exe/skyweave-compat/commit/0271ee60554559a1d1dc07437988b2c0fba8d71a))
+
+- **configuration:** Bind startup switches to shared staged saves ([619c90b](https://github.com/mannie-exe/skyweave-compat/commit/619c90b024d7801f1b6f62896e5f93acf0139ad0))
+
+### Fixes
+
+- **config:** Separate range identities ([c167e9b](https://github.com/mannie-exe/skyweave-compat/commit/c167e9b31134b3b90070bdc788b563db09dacf7a))
+
+- **config:** Retain shader failure inspection ([df3e20f](https://github.com/mannie-exe/skyweave-compat/commit/df3e20f8f75279d0705c3c452b817306871f92be))
+
+### Refactoring
+
+- **config:** Adopt shared catalog owners ([8b1e3c0](https://github.com/mannie-exe/skyweave-compat/commit/8b1e3c0c6407efdee6e25d4df6cb3b36b6aa1277))
+
+### Build and verification
+
+- **config:** Exercise shared native owners ([9397c67](https://github.com/mannie-exe/skyweave-compat/commit/9397c673fe7448a6a6b300bfe75fca7a6ec19f27))
+
+- **build:** Check actual Ivy release requests ([87a12c4](https://github.com/mannie-exe/skyweave-compat/commit/87a12c49b6760b17b9b0f518b9ed786725e7bdd5))
+
 ## v0.40.0 · 2026-11-20
 
 ### Features
