@@ -2,6 +2,16 @@
 
 Generated from Git history. Player-facing release summaries are in [release notes](RELEASE_NOTES.md).
 
+## v0.40.0 · 2026-11-20
+
+### Features
+
+- **compat:** Update optional integrations ([677645b](https://github.com/mannie-exe/skyweave-compat/commit/677645bb70a9383fb6ff7a3d2d02f927d91c19bb))
+
+### Documentation
+
+- **verification:** Record published combat delivery ([56864b6](https://github.com/mannie-exe/skyweave-compat/commit/56864b6ebd116149f1754e6ceca93e7a4a4cb482))
+
 ## v0.39.0 · 2026-11-17
 
 ### Features
