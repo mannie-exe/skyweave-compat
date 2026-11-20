@@ -2,6 +2,12 @@ package design.inherent.skyweavecompat.terrain;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import design.inherent.reform.neoforge.command.SearchCommands;
+import design.inherent.reform.neoforge.command.SearchRecipient;
+import design.inherent.reform.operation.SearchReport;
+import design.inherent.reform.operation.WorkBudget;
+import design.inherent.reform.owner.PolicyRefusal;
+import design.inherent.skyweavecompat.configuration.SettingsReload;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
@@ -26,14 +32,21 @@ import java.util.concurrent.*;
 
 /** Operator-only planned-center discovery. Native field caches support concurrent worldgen reads. */
 public final class IslandLocator {
-    private static final int PAGE_SIZE = 10, BATCH_CELLS = 256;
+    private static final int BATCH_CELLS = 256;
     private final Map<MinecraftServer, State> servers = new IdentityHashMap<>();
+    private final SearchCommands<Match> reporting = new SearchCommands<>("skyweavecompat islands", source -> {
+        var state = servers.get(source.getServer());
+        return Optional.ofNullable(state == null ? null : state.job).map(job -> job.publication);
+    });
     private static final class State {
         final ThreadPoolExecutor worker = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS,
                 new ArrayBlockingQueue<>(1), task -> {
                     var thread = new Thread(task, "Skyweave island metadata"); thread.setDaemon(true); return thread;
                 });
+        final WorkBudget work;
         Job job;
+
+        State(MinecraftServer server) { work = new WorkBudget(1, () -> SettingsReload.requireThread(server)); }
     }
     private record Match(String id, int x, int y, int z, long distanceSquared, String archetype,
             String exterior, String interior, String biome, String shoreline, String fringe, String family) {}
@@ -41,7 +54,10 @@ public final class IslandLocator {
         boolean complete() { return visited == total; }
     }
     private static final class Job {
-        final LocatorOwner owner;
+        final SearchRecipient recipient;
+        final SearchReport<Match> report;
+        final SearchCommands.Job<Match> publication;
+        final WorkBudget.Group work;
         final net.minecraft.server.level.ServerLevel level;
         final ResourceKey<Level> dimension;
         final ClusterField field;
@@ -51,19 +67,23 @@ public final class IslandLocator {
         final Map<String, String> filters;
         final IslandSearch<Match> search;
         volatile boolean cancelled;
-        Future<?> task;
-        boolean running = true, inFlight;
-        long nextProgress;
-        Snapshot snapshot;
         Job(CommandSourceStack source, ClusterField field, IslandStyles styles, SkyIslandSettings settings,
-                int radius, Map<String, String> filters, GenerationProfile profile) {
-            owner = new LocatorOwner(source); level=source.getLevel(); dimension = level.dimension(); this.field = field;
+                int radius, Map<String, String> filters, GenerationProfile profile, WorkBudget.Group work) {
+            recipient = SearchRecipient.capture(source, 2);
+            level = recipient.level(); dimension = level.dimension(); this.field = field;
             this.styles = styles; this.settings = settings; this.radius = radius; this.filters = filters;
-            x = net.minecraft.util.Mth.floor(source.getPosition().x); z = net.minecraft.util.Mth.floor(source.getPosition().z);
+            x = net.minecraft.util.Mth.floor(recipient.origin().x); z = net.minecraft.util.Mth.floor(recipient.origin().z);
             search = new IslandSearch<>(x, z, radius, profile.spacing(), profile.lookupCells(),
                     Comparator.comparingLong(Match::distanceSquared).thenComparing(Match::id));
-            snapshot = new Snapshot(0, search.total(), 0, List.of());
-            nextProgress = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+            this.work = work;
+            report = new SearchReport<>(SearchReport.Limits.STANDARD, () -> SettingsReload.requireThread(level.getServer()));
+            observe(new Snapshot(0, search.total(), 0, List.of()));
+            publication = new SearchCommands.Job<>(recipient, report, work, match -> result(this, match), () -> cancel(this));
+        }
+
+        void observe(Snapshot current) {
+            report.observe(new SearchReport.Progress(current.visited(), current.visited(), 0, OptionalLong.of(current.total())),
+                    current.matches(), current.results());
         }
     }
 
@@ -75,18 +95,20 @@ public final class IslandLocator {
             if (!(event.getLevel() instanceof net.minecraft.server.level.ServerLevel level)) return;
             var state = locator.servers.get(level.getServer());
             if (state != null && state.job != null && state.job.dimension.equals(level.dimension())) {
-                cancel(state);
+                cancel(state.job);
             }
         });
         NeoForge.EVENT_BUS.addListener((ServerStoppedEvent event) -> {
             var state = locator.servers.remove(event.getServer());
-            if (state != null) { cancel(state); state.worker.shutdownNow(); }
+            if (state != null) {
+                if (state.job != null) cancel(state.job);
+                state.worker.shutdownNow();
+            }
         });
     }
     private void commands(RegisterCommandsEvent event) {
         event.getDispatcher().register(Commands.literal("skyweavecompat").requires(source -> source.hasPermission(2))
-                .then(Commands.literal("islands").requires(source -> source.hasPermission(2))
-                    .executes(ctx -> page(ctx.getSource(), 1))
+                .then(reporting.branch().requires(source -> source.hasPermission(2))
                     .then(Commands.literal("search")
                         .then(Commands.argument("radius", IntegerArgumentType.integer(1, 131072))
                             .executes(ctx -> start(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "radius"), ""))
@@ -99,12 +121,7 @@ public final class IslandLocator {
                                     return tail.buildFuture();
                                 })
                                 .executes(ctx -> start(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "radius"),
-                                        StringArgumentType.getString(ctx, "filters"))))))
-                    .then(Commands.literal("status").executes(ctx -> status(ctx.getSource())))
-                    .then(Commands.literal("page").executes(ctx -> page(ctx.getSource(), 1))
-                        .then(Commands.argument("number", IntegerArgumentType.integer(1, 7))
-                            .executes(ctx -> page(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "number")))))
-                    .then(Commands.literal("cancel").executes(ctx -> cancel(ctx.getSource())))));
+                                        StringArgumentType.getString(ctx, "filters"))))))));
     }
     private int start(CommandSourceStack source, int radius, String raw) {
         try {
@@ -114,75 +131,40 @@ public final class IslandLocator {
             var field = ((GeologicalGenerator)(Object)generator).skyweave$field(source.getLevel().getChunkSource().randomState());
             var profile = ((ProfiledTerrain)(Object)field).skyweave$profile();
             var filters = filters(raw);
-            var state = servers.computeIfAbsent(source.getServer(), ignored -> new State());
-            if (state.job != null && state.job.running) return fail(source, "busy");
+            var state = servers.computeIfAbsent(source.getServer(), State::new);
+            if (state.job != null && (!state.job.report.status().terminal() || state.job.work.pending() != 0))
+                return fail(source, "busy");
             var job = new Job(source, (ClusterField)(Object)field, ((StyledTerrain)(Object)field).skyweave$styles(),
-                    generator.resolvedSkyIslandSettings(), radius, filters, profile);
-            if (state.job != null) state.job.cancelled = true;
+                    generator.resolvedSkyIslandSettings(), radius, filters, profile, state.work.group(1));
             state.job = job;
             source.sendSuccess(() -> text("started", radius).copy().append(" ")
-                    .append(action("cancel_action", "cancel")), false);
+                    .append(action("cancel_action", "cancel " + job.report.id())), false);
             launch(source.getServer(), state, job); return 1;
+        } catch (PolicyRefusal refused) {
+            return fail(source, "missing");
         } catch (IllegalArgumentException error) {
             source.sendFailure(text("invalid", error.getMessage())); return 0;
         }
     }
-    private Job owned(CommandSourceStack source) {
-        var state = servers.get(source.getServer()); var job = state == null ? null : state.job;
-        return job != null && job.owner.owns(source)
-                && job.dimension.equals(source.getLevel().dimension()) ? job : null;
-    }
-    private int status(CommandSourceStack source) {
-        var job = owned(source);
-        if (job == null) return fail(source, "missing");
-        var snapshot = job.snapshot;
-        source.sendSuccess(() -> text(job.running ? "progress" : "status_complete",
-                snapshot.visited(), snapshot.total(), snapshot.matches()).copy()
-                .append(job.running ? Component.literal(" ").append(action("cancel_action", "cancel")) : Component.empty()), false);
-        return 1;
-    }
-    private int cancel(CommandSourceStack source) {
-        var job = owned(source);
-        if (job == null) return fail(source, "missing");
-        cancel(servers.get(source.getServer()));
-        source.sendSuccess(() -> text("cancelled"), false); return 1;
-    }
-    private static void cancel(State state) {
-        var job = state.job;
-        if (job == null) return;
+    private static void cancel(Job job) {
+        if (job.report.status().terminal()) return;
         job.cancelled = true;
-        // Remove cancelled queued batches without interrupting a shared native cache computation.
-        if (job.task != null) job.task.cancel(false);
-        state.worker.purge(); state.job = null;
+        job.report.requestCancellation(job.report.id());
+        job.work.stop();
+        if (job.work.pending() == 0) job.report.finish(SearchReport.Outcome.CANCELLED, "Island search cancelled");
     }
     private void tick(ServerTickEvent.Post event) {
         var server = event.getServer();
         var state = servers.get(server);
         var job = state == null ? null : state.job;
-        if (job == null) return;
-        if (!validOwner(server, job)) {
-            job.owner.success(server,null,() -> text("cancelled"));
-            cancel(state); return;
-        }
-        if (!job.running) return;
-        if (!job.inFlight) launch(server, state, job);
-        if (System.nanoTime() >= job.nextProgress) {
-            boolean player = job.owner.player();
-            job.nextProgress = System.nanoTime() + TimeUnit.SECONDS.toNanos(player ? 2 : 10);
-            var snapshot = job.snapshot;
-            var message = text("progress", snapshot.visited(), snapshot.total(), snapshot.matches());
-            var recipient=job.owner.current(server,job.dimension);
-            if (recipient!=null && recipient.getEntity() instanceof net.minecraft.server.level.ServerPlayer current)
-                current.displayClientMessage(message,true);
-            else job.owner.success(server,job.dimension,() -> message);
-        }
-    }
-    private static boolean validOwner(MinecraftServer server, Job job) {
-        return server.getLevel(job.dimension)==job.level && job.owner.current(server,job.dimension)!=null;
+        if (job == null || job.report.status().terminal() || job.cancelled) return;
+        if (job.recipient.current().isEmpty()) { cancel(job); return; }
+        reporting.notifyMatches(job.publication, server.getTickCount());
+        if (job.work.pending() == 0) launch(server, state, job);
     }
     private void launch(MinecraftServer server, State state, Job job) {
-        job.inFlight = true;
-        try { job.task = state.worker.submit(() -> {
+        var reservation = job.work.tryReserve().orElseThrow();
+        try { state.worker.execute(() -> {
             Throwable failure = null;
             long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
             int end = Math.min(job.search.total(), job.search.visited() + BATCH_CELLS);
@@ -204,21 +186,31 @@ public final class IslandLocator {
             Throwable result = failure;
             var snapshot = new Snapshot(job.search.visited(), job.search.total(), job.search.matches(), job.search.results());
             server.execute(() -> {
-                if (job.cancelled || state.job != job || servers.get(server) != state) return;
-                if (!validOwner(server, job)) { cancel(state); return; }
-                job.inFlight = false;
-                job.snapshot = snapshot;
+                reservation.close();
+                if (job.cancelled || state.job != job || servers.get(server) != state
+                        || job.recipient.current().isEmpty()) { cancel(job); return; }
+                job.observe(snapshot);
                 if (result != null) {
-                    job.owner.failure(server,job.dimension,text("failed",result.toString())); state.job = null;
+                    job.work.stop();
+                    var reason = result.toString();
+                    job.report.finish(SearchReport.Outcome.FAILED, reason.substring(0, Math.min(512, reason.length())));
+                    job.recipient.current().ifPresent(source -> source.sendFailure(text("failed", job.report.status().reason())));
                 } else if (snapshot.complete()) {
-                    job.running = false;
-                    job.owner.success(server,job.dimension,() -> text("complete",snapshot.visited(),snapshot.total(),snapshot.matches()));
-                    var recipient=job.owner.current(server,job.dimension);if(recipient!=null)page(recipient,1);
+                    job.work.stop();
+                    job.report.finish(SearchReport.Outcome.COMPLETE, "");
+                    reporting.notifyMatches(job.publication, server.getTickCount());
+                    var page = job.report.capture(1).orElseThrow().cursor();
+                    job.recipient.current().ifPresent(source -> source.sendSuccess(() ->
+                            text("complete", snapshot.visited(), snapshot.total(), snapshot.matches()).copy().append(" ")
+                                    .append(action("results_action", "page at " + page.job() + " " + page.revision() + " 1")), false));
                 }
                 // The next server tick schedules the next bounded worker slice.
             });
         }); } catch (RejectedExecutionException error) {
-            job.running = false; state.job = null; job.owner.failure(server,job.dimension,text("busy"));
+            reservation.close();
+            job.work.stop();
+            job.report.finish(SearchReport.Outcome.FAILED, "Island search worker unavailable");
+            job.recipient.current().ifPresent(source -> source.sendFailure(text("busy")));
         }
     }
     /** Only descriptor-owned facts can reject before style/biome resolution. */
@@ -235,38 +227,18 @@ public final class IslandLocator {
                 name(style.kind()), name(IslandInteriors.kind(island, InteriorConfiguration.profile(),style.kind())),
                 style.kind() == IslandStyles.Kind.DEEP_DARK ? "minecraft:deep_dark" : style.hostBiome(), name(components.shoreline()), name(components.fringe()), name(island.family()));
     }
-    private int page(CommandSourceStack source, int page) {
-        var job = owned(source);
-        if (job == null) return fail(source, "missing");
-        var snapshot = job.snapshot;
-        var results = snapshot.results(); int first = (page - 1) * PAGE_SIZE;
-        if (first >= results.size() && page != 1) return fail(source, "page_missing");
-        if (results.isEmpty()) {
-            source.sendSuccess(() -> text(job.running ? "no_match_yet" : "no_match"), false);
-            if (job.running) source.sendSuccess(() -> action("cancel_action", "cancel"), false);
-            return 0;
-        }
-        int pages = Math.max(1, (results.size() + PAGE_SIZE - 1) / PAGE_SIZE);
-        source.sendSuccess(() -> text(job.running ? "page_provisional" : "page", page, pages, results.size()), false);
-        for (var match : results.subList(Math.min(first, results.size()), Math.min(first + PAGE_SIZE, results.size()))) {
-            double dx = match.x() - (double)job.x, dz = match.z() - (double)job.z;
-            String direction = (dz < 0 ? "N" : dz > 0 ? "S" : "") + (dx < 0 ? "W" : dx > 0 ? "E" : "");
-            var coordinates = Component.literal("[" + match.x() + ", " + match.y() + ", " + match.z() + "]")
-                    .withStyle(style -> style.withColor(ChatFormatting.AQUA)
-                        .withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
-                            "/tp @s " + match.x() + " " + match.y() + " " + match.z())));
-            var details = text("result_details", match.archetype(), match.exterior(), match.interior(),
-                    match.biome(), match.shoreline(), match.fringe(), match.family(), match.id());
-            source.sendSuccess(() -> text("result", coordinates, Math.round(Math.sqrt(match.distanceSquared())),
-                    direction, match.exterior().equals("native") ? match.archetype() : match.archetype() + " / " + match.exterior())
-                    .copy().withStyle(style -> style.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, details))), false);
-        }
-        var navigation = Component.empty();
-        if (page > 1) navigation.append(action("previous_action", "page " + (page - 1))).append(" ");
-        if (page < pages) navigation.append(action("next_action", "page " + (page + 1))).append(" ");
-        if (job.running) navigation.append(action("cancel_action", "cancel"));
-        if (!navigation.getSiblings().isEmpty()) source.sendSuccess(() -> navigation, false);
-        return results.size();
+    private static Component result(Job job, Match match) {
+        double dx = match.x() - (double)job.x, dz = match.z() - (double)job.z;
+        String direction = (dz < 0 ? "N" : dz > 0 ? "S" : "") + (dx < 0 ? "W" : dx > 0 ? "E" : "");
+        var coordinates = Component.literal("[" + match.x() + ", " + match.y() + ", " + match.z() + "]")
+                .withStyle(style -> style.withColor(ChatFormatting.AQUA)
+                    .withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND,
+                        "/tp @s " + match.x() + " " + match.y() + " " + match.z())));
+        var details = text("result_details", match.archetype(), match.exterior(), match.interior(),
+                match.biome(), match.shoreline(), match.fringe(), match.family(), match.id());
+        return text("result", coordinates, Math.round(Math.sqrt(match.distanceSquared())),
+                direction, match.exterior().equals("native") ? match.archetype() : match.archetype() + " / " + match.exterior())
+                .copy().withStyle(style -> style.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, details)));
     }
     private static Component action(String label, String suffix) {
         return text(label).copy().withStyle(style -> style.withColor(ChatFormatting.YELLOW)

@@ -20,7 +20,7 @@ def copy_owned(source, destination, root):
     shutil.copy2(source, destination)
 
 
-def stage_configs(pack, root):
+def stage_configs(pack, root, selected=None):
     pack, root = Path(pack).resolve(), Path(root).resolve()
     if not (pack / 'empack.yml').is_file():
         raise ValueError('Expected an actual authored pack root')
@@ -31,6 +31,8 @@ def stage_configs(pack, root):
             if not source.is_file() or source.name == '.DS_Store':
                 continue
             relative = source.relative_to(directory)
+            if selected is not None and relative.as_posix() not in selected:
+                continue
             copy_owned(source, root / relative, root)
             inputs[relative.as_posix()] = {'layer': side, 'authoredSha256': hashlib.sha256(source.read_bytes()).hexdigest()}
     # Host web listeners/downloads are not part of terrain/configuration qualification.

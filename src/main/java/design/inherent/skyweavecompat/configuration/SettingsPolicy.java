@@ -45,5 +45,7 @@ public final class SettingsPolicy<T> {
         if (expected != revision) throw new IllegalStateException("Effective settings changed; read them again");
         return new Prepared(expected, Objects.requireNonNull(candidate));
     }
+    boolean matches(T candidate) { return current().equals(candidate); }
+    void publish(T candidate) { prepare(revision, candidate, () -> true).apply(() -> true); }
     public void close() { ownerThread.run(); open = false; }
 }

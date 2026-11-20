@@ -1,7 +1,6 @@
 package design.inherent.skyweavecompat.wayfinder;
 
 import design.inherent.skyweavecompat.configuration.ConfigLocations;
-import design.inherent.skyweavecompat.configuration.ConfigFile;
 import design.inherent.skyweavecompat.configuration.SettingsPolicy;
 import design.inherent.skyweavecompat.configuration.SettingsReload;
 import design.inherent.skyweavecompat.mixin.StructureSearchCacheAccess;
@@ -84,7 +83,8 @@ public final class Wayfinder {
                     if (state != null && state.jobs.containsKey(player.getUUID())) finish(state,state.jobs.get(player.getUUID()),"cancelled");
                     return 1;
                 })))));
-        SettingsReload.register("wayfinder", Wayfinder::reloadPolicy);
+        SettingsReload.registerPolicy("wayfinder", WayfinderSettings.FILE, WayfinderSettings.class, WayfinderSettings.DEFAULT,
+                server -> SERVERS.get(server).policy);
         NeoForge.EVENT_BUS.addListener(Wayfinder::tick);
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.level.LevelEvent.Unload event) -> {
             if (!(event.getLevel() instanceof ServerLevel level)) return;
@@ -122,12 +122,6 @@ public final class Wayfinder {
         var state = SERVERS.get(source.getServer());
         if (state == null) throw new IllegalStateException("Wayfinder is unavailable in this server context");
         return state.policy.prepare(expected,candidate,() -> source.hasPermission(2)).apply(() -> source.hasPermission(2));
-    }
-    private static boolean reloadPolicy(net.minecraft.commands.CommandSourceStack source) throws java.io.IOException {
-        var before = readPolicy(source);
-        var file = ConfigLocations.file(FMLPaths.CONFIGDIR.get(), WayfinderSettings.FILE);
-        var candidate = WayfinderSettings.parse(ConfigFile.read(file));
-        return applyPolicy(source,before.revision(),candidate).revision() != before.revision();
     }
     private static boolean permitted(ServerPlayer player, State state) { return !state.policy.current().operatorsOnly() || player.hasPermissions(2); }
     private static boolean usable(ServerPlayer player) { return !player.isPassenger() && !player.isVehicle() && !player.isFallFlying() && !player.isSpectator() && player.isAlive(); }

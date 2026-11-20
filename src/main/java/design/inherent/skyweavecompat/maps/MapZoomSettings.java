@@ -3,16 +3,8 @@ package design.inherent.skyweavecompat.maps;
 import design.inherent.skyweavecompat.configuration.SettingSpec;
 import design.inherent.skyweavecompat.configuration.RecordSettings;
 import design.inherent.skyweavecompat.configuration.ProfileJson;
+import design.inherent.skyweavecompat.configuration.ReformDocuments;
 import design.inherent.reform.definition.DocumentDefinition;
-import design.inherent.reform.definition.DocumentId;
-import design.inherent.reform.definition.FieldKey;
-import design.inherent.reform.definition.RecordTypes;
-import design.inherent.reform.presentation.NumericDisplay;
-import design.inherent.reform.serialization.DecimalText;
-import design.inherent.reform.value.ValueTypes;
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.Optional;
 
 /** Client preference math and codec; never links Hoofprint, Surveyor or rendering classes. */
 public record MapZoomSettings(
@@ -42,16 +34,7 @@ public record MapZoomSettings(
         }
     }
     public static DocumentDefinition<MapZoomSettings> definition() {
-        var type = RecordTypes.record(MapZoomSettings.class);
-        for (var field : RecordSettings.fields(DEFAULT)) {
-            var display = new NumericDisplay(field.unit(),
-                    List.of(new NumericDisplay.Unit(field.unit(), field.unit(), BigDecimal.ONE)),
-                    field.step(), Optional.empty(), DecimalText.Limits.CONFIGURATION);
-            type.field(field.key(), FieldKey.of(field.key(), ValueTypes.numericDisplay(
-                    ValueTypes.decimal(field.minimum().doubleValue(), field.maximum().doubleValue()), display)));
-        }
-        return new DocumentDefinition<>(new DocumentId("skyweave_compat", "hoofprint"),
-                1, type.build(), () -> DEFAULT);
+        return ReformDocuments.record(FILE, MapZoomSettings.class, DEFAULT);
     }
     public double clamp(double scale) { return Math.clamp(scale, zoomMinimum, zoomMaximum); }
     public double scroll(double scale, double delta) {

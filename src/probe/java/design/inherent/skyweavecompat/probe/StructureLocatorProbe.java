@@ -13,6 +13,7 @@ final class StructureLocatorProbe {
     private static final List<Component> messages = new ArrayList<>();
     private static final JsonObject report = new JsonObject();
     private static CommandSourceStack source;
+    private static net.minecraft.server.level.ServerPlayer player;
     private static Path output;
     private static long started, lastTick, maxGap, runStarted, firstResult, nextSnapshot;
     private static int ticks, phase, phaseTick;
@@ -44,12 +45,10 @@ final class StructureLocatorProbe {
         selector=0;selectorRuns=new JsonObject();selectedId=null;
         focusPending=System.getProperty("neighbors.probe.searchFixture", "").equals("selectors");
         queryRadius=Integer.getInteger("neighbors.probe.searchRadius",12800);
-        source = server.createCommandSourceStack().withSource(new CommandSource() {
-            public void sendSystemMessage(Component message) { messages.add(message); }
-            public boolean acceptsSuccess() { return true; }
-            public boolean acceptsFailure() { return true; }
-            public boolean shouldInformAdmins() { return false; }
-        }).withPosition(net.minecraft.world.phys.Vec3.atCenterOf(server.overworld().getSharedSpawnPos()));
+        var spawn = server.overworld().getSharedSpawnPos();
+        player = ProbePlayers.stationary(server, "StructureReport", spawn.above(2));
+        server.getPlayerList().op(player.getGameProfile());
+        source = player.createCommandSourceStack().withPosition(net.minecraft.world.phys.Vec3.atCenterOf(spawn));
         report.addProperty("originX", source.getPosition().x); report.addProperty("originZ", source.getPosition().z);
         report.addProperty("seed", server.overworld().getSeed());
         try {
@@ -106,9 +105,11 @@ final class StructureLocatorProbe {
         if (!active) return;
         try {
             long now = System.nanoTime(); maxGap = Math.max(maxGap, now - lastTick); lastTick = now; ticks++;
+            ProbePlayers.drainChat(player, messages);
+            if (!has("result") && (has("report.notice") || has("report.notice_one"))) command(server, "page");
             if(now>=nextSnapshot) {
                 nextSnapshot=now+java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
-                if(!has("complete") && !has("partial") && !has("failed") && !has("cancelled"))command(server,"status");
+                if(!has("complete") && !has("partial") && !has("failed") && !has("cancelled"))command(server,"details");
                 report.addProperty("fixturePhase",phase);report.addProperty("activeQuery",query);
                 report.addProperty("elapsedSeconds",(now-started)/1e9);
                 report.addProperty("maximumTickGapMillis",maxGap/1e6);
@@ -146,7 +147,7 @@ final class StructureLocatorProbe {
                 throw new AssertionError("Search fixture exceeded its policy-derived bounded duration");
             if (has("failed")) throw new AssertionError("Search failed: " + messages);
             if(phase==2) {
-                command(server,"status");
+                command(server,"details");
                 for(var message:messages)if(key(message).equals("progress_stream")) {
                     var args=((TranslatableContents)message.getContents()).getArgs();
                     if(args[0] instanceof Component state && state.getContents() instanceof TranslatableContents phaseText
@@ -170,9 +171,10 @@ final class StructureLocatorProbe {
                 if (((Number)values[1]).intValue() < Integer.getInteger("neighbors.probe.searchMinMatches", 0))
                     throw new AssertionError("Known positive search failed: " + terminal.getString());
                 run.addProperty("candidates", ((Number)values[0]).intValue()); run.addProperty("matches", ((Number)values[1]).intValue());
-                if (((Number)values[1]).intValue() == 0 && (has("page")
-                        || !has(key(terminal).equals("complete") ? "empty_complete" : "empty_partial")))
-                    throw new AssertionError("Empty results must explain coverage instead of displaying a blank page");
+                command(server, "page");
+                if (((Number)values[1]).intValue() == 0
+                        && (!has(key(terminal).equals("complete") ? "report.zero" : "report.partial") || !pageResults().isEmpty()))
+                    throw new AssertionError("Empty results did not report qualified coverage");
                 var results = pageResults();
                 run.add("firstPage", results.deepCopy()); run.addProperty("serverTicks", ticks);
                 int pages = Math.ceilDiv(Math.min(64, ((Number)values[1]).intValue()), 10);
@@ -199,7 +201,7 @@ final class StructureLocatorProbe {
                     run.addProperty("timeLimitVerified",true);
                 }
                 command(server, "page");
-                if (((Number)values[1]).intValue() > 0 && !has("page"))
+                if (((Number)values[1]).intValue() > 0 && pageResults().isEmpty())
                     throw new AssertionError("Page shortcut did not show retained results");
                 if(selector==0)report.add(phase == 0 ? "cold" : "warm", run);
                 else {
@@ -252,9 +254,10 @@ final class StructureLocatorProbe {
                 messages.clear(); command(server, "search 1 family=villages"); phase = 3; phaseTick = ticks;
             } else if (phase == 3 && (has("complete") || has("partial")) && ticks - phaseTick >= 20) {
                 var completion = messages.stream().filter(m -> Set.of("complete","partial").contains(key(m))).findFirst().orElseThrow();
+                command(server, "page");
                 if (((Number)((TranslatableContents)completion.getContents()).getArgs()[1]).intValue() == 0
-                        && (!has(key(completion).equals("complete") ? "empty_complete" : "empty_partial") || has("page")))
-                    throw new AssertionError("Empty search displayed a blank page or concealed incomplete coverage");
+                        && (!has(key(completion).equals("complete") ? "report.zero" : "report.partial") || !pageResults().isEmpty()))
+                    throw new AssertionError("Empty search concealed incomplete coverage or returned phantom rows");
                 long completions = messages.stream().filter(m -> Set.of("complete","partial").contains(key(m))).count();
                 if (completions != 1) throw new AssertionError("Cancelled callback published stale completion");
                 report.addProperty("emptySearchOutcome",key(completion));
@@ -352,11 +355,12 @@ final class StructureLocatorProbe {
     private static void command(MinecraftServer server, String command) throws Exception { command(server, command, source); }
     private static void command(MinecraftServer server, String command, CommandSourceStack origin) throws Exception {
         server.getCommands().getDispatcher().execute("skyweavecompat structures " + command, origin);
+        ProbePlayers.drainChat(player, messages);
     }
     private static boolean has(String value) { return messages.stream().anyMatch(message -> key(message).equals(value)); }
     private static JsonArray pageResults() {
         int header = -1;
-        for (int i = 0; i < messages.size(); i++) if (key(messages.get(i)).equals("page")) header = i;
+        for (int i = 0; i < messages.size(); i++) if (containsReportPage(messages.get(i))) header = i;
         var results = new JsonArray();
         if (header < 0) return results;
         for (var message : messages.subList(header + 1, messages.size())) if (key(message).equals("result")) {
@@ -370,8 +374,11 @@ final class StructureLocatorProbe {
     }
     private static String key(Component message) {
         if (message.getContents() instanceof TranslatableContents contents)
-            return contents.getKey().replace("skyweave_compat.structures.", "");
+            return contents.getKey().replace("skyweave_compat.structures.", "").replace("reform.search.", "report.");
         return message.getSiblings().stream().map(StructureLocatorProbe::key).filter(value -> !value.isEmpty()).findFirst().orElse("");
+    }
+    private static boolean containsReportPage(Component message) {
+        return key(message).equals("report.page") || message.getSiblings().stream().anyMatch(StructureLocatorProbe::containsReportPage);
     }
     private StructureLocatorProbe() {}
 }

@@ -79,8 +79,11 @@ public final class ConfigurationOverview extends Screen {
     private String contentFocus, navigationFocus;
     private String selectedEntry;
 
-    public ConfigurationOverview(ModContainer container, Screen parent) {
+    private final TerrainProfileForms terrainProfiles;
+
+    ConfigurationOverview(ModContainer container, Screen parent, TerrainProfileForms terrainProfiles) {
         super(Component.translatable("skyweave_compat.configuration.title")); this.parent = parent;
+        this.terrainProfiles = terrainProfiles;
         serverSettings = new ServerSettingsView(Minecraft.getInstance(), this::serverChanged);
         load(); loadJson(); loadRegistered();
     }
@@ -96,12 +99,13 @@ public final class ConfigurationOverview extends Screen {
     private void loadJson() {
         for (var file : JsonSettings.FILES) try {
             if (file.filename().equals(design.inherent.skyweavecompat.maps.MapZoomSettings.FILE)) continue;
+            if (TerrainProfileForms.owns(file.filename())) continue;
             var edits = json.get(file.filename());
             if (edits == null) json.put(file.filename(), new JsonEdits(ConfigLocations.directory(FMLPaths.CONFIGDIR.get(), file.filename()), file)); else edits.reload();
             unavailable.remove(file.filename());
         } catch (Exception failure) { unavailable.put(file.filename(), String.valueOf(failure.getMessage())); }
     }
-    private boolean dirty() { if (serverSettings.selected()) return json.values().stream().filter(edits -> ServerSettingsContext.Document.supports(edits.definition().filename())).anyMatch(JsonEdits::dirty);
+    private boolean dirty() { if (serverSettings.selected()) return false;
         return draft != null && draft.dirty() || json.values().stream().anyMatch(JsonEdits::dirty)
             || toml.values().stream().anyMatch(RegisteredEdits::dirty); }
     private void loadRegistered() {
@@ -166,12 +170,6 @@ public final class ConfigurationOverview extends Screen {
         contextButton.active = !serverSettings.busy() && (serverSettings.selected() || serverSettings.available());
         contextButton.setTooltip(Tooltip.create(text("context_help")));
         contextButton.setPosition(10, top); addRenderableWidget(contextButton);
-        if (serverSettings.selected() && serverSettings.retryable()) {
-            var retry = button(text("application_retry"), Math.max(80, Math.min(120,width - contextButton.getWidth() - 24)), serverSettings::retry);
-            retry.active = serverSettings.ready() && !dirty(); retry.setPosition(contextButton.getX()+contextButton.getWidth()+4,top);
-            if (retry.getX()+retry.getWidth()>width-10) { top+=24; retry.setPosition(10,top); }
-            addRenderableWidget(retry);
-        }
         top += 24;
         notice = !feedback.getString().isEmpty() ? feedback : draft == null ? text("load_failed") : Component.empty();
         if (!notice.getString().isEmpty()) {
@@ -525,11 +523,22 @@ public final class ConfigurationOverview extends Screen {
         Component help = (serverSettings.selected() ? text("server_file_policy") : Component.translatable(file.summaryKey())).copy().append("\n").append(text(serverSettings.selected() ? "server_policy_timing" : "timing." + file.timing().name().toLowerCase(Locale.ROOT)));
         if (!exists) help = help.copy().append("\n").append(text("not_created"));
         Component label = file.group() == null || detail != null ? Component.literal(file.filename()) : Component.translatable(file.labelKey());
+        if (serverSettings.selected()) {
+            var edit = valueButton(text("edit_running_policy"), label, 130, () -> minecraft.setScreen(
+                    design.inherent.reform.neoforge.client.IntegratedSettings.screen(this, label,
+                            design.inherent.reform.definition.DocumentId.parse(file.id()))));
+            edit.active = serverSettings.ready();
+            content.anchorRow("file/" + file.id(), label, help, edit, open);
+            return;
+        }
         var edits = json.get(file.filename());
         if (file.filename().equals(design.inherent.skyweavecompat.maps.MapZoomSettings.FILE) && detail == null
                 && OptionalIntegrations.enabled(Feature.HOOFPRINT_ZOOM)) {
             content.anchorRow("file/" + file.id(), label, help, valueButton(text("edit"), label, 112,
                     () -> minecraft.setScreen(HoofprintPreferences.screen(this))));
+        } else if (terrainProfiles != null && TerrainProfileForms.owns(file.filename()) && detail == null) {
+            content.anchorRow("file/" + file.id(), label, help, valueButton(text("profile_open"), label, 150,
+                    () -> minecraft.setScreen(terrainProfiles.screen(this))), open);
         } else if (JsonSettings.find(file.filename()) != null && detail == null) {
             content.anchorRow("file/" + file.id(), label, help);
             if (unavailable.containsKey(file.filename())) {
@@ -831,7 +840,6 @@ public final class ConfigurationOverview extends Screen {
     }
     private void saveDraft() {
         if (!canSave() || !validateDraft()) return;
-        if (serverSettings.selected()) { writeServerDraft(); return; }
         boolean generation = draft != null && draft.changes().keySet().stream().anyMatch(feature -> SettingsCatalog.group(feature).category == Category.WORLD)
                 || json.values().stream().anyMatch(edits -> SettingsCatalog.changesGeneration(edits.definition().filename(), edits.changedKeys()))
                 || toml.values().stream().anyMatch(edits -> edits.changedKeys().stream()
@@ -910,15 +918,6 @@ public final class ConfigurationOverview extends Screen {
     private static Component boundedMessage(Exception failure) {
         String value = String.valueOf(failure.getMessage());
         return Component.literal(value.length()<=512 ? value : value.substring(0,512));
-    }
-    private void writeServerDraft() {
-        remember();
-        try {
-            var writes = new ArrayList<SettingsCommit.Write>();
-            for (var edits : json.values()) if (ServerSettingsContext.Document.supports(edits.definition().filename()) && edits.dirty())
-                writes.add(edits.prepare(minecraft::execute));
-            serverSettings.submit(List.copyOf(writes));
-        } catch (Exception failure) { feedback = failure("save_failed",failure); rebuildWidgets(); }
     }
     private void serverChanged() {
         feedback = serverSettings.message();

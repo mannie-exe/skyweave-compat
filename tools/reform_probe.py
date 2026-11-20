@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the packaged Compat settings client against an isolated Hoofprint world."""
+"""Run the packaged Compat settings client against isolated local settings fixtures."""
 import argparse
 import hashlib
 import json
@@ -148,20 +148,104 @@ def verify(client, config, migrated):
                 receipt=receipt, loadedMods=client.state()['loadedMods'])
 
 
+def verify_terrain_pair(client, config):
+    client.until(lambda: client.state('misc').get('loaded'), 'integrated fixture did not join')
+    generation = config / 'skyweave_compat-generation.json'
+    shapes = config / 'skyweave_compat-shapes.json'
+    before = {path.name: digest(path) for path in (generation, shapes)}
+    original = json.loads(generation.read_text())
+    client.act('open')
+    client.field('', 'Island shape and spacing', 'Search settings…')
+    client.wait_active('Sky Archipelago')
+    client.click('Sky Archipelago')
+    editor = 'Edit island profiles'
+    client.wait_active(editor)
+    client.click(editor)
+    client.field('', 'Island shape and spacing', 'Search documents')
+    client.wait_active('Open')
+    client.click('Open')
+    previous = str(original['spacing'])
+    client.until(lambda: any(w.get('value') == previous for w in client.state().get('widgets', [])),
+                 'the authored generation profile did not load in the shared form')
+    client.field(previous, str(original['spacing'] + 100))
+    review_action = 'Review Generation and shapes…'
+    client.wait_active(review_action)
+    assert digest(generation) == before[generation.name]
+    client.click(review_action)
+    submit = 'Save reviewed documents'
+    client.wait_active(submit)
+    client.act('reform-batch-proof')
+    receipt = json.loads((client.root / 'reform-batch-proof.json').read_text())
+    assert receipt == {'intents': {'skyweave_compat:generation': 'COMMIT', 'skyweave_compat:shapes': 'CHECK'},
+                       'valid': True}, receipt
+    client.click(submit)
+    saved = client.until(lambda: digest(generation) != before[generation.name] and json.loads(generation.read_text()),
+                         'the reviewed generation profile did not save')
+    assert saved == {**original, 'spacing': original['spacing'] + 100}, saved
+    assert digest(shapes) == before[shapes.name]
+    return dict(before=before, after={path.name: digest(path) for path in (generation, shapes)},
+                reviewed=receipt, spacingBefore=original['spacing'], spacingAfter=saved['spacing'])
+
+
+def verify_integrated_policy(client, config):
+    client.until(lambda: client.state('misc').get('loaded'), 'integrated fixture did not join')
+    path = config / 'skyweave_compat-wayfinder.json'
+    before = json.loads(path.read_text())
+    original_hash = digest(path)
+
+    def effective():
+        response = client.act('server-proof')
+        sequence = response['sequence']
+        return client.until(lambda: (state if state.get('sequence') == sequence else None)
+                            if (state := client.state().get('serverProof', {})) else None,
+                            'actual integrated policy was not observed')
+
+    original = effective()
+    assert before == original['wayfinder'], original
+    client.act('open')
+    client.wait_active('Context: Local files')
+    client.click('Context: Local files')
+    client.wait_active('Edit running policy')
+    client.click('Edit running policy')
+    client.until(lambda: any(w.get('value') == str(before['stepsPerTick']) for w in client.state().get('widgets', [])),
+                 'integrated re:form did not load the saved Wayfinder policy')
+    client.field(str(before['stepsPerTick']), '128')
+    client.wait_active('Save and apply')
+    assert digest(path) == original_hash and effective()['wayfinder'] == before
+    client.click('Save and apply')
+    saved = client.until(lambda: digest(path) != original_hash and json.loads(path.read_text()),
+                         'native integrated settings did not save')
+    client.act('reform-receipt')
+    receipt = json.loads((client.root / 'reform-receipt.json').read_text())
+    assert receipt['persistence'] == 'SAVED' and receipt['application'] == 'APPLIED', receipt
+    assert receipt['savedRevision'] == 'sha256:' + digest(path)
+    after = effective()
+    assert saved == {**before, 'stepsPerTick': 128} == after['wayfinder'], after
+    assert original['serverIdentity'] == after['serverIdentity'] and original['revisionIdentity'] != after['revisionIdentity']
+    return dict(before=original, after=after, saved=saved, receipt=receipt, originalSha256=original_hash)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('java', 'clean', 'output', 'compat', 'probe'):
         parser.add_argument('--' + name, required=True, type=Path)
     parser.add_argument('--reform', type=Path)
+    scenario = parser.add_mutually_exclusive_group()
+    scenario.add_argument('--terrain-pair', action='store_true')
+    scenario.add_argument('--integrated-policy', action='store_true')
     parser.add_argument('--mod', action='append', required=True, type=Path)
     args = parser.parse_args()
     if args.output.exists():
         parser.error('Choose a new receipt path')
+    if (args.terrain_pair or args.integrated_policy) and not args.reform:
+        parser.error('This settings scenario requires a re:form artifact')
     artifacts = [args.compat, args.probe, *args.mod]
     if args.reform:
         artifacts.append(args.reform)
     evidence = {'artifacts': {path.name: digest(path) for path in artifacts},
-                'connectorCleanSha256': digest(args.clean), 'scenario': 'migrated' if args.reform else 'baseline'}
+                'connectorCleanSha256': digest(args.clean),
+                'scenario': ('terrain-pair' if args.terrain_pair else 'integrated-policy' if args.integrated_policy
+                             else 'migrated' if args.reform else 'baseline')}
     started = time.monotonic()
     with tempfile.TemporaryDirectory(prefix='skyweave-reform-client-') as directory:
         root = Path(directory)
@@ -182,7 +266,12 @@ def main():
             process = subprocess.Popen(command, cwd=root, stdout=console, stderr=subprocess.STDOUT)
             client = Client(root, process)
             try:
-                evidence['observations'] = verify(client, config, bool(args.reform))
+                if args.terrain_pair:
+                    evidence['observations'] = verify_terrain_pair(client, config.parent)
+                elif args.integrated_policy:
+                    evidence['observations'] = verify_integrated_policy(client, config.parent)
+                else:
+                    evidence['observations'] = verify(client, config, bool(args.reform))
                 client.act('quit')
                 if process.wait(timeout=20):
                     raise RuntimeError('Native client exit failed')

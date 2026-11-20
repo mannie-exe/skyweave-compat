@@ -11,8 +11,9 @@ import java.nio.file.*;
 public record SearchSettings(
         @SettingSpec(minimum="16", maximum="65536", unit="candidates", group="coverage") int candidateLimit,
         @SettingSpec(minimum="5", maximum="600", unit="seconds", group="coverage") int timeLimitSeconds,
-        @SettingSpec(minimum="1", maximum="2", unit="chunks", group="scheduling") int concurrentChunks,
+        @SettingSpec(minimum="1", maximum="" + SearchSettings.MAX_CONCURRENT_CHUNKS, unit="chunks", group="scheduling") int concurrentChunks,
         @SettingSpec(minimum="1", maximum="10", unit="milliseconds", group="scheduling") int tickBudgetMillis) {
+    public static final int MAX_CONCURRENT_CHUNKS = 2;
     public static final String FILE = "skyweave_compat-search.json";
     public static final SearchSettings DEFAULT = new SearchSettings(65536, 600, 2, 5);
     public SearchSettings {

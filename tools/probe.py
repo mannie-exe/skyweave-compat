@@ -20,6 +20,7 @@ from fixture_files import copy_owned, stage_configs
 ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--mod', type=Path, help='Exact Skyweave: Compatibility Patches JAR for an isolated comparison; defaults to the local build')
+parser.add_argument('--reform', type=Path, help='Exact re:form library JAR required by a migrated Compat artifact')
 parser.add_argument('--resource-patches', type=Path, help='Exact candidate Resource Patches JAR for the isolated full-profile fixture')
 parser.add_argument('--placement-followup-controls', action='store_true', help='With --village-pools, qualify native soil and rigid decoration-support controls')
 parser.add_argument('--output-dir', type=Path, help='Retained report/log directory; defaults to build/verification')
@@ -45,6 +46,7 @@ parser.add_argument('--dynamic-waters', type=Path, help='Exact Dynamic Waters 13
 mode = parser.add_mutually_exclusive_group()
 mode.add_argument('--configuration-writers', action='store_true', help='Qualify native save/exit writers against actual authored pack configuration')
 parser.add_argument('--configuration-pack', type=Path, help='With --configuration-writers, read-only source pack overrides')
+parser.add_argument('--configuration-delegation', action='store_true', help='Observe the actual registered foreign settings boundary')
 parser.add_argument('--configuration-release', type=Path, help='Native-built configuration-only release to install before the writer run and prepare afterward')
 mode.add_argument('--wayfinder', action='store_true', help='Exercise native Wayfinder commands, collision landings and server policy')
 mode.add_argument('--perimeter', action='store_true', help='Check granular remnant bounds and native fill')
@@ -54,6 +56,7 @@ mode.add_argument('--access', action='store_true', help='Check native portal/tra
 mode.add_argument('--quests', action='store_true', help='Check native FTB task, party and reward semantics in a disposable fixture book')
 mode.add_argument('--structure-search', action='store_true', help='Exercise native asynchronous structure discovery across normal server ticks')
 mode.add_argument('--locator', action='store_true', help='Exercise the bounded metadata command without generating chunks')
+mode.add_argument('--settings-policy', action='store_true', help='Verify real operator reloads for active server policies')
 mode.add_argument('--lookup', action='store_true', help='Check native presence rejection for unselected structure candidates without chunk generation')
 mode.add_argument('--audio', choices=['minimal', 'create', 'analog', 'pair', 'full'], help='Check Analog Audio registration and optional dependency boundaries')
 mode.add_argument('--city-recipe', action='store_true', help='Qualify native city assembly without island queries or terrain writes')
@@ -150,6 +153,8 @@ if args.wayfinder_dh and (not args.wayfinder or args.minimal): parser.error('--w
 if args.wayfinder_high and not args.wayfinder: parser.error('--wayfinder-high requires --wayfinder')
 if args.wayfinder_public and (not args.wayfinder or args.wayfinder_dh): parser.error('--wayfinder-public requires --wayfinder without --wayfinder-dh')
 if args.configuration_writers != bool(args.configuration_pack): parser.error('--configuration-writers requires --configuration-pack and vice versa')
+if args.configuration_delegation and not (args.configuration_writers and args.reform and args.dynamic_waters):
+    parser.error('--configuration-delegation requires --configuration-writers, --reform and --dynamic-waters')
 if args.configuration_release and not args.configuration_writers: parser.error('--configuration-release requires --configuration-writers')
 if args.search_fixture and not args.structure_search: parser.error('--search-fixture requires --structure-search')
 if args.search_config and not args.structure_search: parser.error('--search-config requires --structure-search')
@@ -235,7 +240,7 @@ if args.floe_layers and (args.without_dynamic_waters or args.minimal and not arg
     parser.error('--floe-layers requires Dynamic Waters; supply its pinned artifact for --minimal')
 if args.oceans and not args.ocean_config:
     parser.error('--oceans requires --ocean-config')
-if args.minimal and args.generation != 'adapted' and not any((args.city_recipe, args.wayfinder, args.access, args.perimeter, args.hydrology, args.variation, args.structure_search, args.locator, args.lookup, args.coverage, args.structures, args.surface_structures, args.overlap, args.interiors, args.veins, args.water, args.materials, args.oceans, args.habitats, args.floe_layers, args.biomes, args.surface_climate, args.terrain, args.benchmark, args.village_support, args.natural_inputs, args.ground_village)):
+if args.minimal and args.generation != 'adapted' and not any((args.city_recipe, args.wayfinder, args.access, args.perimeter, args.hydrology, args.variation, args.structure_search, args.locator, args.settings_policy, args.lookup, args.coverage, args.structures, args.surface_structures, args.overlap, args.interiors, args.veins, args.water, args.materials, args.oceans, args.habitats, args.floe_layers, args.biomes, args.surface_climate, args.terrain, args.benchmark, args.village_support, args.natural_inputs, args.ground_village)):
     parser.error('--minimal requires a terrain, coverage, structure, interior, vein, water or material check')
 if args.reopen and not (args.benchmark or args.fractured_hollow or args.variation or args.city_recipe or args.quests or args.access or args.ocean_fringes or args.structure_search or args.hydrology or args.lookup or args.generation or args.natural or args.structures or args.surface_structures or args.water or args.oceans or args.village_support or args.natural_inputs or args.ground_village):
     parser.error('--reopen requires a benchmark, generation, natural villages, structures, water or ocean fringes')
@@ -304,6 +309,7 @@ if args.quests: name = f'quest-behavior-{args.seed}'
 if args.structure_search: name = f'structure-search-{args.seed}-' + args.search_target.replace(':', '-').replace('/', '-').replace('=', '-')
 if args.search_fixture == 'policy': name += '-policy'
 if args.locator: name = f'locator-{args.seed}'
+if args.settings_policy: name = f'settings-policy-{args.seed}'
 if args.configuration_writers: name = f'configuration-writers-{args.seed}'
 if args.perimeter: name = f'perimeter-{args.seed}'
 if args.hydrology: name = f'hydrology-{args.seed}'
@@ -424,6 +430,13 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
             raise SystemExit('Dynamic Waters fixture requires the pinned 13.1.0 NeoForge artifact')
         copy_owned(candidate, run / 'mods' / candidate.name, run)
     copy_owned(mod, run / 'mods' / mod.name, run)
+    if args.reform:
+        candidate = args.reform.expanduser().resolve()
+        with zipfile.ZipFile(candidate) as archive:
+            identity = tomllib.loads(archive.read('META-INF/neoforge.mods.toml').decode())
+        if {entry['modId'] for entry in identity.get('mods', [])} != {'reform'}:
+            parser.error('--reform must identify only reform')
+        copy_owned(candidate, run / 'mods' / candidate.name, run)
     if args.resource_patches:
         candidate = args.resource_patches.expanduser().resolve()
         with zipfile.ZipFile(candidate) as archive:
@@ -454,6 +467,11 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
     if args.search_fixture == 'cap':
         (run / 'config/skyweave/skyweave_compat-search.json').write_text(json.dumps({
             'candidateLimit': 16, 'timeLimitSeconds': 120, 'concurrentChunks': 2, 'tickBudgetMillis': 5}))
+    if args.search_fixture == 'policy':
+        (run / 'config/skyweave/skyweave_compat-search.json').write_text(json.dumps({
+            'candidateLimit': 16, 'timeLimitSeconds': 5, 'concurrentChunks': 2, 'tickBudgetMillis': 1}))
+    if args.settings_policy:
+        (run / 'settings-policy-fixture.json').write_text('{"fixture":"mc-modpacks/config-system"}\n')
     if args.quests:
         book = run / 'config/ftbquests/quests'
         if book.exists(): shutil.rmtree(book)
@@ -629,6 +647,8 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
                f'-Dneighbors.probe.searchPlanning={str(args.search_planning).lower()}',
                f'-Dneighbors.probe.searchFixture={args.search_fixture or ""}',
                f'-Dneighbors.probe.locator={str(args.locator).lower()}',
+               f'-Dneighbors.probe.settingsPolicy={str(args.settings_policy).lower()}',
+               f'-Dneighbors.probe.settingsTerrain={str(args.settings_policy).lower()}',
                f'-Dneighbors.probe.oceanFringes={str(args.ocean_fringes).lower()}',
                f'-Dneighbors.probe.perimeter={str(args.perimeter).lower()}',
                f'-Dneighbors.probe.hydrology={str(args.hydrology).lower()}',
@@ -687,10 +707,14 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
     if args.configuration_writers:
         pack_root=args.configuration_pack.expanduser().resolve()
         resources=pack_root / 'overrides/common/mods/skyweave-resource-patches-0.1.0.jar'
-        if resources.is_file():copy_owned(resources,run / 'mods' / resources.name,run)
-        writer_inputs=stage_configs(pack_root,run)
+        if resources.is_file() and not args.configuration_delegation:
+            copy_owned(resources, run / 'mods' / resources.name, run)
+        writer_inputs=stage_configs(pack_root,run,
+                                    {'config/dynamicwaters-common.toml'} if args.configuration_delegation else None)
         (run / 'configuration-writer-fixture.json').write_text('{}\n')
         command.insert(1,'-Dneighbors.probe.configurationWriters=true')
+        if args.configuration_delegation:
+            command.insert(1, '-Dneighbors.probe.configurationDelegation=true')
     began = time.monotonic()
     def stamp_report(exit_code=None):
         if not report.exists():
@@ -749,6 +773,8 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
                                                   'skyweave_compat-ancient-cities.json', 'skyweave_compat-structures.json', 'skyweave_compat-search.json'}}
         # Fingerprint the immutable staged inputs, even if a local build completes during the run.
         artifacts = list((run / 'mods').glob('*.jar')) if args.audio else [run / 'mods' / mod.name, run / 'mods' / fixture.name]
+        if args.reform and not args.audio:
+            artifacts.append(run / 'mods' / args.reform.name)
         data['artifacts'] = {path.name: hashlib.sha256((run / 'mods' / path.name).read_bytes()).hexdigest() for path in artifacts}
         report.write_text(json.dumps(data, indent=2) + '\n')
     def launch(log_path):
@@ -1075,6 +1101,9 @@ if args.structure_search:
     raise SystemExit(0)
 if args.locator:
     print('Native metadata command:', report, 'seconds:', data['elapsedSeconds'])
+    raise SystemExit(0)
+if args.settings_policy:
+    print('Native policy commands:', report)
     raise SystemExit(0)
 if args.terrain:
     print('Native terrain survey:', report, 'seconds:', data['elapsedSeconds'])

@@ -45,7 +45,9 @@ public final class ClientConfiguration {
                     (net.neoforged.neoforge.client.event.ModelEvent.ModifyBakingResult event) ->
                             PlainGlassModels.wrap(event, id -> !GlassBackfaces.vanillaPane(id)
                                     && TransparencyProfiles.current().wraps(id)));
-        container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationOverview::new);
+        var terrainProfiles = OptionalIntegrations.enabled(Feature.TERRAIN) ? new TerrainProfileForms(modBus, container) : null;
+        container.registerExtensionPoint(IConfigScreenFactory.class,
+                (owner, parent) -> new ConfigurationOverview(owner, parent, terrainProfiles));
         if (OptionalIntegrations.enabled(Feature.LINEAR_PONDER))
             design.inherent.skyweavecompat.linear.client.LinearPonder.register();
         if (OptionalIntegrations.enabled(Feature.QUESTLOG_INTERFACE)

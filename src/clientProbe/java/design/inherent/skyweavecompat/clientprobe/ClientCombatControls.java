@@ -404,8 +404,7 @@ final class ClientCombatControls {
     private boolean configuration(int n) throws Exception {
         if (n == 1) {
             begin("native_client_pacing_configuration");
-            var screen = new design.inherent.skyweavecompat.client.ConfigurationOverview(
-                    net.neoforged.fml.ModList.get().getModContainerById("skyweave_compat").orElseThrow(), mc().screen);
+            var screen = ClientConfigurationProbe.openScreen(mc().screen);
             mc().setScreen(screen);
             var search = screen.getClass().getDeclaredField("search"); search.setAccessible(true);
             ((net.minecraft.client.gui.components.EditBox) search.get(screen)).setValue("attack pacing");

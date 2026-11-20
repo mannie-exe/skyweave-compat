@@ -94,8 +94,7 @@ final class WayfinderFixture {
                 KeyMapping.resetMapping(); mc.options.save();
             }
             case "chat" -> mc.setScreen(new net.minecraft.client.gui.screens.ChatScreen(""));
-            case "settings" -> mc.setScreen(new design.inherent.skyweavecompat.client.ConfigurationOverview(
-                    net.neoforged.fml.ModList.get().getModContainerById("skyweave_compat").orElseThrow(),mc.screen));
+            case "settings" -> mc.setScreen(ClientConfigurationProbe.openScreen(mc.screen));
             default -> throw new IllegalArgumentException("Unknown Wayfinder fixture action");
         }
     }

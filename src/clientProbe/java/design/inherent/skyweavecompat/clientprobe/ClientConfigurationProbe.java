@@ -47,9 +47,12 @@ final class ClientConfigurationProbe {
     }
     private void open() {
         var mc = Minecraft.getInstance();
+        mc.setScreen(openScreen(mc.screen));
+    }
+    static net.minecraft.client.gui.screens.Screen openScreen(net.minecraft.client.gui.screens.Screen parent) {
         var mod = ModList.get().getModContainerById("skyweave_compat").orElseThrow();
-        mc.setScreen(mod.getCustomExtension(net.neoforged.neoforge.client.gui.IConfigScreenFactory.class)
-                .orElseThrow().createScreen(mod, mc.screen));
+        return mod.getCustomExtension(net.neoforged.neoforge.client.gui.IConfigScreenFactory.class)
+                .orElseThrow().createScreen(mod, parent);
     }
     private void serverProof() throws Exception {
         var mc=Minecraft.getInstance(); var server=mc.getSingleplayerServer();
@@ -144,6 +147,7 @@ final class ClientConfigurationProbe {
                         case "environment-proof" -> ClientPresentationProbe.observe(root, mc);
                         case "hoofprint-proof" -> hoofprint(mc);
                         case "reform-receipt" -> reformReceipt(mc);
+                        case "reform-batch-proof" -> reformBatchProof(mc);
                         case "hoofprint" -> {
                             if (!OptionalIntegrations.enabled(Feature.HOOFPRINT_ZOOM) || mc.player == null)
                                 throw new IllegalStateException("Expected an admitted Hoofprint connection");
@@ -320,6 +324,16 @@ final class ClientConfigurationProbe {
         evidence.addProperty("savedRevision", receipt.savedRevision().orElseThrow());
         evidence.addProperty("source", receipt.observation().orElseThrow().provenance().location().orElseThrow());
         ProbeStateFiles.write(root.resolve("reform-receipt.json"), evidence.toString());
+    }
+    private void reformBatchProof(Minecraft mc) throws Exception {
+        if (!(mc.screen instanceof design.inherent.reform.neoforge.client.BatchReviewScreen screen))
+            throw new IllegalStateException("Expected the actual shared batch review screen");
+        var review = screen.reviewedInput().orElseThrow();
+        var evidence = new JsonObject(); var entries = new JsonObject();
+        review.entries().forEach(entry -> entries.addProperty(entry.document().toString(), entry.intent().name()));
+        evidence.add("intents", entries);
+        evidence.addProperty("valid", review.valid());
+        ProbeStateFiles.write(root.resolve("reform-batch-proof.json"), evidence.toString());
     }
     private static boolean visibleTarget(GuiEventListener listener, AbstractWidget target, double x, double y) {
         if (listener == target) return target.visible && target.active;

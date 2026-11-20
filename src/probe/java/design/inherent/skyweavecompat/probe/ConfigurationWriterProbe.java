@@ -1,11 +1,23 @@
 package design.inherent.skyweavecompat.probe;
 
 import com.google.gson.*;
+import com.electronwill.nightconfig.toml.TomlParser;
+import design.inherent.reform.definition.DocumentId;
+import design.inherent.reform.definition.FieldPath;
+import design.inherent.reform.edit.DraftNode;
+import design.inherent.reform.neoforge.configuration.RegisteredConfig;
+import design.inherent.reform.owner.CommitReceipt;
+import design.inherent.reform.owner.OwnerContext;
+import design.inherent.reform.owner.PolicyRefusal;
 import java.nio.file.*;
 import java.security.MessageDigest;
 import java.util.*;
+import java.util.concurrent.CompletionException;
+import java.util.function.Consumer;
+import net.neoforged.fml.ModList;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.config.ModConfigs;
+import net.neoforged.fml.event.config.ModConfigEvent;
 import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
@@ -16,6 +28,7 @@ final class ConfigurationWriterProbe {
         if(!Files.isRegularFile(root.resolve("configuration-writer-fixture.json")))
             throw new IllegalStateException("Missing owned configuration-writer fixture marker");
         var rows=new JsonArray();var result=new JsonObject();result.add("nativeSpecs",rows);boolean stable=true;
+        if (Boolean.getBoolean("neighbors.probe.configurationDelegation")) result.add("delegation", delegation(root));
         for(var type:ModConfig.Type.values())for(var config:ModConfigs.getConfigSet(type)) {
             var row=new JsonObject();row.addProperty("mod",config.getModId());row.addProperty("file",config.getFileName());
             row.addProperty("type",type.name());rows.add(row);
@@ -82,6 +95,102 @@ final class ConfigurationWriterProbe {
         result.addProperty("complete",stable);
         Files.writeString(output,new GsonBuilder().setPrettyPrinting().create().toJson(result)+"\n");
     }
+    private static JsonObject delegation(Path fixture) throws Exception {
+        var nativeOwner = ModConfigs.getConfigSet(ModConfig.Type.COMMON).stream()
+                .filter(config -> config.getModId().equals("dynamicwaters")
+                        && config.getFileName().equals("dynamicwaters-common.toml")
+                        && config.getLoadedConfig() != null)
+                .findFirst().orElseThrow();
+        var path = nativeOwner.getFullPath().toRealPath();
+        if (!path.startsWith(fixture)) throw new IllegalStateException("Foreign fixture escaped its owned root");
+        var observations = new JsonObject();
+        var source = ModList.get().getModContainerById(nativeOwner.getModId()).orElseThrow();
+        var version = source.getModInfo().getVersion().toString();
+        var nativeId = new DocumentId("dynamicwaters", "common");
+        var generation = FieldPath.ROOT.field("Generation").field("normalRiverDensity");
+        var itemSpeed = FieldPath.ROOT.field("River Flow Speeds").field("itemSpeed");
+        var fields = Set.of(generation, itemSpeed);
+        var speedKey = List.of("River Flow Speeds", "itemSpeed");
+        var before = Files.readString(path);
+        var original = new TomlParser().parse(before);
+        var binding = ((ModConfigSpec) nativeOwner.getSpec()).getValues().<ModConfigSpec.ConfigValue<Double>>get(speedKey);
+        var delegation = new RegisteredConfig.Delegation("dynamicwaters", "13.1.0", ModConfig.Type.COMMON,
+                "dynamicwaters-common.toml", fields);
+        var reloads = new java.util.concurrent.atomic.AtomicInteger();
+        Consumer<ModConfigEvent.Reloading> listener = event -> {
+            if (event.getConfig() == nativeOwner) reloads.incrementAndGet();
+        };
+        var bus = source.getEventBus();
+        bus.addListener(ModConfigEvent.Reloading.class, listener);
+        try (var context = new OwnerContext(Runnable::run, Runnable::run, () -> {}, OwnerContext.Limits.STANDARD);
+             var owner = RegisteredConfig.delegated(context, nativeOwner, nativeId, delegation, Map.of(),
+                     RegisteredConfig.Limits.STANDARD);
+             var access = context.access(() -> true, () -> true);
+             var editor = owner.session(access)) {
+            try {
+                RegisteredConfig.delegated(context, nativeOwner, nativeId, new RegisteredConfig.Delegation(
+                        "dynamicwaters", "wrong-version", ModConfig.Type.COMMON, "dynamicwaters-common.toml", fields),
+                        Map.of(), RegisteredConfig.Limits.STANDARD).close();
+                throw new AssertionError("Wrong Dynamic Waters version was admitted");
+            } catch (PolicyRefusal refused) {
+                require(refused.report().issues().getFirst().code().equals("native.delegate_version"), "Wrong version reason");
+            }
+            var read = editor.read().toCompletableFuture().join();
+            var draft = read.document().draft().orElseThrow();
+            require(read.path().equals(path) && read.nativeType() == ModConfig.Type.COMMON, "Native source identity changed");
+            require(draft.contains(generation) && draft.contains(itemSpeed)
+                    && !draft.contains(FieldPath.ROOT.field("River Flow Speeds").field("customEntitySpeeds")),
+                    "Delegation did not restrict projected leaves");
+            try {
+                editor.prepare(read, draft.change(itemSpeed, ignored -> new DraftNode.Scalar("11.0"))).toCompletableFuture().join();
+                throw new AssertionError("Out-of-range Dynamic Waters item speed was admitted");
+            } catch (CompletionException refused) {
+                require(refused.getCause() instanceof PolicyRefusal, "Unexpected range refusal");
+            }
+            require(Files.readString(path).equals(before) && reloads.get() == 0, "Prepare touched the real config");
+            var edited = draft.change(itemSpeed, ignored -> new DraftNode.Scalar("0.35"));
+            var receipt = editor.commit(editor.prepare(read, edited).toCompletableFuture().join()).toCompletableFuture().join();
+            require(receipt.persistence() == CommitReceipt.Persistence.SAVED && receipt.application() == CommitReceipt.Application.STAGED
+                    && receipt.nativeSaveReturned() && receipt.mutationStarted(), "Native save receipt did not separate persistence and application");
+            var savedText = Files.readString(path);
+            var saved = new TomlParser().parse(savedText);
+            require(binding.getRaw() == 0.35 && ((Number) saved.get(speedKey)).doubleValue() == 0.35, "Native item speed failed readback");
+            original.set(speedKey, 0.35);
+            require(original.equals(saved), "A non-delegated native setting changed");
+            var reloaded = reloads.get();
+            var next = editor.read().toCompletableFuture().join();
+            var nextDraft = next.document().draft().orElseThrow();
+            var noop = editor.commit(editor.prepare(next, nextDraft).toCompletableFuture().join()).toCompletableFuture().join();
+            require(noop.persistence() == CommitReceipt.Persistence.UNCHANGED && !noop.mutationStarted()
+                    && reloads.get() == reloaded && Files.readString(path).equals(savedText), "Native no-op called the writer");
+            var stale = editor.prepare(next, nextDraft.change(itemSpeed, ignored -> new DraftNode.Scalar("0.45")))
+                    .toCompletableFuture().join();
+            String foreign = savedText + "\n# External edit during the probe\n";
+            Files.writeString(path, foreign);
+            var refused = editor.commit(stale).toCompletableFuture().join();
+            require(refused.persistence() == CommitReceipt.Persistence.REFUSED && !refused.mutationStarted()
+                    && Files.readString(path).equals(foreign), "Stale native proposal overwrote an external edit");
+            observations.addProperty("nativeDocument", owner.definition().id().toString());
+            observations.addProperty("nativeVersion", version);
+            observations.addProperty("nativeType", nativeOwner.getType().name());
+            observations.addProperty("nativeFile", fixture.relativize(path).toString());
+            observations.addProperty("savedItemSpeed", binding.getRaw());
+            observations.addProperty("nativeReloadCallbacksAtSave", reloaded);
+            observations.addProperty("application", receipt.application().name());
+            observations.addProperty("unselectedValuesPreserved", true);
+            observations.addProperty("wrongVersionRangeNoOpAndStaleControls", true);
+            observations.addProperty("beforeSha256", hash(before.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            observations.addProperty("writtenSha256", hash(savedText.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        } finally {
+            bus.unregister(listener);
+        }
+        return observations;
+    }
+
+    private static void require(boolean condition, String message) {
+        if (!condition) throw new AssertionError(message);
+    }
+
     private static Map<String,String> values(com.electronwill.nightconfig.core.UnmodifiableConfig config) {
         var values=new TreeMap<String,String>();collect(config,values);
         return values;

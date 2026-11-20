@@ -111,8 +111,7 @@ final class ClientResourcesProbe {
                             mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false));
                         }
                         case "break" -> mc.gameMode.startDestroyBlock(new BlockPos(command.get("x").getAsInt(), command.get("y").getAsInt(), command.get("z").getAsInt()), Direction.UP);
-                        case "settings" -> mc.setScreen(new design.inherent.skyweavecompat.client.ConfigurationOverview(
-                                net.neoforged.fml.ModList.get().getModContainerById("skyweave_compat").orElseThrow(), mc.screen));
+                        case "settings" -> mc.setScreen(ClientConfigurationProbe.openScreen(mc.screen));
                         case "close" -> mc.player.closeContainer();
                         case "hide" -> { mc.options.hideGui = command.get("value").getAsBoolean(); mc.options.pauseOnLostFocus = false; }
                         case "shader_rebuild" -> {

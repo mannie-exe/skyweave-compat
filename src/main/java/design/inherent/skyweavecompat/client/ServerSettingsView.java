@@ -3,14 +3,11 @@ package design.inherent.skyweavecompat.client;
 import design.inherent.skyweavecompat.configuration.RecordSettings;
 import design.inherent.skyweavecompat.configuration.ServerSettingsContext;
 import design.inherent.skyweavecompat.configuration.SettingsCatalog;
-import design.inherent.skyweavecompat.configuration.SettingsCommit;
 import design.inherent.skyweavecompat.configuration.SettingsPolicy;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
-import java.util.function.Function;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.chat.Component;
@@ -79,45 +76,6 @@ final class ServerSettingsView {
             values.put(field.key(),value);
         }
         return Map.copyOf(values);
-    }
-    void submit(List<SettingsCommit.Write> writes) { run(ctx -> {
-        try { return ctx.prepare(writes).commit(); } catch (Exception failure) { throw new CompletionException(failure); }
-    }); }
-    void retry() {
-        var previous=receipts;
-        run(ctx -> {
-        var result=new ArrayList<ServerSettingsContext.Receipt>();
-        boolean stopped=false;
-        for (var receipt : previous) {
-            if (stopped || receipt.saved()==null || effective(receipt)) { result.add(receipt); continue; }
-            try { var retried=ctx.retry(receipt.saved()); result.add(retried); if (retried.failure()!=null) stopped=true; }
-            catch (Exception failure) {
-                result.add(new ServerSettingsContext.Receipt(receipt.document(),receipt.persistence(),receipt.saved(),
-                        ServerSettingsContext.Application.FAILED,null,failure)); stopped=true;
-            }
-        }
-        return List.copyOf(result);
-    }); }
-    private void run(Function<ServerSettingsContext,List<ServerSettingsContext.Receipt>> operation) {
-        if (context==null || busy || context.isClosed()) return;
-        long token=generation; var owner=context; busy=true; message=ConfigurationOverview.text("context_saving");
-        // Immutable receipt input must not be reread from mutable UI state on the server thread.
-        owner.server().submit(() -> operation.apply(owner)).whenComplete((result,error) -> client.execute(() -> {
-            if (!attached(token) || context!=owner) return;
-            busy=false;
-            if (error!=null) { message=failure(error); observed.clear(); }
-            else {
-                var merged=new LinkedHashMap<String,ServerSettingsContext.Receipt>();
-                for (var receipt : receipts) merged.put(receipt.document(),receipt);
-                for (var receipt : result) merged.put(receipt.document(),receipt);
-                receipts=List.copyOf(merged.values());
-                for (var receipt : result) if (receipt.effective()!=null)
-                    observed.put(SettingsCatalog.document(receipt.document()).filename(),fields(receipt.effective()));
-                message=ConfigurationOverview.text("server_result");
-            }
-            changed.run();
-        }));
-        changed.run();
     }
     private static Component failure(Throwable error) {
         while (error instanceof CompletionException && error.getCause()!=null) error=error.getCause();

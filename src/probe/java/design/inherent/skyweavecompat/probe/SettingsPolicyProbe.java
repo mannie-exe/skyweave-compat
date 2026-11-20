@@ -5,101 +5,200 @@ import com.google.gson.JsonObject;
 import design.inherent.skyweavecompat.Feature;
 import design.inherent.skyweavecompat.OptionalIntegrations;
 import design.inherent.skyweavecompat.configuration.ConfigLocations;
+import design.inherent.skyweavecompat.configuration.SettingsPolicy;
+import design.inherent.skyweavecompat.terrain.structure.SearchSettings;
+import design.inherent.skyweavecompat.terrain.structure.StructureLocator;
 import design.inherent.skyweavecompat.wayfinder.Wayfinder;
 import design.inherent.skyweavecompat.wayfinder.WayfinderSettings;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.function.Function;
 import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
-/** Explicit disposable native command/owner controls; does not simulate in-flight lease qualification. */
+/** The real legacy command delegates to the current shared server policy, through a logged-in op. */
 final class SettingsPolicyProbe {
-    private boolean ready, checked;
+    private static final String PREFIX = "skyweave_compat.settings.policy_";
+    private final JsonObject report = new JsonObject();
+    private final ArrayList<Component> messages = new ArrayList<>();
+    private boolean ready, started, finished;
+    private ServerPlayer player;
+    private CompletableFuture<Void> awaiting;
+    private String expected;
+    private int began, ticks, stableChunks, lastChunks = -1;
+
     SettingsPolicyProbe() {
         NeoForge.EVENT_BUS.addListener((ServerStartedEvent event) -> ready = true);
-        NeoForge.EVENT_BUS.addListener((ServerTickEvent.Post event) -> {
-            if (!ready || checked) return;
-            checked = true;
-            var report = new JsonObject();
-            try {
-                var root = FMLPaths.GAMEDIR.get().toRealPath();
-                var marker = root.resolve("settings-policy-fixture.json");
-                if (!Files.isRegularFile(marker) || !Files.readString(marker).contains("mc-modpacks/config-system"))
-                    throw new IllegalStateException("Missing owned policy fixture marker");
-                run(event.getServer(), report);
-                report.addProperty("complete",true);
-            } catch (Throwable failure) { report.addProperty("complete",false); report.addProperty("failure",failure.toString()); failure.printStackTrace(); }
-            try { Files.writeString(Path.of(System.getProperty("neighbors.probe.output")),new GsonBuilder().setPrettyPrinting().create().toJson(report)); }
-            catch (Exception failure) { throw new IllegalStateException(failure); }
-            event.getServer().halt(false);
+        NeoForge.EVENT_BUS.addListener((ServerTickEvent.Post event) -> tick(event.getServer()));
+    }
+
+    private void tick(MinecraftServer server) {
+        if (!ready || finished) return;
+        ticks++;
+        if (ticks < 40) return;
+        try {
+            if (!started) {
+                if (player == null) {
+                    var root = FMLPaths.GAMEDIR.get().toRealPath();
+                    var marker = root.resolve("settings-policy-fixture.json");
+                    check(Files.isRegularFile(marker) && Files.readString(marker).contains("mc-modpacks/config-system"),
+                            "Missing owned policy fixture marker");
+                    player = ProbePlayers.stationary(server, "SettingsPolicy", server.overworld().getSharedSpawnPos().above(2));
+                    server.getPlayerList().op(player.getGameProfile());
+                }
+                int loaded = server.overworld().getChunkSource().getLoadedChunksCount();
+                stableChunks = loaded == lastChunks ? stableChunks + 1 : 0;
+                lastChunks = loaded;
+                check(ticks < 300, "Native spawn and actor chunk tracking did not settle");
+                if (stableChunks < 24) return;
+                started = true;
+                report.addProperty("checkedLoadedChunks", loaded);
+                run(server, ConfigLocations.ownedDirectory(FMLPaths.CONFIGDIR.get())).whenComplete((ignored, failure) -> finish(server, failure));
+            }
+            if (awaiting != null) {
+                ProbePlayers.drainChat(player, messages);
+                var reply = messages.stream().flatMap(message -> keys(message))
+                        .filter(key -> key.startsWith(PREFIX)).findFirst().orElse(null);
+                if (reply != null) {
+                    var completion = awaiting;
+                    awaiting = null;
+                    messages.clear();
+                    check(reply.equals(PREFIX + expected), "Unexpected policy completion " + reply);
+                    completion.complete(null);
+                } else check(ticks - began < 200, "Timed out waiting for a native policy completion");
+            }
+        } catch (Throwable failure) { finish(server, failure); }
+    }
+
+    private CompletableFuture<Void> run(MinecraftServer server, Path root) throws Exception {
+        var source = player.createCommandSourceStack();
+        var denied = source.withPermission(0);
+        boolean terrain = OptionalIntegrations.enabled(Feature.TERRAIN);
+        check(terrain == Boolean.getBoolean("neighbors.probe.settingsTerrain"), "Unexpected terrain admission");
+        int chunks = server.overworld().getChunkSource().getLoadedChunksCount();
+        var initial = Wayfinder.readPolicy(source);
+        var before = initial.value();
+        var candidate = new WayfinderSettings(true, 12, 8, 128, 2, 80, before.blockedBlocks());
+        try {
+            execute(denied, "wayfinder");
+            throw new AssertionError("Non-operator command executed");
+        } catch (com.mojang.brigadier.exceptions.CommandSyntaxException refused) {
+            report.addProperty("permissionDenied", true);
+        }
+        refused(() -> Wayfinder.readPolicy(denied), SecurityException.class);
+        var threadFailure = new java.util.concurrent.atomic.AtomicBoolean();
+        var thread = new Thread(() -> {
+            try { Wayfinder.readPolicy(source); } catch (IllegalStateException expected) { threadFailure.set(true); }
+        });
+        thread.start();
+        thread.join();
+        check(threadFailure.get(), "Foreign-thread policy read accepted");
+        report.addProperty("actual_server_thread_guard", true);
+
+        return policy(source, "wayfinder", root.resolve(WayfinderSettings.FILE), Wayfinder::readPolicy, candidate,
+                "{\"operatorsOnly\":false}").thenCompose(ignored -> {
+            if (!terrain) return CompletableFuture.completedFuture(null);
+            return policy(source, "search", root.resolve(SearchSettings.FILE), StructureLocator::readPolicy,
+                    new SearchSettings(128, 5, 1, 1), "{}");
+        }).thenRun(() -> {
+            int after = server.overworld().getChunkSource().getLoadedChunksCount();
+            check(chunks == after, "Policy operations changed the loaded-chunk count from " + chunks + " to " + after);
+            report.addProperty("loaded_chunk_count_unchanged", true);
+            try { SettingsContextProbe.run(server, report); }
+            catch (Exception failure) { throw new CompletionException(failure); }
+            report.addProperty("limits", "Native command with embedded operator; no TCP or integrated GUI assertion");
         });
     }
-    private static void check(boolean value, String reason) { if (!value) throw new IllegalStateException(reason); }
+
+    private <T> CompletableFuture<Void> policy(CommandSourceStack source, String destination, Path file,
+            Function<CommandSourceStack, SettingsPolicy.Snapshot<T>> read, T candidate, String invalid) {
+        final String original, authored = new GsonBuilder().setPrettyPrinting().create().toJson(candidate) + "\n";
+        try { original = Files.readString(file); }
+        catch (java.io.IOException failure) { return CompletableFuture.failedFuture(failure); }
+        var before = read.apply(source);
+        write(file, authored);
+        return request(source, destination, "reloaded").thenCompose(ignored -> {
+            var after = read.apply(source);
+            check(after.value().equals(candidate) && after.revision() != before.revision(), "Actual policy was not applied");
+            check(bytes(file).equals(authored), "Apply-only rewrote the authored file");
+            return request(source, destination, "unchanged").thenCompose(nothing -> {
+                check(read.apply(source).revision() == after.revision(), "No-op changed the live revision");
+                write(file, invalid);
+                return request(source, destination, "refused").thenCompose(refused -> {
+                    check(read.apply(source).revision() == after.revision() && bytes(file).equals(invalid),
+                            "Invalid reload rewrote saved bytes or active policy");
+                    write(file, original);
+                    return request(source, destination, "reloaded").thenRun(() -> {
+                        check(read.apply(source).value().equals(before.value()) && bytes(file).equals(original),
+                                "Original policy did not restore without writing");
+                        report.addProperty(destination + "_reload_noop_and_invalid", true);
+                    });
+                });
+            });
+        });
+    }
+
+    private CompletableFuture<Void> request(CommandSourceStack source, String destination, String reply) {
+        try {
+            check(awaiting == null, "Previous native command still awaits its result");
+            check(execute(source, destination) == 1, "Native reload was not admitted");
+            expected = reply;
+            began = ticks;
+            awaiting = new CompletableFuture<>();
+            return awaiting;
+        } catch (Exception failure) { return CompletableFuture.failedFuture(failure); }
+    }
+
+    private static int execute(CommandSourceStack source, String destination) throws Exception {
+        return source.getServer().getCommands().getDispatcher().execute("skyweavecompat settings reload " + destination, source);
+    }
+
+    private static java.util.stream.Stream<String> keys(Component value) {
+        var own = value.getContents() instanceof TranslatableContents translated
+                ? java.util.stream.Stream.of(translated.getKey()) : java.util.stream.Stream.<String>empty();
+        return java.util.stream.Stream.concat(own, value.getSiblings().stream().flatMap(SettingsPolicyProbe::keys));
+    }
+
+    private void finish(MinecraftServer server, Throwable failure) {
+        if (finished) return;
+        finished = true;
+        report.addProperty("complete", failure == null);
+        if (failure != null) {
+            report.addProperty("failure", failure.toString());
+            failure.printStackTrace();
+        }
+        try { Files.writeString(Path.of(System.getProperty("neighbors.probe.output")), new GsonBuilder().setPrettyPrinting().create().toJson(report)); }
+        catch (Exception writeFailed) { throw new IllegalStateException(writeFailed); }
+        server.halt(false);
+    }
+
+    private static String bytes(Path file) {
+        try { return Files.readString(file); }
+        catch (java.io.IOException failure) { throw new java.io.UncheckedIOException(failure); }
+    }
+
+    private static void write(Path file, String text) {
+        try { Files.writeString(file, text); }
+        catch (java.io.IOException failure) { throw new java.io.UncheckedIOException(failure); }
+    }
+
     private static void refused(Runnable run, Class<? extends RuntimeException> type) {
-        try { run.run(); } catch (RuntimeException failure) { if (type.isInstance(failure)) return; throw failure; }
-        throw new IllegalStateException("Expected " + type.getSimpleName());
+        try { run.run(); }
+        catch (RuntimeException failure) { if (type.isInstance(failure)) return; throw failure; }
+        throw new AssertionError("Expected " + type.getSimpleName());
     }
-    private static int command(CommandSourceStack source, String destination) throws Exception {
-        return source.getServer().getCommands().getDispatcher().execute("skyweavecompat settings reload " + destination,source);
-    }
-    private static void run(MinecraftServer server, JsonObject report) throws Exception {
-        boolean terrain=OptionalIntegrations.enabled(Feature.TERRAIN);
-        check(terrain==Boolean.getBoolean("neighbors.probe.settingsTerrain"),"Unexpected terrain admission; audit launch classpaths");
-        report.add("loaded_mods",new GsonBuilder().create().toJsonTree(net.neoforged.fml.ModList.get().getMods().stream()
-                .map(mod -> mod.getModId()+"@"+mod.getVersion()).sorted().toList()));
-        check(!net.neoforged.fml.ModList.get().isLoaded("sable") && !net.neoforged.fml.ModList.get().isLoaded("skyvillages"),
-                "Unexpected optional runtime on native fixture classpath");
-        var source=server.createCommandSourceStack(); var denied=source.withPermission(0);
-        var before=Wayfinder.readPolicy(source);
-        var root=ConfigLocations.ownedDirectory(FMLPaths.CONFIGDIR.get());
-        var file=root.resolve(WayfinderSettings.FILE); String original=Files.readString(file);
-        var candidate=new WayfinderSettings(true,12,8,128,2,80,before.value().blockedBlocks());
-        int chunks=server.overworld().getChunkSource().getLoadedChunksCount();
-        Files.writeString(file,new GsonBuilder().setPrettyPrinting().create().toJson(candidate));
-        check(command(source,"wayfinder")==1,"Native reload failed");
-        var changed=Wayfinder.readPolicy(source);
-        check(changed.value().equals(candidate) && changed.revision()!=before.revision(),"Policy not published");
-        check(before.value().equals(WayfinderSettings.parse(original)),"Existing snapshot changed");
-        check(command(source,"wayfinder")==1 && Wayfinder.readPolicy(source).revision()==changed.revision(),"No-op changed revision");
-        refused(() -> Wayfinder.readPolicy(denied),SecurityException.class);
-        refused(() -> Wayfinder.applyPolicy(denied,changed.revision(),before.value()),SecurityException.class);
-        boolean blocked=false;
-        try { command(denied,"wayfinder"); } catch (com.mojang.brigadier.exceptions.CommandSyntaxException expected) { blocked=true; }
-        check(blocked,"Non-operator command executed");
-        refused(() -> Wayfinder.applyPolicy(source,before.revision(),before.value()),IllegalStateException.class);
-        Files.writeString(file,"{\"operatorsOnly\":false}");
-        check(command(source,"wayfinder")==0 && Wayfinder.readPolicy(source).revision()==changed.revision(),"Malformed reload mutated policy");
-        check(Files.readString(file).equals("{\"operatorsOnly\":false}"),"Refused reload rewrote file");
-        Files.writeString(file,original); check(command(source,"wayfinder")==1,"Restore reload failed");
-        report.addProperty("wayfinder_reload_noop_permission_stale_and_invalid",true);
-        var threadFailure=new java.util.concurrent.atomic.AtomicBoolean();
-        var thread=new Thread(() -> { try {Wayfinder.readPolicy(source);} catch (IllegalStateException expected) {threadFailure.set(true);} });
-        thread.start(); thread.join(); check(threadFailure.get(),"Foreign-thread policy read accepted");
-        report.addProperty("actual_server_thread_guard",true);
-        if (OptionalIntegrations.enabled(Feature.TERRAIN)) search(source,root,report);
-        else report.addProperty("search","not selected without terrain; no search policy resolution requested");
-        check(chunks==server.overworld().getChunkSource().getLoadedChunksCount(),"Policy operations loaded chunks");
-        report.addProperty("loaded_chunk_count_unchanged",true);
-        SettingsContextProbe.run(server,report);
-        report.addProperty("limits","No active job, lease-drain, integrated/LAN, two-server-process-lifecycle, UI Save or full-pack claim");
-    }
-    private static void search(CommandSourceStack source, Path root, JsonObject report) throws Exception {
-        var before=design.inherent.skyweavecompat.terrain.structure.StructureLocator.readPolicy(source);
-        var file=root.resolve(design.inherent.skyweavecompat.terrain.structure.SearchSettings.FILE); String original=Files.readString(file);
-        var value=new design.inherent.skyweavecompat.terrain.structure.SearchSettings(128,5,1,1);
-        Files.writeString(file,new GsonBuilder().setPrettyPrinting().create().toJson(value));
-        check(command(source,"search")==1,"Search reload failed");
-        var changed=design.inherent.skyweavecompat.terrain.structure.StructureLocator.readPolicy(source);
-        check(changed.value().equals(value) && changed.revision()!=before.revision(),"Search policy not applied");
-        check(command(source,"search")==1 && changed.revision()==design.inherent.skyweavecompat.terrain.structure.StructureLocator.readPolicy(source).revision(),"Search no-op changed revision");
-        refused(() -> design.inherent.skyweavecompat.terrain.structure.StructureLocator.readPolicy(source.withPermission(0)),SecurityException.class);
-        Files.writeString(file,"{}"); check(command(source,"search")==0,"Invalid search reload accepted");
-        check(changed.revision()==design.inherent.skyweavecompat.terrain.structure.StructureLocator.readPolicy(source).revision(),"Invalid search changed policy");
-        Files.writeString(file,original); check(command(source,"search")==1,"Search restore failed");
-        report.addProperty("search_reload_noop_permission_and_invalid",true);
+
+    private static void check(boolean value, String reason) {
+        if (!value) throw new AssertionError(reason);
     }
 }

@@ -28,4 +28,13 @@ final class ProbePlayers {
         server.getPlayerList().placeNewPlayer(connection, player, cookie);
         return player;
     }
+
+    static void drainChat(ServerPlayer player, java.util.List<net.minecraft.network.chat.Component> messages) {
+        var channel = (EmbeddedChannel) player.connection.getConnection().channel();
+        channel.runPendingTasks();
+        Object packet;
+        while ((packet = channel.readOutbound()) != null)
+            if (packet instanceof net.minecraft.network.protocol.game.ClientboundSystemChatPacket chat)
+                messages.add(chat.content());
+    }
 }

@@ -1,5 +1,13 @@
 # Verification
 
+## Shared settings owners
+
+The Gradle build and 501 Compat tests pass against the pinned re:form adoption artifact. On Minecraft 1.21.1, NeoForge 21.1.265 and Java 21, the packaged integrated client and dedicated server use Compat JAR SHA-256 `c1cbac15a7e84cc9212f3f3d88cb6d8dabcd787fc169917d0184969b7aa8c6b2` with re:form 0.1.0-adoption.7. An actual Configure save changes Wayfinder's step budget from 256 to 128 on the same integrated server. The `SAVED / APPLIED` receipt matches the persisted bytes and the server's current Wayfinder policy. Dedicated reloads for both policies cover an actual operator, an unchanged save, invalid input and restoration. The loaded-chunk count stays at 961 after the fixture player settles.
+
+The preceding adoption.6 client opens generation and shapes from Configure and changes spacing from 2400 to 2500. The required review contains a generation write and a check of the unchanged shapes file. The edit stays in the draft until confirmation, and the shapes bytes remain exact. In a separate native server, apply-only reduces a running structure-search limit with two native chunk tickets pending. Both tickets and the captured deadline survive the update and drain. The next request uses the changed limit.
+
+The same adoption.6 family of checks uses Dynamic Waters 13.1.0's real COMMON config. Delegated item-flow speed changes from 0.2 to 0.35, with one native reload callback and the other parsed values retained. Range, version, ordinary no-op and stale-file controls pass. The receipt reports staged application. Current force behavior and all remaining registered fields need separate qualification. The comparison uses an isolated NeoForge server, packaged ModDev clients and disposable worlds.
+
 Evidence below qualifies named artifacts only. Build and native fixture commands live in [testing](testing.md); adapter contracts and update checks live in their domain guides. A later checkout needs its own relevant checks.
 
 ## Dependency updates (0.40.0)
