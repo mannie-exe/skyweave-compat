@@ -39,6 +39,7 @@ public final class SkyweaveCompat {
         }
         if (selection.enabled(Feature.TERRAIN)) {
             if (selection.enabled(Feature.GROUND_SUPPORT)) {
+                design.inherent.skyweavecompat.terrain.structure.VillageComposition.register();
                 design.inherent.skyweavecompat.terrain.structure.NaturalStructureInputs.register(modBus);
                 design.inherent.skyweavecompat.terrain.structure.GroundSupportProofs.register(modBus);
             }

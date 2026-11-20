@@ -248,7 +248,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                 case STRUCTURE_DISTRIBUTION -> List.of("StructurePolicyStateMixin", "GeneratorStructurePolicyMixin", "StructurePolicyCategoryMixin", "StructurePolicyJigsawMixin", "StructurePolicySizeMixin",
                         "StructurePolicyAttemptMixin", "StructurePolicyHostsMixin", "StructurePolicySitesMixin",
                         "StructurePolicyVillageMixin", "StructurePolicyUndergroundMixin", "StructurePolicyPortalHeightMixin",
-                        "VillageGroundingResultAccess", "VillageTemplateAccess", "VillagePaletteAccess", "VillageGroundingMixin", "VillageTrimmerMixin", "VillageCommitMixin", "StructurePolicyOverlapMixin", "StructurePolicyThrottleMixin",
+                        "VillageGroundingResultAccess", "VillageTemplateAccess", "VillagePaletteAccess", "VillageGroundingMixin", "VillageClassifierMixin", "VillageTrimmerMixin", "VillageCommitMixin", "StructurePolicyOverlapMixin", "StructurePolicyThrottleMixin",
                         "StructurePolicyDiversityMixin", "StructurePolicySiteOverlapMixin", "StructurePolicyNoHostMixin",
                         "StructurePolicyUndergroundPlanningMixin", "StructurePolicyUndergroundClaimsMixin", "StructurePolicyAnchorCacheMixin", "StructurePolicyWaterPlanningMixin", "StructurePolicyIglooHeightMixin",
                         "StructurePolicyIglooPieceMixin", "StructurePolicyIglooSupportMixin", "StructurePolicyPhysicalClaimsMixin",

@@ -194,7 +194,11 @@ final class StructureCoverageProbe {
                 }
             }
             var row = new JsonObject(); row.addProperty("id", id.toString());
-            row.addProperty("category", settings.advanced().structurePlacementPolicy().categoryFor(id).name());
+            var configuredCategory=settings.advanced().structurePlacementPolicy().categoryFor(id);
+            var boundDistribution=((design.inherent.skyweavecompat.terrain.structure.StructurePlacementState)state).skyweave$structureDistribution();
+            var routedCategory=boundDistribution==null?null:boundDistribution.category(id,settings.advanced().structurePlacementPolicy());
+            row.addProperty("category", (routedCategory==null?configuredCategory:routedCategory).name());
+            row.addProperty("nativeConfiguredCategory",configuredCategory.name());
             if (settings.advanced().structurePlacementPolicy().categoryFor(id)
                     == org.sathrek.sky_archipelago.worldgen.structure.StructurePlacementCategory.WATER)
                 row.addProperty("candidateSelection","Wet-center neighboring natural placement regions; not a frequency estimate");
@@ -336,8 +340,18 @@ final class StructureCoverageProbe {
                             }
                         sample.add("blocks", new Gson().toJsonTree(blocks));
                         if (design.inherent.skyweavecompat.terrain.structure.StructureMembership.family(holder)
-                                == design.inherent.skyweavecompat.terrain.structure.StructureFamily.VILLAGES)
+                                == design.inherent.skyweavecompat.terrain.structure.StructureFamily.VILLAGES) {
                             sample.add("localAccess",VillageContentProbe.access(level,contentBounds));
+                            sample.add("authoredCourts",VillageContentProbe.authoredCourts(level,start));
+                            var composition=design.inherent.skyweavecompat.terrain.structure.VillageComposition.assess(id,start.getPieces());
+                            sample.add("requiredContentAfterRealization",new Gson().toJsonTree(composition));
+                            if(holder.is(net.minecraft.tags.TagKey.create(Registries.STRUCTURE,ResourceLocation.parse("skyweave_compat:managed/composed_villages")))
+                                    && !composition.qualified())throw new AssertionError("Committed authored village lost required content: "+composition);
+                            if(composition.qualified()) {
+                                sample.add("landmarkAccess",VillageContentProbe.landmarkAccess(level,id,start));
+                                sample.add("areaObservation",VillageAreaProbe.run(level,start));
+                            }
+                        }
                         if (!name.startsWith("mineshaft")) {
                             var containers = VillageContentProbe.inspect(level, contentBounds,
                                     !Boolean.getBoolean("neighbors.probe.surfaceStructures"));
@@ -500,6 +514,11 @@ final class StructureCoverageProbe {
             }
             row.add("candidates", samples); row.addProperty("accepted", accepted); row.addProperty("realized", realized); rows.add(row);
             report.add("structures", rows); report.addProperty("complete", false);
+            if (holder.is(net.minecraft.tags.TagKey.create(Registries.STRUCTURE,ResourceLocation.parse("skyweave_compat:managed/composed_villages")))
+                    && (accepted == 0 || !Boolean.getBoolean("neighbors.probe.layoutsOnly") && realized == 0)) {
+                Files.writeString(output,new GsonBuilder().setPrettyPrinting().create().toJson(report));
+                throw new AssertionError("Authored village fixture exercised no admitted/realized start: " + id);
+            }
             Files.writeString(output, new GsonBuilder().setPrettyPrinting().create().toJson(report));
         }
         report.add("nativePlacement", new Gson().toJsonTree(

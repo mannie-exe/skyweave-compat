@@ -200,7 +200,7 @@ public final class GroundVillageTerrain {
         void prepare() {
             if(prepared)throw new IllegalStateException("Duplicate village terrain preparation");prepared=true;
             var starts=starts(List.of(chunk));
-            if(starts==null) { unknownLayout=true;return; }
+            if(starts==null) { unknownLayout=true;VillageDecisionTrace.material(level.getSeed(),chunk.getPos(),"STARTS_UNAVAILABLE",Map.of());return; }
             var chunks=new ArrayList<ChunkAccess>();var center=chunk.getPos();
             for(int x=center.x-1;x<=center.x+1;x++)for(int z=center.z-1;z<=center.z+1;z++) {
                 if(!level.hasChunk(x,z)) {unknownLayout=true;return;}
@@ -231,7 +231,9 @@ public final class GroundVillageTerrain {
                 if(piece.getClass()==PoolElementStructurePiece.class)pieceOwners.put((PoolElementStructurePiece)piece,entry.getKey().physical());
             final StructureTerrainView natural;
             try { natural=NaturalStructureInputs.view(level.getLevel(),chunks); }
-            catch(StructureTerrainView.Unavailable missing) { return; }
+            catch(StructureTerrainView.Unavailable missing) {
+                VillageDecisionTrace.material(level.getSeed(),center,"NATURAL_INPUT_UNAVAILABLE",Map.of("reason",missing.getMessage()));return;
+            }
             naturalTerrain=natural;
             var adapted=(GeologicalGenerator)(Object)generator;
             var field=adapted.skyweave$field(level.getLevel().getChunkSource().randomState());
@@ -262,7 +264,9 @@ public final class GroundVillageTerrain {
                     if(piece.getElement().getProjection()!=StructureTemplatePool.Projection.RIGID)continue;
                     var feet=VillageFootprint.compileArea(piece,current,reference,level.getLevel().getStructureManager(),natural,budget,halo);
                     if(feet.status()==VillageFootprint.Status.BUDGET)return;
-                    if(!feet.qualified())continue;
+                    if(!feet.qualified()) {
+                        VillageDecisionTrace.material(level.getSeed(),center,"FOOTPRINT_UNQUALIFIED",Map.of("piece",current,"reason",feet.reason()));continue;
+                    }
                     var bindings=VillageFoundation.plan(feet.feet(),natural,context,gap);
                     parts.add(new VillageGrading.Part(piece,physicalBox(piece),adjustment,bindings.bindings()));
                 }
@@ -275,10 +279,21 @@ public final class GroundVillageTerrain {
                         || water.containsWaterAt(at.getY()) || water.containsProtectedSealAt(at.getY());
             };
             var grading=VillageGrading.plan(center,natural,parts,context,protectedCell,gap);
-            if(grading.status()!=VillageGrading.Status.READY)return;
+            if(grading.status()!=VillageGrading.Status.READY) {
+                VillageDecisionTrace.material(level.getSeed(),center,"GRADING_"+grading.status(),Map.of("parts",parts.size(),"columns",grading.columns()));return;
+            }
+            // A refused optional shoulder patch grants no projected height. Independent
+            // feet can still use their unchanged natural sources and per-column checks.
+            if(!VillageGrading.canApply(grading.cells(),chunk)) {
+                var retained=NaturalStructureInputs.existing(level.getLevel(),chunk);
+                if(retained!=null && retained.grading()!=null) {
+                    VillageDecisionTrace.material(level.getSeed(),center,"GRADING_REPLAY_CONFLICT",Map.of("cells",grading.cells().size()));return;
+                }
+                VillageDecisionTrace.material(level.getSeed(),center,"GRADING_CONFLICT_NO_GRADE",Map.of("cells",grading.cells().size()));
+                grading=new VillageGrading.Result(VillageGrading.Status.READY,List.of(),0);
+            }
             String identity=identity(starts);
             var graded=natural.overlay(grading.cells());
-            projectedTerrain=graded;
             var finalFeet=new ArrayList<VillageFootprint.Foot>();var finalBudget=new VillageFootprint.Budget();
             for(var piece:pieces) {
                 var result=VillageFootprint.compile(piece.nativePiece(),piece.index(),piece.reference(),level.getLevel().getStructureManager(),graded,finalBudget,center);
@@ -293,6 +308,7 @@ public final class GroundVillageTerrain {
             // Complete every logical budget/processor decision before granting any write.
             NaturalStructureInputs.bindGrading(level.getLevel(),chunk,identity,grading.cells());
             if(!VillageGrading.apply(level.getLevel(),grading.cells(),chunk))return;
+            projectedTerrain=graded;
             support=planned;
             requirements=planned.bindings().stream().map(binding->binding.foot().position()).collect(java.util.stream.Collectors.toUnmodifiableSet());
             StructureBenchmarkRecorder.add("skyweaveVillageGradedCells",grading.cells().size());

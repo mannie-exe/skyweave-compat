@@ -1,5 +1,13 @@
 # Verification
 
+## Authored village contracts
+
+The combined generation-18 product has SHA-256 `d1aa51f019bcd702f2e67987dcc1b1d9c7571dfb9750125d8ecb4dad5afd01fd`; its server probe is `b1ee633f5e5c023c0afd23179d5ebbf05b1ea4c161b07de9d4df139236d0f6cd`. Both match the retained seven-profile qualification exactly. The core keeps the public re:form 0.1.0 bytes identified below. Current build/check passes 454 consumer cases and eleven tooling cases after retiring the comparison backend.
+
+The seven-profile pack fixture covers six fixed assembly seeds: 42 native starts reopen with the same canonical serialization, and 41 satisfy required content. Mill Market at seed55 refuses its missing homes. Three actual island witnesses qualify Snowline and Flower courts after decoration and reopening, including scheduled seed42/C2ME control. Their floor samples retain 253, 171, and 253 sturdy contacts and their expected functional blocks; the defining court/landmark route works in both directions. Changing one of the seven contracts refuses before probing the existing world, retaining its saved identity.
+
+This is exact-artifact reuse of native evidence, not a claim that the cleanup reran those worlds. It does not establish every profile's physical realization, natural encounter frequency, whole-village navigation, or complete pack readiness. The restored client preview supports the bounded tagged profile set; earlier five-profile screenshots do not qualify all seven. The native runner now includes Create for authored data rather than relying on the earlier scratch-only allowlist change. The consumer's public resolver and final canonical-tree checks are recorded with their own results.
+
 ## Shared settings owners
 
 Repository maintenance at `9bde63d` and `c954a22` passes 449 current consumer tests and eleven tooling tests, including real Java argument-file parsing. Retired comparison helpers are removed; native codec, profile-pair, storage, and metadata cases exercise shipped owners. The product and source JARs remain byte-identical to the qualified candidate below. This maintenance changes test, documentation, and runner organization without adding a new native-runtime qualification.

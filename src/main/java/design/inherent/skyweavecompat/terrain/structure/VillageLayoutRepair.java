@@ -31,6 +31,7 @@ public final class VillageLayoutRepair {
     private record Port(int node, StructureTemplate.StructureBlockInfo info) {}
     private static final Cache<StructureTemplate.Palette, Geometry> GEOMETRY = CacheBuilder.newBuilder().weakKeys().maximumSize(512).build();
     private static final ThreadLocal<Integer> ORIGINAL_BUILDINGS = new ThreadLocal<>();
+    private static final ThreadLocal<VillageComposition.Bound> ORIGINAL_COMPOSITION = new ThreadLocal<>();
     private static final int MAX_PIECES = 2048, MAX_PORTS = 8192;
     private VillageLayoutRepair() {}
 
@@ -38,11 +39,19 @@ public final class VillageLayoutRepair {
     public static <T> T assembly(net.minecraft.world.level.levelgen.structure.StructureStart original,
             StructureTemplateManager templates, java.util.function.Supplier<T> action) {
         var previous = ORIGINAL_BUILDINGS.get();
-        ORIGINAL_BUILDINGS.set(buildings(original, templates));
+        var previousComposition = ORIGINAL_COMPOSITION.get();
+        int buildingCount = buildings(original, templates);
+        var scope = StructurePlacementScope.current();
+        var composition = scope == null ? null : VillageComposition.bind(original, scope.pass().registryAccess());
+        ORIGINAL_BUILDINGS.set(buildingCount);
+        if (composition != null) ORIGINAL_COMPOSITION.set(composition);
+        else ORIGINAL_COMPOSITION.remove();
         try { return action.get(); }
         finally {
             if (previous == null) ORIGINAL_BUILDINGS.remove();
             else ORIGINAL_BUILDINGS.set(previous);
+            if (previousComposition == null) ORIGINAL_COMPOSITION.remove();
+            else ORIGINAL_COMPOSITION.set(previousComposition);
         }
     }
 
@@ -113,6 +122,9 @@ public final class VillageLayoutRepair {
             IslandField field, SkyIslandSettings settings) {
         var scope=StructurePlacementScope.current();
         if (scope==null || scope.family()!=StructureFamily.VILLAGES) return pieces;
+        var composition = ORIGINAL_COMPOSITION.get();
+        if (composition == null) composition = VillageComposition.bind(original, scope.pass().registryAccess());
+        if (!VillageComposition.accept(composition, pieces, true)) return List.of();
         var policy=scope.distribution().villageFitting();
         if (pieces.size()>MAX_PIECES) {
             VillageDecisionTrace.emit(original,"layout_support","PIECE_BUDGET",Map.of("pieces",pieces.size(),"limit",MAX_PIECES));return List.of();
@@ -235,6 +247,7 @@ public final class VillageLayoutRepair {
         }
         StructureBenchmarkRecorder.add("skyweaveVillageFoundationColumns",terrain.columns.size());
         StructureBenchmarkRecorder.add("skyweaveVillageRemovedPieces",pieces.size()-result.size());
+        if (!VillageComposition.accept(composition, result, false)) return List.of();
         return result;
     }
 

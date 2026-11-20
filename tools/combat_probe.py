@@ -46,8 +46,10 @@ def main():
     parser.add_argument('--network-role', choices=('actor', 'observer'), help='Real loopback client role instead of the integrated scene')
     parser.add_argument('--address', help='Explicit 127.0.0.1:port for the network scene')
     parser.add_argument('--source-prism', type=Path, help='Read-only owned stage made from a native Prism export and instance install')
-    parser.add_argument('--scene', choices=('combat', 'poses', 'hand-effects', 'visual-options', 'resource-evolution', 'foliage'), default='combat')
+    parser.add_argument('--scene', choices=('combat', 'poses', 'hand-effects', 'visual-options', 'resource-evolution', 'villages', 'foliage'), default='combat')
     parser.add_argument('--foliage-control', action='store_true', help='Remove only the foliage shader repair from the owned Visual Patches copy')
+    parser.add_argument('--village-data', type=Path, help='Generated, provenance-bound village fixture for the villages scene')
+    parser.add_argument('--reform', type=Path, help='Explicit required re:form candidate when absent from the owned pack stage')
     parser.add_argument('--resource-control', action='store_true', help='Resource scene without the selected evolution packs or maintained Visual Patches')
     parser.add_argument('--resource-focus', choices=('all', 'rotations', 'music', 'equipment', 'formats', 'interactive', 'ores', 'mobs'), default='all', help='Held gallery, rotations, discs, equipped Artifacts, formats, scripted placement, ore/ingots, or native mob pose controls')
     parser.add_argument('--resource-pack', type=Path, action='append', default=[], help='Read-only candidate ZIP copied into this resource scene; at most four')
@@ -64,6 +66,8 @@ def main():
     args = parser.parse_args()
     if args.foliage_control and args.scene != 'foliage':
         parser.error('--foliage-control requires the foliage scene')
+    if bool(args.village_data) != (args.scene == 'villages'):
+        parser.error('--village-data is required only for the villages scene')
     if args.resource_control and args.scene != 'resource-evolution':
         parser.error('--resource-control requires the resource-evolution scene')
     if args.resource_focus != 'all' and args.scene != 'resource-evolution':
@@ -162,6 +166,54 @@ def main():
     product = args.compat or REPOSITORY / f'build/libs/skyweave-compat-{version}-mc1.21.1-neoforge.jar'
     for path in [product, REPOSITORY / 'build/probe/skyweave-client-probe.jar']:
         shutil.copy2(path, root / 'mods' / path.name)
+    installed_libraries = [path for path in (root / 'mods').glob('*.jar') if 'reform' in mod_ids(path)]
+    library = args.reform
+    if library is None and not installed_libraries:
+        choices = [path for path in (pack / 'pack/mods').glob('*.jar') if mod_ids(path) == {'reform'}]
+        if len(choices) != 1:
+            parser.error('Supply --reform or an owned pack stage with exactly one re:form artifact')
+        library = choices[0]
+    if library is not None:
+        if mod_ids(library) != {'reform'}:
+            parser.error('--reform must identify only re:form')
+        for path in installed_libraries:
+            path.unlink()
+        shutil.copy2(library, root / 'mods' / library.name)
+    elif len(installed_libraries) != 1:
+        parser.error('Owned pack stage has multiple re:form artifacts')
+    village_input = None
+    if args.village_data:
+        with zipfile.ZipFile(args.village_data) as archive:
+            provenance = json.loads(archive.read('pack.mcmeta')).get('skyweave_village_fixture', {})
+            resources = provenance.get('resources', {})
+            if (provenance.get('schema') != 1 or not resources or len(resources) > 1024
+                    or set(archive.namelist()) != set(resources) | {'pack.mcmeta'}):
+                parser.error('--village-data is not a complete generated village fixture')
+            providers = {'ctov': 'ct-overhaul-village', 'bettervillage': 'better-village', 't_and_t': 'towns-and-towers'}
+            found_providers = set()
+            for path in (root / 'mods').glob('*.jar'):
+                for identity in mod_ids(path) & providers.keys():
+                    dependency = providers[identity]
+                    if hashlib.sha512(path.read_bytes()).hexdigest() != provenance.get('sources', {}).get(dependency):
+                        parser.error('--village-data provider pins differ from the owned stage')
+                    found_providers.add(identity)
+            if found_providers != providers.keys():
+                parser.error('Village scene is missing its exact provider stack')
+            metadata = ('modLoader="lowcodefml"\nloaderVersion="[1,)"\nlicense="MIT"\n'
+                        '[[mods]]\nmodId="skyweave_village_preview"\nversion="1.0.0"\n'
+                        'displayName="Owned village preview data"\n'
+                        '[[dependencies.skyweave_village_preview]]\nmodId="skyweave_resource_patches"\n'
+                        'type="required"\nversionRange="[0,)"\nordering="AFTER"\nside="BOTH"\n')
+            with zipfile.ZipFile(root / 'mods/owned-village-data.jar', 'w') as fixture:
+                fixture.writestr('META-INF/neoforge.mods.toml', metadata)
+                fixture.writestr('pack.mcmeta', archive.read('pack.mcmeta'))
+                for name, digest in resources.items():
+                    original = name.startswith('data/skyweave_compat/structure/villages/') and name.endswith('.nbt')
+                    if (not name.startswith('data/') or '..' in Path(name).parts or not (name.endswith('.json') or original)
+                            or hashlib.sha256(archive.read(name)).hexdigest() != digest):
+                        parser.error('Invalid or changed village resource: ' + name)
+                    fixture.writestr(name, archive.read(name))
+            village_input = hashlib.sha256(args.village_data.read_bytes()).hexdigest()
     for side in ('common', 'client'):
         for path in (pack / f'overrides/{side}/config').glob('combatnouveau-*.toml'):
             destination = root / 'config' / path.name
@@ -300,6 +352,8 @@ def main():
                '-Dskyweave_compat.probe.resourceEvolution.shader=' + shader,
                '-Dskyweave_compat.probe.resourceEvolution.focus=' + args.resource_focus,
                '-Dskyweave_compat.probe.resourceEvolution.control=' + str(args.resource_control).lower()]
+    elif args.scene == 'villages':
+        vm.append('-Dskyweave_compat.probe.villages=true')
     elif args.scene == 'visual-options':
         vm.append('-Dskyweave_compat.probe.visualOptions=true')
         vm.append('-Dskyweave_compat.probe.visualOptions.shader=' + shader)
@@ -336,7 +390,7 @@ def main():
     configurations = {str(path.relative_to(root)): hashlib.sha256(path.read_bytes()).hexdigest() for path in (root / 'config').rglob('*') if path.is_file()}
     (root / 'launch.json').write_text(json.dumps({'command': command, 'artifacts': artifacts, 'connectorCleanArtifact': connector_input,
         'configurationsBeforeBoot': configurations, 'selectedResourceSha256': hashlib.sha256(resource.read_bytes()).hexdigest(),
-        'foliageInput': foliage_input,
+        'villageDataSha256': village_input, 'foliageInput': foliage_input,
         'bootstrap': 'Pinned ModDev forgeclientdev; packaged gameplay/probe JARs; no project source roots'}, indent=2) + '\n')
     print(f'Launching owned {args.scene} client: {root}', flush=True)
     environment = {key: value for key, value in os.environ.items() if key not in ('MOD_CLASSES', 'FML_MOD_FOLDERS')}
@@ -355,7 +409,7 @@ def main():
                 raise RuntimeError(f'Owned client timed out; inspect {root / "client.log"}')
     report = root / ('rendering-startup-results.json' if args.startup_targets else 'combat-network-client.json' if args.network_role
                      else 'foliage-veil-results.json' if args.scene == 'foliage'
-                     else 'resource-evolution-results.json' if args.scene == 'resource-evolution' else 'pose-results.json' if args.scene == 'poses' else 'visual-options-results.json' if args.scene == 'visual-options' else 'hand-effects-results.json' if args.scene == 'hand-effects' else 'combat-report.json')
+                     else 'village-preview-results.json' if args.scene == 'villages' else 'resource-evolution-results.json' if args.scene == 'resource-evolution' else 'pose-results.json' if args.scene == 'poses' else 'visual-options-results.json' if args.scene == 'visual-options' else 'hand-effects-results.json' if args.scene == 'hand-effects' else 'combat-report.json')
     if result or not report.exists():
         raise RuntimeError(f'Client exited {result}; inspect {root / "client.log"}')
     data = json.loads(report.read_text())
@@ -363,6 +417,16 @@ def main():
         raise RuntimeError(data['failure'])
     if args.scene != 'combat':
         if data.get('complete') is not True: raise RuntimeError('Rendering fixture did not complete')
+        if args.scene == 'villages':
+            count = data.get('profileCount')
+            if type(count) is not int or not 1 <= count <= 32:
+                raise RuntimeError('Village preview has no bounded profile count')
+            for profile in range(count):
+                for view in range(3):
+                    capture = root / f'screenshots/village-{profile}-{view}.png'
+                    if not capture.is_file(): raise RuntimeError('Village capture was not saved: ' + str(capture))
+                    with capture.open('rb') as image:
+                        if image.read(8) != b'\x89PNG\r\n\x1a\n': raise RuntimeError('Invalid village capture: ' + str(capture))
         if args.resource_pack:
             requested = json.loads((root / 'resource-candidates.json').read_text())
             missing = ['file/' + entry['file'] for entry in requested if 'file/' + entry['file'] not in data.get('selectedPacks', [])]

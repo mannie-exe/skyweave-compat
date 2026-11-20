@@ -380,6 +380,8 @@ Most rates start near half the nominal vanilla source-opportunity density. Villa
 
 The policy preserves native templates, processors and loot. Selected destinations are fitted before commitments. `villageFitting` controls village support and the bounded alternatives independently of the family allowance:
 
+The same `terrain.village_support` adaptation can enforce data-authored required content for composed villages. Bounded `village_composition/` resources identify exact native template/type/processor/projection alternatives and minimum distinct physical pieces. Fitting and commitment retain one immutable contract through support trimming; missing landmarks, unsupported identities and exhausted assessment are separate refusals. A composed-village tag requires a matching contract. No contract means no extra policy for an ordinary legacy definition. These are pack generation rules, not player preferences or a separate UI. An unchanged resource reload remains valid. Changed contracts require a restart and must match the saved generation identity; restarting cannot apply a different required-content policy to an existing adapted world. With the adaptation disabled, this consumer is not registered and claims no content qualification.
+
 | Field                            |   Default | Accepted range |
 | -------------------------------- | --------: | -------------: |
 | `minimumSupportFraction`         |      0.90 |         0.50–1 |

@@ -29,6 +29,7 @@ parser.add_argument('--java', default='java')
 parser.add_argument('--heap', choices=['4G', '6G', '8G'], default='4G', help='Maximum Java heap; distributed island scans need 6G')
 parser.add_argument('--samples', type=int, default=12, help='Layouts per seed')
 parser.add_argument('--reopen', action='store_true', help='Reopen generated samples and require unchanged ore counts or village starts')
+parser.add_argument('--composition-contract-guard', action='store_true', help='After a successful village reopen, require startup refusal for a changed authored contract')
 parser.add_argument('--ocean-fringes', action='store_true', help='With --perimeter, verify parent ocean materials through native surface/features')
 parser.add_argument('--world-output', type=Path, help='Keep a successful disposable world at a new path for isolated client inspection')
 parser.add_argument('--minimal', action='store_true', help='Generate with only Sky Archipelago and Skyweave: Compatibility Patches, plus the read-only probe')
@@ -64,6 +65,10 @@ mode.add_argument('--structures', action='store_true', help='Survey natural unde
 mode.add_argument('--surface-structures', action='store_true', help='Survey vanilla surface and water structure families')
 mode.add_argument('--coverage', action='store_true', help='Export resolved worldgen resources and bounded native eligibility checks')
 mode.add_argument('--village-pools', action='store_true', help='Verify repaired NPC pools through native template entity placement')
+mode.add_argument('--village-composition', action='store_true', help='Compare native village grammars and saved starts over a constant surface; no terrain writes')
+parser.add_argument('--composition-ids', nargs='+', help='With --village-composition, one to sixteen exact native structure IDs')
+parser.add_argument('--composition-seeds', nargs='+', type=int, help='Explicit signed-long seeds for native composition; defaults to the four comparison seeds')
+parser.add_argument('--village-data', '--composition-data', dest='composition_data', type=Path, help='With --village-stack, exact generated village fixture archive')
 mode.add_argument('--ground-village', action='store_true', help='Qualify production grading/support on a native house placed on real terrain')
 mode.add_argument('--natural-inputs', action='store_true', help='Verify native CARVERS input capture and partial-chunk persistence')
 mode.add_argument('--village-support', action='store_true', help='Compare compiled processed feet with actual native template placement')
@@ -146,8 +151,10 @@ parser.add_argument('--disable-climate-adapter', action='store_true', help='Disa
 parser.add_argument('--disable-carver-adapter', action='store_true',
                     help='Disable the relative-carving adaptation in the disposable startup configuration')
 args = parser.parse_args()
-if args.village_stack and (args.minimal or not (args.ground_village or args.village_support)):
-    parser.error('--village-stack requires --ground-village or --village-support without --minimal')
+if args.composition_contract_guard and not (args.surface_structures and args.composition_data and args.reopen and not args.disable_ground_support):
+    parser.error('--composition-contract-guard requires enabled surface structures, village data and --reopen')
+if args.village_stack and (args.minimal or not (args.ground_village or args.village_support or args.village_composition or args.surface_structures)):
+    parser.error('--village-stack requires a ground-village, composition or surface-structure check without --minimal')
 if args.with_c2me and (not args.village_stack or args.without_c2me):parser.error('--with-c2me requires --village-stack without --without-c2me')
 if args.wayfinder_dh and (not args.wayfinder or args.minimal): parser.error('--wayfinder-dh requires --wayfinder with DH installed')
 if args.wayfinder_high and not args.wayfinder: parser.error('--wayfinder-high requires --wayfinder')
@@ -242,12 +249,28 @@ if args.oceans and not args.ocean_config:
     parser.error('--oceans requires --ocean-config')
 if args.minimal and args.generation != 'adapted' and not any((args.city_recipe, args.wayfinder, args.access, args.perimeter, args.hydrology, args.variation, args.structure_search, args.locator, args.settings_policy, args.lookup, args.coverage, args.structures, args.surface_structures, args.overlap, args.interiors, args.veins, args.water, args.materials, args.oceans, args.habitats, args.floe_layers, args.biomes, args.surface_climate, args.terrain, args.benchmark, args.village_support, args.natural_inputs, args.ground_village)):
     parser.error('--minimal requires a terrain, coverage, structure, interior, vein, water or material check')
-if args.reopen and not (args.benchmark or args.fractured_hollow or args.variation or args.city_recipe or args.quests or args.access or args.ocean_fringes or args.structure_search or args.hydrology or args.lookup or args.generation or args.natural or args.structures or args.surface_structures or args.water or args.oceans or args.village_support or args.natural_inputs or args.ground_village):
+if args.reopen and not (args.village_composition or args.benchmark or args.fractured_hollow or args.variation or args.city_recipe or args.quests or args.access or args.ocean_fringes or args.structure_search or args.hydrology or args.lookup or args.generation or args.natural or args.structures or args.surface_structures or args.water or args.oceans or args.village_support or args.natural_inputs or args.ground_village):
     parser.error('--reopen requires a benchmark, generation, natural villages, structures, water or ocean fringes')
 if args.natural_profile != 'current' and not args.natural:
     parser.error('--natural-profile requires --natural')
 if (args.structure_id or args.layouts_only) and not (args.structures or args.surface_structures):
     parser.error('--structure-id and --layouts-only require a structure check')
+if bool(args.composition_ids) != args.village_composition:
+    parser.error('--village-composition requires --composition-ids, and vice versa')
+if args.village_composition and not args.composition_data:
+    parser.error('--village-composition requires --village-data')
+if args.composition_seeds and (not args.village_composition or len(args.composition_seeds) > 8
+        or len(set(args.composition_seeds)) != len(args.composition_seeds)
+        or any(not -(1 << 63) <= seed < (1 << 63) for seed in args.composition_seeds)):
+    parser.error('--composition-seeds requires composition and one to eight distinct signed-long seeds')
+if args.village_composition and len(args.composition_ids or []) * args.samples * len(args.composition_seeds or [1,42,8675309,424242]) > 128:
+    parser.error('Native composition is limited to 128 total assemblies')
+if args.composition_data and not args.village_stack:
+    parser.error('--village-data requires --village-stack')
+if args.village_composition and (not args.village_stack or len(args.composition_ids) > 16
+        or len(set(args.composition_ids)) != len(args.composition_ids)
+        or any(not re.fullmatch(r'[a-z0-9_.-]+:[a-z0-9_./-]+', value) for value in args.composition_ids)):
+    parser.error('--village-composition requires --village-stack and one to sixteen distinct valid IDs')
 if args.structure_debug and not (args.structures or args.surface_structures):
     parser.error('--structure-debug requires a structure check')
 if not 1 <= args.structure_clusters <= 64:
@@ -347,6 +370,8 @@ if args.disable_carver_adapter:
 if args.minimal:
     name += '-minimal'
 if args.village_stack:name += '-village-stack'
+if args.village_composition:name = f'village-composition-{args.seed}'
+if args.village_composition and args.composition_seeds:name += '-seeds-' + '-'.join(map(str,args.composition_seeds))
 if args.with_c2me:name += '-c2me'
 if args.audio: name = f'audio-{args.audio}'
 if args.structure_id: name += '-' + args.structure_id.replace(':', '-').replace('/', '-')
@@ -355,6 +380,7 @@ if args.disable_structure_policy: name += '-native-policy'
 if args.reverse_structure_order: name += '-reverse'
 if args.far_structure_fixture: name += '-far'
 if args.empty_village_start: name += '-empty-village'
+if args.composition_contract_guard: name += '-contract-guard'
 if args.structure_config: name += '-' + args.structure_config.stem
 if args.search_config: name += '-limits-' + args.search_config.stem
 if args.fixed_biome: name += '-' + args.fixed_biome.replace(':', '-').replace('/', '-')
@@ -365,6 +391,9 @@ for label, profile in [('geometry', args.generation_config), ('shapes', args.sha
 if args.without_c2me: name += '-without-c2me'
 if args.without_dynamic_waters: name += '-without-dynamic-waters'
 if args.disable_sable_climate: name += '-sable-climate-disabled'
+fixture_description = name
+if len(name.encode()) > 180:
+    name = name.encode()[:160].decode('utf-8', 'ignore').rstrip('-') + '-' + hashlib.sha256(name.encode()).hexdigest()[:16]
 report = output / (name + '.json')
 report.unlink(missing_ok=True)
 with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
@@ -386,8 +415,10 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
     (run / 'libraries').symlink_to(server / 'libraries', target_is_directory=True)
     (run / 'mods').mkdir()
     village_mods={'sky_archipelago','ctov','lithostitched','apollib','bettervillage','libraryferret','t_and_t','cristellib'}
+    if args.composition_data:village_mods.update({'create','ponder'})
     if args.with_c2me:village_mods.add('c2me')
     found_village_mods=set()
+    village_source_archives = {}
     for source in (server / 'mods').glob('*.jar'):
         with zipfile.ZipFile(source) as jar:
             metadata = (tomllib.loads(jar.read('META-INF/neoforge.mods.toml').decode())
@@ -411,8 +442,14 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
                 continue
         (run / 'mods' / source.name).symlink_to(source)
         found_village_mods.update(ids & village_mods)
-    # The pinned Lithostitched embeds Apollib; NeoForge validates its nested dependency.
-    required_village_mods=village_mods-{'apollib'}
+        if args.composition_data:
+            for dependency, modid in {'ct-overhaul-village': 'ctov', 'better-village': 'bettervillage', 'towns-and-towers': 't_and_t'}.items():
+                if modid in ids:
+                    with source.open('rb') as stream:
+                        village_source_archives[dependency] = hashlib.file_digest(stream, 'sha512').hexdigest()
+    # Lithostitched embeds Apollib; Create embeds Ponder. Keep a separately installed
+    # Ponder when present, and let NeoForge validate the actual nested fallback.
+    required_village_mods=village_mods-{'apollib','ponder'}
     if args.village_stack and not required_village_mods<=found_village_mods:
         raise SystemExit('Village fixture is missing: '+', '.join(sorted(required_village_mods-found_village_mods)))
     if args.minimal and not args.wayfinder and len(list((run / 'mods').glob('*.jar'))) != 1:
@@ -447,6 +484,24 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
             parser.error('--resource-patches requires the full profile for its native resource dependencies')
         copy_owned(candidate, run / 'mods' / candidate.name, run)
     copy_owned(fixture, run / 'mods' / fixture.name, run)
+    if args.composition_data:
+        candidate = args.composition_data.expanduser().resolve()
+        with zipfile.ZipFile(candidate) as archive:
+            meta = json.loads(archive.read('pack.mcmeta'))
+            provenance = meta.get('skyweave_village_fixture', {})
+            resources = provenance.get('resources', {})
+            if (provenance.get('schema') != 1 or not resources or len(archive.namelist()) != len(resources) + 1
+                    or set(archive.namelist()) != set(resources) | {'pack.mcmeta'}):
+                parser.error('--composition-data is not a complete generated village fixture')
+            if any(provenance.get('sources', {}).get(key) != digest for key, digest in village_source_archives.items()):
+                parser.error('--composition-data source pins differ from the installed village provider artifacts')
+            for resource_name, digest in resources.items():
+                original_template = resource_name.startswith('data/skyweave_compat/structure/villages/') and resource_name.endswith('.nbt')
+                if (not resource_name.startswith('data/') or not (resource_name.endswith('.json') or original_template) or '..' in Path(resource_name).parts
+                        or hashlib.sha256(archive.read(resource_name)).hexdigest() != digest):
+                    parser.error('--composition-data has an invalid or changed resource: ' + resource_name)
+        destination = run / 'probe-world/datapacks/village-composition.zip'
+        copy_owned(candidate, destination, run)
     for folder in ['config', 'defaultconfigs']:
         if not args.configuration_writers and not args.minimal and args.audio in (None, 'full') and (server / folder).exists():
             shutil.copytree(server / folder, run / folder)
@@ -619,6 +674,9 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
                f'-Dneighbors.probe.structureId={args.structure_id or ""}',
                f'-Dneighbors.probe.previousStructures={run / "structure-witnesses.json"}',
                f'-Dneighbors.probe.layoutsOnly={str(args.layouts_only).lower()}',
+               f'-Dneighbors.probe.villageComposition={str(args.village_composition).lower()}',
+               f'-Dneighbors.probe.compositionIds={",".join(args.composition_ids or [])}',
+               f'-Dneighbors.probe.compositionSeeds={",".join(map(str,args.composition_seeds or [1,42,8675309,424242]))}',
                f'-Dneighbors.probe.reverseStructures={str(args.reverse_structure_order).lower()}',
                f'-Dneighbors.probe.farStructures={str(args.far_structure_fixture).lower()}',
                f'-Dskyarchipelago.structureBenchmark={str(args.structures or args.surface_structures or args.coverage or args.ground_village).lower()}',
@@ -749,6 +807,10 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
         if args.water or args.oceans: data['waterSearchRadius'] = args.water_radius
         data['peakResidentBytes'] = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss * (1 if sys.platform == 'darwin' else 1024)
         data['modSelection'] = args.audio or ('minimal' if args.minimal else 'village-stack' if args.village_stack else 'full')
+        data['fixtureDescription'] = fixture_description
+        if args.composition_data:
+            data['compositionDataSha256'] = hashlib.sha256((run / 'probe-world/datapacks/village-composition.zip').read_bytes()).hexdigest()
+            data['compositionProviderSha512'] = village_source_archives
         data['installedJars'] = sorted(path.name for path in (run / 'mods').glob('*.jar'))
         if args.dynamic_waters:
             data['dynamicWatersConfig'] = (run / 'config/dynamicwaters-common.toml').read_text()
@@ -948,11 +1010,13 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
                     return [(row['id'], [(sample['chunkX'], sample['chunkZ'], sample['bounds'], sample['piecesDigest'],
                             sample.get('blocks', {}).get('minecraft:reinforced_deepslate'))
                             for sample in row['candidates'] if sample['valid']]) for row in data['structures']]
+                if args.village_composition:
+                    return data['assemblies'], data['templateCatalog'], data['compositionDataSha256']
                 if args.natural:
                     return {key: data[key] for key in ['samples', 'villagePlan']} if 'villagePlan' in data else data['samples']
                 return [(sample['x'], sample['z'], {key: value for key, value in sample['blocks'].items()
                         if key.endswith('_ore')}) for sample in data['samples']]
-            match_key = ('reopenBenchmarkMatch' if args.benchmark else 'reopenFracturedCavitiesMatch' if args.fractured_hollow else 'reopenQuestClaimsMatch' if args.quests else 'reopenSpawnMatches' if args.access else 'reopenFringeMaterialsMatch' if args.ocean_fringes else 'reopenSavedStartsMatch' if args.structure_search else 'reopenHydrologyMatch' if args.hydrology else 'reopenLookupMatch' if args.lookup else
+            match_key = ('reopenCompositionMatch' if args.village_composition else 'reopenBenchmarkMatch' if args.benchmark else 'reopenFracturedCavitiesMatch' if args.fractured_hollow else 'reopenQuestClaimsMatch' if args.quests else 'reopenSpawnMatches' if args.access else 'reopenFringeMaterialsMatch' if args.ocean_fringes else 'reopenSavedStartsMatch' if args.structure_search else 'reopenHydrologyMatch' if args.hydrology else 'reopenLookupMatch' if args.lookup else
                          'reopenGroundVillageMatch' if args.ground_village else 'reopenNaturalInputsMatch' if args.natural_inputs else 'reopenVillageSupportMatch' if args.village_support else 'reopenWaterOwnershipMatch' if args.water or args.oceans else
                          'reopenStructuresMatch' if args.structures or args.surface_structures else
                          'reopenVariationMatches' if args.variation else 'reopenVillagesMatch' if args.natural else 'reopenCityAssemblyMatch' if args.city_recipe else 'reopenOreCountsMatch')
@@ -993,6 +1057,39 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
                         raise SystemExit('Water regression sites changed after reopening')
                     reopened['initialGenerationStages'] = initial['generationStages']
             report.write_text(json.dumps(second, indent=2) + '\n')
+    if args.composition_contract_guard:
+        qualified = json.loads(report.read_text())
+        if not qualified.get('complete') or not first_identity:
+            raise SystemExit('Contract guard requires a qualified owned-world reopen')
+        saved_policy = json.loads(first_identity)
+        if not saved_policy.get('villageComposition'):
+            raise SystemExit('Saved identity did not bind loaded village composition contracts')
+        staged = run / 'probe-world/datapacks/village-composition.zip'
+        with zipfile.ZipFile(staged) as archive:
+            payloads = {entry: archive.read(entry) for entry in archive.namelist()}
+        contract_name = next(key for key in sorted(payloads) if '/village_composition/' in key and key.endswith('.json'))
+        contract = json.loads(payloads[contract_name])
+        role = contract['roles'][sorted(contract['roles'])[0]]
+        previous_minimum = role['minimum']; role['minimum'] = 2 if previous_minimum == 1 else 1
+        payloads[contract_name] = (json.dumps(contract) + '\n').encode()
+        metadata = json.loads(payloads['pack.mcmeta'])
+        metadata['skyweave_village_fixture']['resources'][contract_name] = hashlib.sha256(payloads[contract_name]).hexdigest()
+        payloads['pack.mcmeta'] = (json.dumps(metadata) + '\n').encode()
+        with zipfile.ZipFile(staged, 'w') as archive:
+            for entry, payload in payloads.items(): archive.writestr(entry, payload)
+        report.unlink()
+        log_path = output / (name + '-changed-contract.log')
+        with log_path.open('w') as log:
+            refused = subprocess.run(command, cwd=run, stdout=log, stderr=subprocess.STDOUT, check=False, timeout=120)
+        marker = "Skyweave generation settings differ from this world's recorded identity"
+        rejected = marker in log_path.read_text(errors='replace') and not report.exists() and identity_path.read_bytes() == first_identity
+        qualified['changedContractGuard'] = {'refusedBeforeProbe': rejected, 'exitCode': refused.returncode,
+            'boundProfiles': len(saved_policy['villageComposition']), 'contract': contract_name,
+            'previousMinimum': previous_minimum, 'changedMinimum': role['minimum'],
+            'mutatedDataSha256': hashlib.sha256(staged.read_bytes()).hexdigest(), 'savedIdentityUnchanged': identity_path.read_bytes() == first_identity}
+        if not rejected: qualified['complete'] = False
+        report.write_text(json.dumps(qualified, indent=2) + '\n')
+        if not rejected: raise SystemExit('Changed composition did not produce the exact startup refusal')
     if report.exists():
         data = json.loads(report.read_text())
         if args.dh_pregen and not args.dh_stop_after:
@@ -1134,6 +1231,9 @@ if args.ecology:
     raise SystemExit(0)
 if args.natural:
     print('Natural starts:', data['accepted'], 'Complete villages:', data['completed'])
+    raise SystemExit(0)
+if args.village_composition:
+    print('Native composition:', len(data['assemblies']), 'assemblies,', len(data['templateCatalog']), 'templates;', report)
     raise SystemExit(0)
 print('Native accepted:', data['nativeAccepted'], 'Mixin rejections:', data['mixinRejections'])
 for distance in [384, 512, 768]:

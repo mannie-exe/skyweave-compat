@@ -292,6 +292,10 @@ public final class PlacementProbe {
                 EcologyProbe.run(server, Path.of(System.getProperty("neighbors.probe.output")));
                 return;
             }
+            if (Boolean.getBoolean("neighbors.probe.villageComposition")) {
+                VillageCompositionProbe.run(server, Path.of(System.getProperty("neighbors.probe.output")));
+                return;
+            }
             if (Boolean.getBoolean("neighbors.probe.villagePools")) {
                 VillagePoolProbe.start(server, Path.of(System.getProperty("neighbors.probe.output")));
                 asynchronous = true;

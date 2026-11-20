@@ -26,4 +26,11 @@ final class VillageDecisionTrace {
         row.put("thread",Thread.currentThread().getName());row.put("stage",stage);row.put("outcome",outcome);row.put("details",details);
         LOGGER.info("Skyweave village decision {}",JSON.toJson(row));
     }
+    /** Local material preparation has no active candidate scope; retain its actual chunk/stage separately. */
+    static void material(long seed,net.minecraft.world.level.ChunkPos chunk,String outcome,Object details) {
+        if(!enabled())return;
+        var row=new LinkedHashMap<String,Object>();row.put("seed",seed);row.put("materialChunk",List.of(chunk.x,chunk.z));
+        row.put("stage","material_preparation");row.put("outcome",outcome);row.put("details",details);
+        LOGGER.info("Skyweave village material {}",JSON.toJson(row));
+    }
 }
