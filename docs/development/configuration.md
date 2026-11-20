@@ -30,7 +30,7 @@ Document and field identity come from `SettingsCatalog.FileEntry.id` and `Settin
 
 | Owner                        | Files and authority                                                                                           |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `StartupEdits`               | Feature properties; immutable running selection plus next-start delta                                         |
+| `StartupFeatureForm`         | Feature properties through re:form, with immutable startup selection and staged next-process writes           |
 | `JsonEdits` / `JsonSettings` | Cataloged strict JSON files; actual profile/settings parsers validate every candidate                         |
 | `RegisteredEdits`            | Staged scalar fields in loaded local NeoForge CLIENT/COMMON TOMLs; native specs, serializer and reload events |
 | `JournalPreferences`         | Immediate journal values shared with the journal bookmark                                                     |

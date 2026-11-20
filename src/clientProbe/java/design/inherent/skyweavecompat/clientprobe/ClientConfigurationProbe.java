@@ -469,13 +469,12 @@ final class ClientConfigurationProbe {
                         report.addProperty(name + "." + property, value == null ? null : value.toString());
                     }
                 }
-                var field = ConfigurationOverview.class.getDeclaredField("draft"); field.setAccessible(true);
-                var draft = (design.inherent.skyweavecompat.configuration.StartupEdits) field.get(overview);
-                if (draft != null) {
-                    report.addProperty("dirty", draft.dirty());
-                    var values = new JsonObject();var saved = new JsonObject();
-                    for (Feature feature : Feature.values()) { values.addProperty(feature.key, draft.value(feature)); saved.addProperty(feature.key, draft.saved().enabled(feature)); }
-                    report.add("draft", values);report.add("saved", saved);
+                var field = ConfigurationOverview.class.getDeclaredField("nextStartup"); field.setAccessible(true);
+                var observed = (design.inherent.skyweavecompat.FeatureSettings) field.get(overview);
+                if (observed != null) {
+                    var saved = new JsonObject();
+                    for (Feature feature : Feature.values()) saved.addProperty(feature.key, observed.enabled(feature));
+                    report.add("saved", saved);
                 }
             }
             var active = new JsonArray(); for (Feature feature : OptionalIntegrations.selection().active()) active.add(feature.key); report.add("active", active);

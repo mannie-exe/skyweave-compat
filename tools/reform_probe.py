@@ -225,6 +225,35 @@ def verify_integrated_policy(client, config):
     return dict(before=original, after=after, saved=saved, receipt=receipt, originalSha256=original_hash)
 
 
+def verify_startup_property(client, config):
+    client.until(lambda: client.state('misc').get('loaded'), 'integrated fixture did not join')
+    path = config / 'skyweave_compat-features.properties'
+    before = path.read_bytes()
+    client.act('open')
+    client.wait_active('Status & files')
+    client.act('scroll', x=48, y=client.state()['height'] // 2, amount=-10)
+    client.click('Status & files')
+    client.wait_active('Edit settings')
+    client.click('Edit settings')
+    client.field('', 'Wayfinder', 'Search documents')
+    client.wait_active('Open')
+    client.click('Open')
+    client.wait_active('true')
+    client.click('true')
+    client.wait_active('Save for restart')
+    assert path.read_bytes() == before
+    client.click('Save for restart')
+    after = client.until(lambda: path.read_bytes() if path.read_bytes() != before else None,
+                         'native startup property did not save')
+    client.act('reform-receipt')
+    receipt = json.loads((client.root / 'reform-receipt.json').read_text())
+    assert receipt['persistence'] == 'SAVED' and receipt['application'] == 'STAGED', receipt
+    assert receipt['savedRevision'] == 'sha256:' + digest(path)
+    assert after == b'# Retained startup comment\r\n  navigation.wayfinder=false\r\n', after
+    assert 'navigation.wayfinder' in client.state()['active']
+    return dict(before=before.decode(), after=after.decode(), receipt=receipt, remainsActive=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('java', 'clean', 'output', 'compat', 'probe'):
@@ -233,18 +262,20 @@ def main():
     scenario = parser.add_mutually_exclusive_group()
     scenario.add_argument('--terrain-pair', action='store_true')
     scenario.add_argument('--integrated-policy', action='store_true')
+    scenario.add_argument('--startup-property', action='store_true')
     parser.add_argument('--mod', action='append', required=True, type=Path)
     args = parser.parse_args()
     if args.output.exists():
         parser.error('Choose a new receipt path')
-    if (args.terrain_pair or args.integrated_policy) and not args.reform:
+    if (args.terrain_pair or args.integrated_policy or args.startup_property) and not args.reform:
         parser.error('This settings scenario requires a re:form artifact')
     artifacts = [args.compat, args.probe, *args.mod]
     if args.reform:
         artifacts.append(args.reform)
     evidence = {'artifacts': {path.name: digest(path) for path in artifacts},
                 'connectorCleanSha256': digest(args.clean),
-                'scenario': ('terrain-pair' if args.terrain_pair else 'integrated-policy' if args.integrated_policy
+                'scenario': ('startup-property' if args.startup_property else 'terrain-pair' if args.terrain_pair
+                             else 'integrated-policy' if args.integrated_policy
                              else 'migrated' if args.reform else 'baseline')}
     started = time.monotonic()
     with tempfile.TemporaryDirectory(prefix='skyweave-reform-client-') as directory:
@@ -260,6 +291,9 @@ def main():
         config = root / 'config/skyweave/skyweave_compat-hoofprint.json'
         config.parent.mkdir(parents=True)
         config.write_text('{"zoomMinimum":0.125,"zoomMaximum":32,"zoomInitial":0,"zoomStep":1.25}\n')
+        if args.startup_property:
+            (config.parent / 'skyweave_compat-features.properties').write_bytes(
+                b'# Retained startup comment\r\n  navigation\\.wayfinder = tr\\\r\n  ue\r\n')
         log = root / 'console.log'
         command = packaged_command(root, args.java, args.clean.resolve(strict=True))
         with log.open('wb') as console:
@@ -270,6 +304,8 @@ def main():
                     evidence['observations'] = verify_terrain_pair(client, config.parent)
                 elif args.integrated_policy:
                     evidence['observations'] = verify_integrated_policy(client, config.parent)
+                elif args.startup_property:
+                    evidence['observations'] = verify_startup_property(client, config.parent)
                 else:
                     evidence['observations'] = verify(client, config, bool(args.reform))
                 client.act('quit')

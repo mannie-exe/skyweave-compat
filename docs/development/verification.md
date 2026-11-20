@@ -10,6 +10,8 @@ The same adoption.6 family of checks uses Dynamic Waters 13.1.0's real COMMON co
 
 Evidence below qualifies named artifacts only. Build and native fixture commands live in [testing](testing.md); adapter contracts and update checks live in their domain guides. A later checkout needs its own relevant checks.
 
+A packaged adoption.8 client opens the startup properties through Configure. Disabling Wayfinder saves the edited switch while retaining the comment, CRLF line endings and indentation around a legacy escaped/continued input. The `SAVED / STAGED` revision matches the observed bytes and actual startup admission remains in force for that process. The same byte-limit regression refuses an oversized serialized edit before persistence.
+
 ## Dependency updates (0.40.0)
 
 The packaged candidate SHA-256 `d86d3ae5bb92b95affcfa18d59416d52f888e26be6b2b1b33ea9e3c0b92aa500` passes `./gradlew check build clientProbeJar` with 496 unit tests and nine packaging controls. A standalone dedicated server passes with no optional targets. A server with the pinned Accessories stack and Curios 9.5.1 also opens with the new bridge at its default setting.

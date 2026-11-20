@@ -10,7 +10,6 @@ import java.util.LinkedHashMap;
 import java.util.EnumSet;
 import design.inherent.skyweavecompat.configuration.SettingsCatalog.Category;
 import design.inherent.skyweavecompat.configuration.SettingsCatalog.Group;
-import design.inherent.skyweavecompat.configuration.StartupEdits;
 import design.inherent.skyweavecompat.configuration.SectionNavigation;
 import design.inherent.skyweavecompat.questlog.client.JournalPreferences;
 import java.nio.file.Files;
@@ -25,7 +24,6 @@ import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.config.ModConfigs;
 import net.neoforged.fml.loading.FMLPaths;
@@ -33,7 +31,8 @@ import net.neoforged.fml.loading.FMLPaths;
 /** Local preference editing and next-start configuration; no remote administration or live mixin reload. */
 public final class ConfigurationOverview extends Screen {
     private final Screen parent;
-    private StartupEdits draft;
+    private FeatureSettings nextStartup;
+    private boolean refreshStartup;
     private Component feedback = Component.empty();
     private Component notice = Component.empty();
     private int noticeY, noticeWidth;
@@ -80,10 +79,12 @@ public final class ConfigurationOverview extends Screen {
     private String selectedEntry;
 
     private final TerrainProfileForms terrainProfiles;
+    private final StartupFeatureForm startupForm;
 
-    ConfigurationOverview(ModContainer container, Screen parent, TerrainProfileForms terrainProfiles) {
+    ConfigurationOverview(Screen parent, TerrainProfileForms terrainProfiles, StartupFeatureForm startupForm) {
         super(Component.translatable("skyweave_compat.configuration.title")); this.parent = parent;
         this.terrainProfiles = terrainProfiles;
+        this.startupForm = startupForm;
         serverSettings = new ServerSettingsView(Minecraft.getInstance(), this::serverChanged);
         load(); loadJson(); loadRegistered();
     }
@@ -93,8 +94,14 @@ public final class ConfigurationOverview extends Screen {
     private static Component category(Category category) { return text("category." + category.name().toLowerCase(Locale.ROOT)); }
     private static Component on(boolean value) { return Component.translatable(value ? "options.on" : "options.off"); }
     private void load() {
-        try { if (draft == null) draft = StartupEdits.open(ConfigLocations.ownedDirectory(FMLPaths.CONFIGDIR.get())); else draft.reload(); feedback = Component.empty(); }
-        catch (Exception failure) { feedback = text("load_failed").append(" ").append(Component.literal(String.valueOf(failure.getMessage()))); }
+        try {
+            var path = ConfigLocations.file(FMLPaths.CONFIGDIR.get(), FeatureSettings.FILE);
+            nextStartup = FeatureSettings.read(new java.io.StringReader(ConfigFile.read(path)));
+            feedback = Component.empty();
+        } catch (Exception failure) {
+            nextStartup = null;
+            feedback = text("load_failed").append(" ").append(Component.literal(String.valueOf(failure.getMessage())));
+        }
     }
     private void loadJson() {
         for (var file : JsonSettings.FILES) try {
@@ -106,7 +113,7 @@ public final class ConfigurationOverview extends Screen {
         } catch (Exception failure) { unavailable.put(file.filename(), String.valueOf(failure.getMessage())); }
     }
     private boolean dirty() { if (serverSettings.selected()) return false;
-        return draft != null && draft.dirty() || json.values().stream().anyMatch(JsonEdits::dirty)
+        return json.values().stream().anyMatch(JsonEdits::dirty)
             || toml.values().stream().anyMatch(RegisteredEdits::dirty); }
     private void loadRegistered() {
         for (var entry : SettingsCatalog.FILES) {
@@ -162,6 +169,7 @@ public final class ConfigurationOverview extends Screen {
                 .bounds(0, 0, Math.max(width, font.width(label) + 12), 20).build();
     }
     @Override protected void init() {
+        if (refreshStartup) { refreshStartup = false; load(); }
         if (controls == null) controls = new SettingsControls(font);
         language = net.minecraft.locale.Language.getInstance(); resourceRevision = ClientResourceRevision.revision();
         int top = 34 + font.split(contextIntro(), Math.max(100, width - 24)).size() * font.lineHeight;
@@ -171,7 +179,7 @@ public final class ConfigurationOverview extends Screen {
         contextButton.setTooltip(Tooltip.create(text("context_help")));
         contextButton.setPosition(10, top); addRenderableWidget(contextButton);
         top += 24;
-        notice = !feedback.getString().isEmpty() ? feedback : draft == null ? text("load_failed") : Component.empty();
+        notice = !feedback.getString().isEmpty() ? feedback : nextStartup == null ? text("load_failed") : Component.empty();
         if (!notice.getString().isEmpty()) {
             noticeY = top; noticeWidth = Math.max(80, width - 128);
             int noticeHeight = Math.max(20, font.split(notice, noticeWidth).size() * font.lineHeight);
@@ -341,8 +349,8 @@ public final class ConfigurationOverview extends Screen {
     }
     private void refreshViewStates() {
         viewStates.clear();
-        if (draft != null) for (Feature feature : Feature.values())
-            viewStates.put("feature/"+feature.key,new ViewState(draft.edited(feature),false,true));
+        for (Feature feature : Feature.values())
+            viewStates.put("feature/"+feature.key,new ViewState(false,false,true));
         for (var file : SettingsCatalog.FILES) {
             var owned = json.get(file.filename()); var nativeEdits = toml.get(file.filename());
             var states = new ArrayList<ViewState>();
@@ -427,18 +435,20 @@ public final class ConfigurationOverview extends Screen {
         content.anchorRow("preference/" + key, label, description, control, reset);
     }
     private int navigationWidth() { return Math.clamp(width / 4, 102, 170); }
+    private void openStartup(Feature feature) {
+        remember();
+        refreshStartup = true;
+        startupForm.open(this, feature);
+    }
     private void addFeature(Feature feature) {
         var inspect = new SettingsInformationButton(featureName(feature), () -> inspect(feature));
         Component summary = Component.translatable(SettingsCatalog.entry(feature).summaryKey());
         if (!OptionalIntegrations.enabled(feature)) summary = summary.copy().append("\n").append(text("running", state(feature)));
-        if (draft != null && draft.saved().enabled(feature) != OptionalIntegrations.configured(feature)) summary = summary.copy().append("\n").append(text("saved_next")).append(": ").append(on(draft.saved().enabled(feature)));
-        if (draft != null && draft.edited(feature)) summary = summary.copy().append("\n").append(text("modified"));
-        var toggle = valueButton(draft == null ? Component.literal("?") : on(draft.value(feature)), featureName(feature), 45, () -> {
-            draft.set(feature, !draft.value(feature)); remember(); rebuildWidgets();
-        });
-        toggle.active = draft != null;
-        toggle.setTooltip(Tooltip.create(featureName(feature).copy().append(". ").append(text("restart"))));
-        content.anchorRow("feature/" + feature.key, featureName(feature), summary, toggle, inspect);
+        if (nextStartup != null && nextStartup.enabled(feature) != OptionalIntegrations.configured(feature))
+            summary = summary.copy().append("\n").append(text("saved_next")).append(": ").append(on(nextStartup.enabled(feature)));
+        var edit = valueButton(text("edit"), featureName(feature), 105, () -> openStartup(feature));
+        edit.setTooltip(Tooltip.create(featureName(feature).copy().append(". ").append(text("restart"))));
+        content.anchorRow("feature/" + feature.key, featureName(feature), summary, edit, inspect);
     }
     private Component state(Feature feature) {
         var selection = OptionalIntegrations.selection();
@@ -470,10 +480,8 @@ public final class ConfigurationOverview extends Screen {
         content.section("feature/" + feature.key, featureName(feature));
         content.row(Component.translatable(SettingsCatalog.entry(feature).summaryKey()), text("running", state(feature)));
         content.row(text("current_setting", on(OptionalIntegrations.configured(feature))), text(OptionalIntegrations.defaulted(feature) ? "omitted" : "explicit"));
-        if (draft != null) {
-            content.row(text("next_start", on(draft.saved().enabled(feature))), text(draft.saved().values().containsKey(feature) ? "explicit" : "omitted"));
-            if (draft.edited(feature)) content.row(text("draft", on(draft.value(feature))), text("restart"));
-        }
+        if (nextStartup != null) content.row(text("next_start", on(nextStartup.enabled(feature))),
+                text(nextStartup.values().containsKey(feature) ? "explicit" : "omitted"));
         content.row(text("default", on(feature.defaultEnabled)), Component.empty());
         content.row(text("scope", text(feature == Feature.BLUEMAP ? "dedicated" : FeatureSelection.clientOnly(feature) ? "client" : "both")), Component.empty());
         for (var entry : FeatureSelection.dependencies(feature).entrySet().stream().sorted(Map.Entry.comparingByKey()).toList()) {
@@ -529,6 +537,11 @@ public final class ConfigurationOverview extends Screen {
                             design.inherent.reform.definition.DocumentId.parse(file.id()))));
             edit.active = serverSettings.ready();
             content.anchorRow("file/" + file.id(), label, help, edit, open);
+            return;
+        }
+        if (file.filename().equals(FeatureSettings.FILE)) {
+            content.anchorRow("file/" + file.id(), label, help, valueButton(text("edit"), label, 105,
+                    () -> openStartup(detail)), open);
             return;
         }
         var edits = json.get(file.filename());
@@ -790,7 +803,6 @@ public final class ConfigurationOverview extends Screen {
         if (serverSettings.busy()) return;
         remember();
         if (!serverSettings.selected()) {
-            if (draft != null) draft.discard();
             toml.values().forEach(RegisteredEdits::discard);
         }
         json.values().stream().filter(edits -> !serverSettings.selected()
@@ -799,10 +811,6 @@ public final class ConfigurationOverview extends Screen {
     }
     private List<SettingsReviewScreen.Change> reviewChanges() {
         var changes = new ArrayList<SettingsReviewScreen.Change>();
-        if (!serverSettings.selected() && draft != null) for (Feature feature : Feature.values()) if (draft.edited(feature))
-            changes.add(new SettingsReviewScreen.Change(new SettingId("skyweave_compat:features", feature.key), FeatureSettings.FILE,
-                    featureName(feature), on(draft.saved().enabled(feature)).getString(), on(draft.value(feature)).getString(),
-                    text("after_save.game_restart"), state(feature)));
         for (var file : SettingsCatalog.FILES) {
             if (serverSettings.selected() && !ServerSettingsContext.Document.supports(file.filename())) continue;
             var owned = json.get(file.filename()); var nativeEdits = toml.get(file.filename());
@@ -840,8 +848,7 @@ public final class ConfigurationOverview extends Screen {
     }
     private void saveDraft() {
         if (!canSave() || !validateDraft()) return;
-        boolean generation = draft != null && draft.changes().keySet().stream().anyMatch(feature -> SettingsCatalog.group(feature).category == Category.WORLD)
-                || json.values().stream().anyMatch(edits -> SettingsCatalog.changesGeneration(edits.definition().filename(), edits.changedKeys()))
+        boolean generation = json.values().stream().anyMatch(edits -> SettingsCatalog.changesGeneration(edits.definition().filename(), edits.changedKeys()))
                 || toml.values().stream().anyMatch(edits -> edits.changedKeys().stream()
                         .anyMatch(key -> SettingsCatalog.timing(edits.filename(), key) == SettingsCatalog.Timing.NEW_WORLD));
         // Registered COMMON values update their owner immediately. Do not change
@@ -892,14 +899,7 @@ public final class ConfigurationOverview extends Screen {
     private void writeDraft() {
         remember();
         try {
-            if (draft != null && draft.dirty()) {
-                var proposed = new java.util.EnumMap<Feature, Boolean>(Feature.class); proposed.putAll(draft.saved().values()); proposed.putAll(draft.changes());
-                var versions = new LinkedHashMap<String, String>();
-                net.neoforged.fml.loading.LoadingModList.get().getMods().forEach(mod -> versions.put(mod.getModId(), mod.getVersion().toString()));
-                FeatureSelection.select(new FeatureSettings(proposed), versions, true);
-            }
             var writes = new ArrayList<SettingsCommit.Write>();
-            if (draft != null && draft.dirty()) writes.add(draft.prepare());
             for (var edits : json.values()) if (edits.dirty()) writes.add(edits.prepare());
             for (var edits : toml.values()) if (edits.dirty()) writes.add(edits.prepare());
             var result = ProfileEditPlan.prepare(ConfigLocations.ownedDirectory(FMLPaths.CONFIGDIR.get()), writes).save();
@@ -1022,7 +1022,7 @@ public final class ConfigurationOverview extends Screen {
             remember(); detail = null; contentFocus = focused.get(route()); rebuildWidgets(); return;
         }
         remember();
-        if (dirty()) minecraft.setScreen(new ConfirmScreen(answer -> { if (answer) { if (draft != null) draft.discard(); json.values().forEach(JsonEdits::discard); toml.values().forEach(RegisteredEdits::discard); leave(); } else minecraft.setScreen(this); }, text("discard_title"), text("discard_message"), text("discard"), text("keep_editing")));
+        if (dirty()) minecraft.setScreen(new ConfirmScreen(answer -> { if (answer) { json.values().forEach(JsonEdits::discard); toml.values().forEach(RegisteredEdits::discard); leave(); } else minecraft.setScreen(this); }, text("discard_title"), text("discard_message"), text("discard"), text("keep_editing")));
         else leave();
     }
     @Override public void render(GuiGraphics graphics, int mx, int my, float tick) {

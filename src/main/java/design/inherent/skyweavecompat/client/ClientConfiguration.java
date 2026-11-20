@@ -46,8 +46,9 @@ public final class ClientConfiguration {
                             PlainGlassModels.wrap(event, id -> !GlassBackfaces.vanillaPane(id)
                                     && TransparencyProfiles.current().wraps(id)));
         var terrainProfiles = OptionalIntegrations.enabled(Feature.TERRAIN) ? new TerrainProfileForms(modBus, container) : null;
+        var startupSettings = new StartupFeatureForm(modBus, container);
         container.registerExtensionPoint(IConfigScreenFactory.class,
-                (owner, parent) -> new ConfigurationOverview(owner, parent, terrainProfiles));
+                (owner, parent) -> new ConfigurationOverview(parent, terrainProfiles, startupSettings));
         if (OptionalIntegrations.enabled(Feature.LINEAR_PONDER))
             design.inherent.skyweavecompat.linear.client.LinearPonder.register();
         if (OptionalIntegrations.enabled(Feature.QUESTLOG_INTERFACE)
