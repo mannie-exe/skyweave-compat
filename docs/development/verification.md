@@ -2,6 +2,8 @@
 
 ## Shared settings owners
 
+Repository maintenance at `9bde63d` and `c954a22` passes 449 current consumer tests and eleven tooling tests, including real Java argument-file parsing. Retired comparison helpers are removed; native codec, profile-pair, storage, and metadata cases exercise shipped owners. The product and source JARs remain byte-identical to the qualified candidate below. This maintenance changes test, documentation, and runner organization without adding a new native-runtime qualification.
+
 The final 0.41.0 candidate SHA-256 `45aec356701353a8c625845cb9148217f966973cccb216aea5297998808becaa` passes the complete Gradle build, 507 core tests and nine release-tool cases against re:form 0.1.0 SHA-256 `445a6ca31cf37801be756afbe4abc103083fddcaab7b6f2a9edb1b34210c62db`. It retains the qualified consumer below and adds read-only cached shader status through the same typed operation service. A focused native client proves rebuild completion, malformed-recipe failure, visible cached failure details and successful explicit retry. Compared with the earlier `221099a4` candidate, only the client settings-menu classes, shader operation and two English labels differ; common code, world generation and metadata are byte-identical. The operation service admits two declared actions while retaining one active operation and eight results.
 
 The broader owner checks use candidate SHA-256 `221099a46a5781a1d584f6fa8d2ee6828c8a4a6eb16bc585f10ea520a850f86d` with the same final library. The production Configure entry opens the native context chooser and shared concern → mod → purpose catalog. The Redstone fixture retains all 23 declared source/Controls routes, 63 groups and 128 placements without opening their editors during catalog construction.

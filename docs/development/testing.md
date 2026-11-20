@@ -8,6 +8,8 @@ Use JDK 21 and the checked-in wrapper:
 
 Probe JARs are separate from the released mod. Use disposable instances and exact artifact/configuration digests; a successful build is not native verification. [Verification](verification.md) owns retained results and their limits.
 
+The Python runners require Python 3.12 or newer (`tomllib` and the filtered archive extractor). `client_bootstrap.py` owns packaged-client argument files and NeoForge mod identification for the combat/resource and settings runners. Tool checks invoke the real Java argument-file parser with spaces, quotes, backslashes, Unicode, and empty arguments; CLI help must work without preparing or launching a fixture.
+
 ## Shared settings
 
 `tools/reform_probe.py` opens the actual native Configure entry in a marked disposable client. Supply Java 21, the pinned mapped Minecraft JAR, the packaged Compat/client-probe JARs, the exact re:form JAR, the scenario's required mods through repeated `--mod` arguments, and a new `--output` receipt path. The runner uses isolated config and world paths and records artifact hashes. It never edits personal instances.
@@ -16,7 +18,7 @@ Probe JARs are separate from the released mod. Use disposable instances and exac
 
 `--owner-surfaces` requires Dynamic Waters, Sky Villages/Architectury, Sky Archipelago, Iris/Sodium and Questlog/Cloth Config. It checks the full native water field set, a shared rendering draft across actual placements, the complete village gap rule and retained restart cache, and a journal shortcut competing with an existing dirty form. `--action-surfaces` requires Sky Archipelago and Iris/Sodium; it opens the actual native Controls binding and exercises shader reload success, a malformed-recipe failure and explicit retry. These checks do not render an authored shader pack or exercise every downstream water effect.
 
-`src/baseline/java` retains pre-migration file/session comparisons for unit tests. These classes are absent from product, source and native probe JARs. Native server policy checks use the actual production `ServerSettings` registration and current player permission/connection. Retain original artifact identities when comparing before and after; do not infer equivalent runtime coverage from the baseline helper tests.
+Settings tests use the shipped re:form storage and operation owners, actual native specifications, and complete Compat domain validators. `ReformProfileBatchTest` checks safe persisted prefixes, missing dependencies, a valid final pair with no safe order, and changes to a checked source after an earlier verified write. `ReformJsonStoreTest`, `ReformStartupTest`, and `RiverConfigurationTest` retain native syntax, source, normalization, and codec boundaries. Native server policy checks use production `ServerSettings` and current permission/connection. Preserve original artifact identities for before/after comparisons; historical tests of retired helpers do not qualify current owners.
 
 ## Boundary evidence
 

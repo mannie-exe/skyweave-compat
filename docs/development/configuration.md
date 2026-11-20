@@ -27,7 +27,7 @@ re:form owns forms, search, filters, focus, native text interaction, retained na
 
 `ConfigJson` provides strict object and text-array input independently of any editor. `ProfileJson.object`, terrain/city readers and transparency profiles use it. Preserve duplicate-key rejection, depth limits and exact scalar parsing when changing this seam. `ConfigFile` supplies bounded UTF-8, regular-file and trusted-path checks for runtime loaders. re:form's owned storage handles editing-source revisions, conditional persistence and readback. No render, generation or map callback reads an editor or file per frame.
 
-The pre-migration editor/session/transaction helpers live only in `src/baseline/java` for retained comparison tests. Their old GUI is removed. Product, sources and native probe JARs must exclude these helpers; native probes use actual shared production owners. `verify_package.py` checks retired class names as well as normal probe/upstream boundaries. A baseline-writer result is not evidence for a shared-owner save.
+Consumer tests exercise shipped re:form owners and the actual Compat codecs, specifications, and dependency rules. Shared editor/session/presentation mechanics belong to re:form; do not retain a second backend here for comparison. `verify_package.py` rejects retired class names and normal probe/upstream leakage. Historical behavior comparisons use pinned packaged artifacts, with source and runtime qualifications kept separate.
 
 ## Native configuration
 

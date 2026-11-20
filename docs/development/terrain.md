@@ -322,6 +322,12 @@ Surface generation and player-facing biome queries do not use identical sampling
 
 Native attribution distinguishes genuine snowy surfaces, their material layers extending into neighboring biome cells, and warm water frozen by a cold air-biome receiver. Initial `SnowAndFreezeFeature` placement and recurring `ServerLevel.tickPrecipitation` now use the water cell's biome for freezing. Snow still follows its own surface/air eligibility; the patch neither warms cold habitats nor removes existing snow. [Verification](verification.md#terrain-repair-and-structure-discovery-0280) records the marked controls and remaining coverage limits.
 
+### Floating villages
+
+`placement/NeighborRule` owns the loader-independent neighbor predicate. `IslandTerrain` queries Sky Archipelago's resolved exterior field without requesting world chunks. `StructureSupportMixin` filters accepted SKY reports for exactly `skyvillages:skyvillage`, after native height fitting and before upstream overlap reservation, registration, and structure references. It retains the assigned dominant host when the marked preset's placement policy is active.
+
+The predicate rejects coarse overlap, finds a qualifying nearby host, and exhaustively checks columns in the minimum-clearance band. Distances use the complete layout's horizontal bounding rectangle, reserving gaps between buildings too. `TOO_CLOSE` and `NO_HOST` retain separate debug decisions. This predicate has no accepted counters or visitation-order choices; upstream's own overlap reservations and other rejection stages remain independent. `NeighborConfig.beginServer` captures the registered COMMON settings for the running server.
+
 Sky Villages keep their authored start-height spread, shifted from the old Y=192 datum to the new anchor surface datum. Only the named structure and the opted-in generator receive this adjustment. Horizontal clearance still uses the complete generated footprint.
 
 Each archipelago has an allowance of zero to three villages, with zero common and three rare. The logarithmic-series weights are `96:24:8:3`, or approximately 73.3%, 18.3%, 6.1% and 2.3%. `VillageDistribution` implements the deterministic count draw. `ArchipelagoVillagePlacement` replaces only the named village's runtime placement inside the opted-in generator. It selects stable random-spread candidates per anchor; it never uses mutable accepted counters or chunk visitation order. Companion islands do not receive separate quotas. Layout, biome and clearance rejection can reduce the realized count.
