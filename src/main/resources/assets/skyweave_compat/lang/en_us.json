@@ -365,6 +365,8 @@
   "skyweave_compat.settings.summary.rendering.shader_patches": "Build verified shader recipes before loading.",
   "skyweave_compat.settings.shaders.title": "Shader recipes",
   "skyweave_compat.settings.shaders.rebuild": "Rebuild shaders",
+  "skyweave_compat.settings.shaders.status": "Shader recipe status",
+  "skyweave_compat.settings.shaders.status_help": "Read cached recipe results without reloading or changing files. Full diagnostics remain in the client log.",
   "skyweave_compat.settings.shaders.rebuild_help": "Close the active shader, rebuild verified recipes, then reload. Your shader settings are preserved.",
   "skyweave_compat.settings.shaders.cached": "Ready · cached",
   "skyweave_compat.settings.shaders.built": "Ready · generated",

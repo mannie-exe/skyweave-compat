@@ -11,6 +11,7 @@ import signal
 import subprocess
 import tempfile
 import time
+import tomllib
 
 from combat_probe import REPOSITORY, argument_file, mod_ids
 
@@ -114,14 +115,14 @@ class Client:
         self.wait_active('Open')
         self.click('Open')
 
-    def navigate(self, query):
+    def navigate(self, query, actions=('Open', 'Resume')):
         self.act('key', key=256)
         self.until(lambda: self.state().get('screen', '').endswith('ClientEditingWorkflow$Overview'),
                    'the retained editor did not return to its workflow')
         search = [w for w in self.state()['widgets'] if w['label'] == 'Search documents'][0]
         self.field(search['value'], query, 'Search documents')
         action = self.until(lambda: next((w['label'] for w in self.state().get('widgets', [])
-                                         if w['active'] and w['label'] in ('Open', 'Resume')), None),
+                                         if w['active'] and w['label'] in actions), None),
                             'the selected destination did not become available')
         self.click(action)
 
@@ -184,8 +185,11 @@ def verify_owner_surfaces(client, config):
     client.field('129', '65')
     client.wait_active('Save native settings')
     client.click('Save native settings')
-    client.until(lambda: native()[village_id]['minimumGap'] == 65, 'village native save did not complete')
-    observations['village'] = dict(invalid=invalid, receipt=client.proof('reform-receipt', 'reform-receipt.json'))
+    client.until(lambda: tomllib.loads(source.read_text())['minimumGap'] == 65, 'village native save did not complete')
+    # Native worldRestart fields retain their existing runtime cache while this world is running.
+    assert native()[village_id] == before[village_id]
+    observations['village'] = dict(invalid=invalid, saved=tomllib.loads(source.read_text()),
+                                   native=native()[village_id], receipt=client.proof('reform-receipt', 'reform-receipt.json'))
 
     client.navigate('skyweave_compat:journal/images')
     client.wait_active('true')
@@ -211,6 +215,45 @@ def verify_owner_surfaces(client, config):
     assert journal_source.read_bytes() == journal_bytes and native()[journal_id] == current
     observations['journal'] = dict(staged=staged, shortcut=shortcut, native=current, retained=retained, refusal=refused)
     return observations
+
+
+def verify_action_surfaces(client, config):
+    client.until(lambda: client.state('misc').get('loaded'), 'integrated fixture did not join')
+    options = client.root / 'options.txt'
+    before = options.read_bytes()
+    client.open_form('skyweave_compat:controls/keys')
+    proof = client.proof('reform-editor-proof', 'reform-editor-proof.json')
+    readers = client.proof('native-owner-readers', 'native-owner-readers.json')
+    assert proof['document'] == 'skyweave_compat:controls' and proof['valid'] and not proof['dirty'], proof
+    assert readers['skyweave_compat:controls'] and all(key.startswith('key.skyweave_compat.')
+                                                    for key in readers['skyweave_compat:controls'])
+    assert options.read_bytes() == before, 'opening native key settings rewrote Options'
+    results = dict(controls=proof, nativeKeys=readers['skyweave_compat:controls'])
+    client.partial = results
+
+    client.navigate('skyweave_compat:shaders/rebuild', ('Start…',))
+    operation = lambda: client.proof('reform-operation-proof', 'reform-operation-proof.json')
+    initial = client.until(lambda: value if (value := operation())['terminal'] else None, 'native shader operation did not settle')
+    assert initial['operation'] == 'skyweave_compat:shaders/rebuild' and initial['state'] == 'COMPLETED', initial
+    results['initialShaderReload'] = initial
+    broken = config / 'shaders/recipes/broken.json'
+    broken.parent.mkdir(parents=True, exist_ok=True)
+    broken.write_text('{malformed fixture\n')
+    client.navigate('skyweave_compat:shaders/rebuild', ('Run again…',))
+    failed = client.until(lambda: value if (value := operation())['terminal'] else None, 'invalid recipe operation did not settle')
+    assert failed['state'] == 'FAILED' and not failed['hasResult'], failed
+    results['malformedRecipeFailure'] = failed
+    client.navigate('skyweave_compat:shaders/status', ('Start…',))
+    status = client.until(lambda: value if (value := operation())['terminal'] else None, 'cached shader status did not settle')
+    assert status['state'] == 'COMPLETED' and any(row['state'] == 'failed' and row['detail'] for row in status['result']), status
+    assert broken.is_file(), 'read-only status altered the malformed recipe'
+    results['readOnlyFailureStatus'] = status
+    broken.unlink()
+    client.navigate('skyweave_compat:shaders/rebuild', ('Run again…',))
+    retry = client.until(lambda: value if (value := operation())['terminal'] else None, 'explicit native shader retry did not settle')
+    assert retry['state'] == 'COMPLETED' and retry['hasResult'], retry
+    results['explicitRetry'] = retry
+    return results
 
 
 def verify(client, config, migrated):
@@ -373,7 +416,19 @@ def verify_native_preferences(client, config):
     assert {owner['route'] for owner in catalog['owners']} == set(catalog['expectedRoutes']), catalog
     assert catalog['documents'] == len(catalog['expectedRoutes']) and catalog['placements'] > 120, catalog
     assert all(not owner['opened'] for owner in catalog['owners']), catalog
-    return dict(before=before, after=changed, receipt=receipt, reader='Native ClientConfig.CLICK_MODE.get', catalog=catalog)
+    client.navigate('skyweave_compat:files/machines/redstone_link_gui/link_gui_common')
+    client.until(lambda: any(w.get('value') == '24' for w in client.state().get('widgets', [])), 'native COMMON input did not load')
+    client.field('24', '25')
+    assert native() == changed
+    client.wait_active('Save native settings')
+    client.click('Save native settings')
+    common = client.until(lambda: value if (value := native())['commonMoveRange'] == 25 else None,
+                          'native COMMON reader did not observe the saved value')
+    common_receipt = client.proof('reform-receipt', 'reform-receipt.json')
+    assert common['clientClickMode'] == changed['clientClickMode']
+    assert common_receipt['savedRevision'] == 'sha256:' + digest(client.root / 'config/createredstonelinkgui-common.toml')
+    return dict(before=before, after=changed, receipt=receipt, reader='Native ClientConfig.CLICK_MODE.get',
+                common=common, commonReceipt=common_receipt, catalog=catalog)
 
 
 def main():
@@ -387,18 +442,20 @@ def main():
     scenario.add_argument('--startup-property', action='store_true')
     scenario.add_argument('--native-preferences', action='store_true')
     scenario.add_argument('--owner-surfaces', action='store_true')
+    scenario.add_argument('--action-surfaces', action='store_true')
     parser.add_argument('--mod', action='append', required=True, type=Path)
     args = parser.parse_args()
     if args.output.exists():
         parser.error('Choose a new receipt path')
-    if (args.terrain_pair or args.integrated_policy or args.startup_property or args.native_preferences) and not args.reform:
+    if any((args.terrain_pair, args.integrated_policy, args.startup_property, args.native_preferences,
+            args.owner_surfaces, args.action_surfaces)) and not args.reform:
         parser.error('This settings scenario requires a re:form artifact')
     artifacts = [args.compat, args.probe, *args.mod]
     if args.reform:
         artifacts.append(args.reform)
     evidence = {'artifacts': {path.name: digest(path) for path in artifacts},
                 'connectorCleanSha256': digest(args.clean),
-                'scenario': ('owner-surfaces' if args.owner_surfaces else 'native-preferences' if args.native_preferences else 'startup-property' if args.startup_property else 'terrain-pair' if args.terrain_pair
+                'scenario': ('action-surfaces' if args.action_surfaces else 'owner-surfaces' if args.owner_surfaces else 'native-preferences' if args.native_preferences else 'startup-property' if args.startup_property else 'terrain-pair' if args.terrain_pair
                              else 'integrated-policy' if args.integrated_policy
                              else 'migrated' if args.reform else 'baseline')}
     started = time.monotonic()
@@ -424,7 +481,9 @@ def main():
             process = subprocess.Popen(command, cwd=root, stdout=console, stderr=subprocess.STDOUT)
             client = Client(root, process)
             try:
-                if args.owner_surfaces:
+                if args.action_surfaces:
+                    evidence['observations'] = verify_action_surfaces(client, config.parent)
+                elif args.owner_surfaces:
                     evidence['observations'] = verify_owner_surfaces(client, config.parent)
                 elif args.terrain_pair:
                     evidence['observations'] = verify_terrain_pair(client, config.parent)
@@ -443,6 +502,13 @@ def main():
             except Exception as failure:
                 evidence.update(status='FAIL', error=str(failure), state=client.state(), misc=client.state('misc'),
                                 partial=getattr(client, 'partial', None))
+                if args.owner_surfaces and process.poll() is None:
+                    try:
+                        evidence['nativeFailure'] = client.proof('native-owner-readers', 'native-owner-readers.json')
+                        evidence['editorFailure'] = client.proof('reform-editor-proof', 'reform-editor-proof.json')
+                        evidence['savedVillageFailure'] = (config.parent / 'skyweave_compat-common.toml').read_text()
+                    except Exception as diagnostic:
+                        evidence['diagnosticFailure'] = str(diagnostic)
                 raise
             finally:
                 if process.poll() is None:
@@ -454,6 +520,11 @@ def main():
                         process.wait()
                 if evidence.get('status') != 'PASS':
                     with log.open('rb') as stream:
+                        prefix = stream.read(131072).decode('utf-8', errors='replace').splitlines()
+                        failures = [index for index, line in enumerate(prefix)
+                                    if any(marker in line for marker in ('[ERROR]', '/ERROR]', 'Caused by:', 'ShaderOperation'))]
+                        evidence['earlyDiagnostics'] = '\n'.join('\n'.join(prefix[max(0, index - 1):index + 12])
+                                                                 for index in failures[:18])[:32768]
                         stream.seek(max(0, log.stat().st_size - 12500))
                         evidence['consoleTail'] = stream.read().decode('utf-8', errors='replace')
                 evidence.update(exitCode=process.returncode, seconds=round(time.monotonic() - started, 3),

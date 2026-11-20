@@ -126,7 +126,10 @@ final class ClientSettingsMenus {
                                     ? Set.of(NativeSettingsPolicy.timing(entry.timing()))
                                     : nativePreferences.fields(entry).stream().map(field -> NativeSettingsPolicy.timing(field.timing(entry.filename())))
                                             .collect(java.util.stream.Collectors.toSet())));
-                } else if (item instanceof SettingsCatalog.ShaderWorkspace && shaders != null) actions.add(shaders.action());
+                } else if (item instanceof SettingsCatalog.ShaderWorkspace && shaders != null) {
+                    actions.add(shaders.action());
+                    actions.add(shaders.statusAction());
+                }
             }
             if (!placements.isEmpty() || !actions.isEmpty()) groups.add(new ClientWorkflowLayout.Group(List.of(
                     category("catalog/" + page.category().name().toLowerCase(Locale.ROOT),

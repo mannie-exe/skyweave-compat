@@ -139,6 +139,17 @@ final class ClientConfigurationProbe {
                         case "native-preferences-proof" -> nativePreferencesProof();
                         case "native-owner-readers" -> nativeOwnerReaders();
                         case "reform-editor-proof" -> reformEditorProof(mc);
+                        case "reform-operation-proof" -> {
+                            if (!(mc.screen instanceof design.inherent.reform.neoforge.client.OperationScreen<?> screen))
+                                throw new IllegalStateException("Expected an actual contributed operation screen");
+                            var current = screen.observedOperation().orElseThrow();
+                            var result = new JsonObject(); result.addProperty("operation", current.operation().toString());
+                            result.addProperty("state", current.state().name()); result.addProperty("terminal", current.terminal());
+                            result.addProperty("report", current.report().toString());
+                            result.addProperty("hasResult", current.result().isPresent());
+                            current.result().ifPresent(value -> result.add("result", new GsonBuilder().create().toJsonTree(value)));
+                            ProbeStateFiles.write(root.resolve("reform-operation-proof.json"), result.toString());
+                        }
                         case "journal-shortcut" -> {
                             if (!OptionalIntegrations.enabled(Feature.QUESTLOG_INTERFACE)) throw new IllegalStateException("Expected the admitted journal owner");
                             var action = switch (command.get("action").getAsString()) {
@@ -367,6 +378,10 @@ final class ClientConfigurationProbe {
 
     private void nativeOwnerReaders() throws java.io.IOException {
         var result = new JsonObject();
+        var keys = new JsonObject();
+        for (var key : Minecraft.getInstance().options.keyMappings) if (key.getName().startsWith("key.skyweave_compat."))
+            keys.addProperty(key.getName(), key.saveString());
+        result.add("skyweave_compat:controls", keys);
         for (var kind : java.util.List.of(net.neoforged.fml.config.ModConfig.Type.CLIENT, net.neoforged.fml.config.ModConfig.Type.COMMON)) {
             for (var config : net.neoforged.fml.config.ModConfigs.getConfigSet(kind)) {
                 var entry = design.inherent.skyweavecompat.configuration.SettingsCatalog.FILES.stream()
