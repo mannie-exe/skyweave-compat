@@ -1,108 +1,149 @@
 package design.inherent.skyweavecompat.probe;
 
 import com.google.gson.JsonObject;
-import design.inherent.skyweavecompat.configuration.*;
+import design.inherent.reform.neoforge.configuration.ServerSettings;
+import design.inherent.reform.operation.DocumentActions;
+import design.inherent.reform.operation.OperationDescriptor;
+import design.inherent.reform.operation.OperationHandle;
+import design.inherent.reform.owner.CommitReceipt;
+import design.inherent.reform.owner.PolicyRefusal;
+import design.inherent.skyweavecompat.configuration.ConfigLocations;
+import design.inherent.skyweavecompat.configuration.PolicyDefinitions;
 import design.inherent.skyweavecompat.wayfinder.Wayfinder;
 import design.inherent.skyweavecompat.wayfinder.WayfinderSettings;
 import java.nio.file.Files;
-import java.util.List;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
 import net.neoforged.fml.loading.FMLPaths;
 
-/** Actual native player-list/permission/owner controls, confined to the marked policy fixture. */
+/** Actual shared production owners with native player permissions and connection replacement. */
 final class SettingsContextProbe {
-    private static void check(boolean value,String reason) { if (!value) throw new IllegalStateException(reason); }
-    private static void refused(Throwing action,Class<? extends Exception> type) throws Exception {
-        try { action.run(); } catch (Exception failure) { if (type.isInstance(failure)) return; throw failure; }
-        throw new IllegalStateException("Expected "+type.getSimpleName());
+    private static final OperationDescriptor.EntryPoint ENTRY = OperationDescriptor.EntryPoint.COMMAND;
+    private final MinecraftServer server;
+    private final JsonObject report;
+    private final ServerSettings.Document<WayfinderSettings> document;
+    private final ArrayList<ServerSettings.Editor<?>> editors = new ArrayList<>();
+    private final CommonListenerCookie cookie;
+    private final Path path;
+    private final String original;
+    private ServerPlayer player;
+    private DocumentActions<WayfinderSettings> actions;
+
+    private SettingsContextProbe(MinecraftServer server, JsonObject report) throws Exception {
+        this.server = server; this.report = report;
+        check(Files.isRegularFile(FMLPaths.GAMEDIR.get().resolve("settings-policy-fixture.json")), "Missing policy fixture marker");
+        document = ServerSettings.admittedDocument(server, PolicyDefinitions.WAYFINDER.id(), PolicyDefinitions.WAYFINDER).orElseThrow();
+        path = ConfigLocations.file(FMLPaths.CONFIGDIR.get(), WayfinderSettings.FILE);
+        original = Files.readString(path);
+        cookie = new CommonListenerCookie(new com.mojang.authlib.GameProfile(UUID.randomUUID(), "ConfigGuest"), 0,
+                net.minecraft.server.level.ClientInformation.createDefault(), false,
+                net.neoforged.neoforge.network.connection.ConnectionType.NEOFORGE);
+        player = ProbePlayers.login(server, cookie);
+        player.setGameMode(net.minecraft.world.level.GameType.CREATIVE);
     }
-    private interface Throwing { void run() throws Exception; }
-    static void run(MinecraftServer server,JsonObject report) throws Exception {
-        var cookie=new CommonListenerCookie(new com.mojang.authlib.GameProfile(UUID.randomUUID(),"ConfigGuest"),0,
-                net.minecraft.server.level.ClientInformation.createDefault(),false,net.neoforged.neoforge.network.connection.ConnectionType.NEOFORGE);
-        var player=ProbePlayers.login(server,cookie); player.setGameMode(net.minecraft.world.level.GameType.CREATIVE);
-        var directory=ConfigLocations.ownedDirectory(FMLPaths.CONFIGDIR.get());
-        var path=directory.resolve(WayfinderSettings.FILE); String original=Files.readString(path);
+
+    static CompletableFuture<Void> run(MinecraftServer server, JsonObject report) throws Exception {
+        var fixture = new SettingsContextProbe(server, report);
+        return fixture.run().whenCompleteAsync((ignored, failure) -> fixture.close(), server);
+    }
+
+    private DocumentActions<WayfinderSettings> open() {
+        var editor = document.editor(player.createCommandSourceStack());
+        editors.add(editor);
+        return editor.actions();
+    }
+
+    private CompletableFuture<Void> run() {
+        return refused(() -> open().load(ENTRY)).thenComposeAsync(ignored -> {
+            server.getPlayerList().op(player.getGameProfile());
+            actions = open();
+            return result(actions.load(ENTRY));
+        }, server).thenComposeAsync(ignored -> result(actions.edit(ENTRY, "stepsPerTick", "144")), server)
+                .thenComposeAsync(ignored -> {
+                    server.getPlayerList().deop(player.getGameProfile());
+                    return refused(() -> actions.save(ENTRY));
+                }, server).thenComposeAsync(ignored -> {
+                    check(read().equals(original), "Revoked operator changed the source");
+                    server.getPlayerList().op(player.getGameProfile());
+                    return result(actions.save(ENTRY));
+                }, server).thenComposeAsync(saved -> {
+                    var receipt = saved.receipt().orElseThrow();
+                    check(receipt.persistence() == CommitReceipt.Persistence.SAVED
+                            && receipt.application() == CommitReceipt.Application.APPLIED, "Real owner did not save and publish");
+                    check(Wayfinder.readPolicy(player.createCommandSourceStack()).value().stepsPerTick() == 144,
+                            "Actual policy did not observe the shared save");
+                    report.addProperty("context_shared_save_and_native_publication", true);
+                    return result(actions.edit(ENTRY, "stepsPerTick", "160"));
+                }, server).thenComposeAsync(ignored -> {
+                    String competing = read() + " \n";
+                    write(competing);
+                    return result(actions.save(ENTRY)).thenAcceptAsync(saved -> {
+                        check(saved.receipt().isEmpty() || !saved.receipt().orElseThrow().acknowledgesBaseline(),
+                                "Stale source acknowledged a save");
+                        check(read().equals(competing), "Stale save replaced the competing bytes");
+                        check(Wayfinder.readPolicy(player.createCommandSourceStack()).value().stepsPerTick() == 144,
+                                "Stale save changed runtime policy");
+                        report.addProperty("context_stale_source_retains_file_and_policy", true);
+                    }, server);
+                }, server).thenComposeAsync(ignored -> {
+                    var closed = open(); editors.getLast().close();
+                    return refused(() -> closed.load(ENTRY));
+                }, server).thenComposeAsync(ignored -> {
+                    actions = open();
+                    return result(actions.load(ENTRY));
+                }, server).thenComposeAsync(ignored -> {
+                    server.getPlayerList().remove(player);
+                    player = ProbePlayers.login(server, cookie);
+                    server.getPlayerList().op(player.getGameProfile());
+                    return refused(() -> actions.inspect(ENTRY));
+                }, server).thenRunAsync(() -> {
+                    report.addProperty("context_current_permission_and_revocation", true);
+                    report.addProperty("context_closed_and_same_uuid_replacement_refused", true);
+                    report.addProperty("context_scope", "Actual shared production owner and embedded native connections; no TCP or two-server-lifetime assertion");
+                }, server);
+    }
+
+    private CompletableFuture<Void> refused(Supplier<? extends OperationHandle<?>> operation) {
         try {
-            refused(() -> ServerSettingsContext.open(player),SecurityException.class);
-            server.getPlayerList().op(player.getGameProfile());
-            var context=ServerSettingsContext.open(player);
-            var edits=new JsonEdits(directory,JsonSettings.find(WayfinderSettings.FILE)); edits.set("stepsPerTick","144");
-            var prepared=context.prepare(List.of(edits.prepare()));
-            server.getPlayerList().deop(player.getGameProfile());
-            var denied=prepared.commit().getFirst();
-            check(denied.persistence()==SettingsCommit.Persistence.REFUSED && Files.readString(path).equals(original),"Revoked operator wrote policy");
-            server.getPlayerList().op(player.getGameProfile());
-            refused(prepared::commit,IllegalStateException.class);
-            context=ServerSettingsContext.open(player);
-            if (design.inherent.skyweavecompat.OptionalIntegrations.enabled(design.inherent.skyweavecompat.Feature.TERRAIN)) {
-                var searchPath=directory.resolve("skyweave_compat-search.json"); String searchOriginal=Files.readString(searchPath);
-                try {
-                    var searchEdits=new JsonEdits(directory,JsonSettings.find("skyweave_compat-search.json")); searchEdits.set("timeLimitSeconds","15");
-                    var searchResult=context.prepare(List.of(searchEdits.prepare())).commit().getFirst();
-                    check(searchResult.persistence()==SettingsCommit.Persistence.WRITTEN && searchResult.application()==ServerSettingsContext.Application.APPLIED,
-                            "Search context did not persist and publish");
-                    check(design.inherent.skyweavecompat.terrain.structure.StructureLocator.readPolicy(player.createCommandSourceStack()).value().timeLimitSeconds()==15,
-                            "Search consumer policy did not observe context publication");
-                    report.addProperty("context_search_persistence_and_publication",true);
-                } finally {
-                    Files.writeString(searchPath,searchOriginal);
-                    var current=design.inherent.skyweavecompat.terrain.structure.StructureLocator.readPolicy(server.createCommandSourceStack());
-                    design.inherent.skyweavecompat.terrain.structure.StructureLocator.applyPolicy(server.createCommandSourceStack(),current.revision(),
-                            design.inherent.skyweavecompat.terrain.structure.SearchSettings.parse(searchOriginal));
-                }
-                // This view's external search revision is intentionally stale after restoration; unrelated Wayfinder still qualifies.
-            }
-            var saved=context.prepare(List.of(edits.prepare())).commit().getFirst();
-            check(saved.persistence()==SettingsCommit.Persistence.WRITTEN && saved.application()==ServerSettingsContext.Application.APPLIED,"Connected save did not apply");
-            check(saved.saved()!=null && saved.saved().text().equals(Files.readString(path)),"Saved revision did not bind observed bytes");
-            check(Wayfinder.readPolicy(player.createCommandSourceStack()).value().stepsPerTick()==144 && !edits.dirty(),"Actual owner/editor were not acknowledged");
-            var other=ServerSettingsContext.open(player); var sameContext=context;
-            refused(() -> other.retry(saved.saved()),IllegalArgumentException.class);
-            edits.set("stepsPerTick","160"); var frozen=edits.prepare();
-            var file=new ConfigFile(directory,WayfinderSettings.FILE);
-            var injected=new SettingsCommit.Write(frozen.filename(),frozen.text(),frozen::check,() -> {
-                frozen.save();
-                // Fault control: a real competing publication after persistence, before this plan's application.
-                var current=Wayfinder.readPolicy(player.createCommandSourceStack()); var value=current.value();
-                Wayfinder.applyPolicy(player.createCommandSourceStack(),current.revision(),new WayfinderSettings(value.operatorsOnly(),value.cooldownTicks(),value.placementLookupHeight(),176,value.concurrentRequests(),value.requestTimeoutTicks(),value.blockedBlocks()));
-            },() -> new SettingsCommit.Observation(SettingsCommit.Persistence.WRITTEN,file.read()),
-                    () -> SettingsCommit.observe(file,frozen.text().baseline(),frozen.text().candidate()::equals));
-            var failed=context.prepare(List.of(injected)).commit().getFirst();
-            check(failed.persistence()==SettingsCommit.Persistence.WRITTEN && failed.application()==ServerSettingsContext.Application.FAILED && failed.saved()!=null,"Post-write refusal lost persistence");
-            var pending=context.status().stream().filter(receipt -> receipt.document().equals(ServerSettingsContext.Document.WAYFINDER.id())).findFirst().orElseThrow();
-            check(pending.persistence()==SettingsCommit.Persistence.SAVED && pending.application()==ServerSettingsContext.Application.PENDING,
-                    "Reopened file/effective mismatch was not visible");
-            String beforeRetry=Files.readString(path); var modified=Files.getLastModifiedTime(path);
-            var retried=context.retry(failed.saved());
-            check(retried.application()==ServerSettingsContext.Application.APPLIED && Wayfinder.readPolicy(player.createCommandSourceStack()).value().stepsPerTick()==160,"Application-only retry failed");
-            check(Files.readString(path).equals(beforeRetry) && Files.getLastModifiedTime(path).equals(modified),"Retry rewrote file");
-            Files.writeString(path,beforeRetry+" ");
-            refused(() -> sameContext.retry(failed.saved()),ConfigFile.ChangedOnDisk.class);
-            Files.writeString(path,beforeRetry);
-            edits.reload(); edits.set("stepsPerTick","192"); var closed=context.prepare(List.of(edits.prepare())); context.close();
-            var noWrite=closed.commit().getFirst();
-            check(noWrite.persistence()==SettingsCommit.Persistence.REFUSED && Files.readString(path).equals(beforeRetry),"Closed context wrote");
-            var replaced=ServerSettingsContext.open(player);
-            server.getPlayerList().remove(player);
-            var replacement=ProbePlayers.login(server,cookie); server.getPlayerList().op(replacement.getGameProfile());
-            refused(replaced::read,IllegalStateException.class);
-            replaced.close(); other.close(); sameContext.close();
-            server.getPlayerList().remove(replacement);
-            report.addProperty("context_native_permission_revocation_and_one_use",true);
-            report.addProperty("context_observed_save_and_effective_receipt",true);
-            report.addProperty("context_readonly_saved_pending_reconciliation",true);
-            report.addProperty("context_post_write_failure_and_application_only_retry",true);
-            report.addProperty("context_retry_file_conflict_closed_and_same_uuid_replacement",true);
-            report.addProperty("context_scope","Embedded native player connections and ordinary op/deop, not an actual LAN client or two server lifecycles");
-        } finally {
-            Files.writeString(path,original);
-            var before=Wayfinder.readPolicy(server.createCommandSourceStack());
-            Wayfinder.applyPolicy(server.createCommandSourceStack(),before.revision(),WayfinderSettings.parse(original));
-            if (server.getPlayerList().getPlayer(player.getUUID())!=null) server.getPlayerList().remove(server.getPlayerList().getPlayer(player.getUUID()));
+            return result(operation.get()).handleAsync((ignored, failure) -> {
+                check(failure != null, "Unauthorized or closed operation succeeded");
+                Throwable cause = failure;
+                while (cause instanceof java.util.concurrent.CompletionException && cause.getCause() != null) cause = cause.getCause();
+                check(cause instanceof PolicyRefusal || cause instanceof IllegalStateException,
+                        "Unexpected refusal: " + cause);
+                return null;
+            }, server);
+        } catch (PolicyRefusal | IllegalStateException refused) {
+            return CompletableFuture.completedFuture(null);
         }
+    }
+
+    private static <T> CompletableFuture<T> result(OperationHandle<T> operation) {
+        return DocumentActions.result(operation).toCompletableFuture();
+    }
+    private String read() {
+        try { return Files.readString(path); }
+        catch (java.io.IOException failure) { throw new IllegalStateException(failure); }
+    }
+    private void write(String value) {
+        try { Files.writeString(path, value); }
+        catch (java.io.IOException failure) { throw new IllegalStateException(failure); }
+    }
+    private void close() {
+        editors.forEach(ServerSettings.Editor::close);
+        write(original);
+        var current = Wayfinder.readPolicy(server.createCommandSourceStack());
+        Wayfinder.applyPolicy(server.createCommandSourceStack(), current.revision(), WayfinderSettings.parse(original));
+        var remaining = server.getPlayerList().getPlayer(player.getUUID());
+        if (remaining != null) server.getPlayerList().remove(remaining);
+    }
+    private static void check(boolean value, String reason) {
+        if (!value) throw new IllegalStateException(reason);
     }
 }

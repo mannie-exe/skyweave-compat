@@ -110,13 +110,12 @@ final class SettingsPolicyProbe {
             if (!terrain) return CompletableFuture.completedFuture(null);
             return policy(source, "search", root.resolve(SearchSettings.FILE), StructureLocator::readPolicy,
                     new SearchSettings(128, 5, 1, 1), "{}");
-        }).thenRun(() -> {
+        }).thenCompose(ignored -> {
             int after = server.overworld().getChunkSource().getLoadedChunksCount();
             check(chunks == after, "Policy operations changed the loaded-chunk count from " + chunks + " to " + after);
             report.addProperty("loaded_chunk_count_unchanged", true);
-            try { SettingsContextProbe.run(server, report); }
+            try { return SettingsContextProbe.run(server, report); }
             catch (Exception failure) { throw new CompletionException(failure); }
-            report.addProperty("limits", "Native command with embedded operator; no TCP or integrated GUI assertion");
         });
     }
 

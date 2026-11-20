@@ -114,6 +114,104 @@ class Client:
         self.wait_active('Open')
         self.click('Open')
 
+    def navigate(self, query):
+        self.act('key', key=256)
+        self.until(lambda: self.state().get('screen', '').endswith('ClientEditingWorkflow$Overview'),
+                   'the retained editor did not return to its workflow')
+        search = [w for w in self.state()['widgets'] if w['label'] == 'Search documents'][0]
+        self.field(search['value'], query, 'Search documents')
+        action = self.until(lambda: next((w['label'] for w in self.state().get('widgets', [])
+                                         if w['active'] and w['label'] in ('Open', 'Resume')), None),
+                            'the selected destination did not become available')
+        self.click(action)
+
+    def proof(self, operation, filename):
+        self.act(operation)
+        return json.loads((self.root / filename).read_text())
+
+
+def verify_owner_surfaces(client, config):
+    client.until(lambda: client.state('misc').get('loaded'), 'integrated fixture did not join')
+    native = lambda: client.proof('native-owner-readers', 'native-owner-readers.json')
+    editor = lambda: client.proof('reform-editor-proof', 'reform-editor-proof.json')
+    before = native()
+    water_id = 'skyweave_compat:dynamic_waters'
+    render_id = 'skyweave_compat:rendering_client'
+    journal_id = 'skyweave_compat:journal'
+    village_id = 'skyweave_compat:sky_villages'
+    assert len(before[water_id]) == 46 and len(before[journal_id]) == 3, before
+    observations = dict(initial=before)
+    client.partial = observations
+
+    client.open_form('skyweave_compat:files/world/dynamic_waters/watersheds')
+    client.wait_active('Item Speed')
+    client.click('Item Speed')
+    client.field('0.2', '0.35')
+    assert native()[water_id] == before[water_id]
+    client.wait_active('Save native settings')
+    client.click('Save native settings')
+    water = client.until(lambda: value if (value := native())[water_id]['River Flow Speeds.itemSpeed'] == .35 else None,
+                         'the native water field did not observe its saved value')
+    expected_water = dict(before[water_id], **{'River Flow Speeds.itemSpeed': .35})
+    assert water[water_id] == expected_water, water[water_id]
+    observations['waterReceipt'] = client.proof('reform-receipt', 'reform-receipt.json')
+    observations['waterFields'] = water[water_id]
+
+    client.navigate('skyweave_compat:files/rendering/sky_archipelago/rendering_client/clouds.offset')
+    client.until(lambda: any(w.get('value') == '0.0' for w in client.state().get('widgets', [])), 'cloud offset did not load')
+    client.field('0.0', '12.5')
+    first = editor()
+    assert first['dirty'] and first['draft']['clouds']['offset'] == 12.5, first
+    assert native()[render_id]['clouds.offset'] == 0
+    client.navigate('skyweave_compat:files/rendering/iris/rendering_client/worldtext.unlittextdisplays')
+    second = editor()
+    assert second['context'] == first['context'] and second['draft'] == first['draft'], (first, second)
+    client.wait_active('Save native settings')
+    client.click('Save native settings')
+    rendering = client.until(lambda: values if (values := native())[render_id]['clouds.offset'] == 12.5 else None,
+                             'the shared rendering save did not update its real native reader')
+    observations['sharedRendering'] = dict(first=first, second=second, native=rendering[render_id])
+
+    client.navigate('skyweave_compat:files/world/sky_villages/villages')
+    client.wait_active('Minimum terrain gap')
+    client.click('Minimum terrain gap')
+    source = config / 'skyweave_compat-common.toml'
+    source_before = digest(source)
+    client.field('64', '129')
+    invalid = client.until(lambda: value if not (value := editor())['valid'] else None,
+                           'the complete village min/max rule did not reject the draft')
+    assert digest(source) == source_before and native()[village_id] == before[village_id]
+    client.field('129', '65')
+    client.wait_active('Save native settings')
+    client.click('Save native settings')
+    client.until(lambda: native()[village_id]['minimumGap'] == 65, 'village native save did not complete')
+    observations['village'] = dict(invalid=invalid, receipt=client.proof('reform-receipt', 'reform-receipt.json'))
+
+    client.navigate('skyweave_compat:journal/images')
+    client.wait_active('true')
+    client.click('true')
+    staged = editor()
+    assert staged['draft']['itemImages'] is False and staged['dirty'], staged
+    assert native()[journal_id]['itemImages'] is True
+    client.act('journal-shortcut', action='symbols')
+    client.until(lambda: (client.root / 'journal-shortcut.json').exists(), 'journal shortcut did not settle')
+    shortcut = json.loads((client.root / 'journal-shortcut.json').read_text())
+    assert 'error' not in shortcut, shortcut
+    current = native()[journal_id]
+    assert current['itemImages'] is True and current['conditionSymbols'] is False, current
+    retained = editor()
+    assert retained['context'] == staged['context'] and retained['draft']['itemImages'] is False, retained
+    journal_source = config / 'skyweave_compat-journal-client.toml'
+    journal_bytes = journal_source.read_bytes()
+    client.wait_active('Save native settings')
+    client.click('Save native settings')
+    refused = client.until(lambda: value if (value := editor()).get('attemptTerminal') else None,
+                           'the retained stale journal save did not settle')
+    assert refused['dirty'] and refused.get('attemptRefused'), refused
+    assert journal_source.read_bytes() == journal_bytes and native()[journal_id] == current
+    observations['journal'] = dict(staged=staged, shortcut=shortcut, native=current, retained=retained, refusal=refused)
+    return observations
+
 
 def verify(client, config, migrated):
     client.until(lambda: client.state('misc').get('loaded'), 'integrated fixture did not join')
@@ -288,6 +386,7 @@ def main():
     scenario.add_argument('--integrated-policy', action='store_true')
     scenario.add_argument('--startup-property', action='store_true')
     scenario.add_argument('--native-preferences', action='store_true')
+    scenario.add_argument('--owner-surfaces', action='store_true')
     parser.add_argument('--mod', action='append', required=True, type=Path)
     args = parser.parse_args()
     if args.output.exists():
@@ -299,7 +398,7 @@ def main():
         artifacts.append(args.reform)
     evidence = {'artifacts': {path.name: digest(path) for path in artifacts},
                 'connectorCleanSha256': digest(args.clean),
-                'scenario': ('native-preferences' if args.native_preferences else 'startup-property' if args.startup_property else 'terrain-pair' if args.terrain_pair
+                'scenario': ('owner-surfaces' if args.owner_surfaces else 'native-preferences' if args.native_preferences else 'startup-property' if args.startup_property else 'terrain-pair' if args.terrain_pair
                              else 'integrated-policy' if args.integrated_policy
                              else 'migrated' if args.reform else 'baseline')}
     started = time.monotonic()
@@ -325,7 +424,9 @@ def main():
             process = subprocess.Popen(command, cwd=root, stdout=console, stderr=subprocess.STDOUT)
             client = Client(root, process)
             try:
-                if args.terrain_pair:
+                if args.owner_surfaces:
+                    evidence['observations'] = verify_owner_surfaces(client, config.parent)
+                elif args.terrain_pair:
                     evidence['observations'] = verify_terrain_pair(client, config.parent)
                 elif args.integrated_policy:
                     evidence['observations'] = verify_integrated_policy(client, config.parent)
@@ -340,7 +441,8 @@ def main():
                     raise RuntimeError('Native client exit failed')
                 evidence['status'] = 'PASS'
             except Exception as failure:
-                evidence.update(status='FAIL', error=str(failure), state=client.state(), misc=client.state('misc'))
+                evidence.update(status='FAIL', error=str(failure), state=client.state(), misc=client.state('misc'),
+                                partial=getattr(client, 'partial', None))
                 raise
             finally:
                 if process.poll() is None:

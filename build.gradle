@@ -303,7 +303,6 @@ tasks.named('check') { dependsOn 'verifyUpstream' }
 tasks.register('compileProbeJava', JavaCompile) {
     dependsOn classes
     source fileTree('src/probe/java') { include '**/*.java' }
-    source fileTree('src/baseline/java') { include '**/*.java' }
     classpath = sourceSets.main.output + sourceSets.main.compileClasspath + sourceSets.main.runtimeClasspath
     destinationDirectory = layout.buildDirectory.dir('classes/probe')
     options.compilerArgs.add('-proc:none')
@@ -312,7 +311,7 @@ tasks.register('probeJar', Jar) {
     dependsOn compileProbeJava
     archiveFileName = 'skyweave-compat-probe.jar'
     destinationDirectory = layout.buildDirectory.dir('probe')
-    from layout.buildDirectory.dir('classes/probe')
+    from(layout.buildDirectory.dir('classes/probe')) { include 'design/inherent/skyweavecompat/probe/**' }
     from 'src/probe/resources'
 }
 

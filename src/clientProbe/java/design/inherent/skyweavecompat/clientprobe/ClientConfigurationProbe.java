@@ -137,6 +137,23 @@ final class ClientConfigurationProbe {
                         case "reform-batch-proof" -> reformBatchProof(mc);
                         case "reform-catalog-proof" -> reformCatalogProof(mc);
                         case "native-preferences-proof" -> nativePreferencesProof();
+                        case "native-owner-readers" -> nativeOwnerReaders();
+                        case "reform-editor-proof" -> reformEditorProof(mc);
+                        case "journal-shortcut" -> {
+                            if (!OptionalIntegrations.enabled(Feature.QUESTLOG_INTERFACE)) throw new IllegalStateException("Expected the admitted journal owner");
+                            var action = switch (command.get("action").getAsString()) {
+                                case "images" -> design.inherent.skyweavecompat.questlog.client.JournalPreferences.toggleImages();
+                                case "symbols" -> design.inherent.skyweavecompat.questlog.client.JournalPreferences.toggleSymbols();
+                                case "notifications" -> design.inherent.skyweavecompat.questlog.client.JournalPreferences.cycleNotifications();
+                                default -> throw new IllegalArgumentException("Unknown journal shortcut");
+                            };
+                            action.whenCompleteAsync((ignored, failure) -> {
+                                var result = new JsonObject(); result.addProperty("complete", true);
+                                if (failure != null) result.addProperty("error", failure.toString());
+                                try { ProbeStateFiles.write(root.resolve("journal-shortcut.json"), result.toString()); }
+                                catch (java.io.IOException failed) { throw new java.io.UncheckedIOException(failed); }
+                            }, mc);
+                        }
                         case "hoofprint" -> {
                             if (!OptionalIntegrations.enabled(Feature.HOOFPRINT_ZOOM) || mc.player == null)
                                 throw new IllegalStateException("Expected an admitted Hoofprint connection");
@@ -216,7 +233,6 @@ final class ClientConfigurationProbe {
                         case "text" -> { for (char character : command.get("value").getAsString().toCharArray()) mc.screen.charTyped(character, 0); }
                         case "snapshot" -> {}
                         case "narration" -> narration(mc);
-                        case "journal-write-and-toggle" -> journalWriter();
                         case "journal-preferences-proof" -> journalPreferences();
                         case "journal-settings" -> {
                             if (!OptionalIntegrations.enabled(Feature.QUESTLOG_INTERFACE)) throw new IllegalStateException("Expected the admitted journal owner");
@@ -259,24 +275,6 @@ final class ClientConfigurationProbe {
         if (!(focused instanceof net.minecraft.client.gui.narration.NarratableEntry entry)) throw new IllegalStateException("Expected a focused narratable control");
         entry.updateNarration(new Output(0));
         ProbeStateFiles.write(root.resolve("configuration-narration.json"),new GsonBuilder().setPrettyPrinting().create().toJson(result));
-    }
-    private void journalWriter() throws Exception {
-        if(!OptionalIntegrations.enabled(Feature.QUESTLOG_INTERFACE))throw new IllegalStateException("Journal writer fixture requires its real optional owner");
-        var path=design.inherent.skyweavecompat.configuration.ConfigLocations.file(FMLPaths.CONFIGDIR.get(),
-                design.inherent.skyweavecompat.questlog.client.JournalPreferences.FILE);
-        var original=Files.readString(path);var external=original.replace("conditionSymbols = true","conditionSymbols = false");
-        if(external.equals(original))throw new IllegalStateException("Expected fresh native journal defaults");
-        Files.writeString(path,external);
-        var result=new JsonObject();result.addProperty("externalSymbolChoice",false);
-        try {design.inherent.skyweavecompat.questlog.client.JournalPreferences.toggleImages();result.addProperty("toggleAccepted",true);}
-        catch(RuntimeException refused){result.addProperty("toggleAccepted",false);result.addProperty("refusal",refused.getMessage());}
-        var actual=new com.electronwill.nightconfig.toml.TomlParser().parse(Files.readString(path));
-        result.addProperty("savedImages",(Boolean)actual.get("itemImages"));
-        result.addProperty("savedSymbols",(Boolean)actual.get("conditionSymbols"));
-        result.addProperty("nativeImages",design.inherent.skyweavecompat.questlog.client.JournalPreferences.ITEM_IMAGES.get());
-        result.addProperty("nativeSymbols",design.inherent.skyweavecompat.questlog.client.JournalPreferences.CONDITION_SYMBOLS.get());
-        result.addProperty("externalChoicePreserved",Boolean.FALSE.equals(actual.get("conditionSymbols")));
-        ProbeStateFiles.write(root.resolve("journal-writer-observation.json"),new GsonBuilder().setPrettyPrinting().create().toJson(result));
     }
     private void hoofprint(Minecraft mc) throws Exception {
         if (!OptionalIntegrations.enabled(Feature.HOOFPRINT_ZOOM) || mc.screen==null
@@ -365,6 +363,56 @@ final class ClientConfigurationProbe {
         evidence.addProperty("clientClickMode", String.valueOf(click.get()));
         evidence.addProperty("commonMoveRange", ((Number) range.get()).intValue());
         ProbeStateFiles.write(root.resolve("native-preferences-proof.json"), evidence.toString());
+    }
+
+    private void nativeOwnerReaders() throws java.io.IOException {
+        var result = new JsonObject();
+        for (var kind : java.util.List.of(net.neoforged.fml.config.ModConfig.Type.CLIENT, net.neoforged.fml.config.ModConfig.Type.COMMON)) {
+            for (var config : net.neoforged.fml.config.ModConfigs.getConfigSet(kind)) {
+                var entry = design.inherent.skyweavecompat.configuration.SettingsCatalog.FILES.stream()
+                        .filter(file -> design.inherent.skyweavecompat.configuration.ConfigLocations.registeredName(file.filename()).equals(config.getFileName()))
+                        .findFirst();
+                if (entry.isEmpty() || !(config.getSpec() instanceof net.neoforged.neoforge.common.ModConfigSpec spec)) continue;
+                var fields = new JsonObject();
+                design.inherent.skyweavecompat.configuration.NativeFields.collect(spec).forEach(field ->
+                        fields.add(field.key(), new GsonBuilder().create().toJsonTree(field.binding().get())));
+                result.add(entry.orElseThrow().id(), fields);
+            }
+        }
+        ProbeStateFiles.write(root.resolve("native-owner-readers.json"), result.toString());
+    }
+
+    private void reformEditorProof(Minecraft mc) throws Exception {
+        if (!(mc.screen instanceof design.inherent.reform.neoforge.client.SettingsScreen<?>))
+            throw new IllegalStateException("Expected an actual shared editor");
+        var type = design.inherent.reform.neoforge.client.SettingsScreen.class;
+        var field = type.getDeclaredField("actions"); field.setAccessible(true);
+        var actions = (design.inherent.reform.operation.DocumentActions<?>) field.get(mc.screen);
+        var view = actions.view();
+        var result = new JsonObject();
+        result.addProperty("document", actions.definition().id().toString());
+        result.addProperty("context", actions.context().toString());
+        result.addProperty("dirty", view.dirty());
+        result.addProperty("valid", view.validation().valid());
+        result.addProperty("availability", view.availability().name());
+        result.addProperty("validation", view.validation().toString());
+        var latest = type.getDeclaredField("lastCommit"); latest.setAccessible(true);
+        var operation = (design.inherent.reform.operation.OperationHandle<?>) latest.get(mc.screen);
+        if (operation != null) {
+            var attempt = operation.snapshot();
+            result.addProperty("attemptTerminal", attempt.terminal());
+            boolean refused = !attempt.report().valid();
+            if (attempt.result().orElse(null) instanceof design.inherent.reform.owner.EditorActor.Commit<?> commit) {
+                refused |= !commit.editorReport().valid() || commit.receipt().filter(receipt ->
+                        receipt.persistence() == design.inherent.reform.owner.CommitReceipt.Persistence.REFUSED).isPresent();
+            }
+            result.addProperty("attemptRefused", refused);
+        }
+        view.snapshot().flatMap(snapshot -> snapshot.draft().inspect(actions.definition(),
+                new design.inherent.reform.serialization.JsonLimits(262144, 64, 16384, 32768, 128, 4096)).candidate())
+                .ifPresent(candidate -> result.add("draft", JsonParser.parseString(candidate.authoredJson())));
+        result.addProperty("controls", widgets(mc.screen).size());
+        ProbeStateFiles.write(root.resolve("reform-editor-proof.json"), result.toString());
     }
     private static boolean visibleTarget(GuiEventListener listener, AbstractWidget target, double x, double y) {
         if (listener == target) return target.visible && target.active;
