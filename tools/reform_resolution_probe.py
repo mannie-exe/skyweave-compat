@@ -97,10 +97,10 @@ def main():
                                 command=['./gradlew', '--no-daemon', '--init-script', '<local-mirror-only>', 'verifyCandidateDependency'])
                 result.check_returncode()
                 resolved = json.loads((checkout / 'build/reform-resolution.json').read_text())
-                assert resolved['file'] == asset and resolved['sha256'] == digest, resolved
+                assert resolved['coordinate'] == f'design.inherent:reform:{version}' and resolved['sha256'] == digest, resolved
                 assert any(request == dict(method='GET', path=f'/releases/download/v{version}/{asset}', status=200)
                            for request in requests), requests
-                evidence.update(status='PASS', resolved=resolved)
+                evidence.update(status='PASS', releaseAsset=asset, resolved=resolved)
             except Exception as failure:
                 evidence.update(status='FAIL', error=str(failure))
                 if 'result' in locals():
