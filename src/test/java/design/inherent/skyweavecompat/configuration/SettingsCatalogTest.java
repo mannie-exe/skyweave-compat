@@ -10,6 +10,23 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class SettingsCatalogTest {
+    @Test void authoredRangesUsePresentationIdsAndRetainExactSourcePaths() {
+        for (var file : SettingsCatalog.FILES) {
+            var ids = new HashSet<String>();
+            for (var pair : SettingsCatalog.ranges(file.filename())) {
+                assertTrue(ids.add(pair.id()), file.filename());
+                var range = assertDoesNotThrow(() -> new design.inherent.reform.presentation.FormPresentation.Range(
+                        pair.id(), pair.labelKey(), "Zoom range", "",
+                        ReformDocuments.path(pair.minimum()), ReformDocuments.path(pair.maximum())));
+                assertEquals(ReformDocuments.path(pair.minimum()), range.minimum());
+                assertEquals(ReformDocuments.path(pair.maximum()), range.maximum());
+            }
+        }
+        var zoom = SettingsCatalog.ranges("skyweave_compat-hoofprint.json").getFirst();
+        assertEquals("zoomMinimum", zoom.minimum());
+        assertEquals("zoomMaximum", zoom.maximum());
+    }
+
     @Test void everySwitchHasOneHomeAndEveryOwnedFileIsReachable() {
         var found=EnumSet.noneOf(Feature.class);
         for(var group:SettingsCatalog.Group.values())for(var feature:SettingsCatalog.features(group))assertTrue(found.add(feature));

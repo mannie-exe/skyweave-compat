@@ -154,10 +154,10 @@ public final class SettingsCatalog {
         }
     }
     /** Authored relationship; numeric bounds and coupled validation remain with the document owner. */
-    public record RangePair(String minimum, String maximum, String labelKey) {}
+    public record RangePair(String id, String minimum, String maximum, String labelKey) {}
     public static List<RangePair> ranges(String filename) {
         return filename.equals("skyweave_compat-hoofprint.json")
-                ? List.of(new RangePair("zoomMinimum", "zoomMaximum", "skyweave_compat.settings.zoom_range")) : List.of();
+                ? List.of(new RangePair("zoom_range", "zoomMinimum", "zoomMaximum", "skyweave_compat.settings.zoom_range")) : List.of();
     }
     public static Timing timing(String filename, String field) {
         return FILES.stream().filter(entry -> entry.filename().equals(filename))

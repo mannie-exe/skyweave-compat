@@ -27,7 +27,7 @@ final class SettingsPresentation {
                     Component.translatableWithFallback(key + ".help", "").getString());
         }).toList();
         var ranges = SettingsCatalog.ranges(source.filename()).stream().map(range -> new FormPresentation.Range(
-                range.minimum(), range.labelKey(), Component.translatable(range.labelKey()).getString(), "",
+                range.id(), range.labelKey(), Component.translatable(range.labelKey()).getString(), "",
                 ReformDocuments.path(range.minimum()), ReformDocuments.path(range.maximum()))).toList();
         return new FormPresentation(ranges, FormDependencies.NONE, new FormCatalog(sections));
     }
