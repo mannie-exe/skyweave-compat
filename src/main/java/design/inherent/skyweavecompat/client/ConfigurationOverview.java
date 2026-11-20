@@ -95,6 +95,7 @@ public final class ConfigurationOverview extends Screen {
     }
     private void loadJson() {
         for (var file : JsonSettings.FILES) try {
+            if (file.filename().equals(design.inherent.skyweavecompat.maps.MapZoomSettings.FILE)) continue;
             var edits = json.get(file.filename());
             if (edits == null) json.put(file.filename(), new JsonEdits(ConfigLocations.directory(FMLPaths.CONFIGDIR.get(), file.filename()), file)); else edits.reload();
             unavailable.remove(file.filename());
@@ -525,7 +526,11 @@ public final class ConfigurationOverview extends Screen {
         if (!exists) help = help.copy().append("\n").append(text("not_created"));
         Component label = file.group() == null || detail != null ? Component.literal(file.filename()) : Component.translatable(file.labelKey());
         var edits = json.get(file.filename());
-        if (JsonSettings.find(file.filename()) != null && detail == null) {
+        if (file.filename().equals(design.inherent.skyweavecompat.maps.MapZoomSettings.FILE) && detail == null
+                && OptionalIntegrations.enabled(Feature.HOOFPRINT_ZOOM)) {
+            content.anchorRow("file/" + file.id(), label, help, valueButton(text("edit"), label, 112,
+                    () -> minecraft.setScreen(HoofprintPreferences.screen(this))));
+        } else if (JsonSettings.find(file.filename()) != null && detail == null) {
             content.anchorRow("file/" + file.id(), label, help);
             if (unavailable.containsKey(file.filename())) {
                 content.row(text("load_failed"), Component.literal(unavailable.get(file.filename())).append(edits == null ? Component.empty() : text("retained_snapshot")));
@@ -892,10 +897,6 @@ public final class ConfigurationOverview extends Screen {
             var result = ProfileEditPlan.prepare(ConfigLocations.ownedDirectory(FMLPaths.CONFIGDIR.get()), writes).save();
             var report = new ArrayList<Component>();
             for (var receipt : result.receipts()) {
-                if (receipt.state() == SettingsCommit.Persistence.WRITTEN
-                        && receipt.filename().equals(design.inherent.skyweavecompat.maps.MapZoomSettings.FILE)
-                        && OptionalIntegrations.enabled(Feature.HOOFPRINT_ZOOM))
-                    design.inherent.skyweavecompat.maps.MapZoomSettings.acceptSaved(receipt.savedText());
                 var line = Component.literal(receipt.filename()+": ").append(text("persistence."+receipt.state().name().toLowerCase(Locale.ROOT)));
                 if (receipt.failure()!=null) line.append(". ").append(boundedMessage(receipt.failure()));
                 report.add(line);
@@ -953,8 +954,6 @@ public final class ConfigurationOverview extends Screen {
     private void reload() {
         if (serverSettings.busy()) return;
         remember(); Runnable reload = () -> { validationJobs.clear(); load(); loadJson(); loadRegistered(); controls=null;
-            if (!serverSettings.selected() && OptionalIntegrations.enabled(Feature.HOOFPRINT_ZOOM))
-                design.inherent.skyweavecompat.maps.MapZoomSettings.load();
             if (serverSettings.selected()) serverSettings.open();
             rebuildWidgets(); };
         if (dirty()) minecraft.setScreen(new ConfirmScreen(answer -> { minecraft.setScreen(this); if (answer) reload.run(); }, text("reload_title"), text("reload_message"), text("reload"), text("keep_editing")));

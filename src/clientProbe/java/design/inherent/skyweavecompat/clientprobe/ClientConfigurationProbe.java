@@ -47,7 +47,9 @@ final class ClientConfigurationProbe {
     }
     private void open() {
         var mc = Minecraft.getInstance();
-        mc.setScreen(new ConfigurationOverview(ModList.get().getModContainerById("skyweave_compat").orElseThrow(), mc.screen));
+        var mod = ModList.get().getModContainerById("skyweave_compat").orElseThrow();
+        mc.setScreen(mod.getCustomExtension(net.neoforged.neoforge.client.gui.IConfigScreenFactory.class)
+                .orElseThrow().createScreen(mod, mc.screen));
     }
     private void serverProof() throws Exception {
         var mc=Minecraft.getInstance(); var server=mc.getSingleplayerServer();
@@ -141,6 +143,13 @@ final class ClientConfigurationProbe {
                         case "environment-world" -> world(command.get("slot").getAsInt(), true);
                         case "environment-proof" -> ClientPresentationProbe.observe(root, mc);
                         case "hoofprint-proof" -> hoofprint(mc);
+                        case "reform-receipt" -> reformReceipt(mc);
+                        case "hoofprint" -> {
+                            if (!OptionalIntegrations.enabled(Feature.HOOFPRINT_ZOOM) || mc.player == null)
+                                throw new IllegalStateException("Expected an admitted Hoofprint connection");
+                            mc.setScreen((net.minecraft.client.gui.screens.Screen) Class.forName(
+                                    "garden.hestia.hoofprint.HoofprintScreen").getConstructor().newInstance());
+                        }
                         case "load-world" -> {
                             int slot = command.get("slot").getAsInt();
                             if (slot < 1 || slot > 2 || mc.level != null || mc.getSingleplayerServer() != null
@@ -289,9 +298,28 @@ final class ClientConfigurationProbe {
             proof.addProperty(name,((Number)method.invoke(mc.screen,name.contains("WorldX")?100d:120d)).doubleValue());
         }
         proof.addProperty("windowGuiScale",mc.getWindow().getGuiScale());
-        proof.add("preferences",new GsonBuilder().create().toJsonTree(design.inherent.skyweavecompat.maps.MapZoomSettings.current()));
+        proof.add("preferences",new GsonBuilder().create().toJsonTree(
+                design.inherent.skyweavecompat.client.HoofprintPreferences.current()));
         proof.addProperty("connectionIdentity",System.identityHashCode(mc.getConnection()));
+        proof.addProperty("screenIdentity",System.identityHashCode(mc.screen));
         ProbeStateFiles.write(root.resolve("hoofprint-observation.json"),new GsonBuilder().setPrettyPrinting().create().toJson(proof));
+    }
+    private void reformReceipt(Minecraft mc) throws Exception {
+        if (!(mc.screen instanceof design.inherent.reform.neoforge.client.SettingsScreen<?>))
+            throw new IllegalStateException("Expected an actual re:form settings screen");
+        var field = design.inherent.reform.neoforge.client.SettingsScreen.class.getDeclaredField("lastCommit");
+        field.setAccessible(true);
+        var operation = (design.inherent.reform.operation.OperationHandle<?>) field.get(mc.screen);
+        if (operation == null || !(operation.snapshot().result().orElse(null)
+                instanceof design.inherent.reform.owner.EditorActor.Commit<?> commit))
+            throw new IllegalStateException("Expected a settled re:form settings commit");
+        var receipt = commit.receipt().orElseThrow();
+        var evidence = new JsonObject();
+        evidence.addProperty("persistence", receipt.persistence().name());
+        evidence.addProperty("application", receipt.application().name());
+        evidence.addProperty("savedRevision", receipt.savedRevision().orElseThrow());
+        evidence.addProperty("source", receipt.observation().orElseThrow().provenance().location().orElseThrow());
+        ProbeStateFiles.write(root.resolve("reform-receipt.json"), evidence.toString());
     }
     private static boolean visibleTarget(GuiEventListener listener, AbstractWidget target, double x, double y) {
         if (listener == target) return target.visible && target.active;

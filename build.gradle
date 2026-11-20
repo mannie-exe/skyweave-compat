@@ -5,11 +5,19 @@ plugins {
 version = mod_version
 group = 'design.inherent'
 base.archivesName = 'skyweave-compat'
+def reformVersion = providers.gradleProperty('reform_version').get()
+def reformRepository = providers.gradleProperty('reform_repository')
 java {
     toolchain.languageVersion = JavaLanguageVersion.of(21)
     withSourcesJar()
 }
 repositories {
+    if (reformRepository.isPresent()) {
+        exclusiveContent {
+            forRepository { maven { url = uri(reformRepository.get()) } }
+            filter { includeModule 'design.inherent', 'reform' }
+        }
+    }
     mavenCentral()
     maven {
         url = 'https://maven.ftb.dev/releases'
@@ -49,6 +57,7 @@ configurations {
 sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
 sourceSets.test.runtimeClasspath += sourceSets.main.runtimeClasspath
 dependencies {
+    implementation("design.inherent:reform:${reformVersion}") { transitive = false }
     compileOnly('maven.modrinth:modefite-item-definition-backport:cy8BkRZc') { transitive = false }
     compileOnly('maven.modrinth:combat-nouveau:us081FGF') { transitive = false }
     compileOnly('maven.modrinth:puzzles-lib:kiX1lfse') { transitive = false }
@@ -133,7 +142,8 @@ tasks.named('jar', Jar) {
 tasks.named('sourcesJar', Jar) { from 'LICENSE', 'NOTICE'; from('licenses') { into 'licenses' } }
 tasks.named('processResources', ProcessResources) {
     inputs.property 'version', project.version
-    filesMatching('META-INF/neoforge.mods.toml') { expand version: project.version }
+    inputs.property 'reform_version', reformVersion
+    filesMatching('META-INF/neoforge.mods.toml') { expand version: project.version, reform_version: reformVersion }
 }
 tasks.named('test', Test) { useJUnitPlatform() }
 tasks.register('verifyUpstream') {
@@ -314,7 +324,7 @@ tasks.register('clientProbeJar', Jar) {
 
 tasks.register('verifyPackage', Exec) {
     dependsOn jar
-    commandLine 'python3', 'tools/verify_package.py', project.version.toString()
+    commandLine 'python3', 'tools/verify_package.py', project.version.toString(), reformVersion
 }
 tasks.register('releaseToolTest', Exec) {
     commandLine 'python3', '-m', 'unittest', 'discover', '-s', 'tools/tests'

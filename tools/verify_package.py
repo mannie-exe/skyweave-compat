@@ -8,15 +8,20 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
 version = sys.argv[1]
+reform_version = sys.argv[2]
 with zipfile.ZipFile(root / f'build/libs/skyweave-compat-{version}-mc1.21.1-neoforge.jar') as jar:
     names = set(jar.namelist())
     metadata = tomllib.loads(jar.read('META-INF/neoforge.mods.toml').decode())
     assert metadata['mods'][0]['version'] == version
     deps = {entry['modId']: entry for entry in metadata['dependencies']['skyweave_compat']}
     assert deps['minecraft']['versionRange'] == '[1.21.1]'
-    assert {name for name, d in deps.items() if d['type'] == 'required'} == {'minecraft', 'neoforge'}
+    required = {'minecraft', 'neoforge', 'reform'}
+    assert {name for name, d in deps.items() if d['type'] == 'required'} == required
+    assert deps['reform']['versionRange'] == f'[{reform_version}]'
+    assert deps['reform']['side'] == 'BOTH'
+    assert not any(name.startswith('design/inherent/reform/') for name in names), 're:form is a separate base library'
     for name, dependency in deps.items():
-        if name not in {'minecraft', 'neoforge'}:
+        if name not in required:
             assert dependency['type'] == 'optional', name
             assert dependency['versionRange'] == '[0,)', name
     assert not any(name.startswith('data/') and not name.endswith('/') for name in names), 'Integration data must be gated'

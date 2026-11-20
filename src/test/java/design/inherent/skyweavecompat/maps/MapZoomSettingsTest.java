@@ -1,6 +1,14 @@
 package design.inherent.skyweavecompat.maps;
 
+import design.inherent.reform.owner.CommitReceipt;
+import design.inherent.reform.owner.FileOwner;
+import design.inherent.reform.owner.OwnerContext;
+import design.inherent.skyweavecompat.configuration.ConfigLocations;
+import design.inherent.skyweavecompat.configuration.ReformDocuments;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.*;
 
 class MapZoomSettingsTest {
@@ -11,18 +19,27 @@ class MapZoomSettingsTest {
             assertEquals(design.inherent.skyweavecompat.configuration.SettingsCatalog.Timing.IMMEDIATE,
                     design.inherent.skyweavecompat.configuration.SettingsCatalog.timing(MapZoomSettings.FILE, key));
     }
-    @Test void publicationIsAtomicAndAnInvalidSavedDocumentCannotReplaceTheLastValidPolicy() {
+    @Test void publicationIsAtomicAndAnInvalidSavedDocumentCannotReplaceTheLastValidPolicy(@TempDir Path root) throws Exception {
         String valid = "{\"zoomMinimum\":0.25,\"zoomMaximum\":16,\"zoomInitial\":0,\"zoomStep\":1.5}";
-        var previous = MapZoomSettings.current();
-        try {
-            MapZoomSettings.acceptSaved(valid);
-            var published = MapZoomSettings.current();
-            assertEquals(.25, published.clamp(.125));
-            assertEquals(1.5, published.scroll(1, 1));
-            assertThrows(IllegalArgumentException.class, () -> MapZoomSettings.acceptSaved(valid.replace("16", "0.01")));
-            assertSame(published, MapZoomSettings.current());
-        } finally {
-            MapZoomSettings.acceptSaved(new com.google.gson.Gson().toJson(previous));
+        var source = ConfigLocations.file(root, MapZoomSettings.FILE);
+        Files.createDirectories(source.getParent());
+        Files.writeString(source, valid);
+        try (var context = new OwnerContext(Runnable::run, Runnable::run, () -> {}, OwnerContext.Limits.STANDARD)) {
+            var owner = new FileOwner<>(context, ReformDocuments.json(root, MapZoomSettings.FILE, MapZoomSettings.definition()), 4);
+            try (var session = owner.open(context.access(() -> true, () -> true))) {
+                assertEquals(CommitReceipt.Application.APPLIED, session.initialize().toCompletableFuture().join().application());
+                var admitted = owner.handle().view();
+                var published = admitted.value().orElseThrow();
+                assertEquals(MapZoomSettings.parse(valid), published);
+                assertEquals(.25, published.clamp(.125));
+                assertEquals(1.5, published.scroll(1, 1));
+                String invalid = valid.replace("16", "0.125");
+                Files.writeString(source, invalid);
+                assertFalse(session.initialize().toCompletableFuture().join().applicationReport().valid());
+                assertSame(admitted.revision(), owner.handle().view().revision());
+                assertEquals(published, owner.handle().view().value().orElseThrow());
+                assertEquals(invalid, Files.readString(source));
+            }
         }
     }
     @Test void fractionalDeltasAccumulateWithoutChangingNativeGuiScale() {

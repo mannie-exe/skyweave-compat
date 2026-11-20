@@ -2,6 +2,7 @@ package design.inherent.skyweavecompat.mixin.client;
 
 import com.llamalad7.mixinextras.injector.wrapoperation.*;
 import design.inherent.skyweavecompat.client.HoofprintViews;
+import design.inherent.skyweavecompat.client.HoofprintPreferences;
 import design.inherent.skyweavecompat.maps.MapZoomSettings;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -36,7 +37,7 @@ public abstract class HoofprintZoomMixin extends Screen {
     }
     @Inject(method = "init()V", at = @At("TAIL"), require = 1)
     private void skyweave$restoreView(CallbackInfo callback) {
-        skyweave$settings = MapZoomSettings.current();
+        skyweave$settings = HoofprintPreferences.current();
         var previous = skyweave$beforeInit != null ? skyweave$beforeInit : HoofprintViews.get(minecraft.getConnection());
         if (previous != null) {
             dim = previous.dimension(); centreX = previous.x(); centreZ = previous.z();
@@ -46,7 +47,7 @@ public abstract class HoofprintZoomMixin extends Screen {
         skyweave$remember();
     }
     @Unique private void skyweave$refresh() {
-        var current = MapZoomSettings.current();
+        var current = HoofprintPreferences.current();
         if (current == skyweave$settings) return;
         skyweave$settings = current;
         if (Double.isFinite(skyweave$scale)) {

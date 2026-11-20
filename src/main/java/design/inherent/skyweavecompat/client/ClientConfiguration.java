@@ -28,8 +28,7 @@ public final class ClientConfiguration {
         if (RenderingPreferences.admitted()) container.registerConfig(ModConfig.Type.CLIENT, RenderingPreferences.SPEC,
                 design.inherent.skyweavecompat.configuration.ConfigLocations.registeredName(RenderingPreferences.FILE));
         if (OptionalIntegrations.enabled(Feature.HOOFPRINT_ZOOM))
-            modBus.addListener((net.neoforged.fml.event.lifecycle.FMLClientSetupEvent event) ->
-                    event.enqueueWork(design.inherent.skyweavecompat.maps.MapZoomSettings::load));
+            HoofprintPreferences.register(modBus, container);
         if (OptionalIntegrations.enabled(Feature.CLIMATE)) ClimateClient.register();
         modBus.addListener(ClientResourceRevision::register);
         if (OptionalIntegrations.enabled(Feature.HELD_MATERIALS)) HandMaterials.register(modBus);

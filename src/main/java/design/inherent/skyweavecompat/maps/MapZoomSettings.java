@@ -2,12 +2,17 @@ package design.inherent.skyweavecompat.maps;
 
 import design.inherent.skyweavecompat.configuration.SettingSpec;
 import design.inherent.skyweavecompat.configuration.RecordSettings;
-import design.inherent.skyweavecompat.configuration.ConfigFile;
-import com.google.gson.GsonBuilder;
-import design.inherent.skyweavecompat.configuration.ConfigLocations;
 import design.inherent.skyweavecompat.configuration.ProfileJson;
-import java.nio.file.*;
-import net.neoforged.fml.loading.FMLPaths;
+import design.inherent.reform.definition.DocumentDefinition;
+import design.inherent.reform.definition.DocumentId;
+import design.inherent.reform.definition.FieldKey;
+import design.inherent.reform.definition.RecordTypes;
+import design.inherent.reform.presentation.NumericDisplay;
+import design.inherent.reform.serialization.DecimalText;
+import design.inherent.reform.value.ValueTypes;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Optional;
 
 /** Client preference math and codec; never links Hoofprint, Surveyor or rendering classes. */
 public record MapZoomSettings(
@@ -17,7 +22,6 @@ public record MapZoomSettings(
         @SettingSpec(minimum="1.01", maximum="2", step="0.01", unit="factor", group="interaction") double zoomStep) {
     public static final String FILE = "skyweave_compat-hoofprint.json";
     public static final MapZoomSettings DEFAULT = new MapZoomSettings(.125, 32, .125, 1.25);
-    private static volatile MapZoomSettings lastValid = DEFAULT;
     public MapZoomSettings {
         RecordSettings.validate(MapZoomSettings.class, zoomMinimum, zoomMaximum, zoomInitial, zoomStep);
         if (zoomMaximum < zoomMinimum)
@@ -37,25 +41,21 @@ public record MapZoomSettings(
             throw new IllegalArgumentException(reason.getMessage(), invalid);
         }
     }
+    public static DocumentDefinition<MapZoomSettings> definition() {
+        var type = RecordTypes.record(MapZoomSettings.class);
+        for (var field : RecordSettings.fields(DEFAULT)) {
+            var display = new NumericDisplay(field.unit(),
+                    List.of(new NumericDisplay.Unit(field.unit(), field.unit(), BigDecimal.ONE)),
+                    field.step(), Optional.empty(), DecimalText.Limits.CONFIGURATION);
+            type.field(field.key(), FieldKey.of(field.key(), ValueTypes.numericDisplay(
+                    ValueTypes.decimal(field.minimum().doubleValue(), field.maximum().doubleValue()), display)));
+        }
+        return new DocumentDefinition<>(new DocumentId("skyweave_compat", "hoofprint"),
+                1, type.build(), () -> DEFAULT);
+    }
     public double clamp(double scale) { return Math.clamp(scale, zoomMinimum, zoomMaximum); }
     public double scroll(double scale, double delta) {
         if (!Double.isFinite(delta) || !Double.isFinite(scale) || scale <= 0) return scale;
         return clamp(scale * Math.pow(zoomStep, Math.clamp(delta, -32, 32)));
-    }
-    public static MapZoomSettings current() { return lastValid; }
-    /** Publish a complete validated saved document; readers never poll the file during rendering. */
-    public static void acceptSaved(String text) { lastValid = parse(text); }
-    public static MapZoomSettings load() {
-        var path = ConfigLocations.file(FMLPaths.CONFIGDIR.get(), FILE);
-        try {
-            Files.createDirectories(path.getParent());
-            if (!Files.exists(path)) Files.writeString(path, new GsonBuilder().setPrettyPrinting().create().toJson(DEFAULT) + "\n",
-                    StandardOpenOption.CREATE_NEW);
-            lastValid = parse(ConfigFile.read(path));
-        } catch (java.io.IOException | RuntimeException failure) {
-            // Keep the invalid file for the configuration editor rather than losing it or crashing the map.
-            com.mojang.logging.LogUtils.getLogger().warn("Cannot read map zoom preferences {}; retaining last valid values", path, failure);
-        }
-        return lastValid;
     }
 }
