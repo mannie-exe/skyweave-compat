@@ -22,6 +22,10 @@ Generated from Git history. Player-facing release summaries are in [release note
 
 - **config:** Adopt shared catalog owners ([8b1e3c0](https://github.com/mannie-exe/skyweave-compat/commit/8b1e3c0c6407efdee6e25d4df6cb3b36b6aa1277))
 
+### Documentation
+
+- **config:** Record final pack qualification ([c1d50fc](https://github.com/mannie-exe/skyweave-compat/commit/c1d50fc4b3e5c2184d695225641f52cc3e8acc18))
+
 ### Build and verification
 
 - **config:** Exercise shared native owners ([9397c67](https://github.com/mannie-exe/skyweave-compat/commit/9397c673fe7448a6a6b300bfe75fca7a6ec19f27))
