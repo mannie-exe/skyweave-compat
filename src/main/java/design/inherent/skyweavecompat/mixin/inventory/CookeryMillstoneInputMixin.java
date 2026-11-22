@@ -15,6 +15,7 @@ abstract class CookeryMillstoneInputMixin {
         var handler = (IItemHandler) (Object) this;
         if (slot != 0 || !handler.getStackInSlot(0).isEmpty()) return stack;
         int offered = Math.min(stack.getCount(), Math.min(handler.getSlotLimit(0), stack.getMaxStackSize()));
+        if (offered <= 0) return stack;
         var remainder = original.call(slot, stack.copyWithCount(offered), simulate);
         int accepted = offered - remainder.getCount();
         return accepted == 0 ? stack : stack.copyWithCount(stack.getCount() - accepted);

@@ -110,6 +110,16 @@ final class CookeryInventoryProbe {
         check(componentStack.getCount() == (repaired ? 9 : 1) && ItemStack.isSameItemSameComponents(componentBefore, componentMachine.getInput()), "Component ownership");
         report.addProperty("componentMaxStackSize", 4); report.addProperty("componentInput", componentMachine.getInput().getCount());
         report.addProperty("componentCallerAfter", componentStack.getCount());
+        if (repaired) {
+            for (int invalidLimit : new int[]{0, -1}) {
+                var malformedMachine = fresh(level); var malformed = wheat(9);
+                malformed.set(DataComponents.MAX_STACK_SIZE, invalidLimit);
+                check(malformedMachine.getInputHandler().insertItem(0, malformed, true).getCount() == 9
+                        && malformedMachine.getInputHandler().insertItem(0, malformed, false).getCount() == 9
+                        && malformed.getCount() == 9 && malformedMachine.getInput().isEmpty(), "Malformed stack limit created items");
+            }
+            report.addProperty("invalidStackLimitsRefused", true);
+        }
         var registered = fresh(level); level.setBlockAndUpdate(registered.getBlockPos(), registered.getBlockState());
         var actualMachine = (MillstoneBlockEntity) level.getBlockEntity(registered.getBlockPos());
         var capability = level.getCapability(Capabilities.ItemHandler.BLOCK, registered.getBlockPos(), Direction.UP);
