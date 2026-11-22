@@ -13,6 +13,19 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class FeatureSelectionTest {
+    @Test void cookeryInsertionIsOptionalCommonAndExactVersionGated() {
+        var feature = Feature.COOKERY_MILLSTONE;
+        for (boolean client : List.of(false, true)) {
+            var admitted = FeatureSelection.select(only(feature), Map.of("kaleidoscope_cookery", "1.6.0-neoforge+mc1.21.1"), client);
+            assertTrue(admitted.enabled(feature));
+            assertEquals(List.of("inventory.CookeryMillstoneInputMixin"), admitted.mixins(client));
+            assertTrue(FeatureSelection.select(only(feature), Map.of(), client).mixins(client).isEmpty());
+            assertTrue(FeatureSelection.select(only(), Map.of("kaleidoscope_cookery", "future"), client).mixins(client).isEmpty());
+            assertThrows(IllegalStateException.class, () -> FeatureSelection.select(only(feature), Map.of("kaleidoscope_cookery", "future"), client));
+        }
+        assertTrue(new FeatureSettings(Map.of()).enabled(feature));
+        assertEquals(SettingsCatalog.Category.MACHINES, SettingsCatalog.group(feature).category);
+    }
     @Test void powerGridInputRepairKeepsOptionalClientAdmissionAndIndependentOptOut() {
         var feature = Feature.POWER_GRID_KEY_MODIFIERS;
         var selected = FeatureSelection.select(only(feature), Map.of("powergrid", "0.6.2"), true);

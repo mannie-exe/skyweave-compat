@@ -29,6 +29,7 @@ public final class SettingsCatalog {
         LINKAGE(Category.MACHINES, "transmission_linkage"), LINEAR(Category.MACHINES, "linear_bearing"),
         MACAW(Category.SHIPS, "mcwbridges"),
         GRAVES(Category.INVENTORY, "yigd"), ACCESSORIES(Category.INVENTORY, "accessories_compat_layer"), AUDIO(Category.AUDIO, "analog_audio"),
+        COOKERY(Category.MACHINES, "kaleidoscope_cookery"),
         IPN(Category.INVENTORY, "inventory_profiles_next"),
         DELIVERY(Category.SHIPS, "delivery"), QUESTLOG_SERVER(Category.INTERFACE, "questlog"),
         HOOFPRINT(Category.MAPS, "hoofprint"), DH(Category.MAPS, "distant_horizons"), BLUEMAP(Category.MAPS, "bluemap"), SURVEYOR(Category.MAPS, "surveyor"),
@@ -218,6 +219,7 @@ public final class SettingsCatalog {
     public static Group group(Feature feature) {
         return switch (feature) {
             case MAIN_MENU_IDENTITY -> Group.COMPAT_INTERFACE;
+            case COOKERY_MILLSTONE -> Group.COOKERY;
             case IPN_TEXT_INPUT -> Group.IPN;
             case MOVES_KEY_MODIFIERS -> Group.MOVES_INPUT;
             case EFFORTLESS_KEY_MODIFIERS -> Group.EFFORTLESS_INPUT;

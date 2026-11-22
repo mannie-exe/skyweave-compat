@@ -71,6 +71,7 @@ dependencies {
     compileOnly('maven.modrinth:punchy-fpa:aVZEe0j8') { transitive = false }
     compileOnly('maven.modrinth:punchymoves:SYcipAjI') { transitive = false }
     compileOnly('maven.modrinth:variants-and-ventures:Efvt97uC') { transitive = false }
+    compileOnly('maven.modrinth:kaleidoscope-cookery:g8w0b2ly') { transitive = false }
     compileOnly('maven.modrinth:inventory-profiles-next:vjuNnHLv') { transitive = false }
     compileOnly('maven.modrinth:libipn:BGe4KMlE') { transitive = false }
     // Exact Kotlin API carried by the qualified optional IPN runtime; never bundled.
@@ -219,7 +220,8 @@ tasks.register('verifyUpstream') {
             if (actual != expected) throw new GradleException("Unexpected ${name}: ${actual}")
         }
 
-        ['modefite-item-definition-backport': '959272d5a7acc809881da7bcadda84ec8b1bf75ffcd8f84e989758a262bc6696',
+        ['kaleidoscope-cookery': 'e93784a3f17e546ebfa7c449572933bf67c6b694c01cb26b83ad120c40452b33',
+         'modefite-item-definition-backport': '959272d5a7acc809881da7bcadda84ec8b1bf75ffcd8f84e989758a262bc6696',
          'inventory-profiles-next': '05f1b8660f74f543fba61d4ce7cf8632d4c69a95b7c15b1a6fd442be2e397ca6',
          'libipn': '98f061ba69d31764fa10ab7810ca49062633e107a6b261ba3b66dc25ba5fef7b',
          'accessories': 'cbecac21acbaf323349afa263b22cda67c3e836f928f6cf3f951ba460c196d15',

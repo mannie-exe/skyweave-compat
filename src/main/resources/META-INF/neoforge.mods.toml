@@ -300,3 +300,10 @@ type="optional"
 versionRange="[0,)"
 ordering="AFTER"
 side="CLIENT"
+
+[[dependencies.skyweave_compat]]
+modId = "kaleidoscope_cookery"
+type = "optional"
+versionRange = "[0,)"
+ordering = "NONE"
+side = "BOTH"

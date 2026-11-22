@@ -3,6 +3,7 @@ package design.inherent.skyweavecompat;
 /** Independently selectable adaptations. Selection happens before target classes load. */
 public enum Feature {
     MAIN_MENU_IDENTITY("interface.main_menu_identity"),
+    COOKERY_MILLSTONE("kaleidoscope_cookery.millstone_insertion"),
     IPN_TEXT_INPUT("inventory_profiles_next.text_input_protection"),
     MOVES_KEY_MODIFIERS("punchy_moves.keybinding_modifiers"),
     EFFORTLESS_KEY_MODIFIERS("effortlessbuilding.keybinding_modifiers"),

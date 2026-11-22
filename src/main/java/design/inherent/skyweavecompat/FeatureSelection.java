@@ -124,6 +124,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
     public static Map<String, String> dependencies(Feature feature) {
         return switch (feature) {
             case MAIN_MENU_IDENTITY -> Map.of();
+            case COOKERY_MILLSTONE -> Map.of("kaleidoscope_cookery", "1.6.0-neoforge+mc1.21.1");
             case IPN_TEXT_INPUT -> Map.of("inventoryprofilesnext", "2.2.5", "libipn", "6.6.3");
             case MOVES_KEY_MODIFIERS -> Map.of("punchy_moves", "1.0.9");
             case EFFORTLESS_KEY_MODIFIERS -> Map.of("effortlessbuilding", "4.2");
@@ -219,6 +220,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                         "client.definitions.DefinitionBindingMixin", "client.definitions.DefinitionRegistryMixin",
                         "client.definitions.DefinitionResolverMixin", "client.definitions.DefinitionRenderingMixin");
                 case MOVES_TOUCH_MOTION -> List.of("client.MovesTouchMotionApiMixin", "client.TouchMotionCapeInvoker");
+                case COOKERY_MILLSTONE -> List.of("inventory.CookeryMillstoneInputMixin");
                 case IPN_TEXT_INPUT -> List.of("client.input.IpnKeybindMixin", "client.input.IpnInputDispatchMixin", "client.input.IpnInventoryInputMixin", "client.input.RecipeSearchAccess", "client.input.IpnWindowMixin", "client.input.IpnContainerAccess");
                 case MOVES_KEY_MODIFIERS -> List.of("client.input.MovesBindingsMixin", "client.input.MovesKeyboardScopeMixin",
                         "client.input.MovesPerspectiveDispatchMixin", "client.input.MovesNativePerspectiveMixin", "client.input.MovesSavedModifiersMixin",

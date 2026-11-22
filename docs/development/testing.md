@@ -69,6 +69,18 @@ The input server is read-only. The fixture uses a temporary save and random loca
 
 After `./gradlew clientProbeJar`, `tools/world_scope_client.py --server /path/to/server/game --java /path/to/java --output /new/evidence` uses packaged products with the pinned ModDev bootstrap and no project source roots. It requires coordinated desktop access. One disposable client connects to sequential climate-on/off loopback servers and checks policy, foreign dimension/reset, return, reconnect, disconnect cleanup and physical-coordinate fallback without a channel. It has no personal-instance inputs or shader/full-pack qualification. Both runners bound processes and retain reports outside disposable runtimes.
 
+## Cookery inventory contract
+
+Build `probeJar`, then run a disposable standalone server with the exact Cookery runtime, re:form, Compat, and probe JARs:
+
+```sh
+python3 tools/startup_probe.py --server /path/to/server/game --java /path/to/java --scenario standalone --mod /path/to/compat.jar --extra-mod /path/to/reform.jar --extra-mod /path/to/cookery.jar --extra-mod build/probe/skyweave-compat-probe.jar --cookery repaired --output /new/evidence
+```
+
+`--cookery original` requires the observed original contract failures and preserved positives. Use the prior unmodified Compat product for that baseline, or pass `--fixture-config /owned/config` with only the current feature explicitly false. The fixture marker and JVM selection are explicit; ordinary standalone startup retains its stricter native-target boundary. The runner waits for a native receipt, includes its result in the saved/printed outcome, and removes its owned world. It never mounts a playing save or imports personal configuration.
+
+The server-thread fixture calls actual Cookery handlers and recipe/state owners with counts 0/1/8/9/64. It checks caller/item-component ownership, component-defined stack limits, simulated state, remainders and inventory conservation; missing level/recipe, occupied/busy/full-output states and invalid slots; the registered upper capability and unchanged lower-side absence; the actual NeoForge stacked-insertion helper; and native player insertion plus complete bound-animal wheat-to-flour processing. Processing calls use the real native method without shortening its configured progress. This is capability and processing qualification, not elapsed-world-time, natural animal behavior, AE2 networking, or full-pack exploitation. Minimal startup and absent/disabled/unsupported-provider controls remain separate.
+
 ## Server and generation probes
 
 `--benchmark --minimal --samples 1 --seed 42` also exercises the transformed preset predicate with matching, equally valued foreign, direct and ordinary upstream settings holders, plus a missing-key refusal. After warmup, its allocation counter covers one million native eligibility calls; it is separate from column/FULL-chunk timing. The report fingerprints sampled columns, physical block states, biomes and accepted starts. An empty start set is not structure qualification: pair it with a nonempty native structure fixture. Use `--reopen` to compare saved outputs and the generation identity, and `--output-dir /private/case` to keep cases separate. Probe JARs and measurements are excluded from the released mod.
