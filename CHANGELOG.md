@@ -2,6 +2,16 @@
 
 Generated from Git history. Player-facing release summaries are in [release notes](RELEASE_NOTES.md).
 
+## v0.42.1 · 2026-11-22
+
+### Fixes
+
+- **cookery:** Preserve millstone insertion custody ([adcd661](https://github.com/mannie-exe/skyweave-compat/commit/adcd66180a130fa2483e590b77706b30ab95ad95))
+
+### Documentation
+
+- Record public 0.42.0 qualification ([92bf0db](https://github.com/mannie-exe/skyweave-compat/commit/92bf0dbed451b8a06100528a7877fc5df6911efc))
+
 ## v0.42.0 · 2026-11-22
 
 ### Features
