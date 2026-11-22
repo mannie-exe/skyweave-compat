@@ -222,6 +222,6 @@ Implementation credits include CuddlesPrime's [Veil framebuffer fix](https://git
 
 ## License
 
-Original implementation: [Apache License 2.0](LICENSE), copyright 2026 mannie-exe. Incorporated framebuffer code and its test infrastructure retain LGPL-3.0-only; the adapted BlueMap viewer retains MIT. See [NOTICE](NOTICE) and [third-party license texts](licenses/). Upstream binaries and templates are not bundled. This change applies to this source revision and future distributions; published releases retain their distributed terms.
+Original implementation: [Apache License 2.0](LICENSE), copyright 2026 inherent.design contributors. Incorporated framebuffer code and its test infrastructure retain LGPL-3.0-only; the adapted BlueMap viewer retains MIT. See [NOTICE](NOTICE) and [third-party license texts](licenses/). Upstream binaries and templates are not bundled. This change applies to this source revision and future distributions; published releases retain their distributed terms.
 
 Skyweave: Compatibility Patches is independent of the unfinished Skyweave civilization mod. The playable pack is Create: Skyweave. The registry namespace is `skyweave_compat`; see [existing saves](docs/configuration.md#release-identity-and-existing-saves).
