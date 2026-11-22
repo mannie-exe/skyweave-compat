@@ -140,7 +140,7 @@ def main():
         with zipfile.ZipFile(run / 'mods/linear-review-probe.jar', 'w') as jar:
             for path in classes.rglob('*.class'):
                 jar.write(path, path.relative_to(classes))
-            jar.writestr('META-INF/neoforge.mods.toml', 'modLoader="javafml"\nloaderVersion="[4,)"\nlicense="MIT"\n[[mods]]\nmodId="linear_review_probe"\nversion="1.0.0"\ndisplayName="Isolated compatibility checks"\n')
+            jar.writestr('META-INF/neoforge.mods.toml', 'modLoader="javafml"\nloaderVersion="[4,)"\nlicense="Apache-2.0"\n[[mods]]\nmodId="linear_review_probe"\nversion="1.0.0"\ndisplayName="Isolated compatibility checks"\n')
         shutil.copytree(args.pack / 'overrides/common/config', run / 'config')
         if args.linkage_baseline:
             settings = run / 'config/skyweave/skyweave_compat-features.properties'

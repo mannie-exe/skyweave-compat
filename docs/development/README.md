@@ -18,6 +18,8 @@ Keep geometry independent of Minecraft APIs and native adapters small. Generatio
 
 The standalone server and client probes are separate artifacts and never release contents. [Testing](testing.md) owns invocation, fixture inputs, and cleanup; [verification](verification.md) owns qualified artifact identities and limits. Historical comparisons use the exact old artifact, not a second implementation compiled into the current suite.
 
+Original project work uses Apache-2.0. Preserve the LGPL-3.0-only rendering headers and BlueMap's MIT notice when editing incorporated work; [NOTICE](../../NOTICE) owns those exceptions. When adding an integration or adapting another implementation, update the [README credits](../../README.md#credits), retain its provenance and required notices, and check packaged license metadata and license texts. Calling an installed API does not change that upstream project's license. Keep build-tool notices, including the Gradle wrapper license, separate from project authorship.
+
 `src/main/resources/logo.png` owns the mod-list image through NeoForge metadata. It is independent of the modpack's resource packs and hosted project icon. Preserve `logoBlur=false` when retaining pixel artwork.
 
 ## Owning guides

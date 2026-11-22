@@ -162,7 +162,7 @@ def main():
                     found_providers.add(identity)
             if found_providers != providers.keys():
                 parser.error('Village scene is missing its exact provider stack')
-            metadata = ('modLoader="lowcodefml"\nloaderVersion="[1,)"\nlicense="MIT"\n'
+            metadata = ('modLoader="lowcodefml"\nloaderVersion="[1,)"\nlicense="Apache-2.0"\n'
                         '[[mods]]\nmodId="skyweave_village_preview"\nversion="1.0.0"\n'
                         'displayName="Owned village preview data"\n'
                         '[[dependencies.skyweave_village_preview]]\nmodId="skyweave_resource_patches"\n'

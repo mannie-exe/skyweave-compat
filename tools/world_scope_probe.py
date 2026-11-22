@@ -95,7 +95,7 @@ def main():
             else:copy_owned(pack / 'resource-patches/data/skyvillages/worldgen/structure/skyvillage.json', destination, run)
             module = 'scope_resources' if args.native_village_data else 'skyweave_resource_patches'
             declaration = '' if args.native_village_data else '"skyweave:owned-village-band"=1\n'
-            metadata = ('modLoader="lowcodefml"\nloaderVersion="[1,)"\nlicense="MIT"\n'
+            metadata = ('modLoader="lowcodefml"\nloaderVersion="[1,)"\nlicense="Apache-2.0"\n'
                         f'[[mods]]\nmodId="{module}"\nversion="1.0.0"\n{declaration}'
                         f'[[dependencies.{module}]]\nmodId="skyvillages"\ntype="required"\nversionRange="[1.0.6]"\nordering="AFTER"\nside="BOTH"\n')
             with zipfile.ZipFile(run / 'mods/scope-resource-fixture.jar', 'w') as archive:

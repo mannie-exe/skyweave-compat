@@ -30,7 +30,7 @@ Modrinth publication is deferred. Use these fields if publication is approved:
 | Summary      | Optional terrain, gameplay, and rendering adaptations with independent startup switches |
 | Category     | World Generation; Utility as an optional second category                                |
 | Environment  | Required on client and server for the expanded preset                                   |
-| License      | MIT AND LGPL-3.0-only; see NOTICE                                                       |
+| License      | Apache-2.0 AND LGPL-3.0-only AND MIT; see NOTICE                                        |
 | Source       | `https://github.com/mannie-exe/skyweave-compat`                                         |
 | Issues       | `https://github.com/mannie-exe/skyweave-compat/issues`                                  |
 | Description  | README installation, placement and configuration sections                               |

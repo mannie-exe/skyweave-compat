@@ -1,6 +1,6 @@
 modLoader="javafml"
 loaderVersion="[4,5)"
-license="MIT AND LGPL-3.0-only"
+license="Apache-2.0 AND LGPL-3.0-only AND MIT"
 issueTrackerURL="https://github.com/mannie-exe/skyweave-compat/issues"
 [[mods]]
 modId="skyweave_compat"
@@ -9,6 +9,7 @@ displayName="Skyweave: Compatibility Patches"
 logoFile="logo.png"
 logoBlur=false
 authors="mannie-exe"
+credits="Upstream mod authors and contributors; see https://github.com/mannie-exe/skyweave-compat#credits"
 displayURL="https://github.com/mannie-exe/skyweave-compat"
 description='''Optional, individually configurable terrain, gameplay, and rendering adaptations. The Skyweave modpack is not required.'''
 [[mixins]]

@@ -14,6 +14,9 @@ reform_sha256 = sys.argv[4]
 with zipfile.ZipFile(root / f'build/libs/skyweave-compat-{version}-mc1.21.1-neoforge.jar') as jar:
     names = set(jar.namelist())
     metadata = tomllib.loads(jar.read('META-INF/neoforge.mods.toml').decode())
+    assert metadata['license'] == 'Apache-2.0 AND LGPL-3.0-only AND MIT'
+    assert metadata['mods'][0]['authors'] == 'mannie-exe'
+    assert '#credits' in metadata['mods'][0]['credits']
     assert metadata['mods'][0]['version'] == version
     deps = {entry['modId']: entry for entry in metadata['dependencies']['skyweave_compat']}
     assert deps['minecraft']['versionRange'] == '[1.21.1]'
@@ -47,7 +50,10 @@ with zipfile.ZipFile(root / f'build/libs/skyweave-compat-{version}-mc1.21.1-neof
     assert 'packs/pressure/data/skyweave_compat/dimension_physics/islands_v1.json' in names
     assert 'seedrenderer' not in deps
     assert not any('/skyweavecompat/lod/' in n or '/mixin/lod/' in n or '/clientprobe/' in n for n in names)
-    assert 'LICENSE' in names
+    with zipfile.ZipFile(root / f'build/libs/skyweave-compat-{version}-sources.jar') as sources:
+        for notice in ['LICENSE', 'NOTICE', 'licenses/LICENSE.txt', 'licenses/LICENSE.LESSER.txt', 'licenses/BlueMap-MIT.txt']:
+            expected = (root / notice).read_bytes()
+            assert jar.read(notice) == expected and sources.read(notice) == expected, notice
     assert not any(n.startswith(('dev/ftb/', 'org/sathrek/', 'com/ishland/', 'com/aureljz/', 'de/bluecolored/', 'com/palm1/', 'com/b1n_ry/', 'me/shedaniel/', 'com/simibubi/', 'com/copycatsplus/', 'com/supermartijn642/', 'fr0nick/', 'dev/lambdaurora/', 'net/caffeinemc/', 'dev/djefrey/', 'dev/engine_room/', 'com/bearing/', 'com/mcwbridges/', 'dev/simulated_team/', 'dev/ryanhcode/', 'net/createmod/')) or '/probe/' in n or n.endswith('.jar') for n in names)
     mixin = json.loads(jar.read('skyweave_compat.mixins.json'))
     assert mixin['required'] and mixin['injectors']['defaultRequire'] == 1

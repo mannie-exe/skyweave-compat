@@ -1,11 +1,23 @@
 Skyweave: Compatibility Patches
 
-The original compatibility and terrain implementation is MIT-licensed; see LICENSE.
+Copyright 2026 mannie-exe
+
+The original compatibility and terrain implementation is licensed under the
+Apache License, Version 2.0; see LICENSE. The exceptions below retain their
+original licenses and notices. Previously published releases retain their
+distributed license terms.
 
 The incorporated ShaderWrapperMixin and rendering test infrastructure from
 mannie-exe/veil-iris-fix (99a47d2) retain LGPL-3.0-only. See licenses/LICENSE.LESSER.txt
 and licenses/LICENSE.txt. Their source is distributed in this repository and the
 matching sources release artifact.
+
+BlueMap
+
+The adapted render loop in src/main/resources/bluemap/viewer.js comes from
+BlueMap 5.7 MapViewer.js by Blue (Lukas Rieger) and contributors. It retains the
+MIT license and copyright notice in that file and licenses/BlueMap-MIT.txt.
+https://github.com/BlueMap-Minecraft/BlueMap
 
 Veil Iris Fix
 
@@ -22,3 +34,7 @@ PR #1417 (BlackCube4). These adapters are independently implemented against the
 installed APIs; upstream renderer implementations and assets are not bundled.
 https://github.com/Creators-of-Aeronautics/Simulated-Project/pull/1298
 https://github.com/ryanhcode/sable/pull/1417
+
+Other integrations call separately installed upstream APIs and do not relicense
+those projects. README.md credits their authors and links to their projects.
+The Gradle wrapper retains its distribution license in LICENSE-GRADLE.txt.

@@ -106,7 +106,7 @@ def main():
         if args.scenario.startswith('unsupported-'):
             # Our own metadata-only fixture advertises future targets without providing their classes.
             # Disabled adapters must neither reject their versions nor resolve their APIs.
-            metadata = 'modLoader="lowcodefml"\nloaderVersion="[1,)"\nlicense="MIT"\n'
+            metadata = 'modLoader="lowcodefml"\nloaderVersion="[1,)"\nlicense="Apache-2.0"\n'
             for target in ['bettervillage', 'libraryferret', 'sky_archipelago', 'skyvillages', 'architectury', 'sable', 'aeronautics_delivery_quests',
                            'distanthorizons', 'bluemap', 'surveyor', 'lithostitched', 'yungsapi', 'betterdeserttemples', 'betterjungletemples', 'bettermineshafts', 'betterwitchhuts', 'betteroceanmonuments', 'analogaudio', 'analoglib', 'yigd', 'create', 'veil', 'iris', 'sodium', 'aeronautics', 'questlog', 'sabledynlights', 'lambdynlights', 'colorwheel', 'flywheel', 'linearbearing', 'linearbearingsfix', 'simulated', 'aeronautics_utility_objects', 'fusion', 'rechiseled', 'mcwbridges', 'ssrd', 'variantsandventures', 'kaleidoscope_cookery']:
                 metadata += f'[[mods]]\nmodId="{target}"\nversion="999.0.0"\ndisplayName="Fixture {target}"\n'
@@ -138,7 +138,7 @@ def main():
             fixture = run / 'mods/unsupported-reform-fixture.jar'
             with zipfile.ZipFile(fixture, 'w') as archive:
                 archive.writestr('META-INF/neoforge.mods.toml',
-                                 'modLoader="lowcodefml"\nloaderVersion="[1,)"\nlicense="MIT"\n'
+                                 'modLoader="lowcodefml"\nloaderVersion="[1,)"\nlicense="Apache-2.0"\n'
                                  '[[mods]]\nmodId="reform"\nversion="0.0.0"\ndisplayName="Unsupported re:form fixture"\n')
             selected[fixture.name] = hashlib.sha256(fixture.read_bytes()).hexdigest()
         if args.resource_patches:
