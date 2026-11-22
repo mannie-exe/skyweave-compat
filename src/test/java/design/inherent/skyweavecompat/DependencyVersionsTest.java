@@ -12,12 +12,15 @@ class DependencyVersionsTest {
         var installed = new HashMap<String, String>();
         DependencyVersions.base().forEach((id, contract) -> installed.put(id, contract.developedAgainst()));
         assertDoesNotThrow(() -> DependencyVersions.requireBase(installed));
-        installed.put("reform", "0.1.7");
+        installed.put("reform", "0.2.0");
+        assertDoesNotThrow(() -> DependencyVersions.requireBase(installed));
+        installed.put("reform", "0.2.7");
         installed.put("neoforge", "21.1.999");
         installed.put("javafml", "4.0.99");
         assertDoesNotThrow(() -> DependencyVersions.requireBase(installed));
         for (var entry : Map.of(
-                "reform", List.of("0.0.9", "0.2.0", "0.2.0-rc.1", "0.1.7-SNAPSHOT", "0.1.7+dev"),
+                "reform", List.of("0.1.99", "0.3.0", "0.3.0-rc.1", "0.2.7-SNAPSHOT", "0.2.7+dev", "0.2.0-dev.unselected",
+                        DependencyVersions.base().get("reform").developedAgainst() + ".unselected"),
                 "neoforge", List.of("21.1.264", "21.2.0", "21.2.0-beta.1", "22.1.1"),
                 "javafml", List.of("3.0.99", "5.0.0", "5.0.0-rc.1"),
                 "minecraft", List.of("1.21", "1.21.2", "26.3")).entrySet()) {

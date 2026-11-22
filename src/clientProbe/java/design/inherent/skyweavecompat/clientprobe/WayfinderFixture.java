@@ -165,7 +165,9 @@ final class WayfinderFixture {
                     distance >> 4,0,net.minecraft.world.level.chunk.status.ChunkStatus.FULL,false) != null);
         }
         var keys = new JsonArray();
-        for (var key : mc.options.keyMappings) if (key.getKey().getValue()==org.lwjgl.glfw.GLFW.GLFW_KEY_G
+        var bound = Arrays.stream(mc.options.keyMappings).filter(key -> key.getName().equals("key.skyweave_compat.wayfinder"))
+                .map(KeyMapping::getKey).findFirst().orElse(InputConstants.UNKNOWN);
+        for (var key : mc.options.keyMappings) if (key.getKey().equals(bound)
                 || key.getName().equals("key.skyweave_compat.wayfinder")) {
             var entry = new JsonObject(); entry.addProperty("name",key.getName()); entry.addProperty("key",key.getKey().getName());
             entry.addProperty("down",key.isDown()); keys.add(entry);

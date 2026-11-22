@@ -2,12 +2,12 @@ package design.inherent.skyweavecompat.client;
 
 import design.inherent.reform.definition.DocumentId;
 import design.inherent.reform.definition.FieldPath;
-import design.inherent.reform.neoforge.client.ClientEditingWorkflow;
-import design.inherent.reform.neoforge.client.ClientForm;
-import design.inherent.reform.neoforge.client.ClientFormOptions;
-import design.inherent.reform.neoforge.client.ClientKeyBindings;
-import design.inherent.reform.neoforge.client.ClientWorkflowLayout;
-import design.inherent.reform.neoforge.client.IntegratedSettings;
+import design.inherent.reform.minecraft.client.ClientEditingWorkflow;
+import design.inherent.reform.minecraft.client.ClientForm;
+import design.inherent.reform.minecraft.client.ClientFormOptions;
+import design.inherent.reform.minecraft.client.ClientKeyBindings;
+import design.inherent.reform.minecraft.client.ClientWorkflowLayout;
+import design.inherent.reform.minecraft.client.IntegratedSettings;
 import design.inherent.reform.owner.ApplicationEffects;
 import design.inherent.skyweavecompat.Feature;
 import design.inherent.skyweavecompat.FeatureSettings;
@@ -42,6 +42,7 @@ final class ClientSettingsMenus {
     private final NativePreferences nativePreferences;
     private final JsonPreferences json;
     private final ClientKeyBindings keys;
+    private SettingsFiles files;
     private ShaderOperation shaders;
 
     ClientSettingsMenus(IEventBus bus, ModContainer container, TerrainProfileForms terrain,
@@ -50,7 +51,7 @@ final class ClientSettingsMenus {
         this.startup = startup;
         this.nativePreferences = nativePreferences;
         json = new JsonPreferences(bus, container);
-        keys = ClientKeyBindings.clientKeys(bus, container, id("controls"), () ->
+        keys = ClientKeyBindings.clientKeys(design.inherent.reform.neoforge.client.NeoForgeClientRegistration.of(bus, container), id("controls"), () ->
                 Arrays.stream(Minecraft.getInstance().options.keyMappings)
                         .filter(key -> key.getName().startsWith("key.skyweave_compat.")).toList());
         if (OptionalIntegrations.enabled(Feature.SHADER_PATCHES))
@@ -60,8 +61,8 @@ final class ClientSettingsMenus {
     Screen screen(Screen parent) { return new ContextScreen(parent); }
 
     private Screen local(Screen parent) {
-        var forms = new LinkedHashMap<String, ClientForm>();
-        forms.put(FeatureSettings.FILE, startup.form());
+        if (files == null) files = new SettingsFiles();
+        var related = new LinkedHashMap<String, ClientForm>();
         for (var entry : SettingsCatalog.FILES) {
             if (entry.filename().equals(FeatureSettings.FILE)) continue;
             ClientForm form;
@@ -69,9 +70,14 @@ final class ClientSettingsMenus {
                 form = terrain.forms().stream().filter(value -> value.route().equals(DocumentId.parse(entry.id()))).findFirst().orElseThrow();
             else if (entry.filename().endsWith(".toml")) form = nativePreferences.form(entry);
             else form = json.form(entry);
-            forms.put(entry.filename(), form);
+            related.put(entry.filename(), form);
         }
+        var forms = new LinkedHashMap<String, ClientForm>();
+        forms.put(FeatureSettings.FILE, startup.form(related));
+        forms.putAll(related);
         var groups = catalog(forms);
+        groups.add(new ClientWorkflowLayout.Group(List.of(
+                category("catalog/files", "status_files", "files_status_help")), List.of(), files.actions()));
         var controlForm = keys.form(text("controls"));
         forms.put("controls", controlForm);
         groups.add(new ClientWorkflowLayout.Group(List.of(

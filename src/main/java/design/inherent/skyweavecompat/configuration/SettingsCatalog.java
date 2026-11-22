@@ -10,6 +10,9 @@ public final class SettingsCatalog {
     public enum Category { INTERFACE, RENDERING, MAPS, SHIPS, MACHINES, INVENTORY, AUDIO, WORLD }
     public enum Group {
         COMPAT_INTERFACE(Category.INTERFACE, "skyweave_compat"),
+        MOVES_INPUT(Category.INTERFACE, "punchy_moves"),
+        EFFORTLESS_INPUT(Category.INTERFACE, "effortlessbuilding"),
+        POWER_GRID_INPUT(Category.INTERFACE, "powergrid"),
         ENCOUNTERS(Category.WORLD, "encounters"),
         NAVIGATION(Category.MAPS, "skyweave_compat"),
         FTB_QUESTS(Category.INTERFACE, "ftbquests"),
@@ -26,6 +29,7 @@ public final class SettingsCatalog {
         LINKAGE(Category.MACHINES, "transmission_linkage"), LINEAR(Category.MACHINES, "linear_bearing"),
         MACAW(Category.SHIPS, "mcwbridges"),
         GRAVES(Category.INVENTORY, "yigd"), ACCESSORIES(Category.INVENTORY, "accessories_compat_layer"), AUDIO(Category.AUDIO, "analog_audio"),
+        IPN(Category.INVENTORY, "inventory_profiles_next"),
         DELIVERY(Category.SHIPS, "delivery"), QUESTLOG_SERVER(Category.INTERFACE, "questlog"),
         HOOFPRINT(Category.MAPS, "hoofprint"), DH(Category.MAPS, "distant_horizons"), BLUEMAP(Category.MAPS, "bluemap"), SURVEYOR(Category.MAPS, "surveyor"),
         BETTER_VILLAGE(Category.WORLD, "bettervillage"), C2ME(Category.WORLD, "c2me"), TERRAIN(Category.WORLD, "sky_archipelago"), LITHOSTITCHED(Category.WORLD, "lithostitched"), YUNG(Category.WORLD, "yungsapi"), YUNG_MINESHAFTS(Category.WORLD, "bettermineshafts"), YUNG_WITCH_HUTS(Category.WORLD, "betterwitchhuts"), WATERSHEDS(Category.WORLD, "dynamic_waters"), ISLAND_SKY(Category.RENDERING, "sky_archipelago"), VILLAGES(Category.WORLD, "sky_villages"),
@@ -93,11 +97,6 @@ public final class SettingsCatalog {
                     ? page.groups().contains(Group.IRIS) : page.groups().contains(Group.ISLAND_SKY));
         }
         public Feature fieldOwner(String key) {
-            if (help.equals("combat_client")) return switch (key) {
-                case "punchyPacing" -> Feature.CN_PUNCHY;
-                case "movesPacing" -> Feature.CN_MOVES;
-                default -> throw new IllegalArgumentException("Unowned attack preference: " + key);
-            };
             if (help.equals("encounters")) return key.startsWith("spawners.") ? Feature.VARIANT_SPAWNERS : Feature.PATROL_CHANCE;
             if (!help.equals("rendering_client")) return null;
             if (key.startsWith("clouds.")) return Feature.ISLAND_CLOUDS;
@@ -121,7 +120,7 @@ public final class SettingsCatalog {
         public String summaryKey() { return "skyweave_compat.settings.file." + help; }
         public Timing timing() {
             return switch (help) {
-                case "rendering_client", "combat_client", "journal", "wayfinder_client", "link_gui_client", "link_gui_common" -> Timing.IMMEDIATE;
+                case "rendering_client", "journal", "wayfinder_client", "link_gui_client", "link_gui_common" -> Timing.IMMEDIATE;
                 case "hoofprint_zoom" -> Timing.IMMEDIATE;
                 case "wayfinder", "structure_search" -> Timing.SERVER_START;
                 case "villages" -> Timing.NEW_WORLD;
@@ -156,8 +155,58 @@ public final class SettingsCatalog {
     /** Authored relationship; numeric bounds and coupled validation remain with the document owner. */
     public record RangePair(String id, String minimum, String maximum, String labelKey) {}
     public static List<RangePair> ranges(String filename) {
-        return filename.equals("skyweave_compat-hoofprint.json")
-                ? List.of(new RangePair("zoom_range", "zoomMinimum", "zoomMaximum", "skyweave_compat.settings.zoom_range")) : List.of();
+        return switch (filename) {
+            case "skyweave_compat-hoofprint.json" -> List.of(range("zoom_range", "zoomMinimum", "zoomMaximum"));
+            case "skyweave_compat-generation.json" -> List.of(
+                    range("center_height_range", "centerMinY", "centerMaxY"),
+                    range("anchor_radius_range", "anchorMinRadius", "anchorMaxRadius"),
+                    range("anchor_height_range", "anchorMinHeight", "anchorMaxHeight"),
+                    range("companion_radius_range", "companionMinRadius", "companionMaxRadius"),
+                    range("companion_orbit_range", "companionMinOrbit", "companionMaxOrbit"),
+                    range("companion_height_range", "companionMinOffsetY", "companionMaxOffsetY"));
+            case "skyweave_compat-shapes.json" -> List.of(range("smooth_fraction_range", "fringe.minimumSmoothFraction", "fringe.maximumSmoothFraction"));
+            default -> List.of();
+        };
+    }
+    private static RangePair range(String id, String minimum, String maximum) {
+        return new RangePair(id, minimum, maximum, "skyweave_compat.settings." + id);
+    }
+
+    /** Availability follows inspected consumers; inactive values remain authored and validated. */
+    public static design.inherent.reform.presentation.FormDependencies dependencies(String filename) {
+        var rules = new java.util.ArrayList<design.inherent.reform.presentation.FormDependencies.Rule>();
+        switch (filename) {
+            case "skyweave_compat-oceans.json" -> {
+                for (String target : List.of("admissionChance", "coastalChance", "perimeterChance", "coveOpeningDegrees",
+                        "coveShoulderDegrees", "outletDepth", "sealThickness"))
+                    dependency(rules, target, "enabled", "true", "ocean_enabled", "Used when ocean admission and edge treatments are enabled");
+                // Weights and spire controls also configure native wet islands independently of enabled.
+                dependency(rules, "spireClearance", "spireCompanions", "true", "spire_enabled", "Used when ocean spire companions are enabled");
+            }
+            case "skyweave_compat-shapes.json" -> {
+                for (String target : List.of("strengthVariation", "outline", "fringe", "fractures", "deepDark"))
+                    dependency(rules, target, "enabled", "true", "shapes_enabled", "Used when shape adaptations are enabled");
+                for (var field : JsonSettings.find(filename).fields())
+                    if (field.key().startsWith("fringe.") && !field.key().equals("fringe.enabled"))
+                        dependency(rules, field.key(), "fringe.enabled", "true", "fringe_enabled", "Used when island fringe is enabled");
+            }
+            case "skyweave_compat-interiors.json" -> {
+                for (String target : List.of("noiseInteriors", "radius", "warp", "aspectVariation"))
+                    dependency(rules, "skylights." + target, "skylights.enabled", "true", "skylights_enabled", "Used when skylights are enabled");
+            }
+            case "skyweave_compat-encounters.json" -> {
+                dependency(rules, "spawners.replacementPercent", "spawners.mode", "PER_EMISSION", "per_emission", "Native type mode ignores the per-emission chance");
+                dependency(rules, "spawners.rules", "spawners.mode", "PER_EMISSION", "per_emission", "Native type mode uses the upstream spawner rules");
+            }
+            default -> {}
+        }
+        return new design.inherent.reform.presentation.FormDependencies(rules);
+    }
+    private static void dependency(java.util.List<design.inherent.reform.presentation.FormDependencies.Rule> rules,
+            String target, String input, String accepted, String reason, String fallback) {
+        rules.add(new design.inherent.reform.presentation.FormDependencies.Rule(target.replace('.', '_').toLowerCase(java.util.Locale.ROOT),
+                ReformDocuments.path(target), ReformDocuments.path(input), java.util.Set.of(accepted),
+                "skyweave_compat.settings.dependency." + reason, fallback));
     }
     public static Timing timing(String filename, String field) {
         return FILES.stream().filter(entry -> entry.filename().equals(filename))
@@ -169,9 +218,13 @@ public final class SettingsCatalog {
     public static Group group(Feature feature) {
         return switch (feature) {
             case MAIN_MENU_IDENTITY -> Group.COMPAT_INTERFACE;
+            case IPN_TEXT_INPUT -> Group.IPN;
+            case MOVES_KEY_MODIFIERS -> Group.MOVES_INPUT;
+            case EFFORTLESS_KEY_MODIFIERS -> Group.EFFORTLESS_INPUT;
+            case POWER_GRID_KEY_MODIFIERS -> Group.POWER_GRID_INPUT;
             case MODEL_ROTATIONS, ITEM_DEFINITIONS -> Group.MODEFITE;
             case PATROL_CHANCE, VARIANT_SPAWNERS, VARIANT_TRIAL_ALIASES, MURK_WATER -> Group.ENCOUNTERS;
-            case MOVES_TOUCH_MOTION, CN_PUNCHY, CN_MOVES -> Group.PLAYER_ANIMATION;
+            case MOVES_TOUCH_MOTION -> Group.PLAYER_ANIMATION;
             case BETTER_VILLAGE_CONFIG -> Group.BETTER_VILLAGE;
             case WAYFINDER, WAYFINDER_DH -> Group.NAVIGATION;
             case FTB_ITEM_FILTERS -> Group.FTB_QUESTS;
@@ -232,8 +285,6 @@ public final class SettingsCatalog {
         return Arrays.stream(Group.values()).filter(group -> group.category == category).toList();
     }
     public static final List<FileEntry> FILES = List.of(
-            new FileEntry("skyweave_compat-combat-client.toml", "skyweave_compat:combat_client", Group.PLAYER_ANIMATION, "combat_client",
-                    List.of(Feature.CN_PUNCHY, Feature.CN_MOVES), SectionKind.PREFERENCES),
             new FileEntry("skyweave_compat-encounters.json", "skyweave_compat:encounters", Group.ENCOUNTERS, "encounters",
                     List.of(Feature.PATROL_CHANCE,Feature.VARIANT_SPAWNERS), SectionKind.TUNING),
             new FileEntry("skyweave_compat-rendering-client.toml", "skyweave_compat:rendering_client", Group.ISLAND_SKY, "rendering_client",

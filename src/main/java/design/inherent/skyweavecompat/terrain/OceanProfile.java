@@ -2,6 +2,7 @@ package design.inherent.skyweavecompat.terrain;
 
 import design.inherent.skyweavecompat.configuration.SettingSpec;
 import design.inherent.skyweavecompat.configuration.RecordSettings;
+import design.inherent.skyweavecompat.configuration.SettingIssue;
 
 /** Optional edge treatments of native wet islands; no independent basin generator. */
 public record OceanProfile(
@@ -23,8 +24,12 @@ public record OceanProfile(
     public static final OceanProfile INITIAL = new OceanProfile(true, 0.20, 1, 0, 0, 1, 0.25, 0, 100, 20, 2, 4, true, 16);
     public OceanProfile {
         RecordSettings.validate(OceanProfile.class, enabled, admissionChance, lagoonWeight, reefRingWeight, deadOceanShelfWeight, brokenReefWeight, coastalChance, perimeterChance, coveOpeningDegrees, coveShoulderDegrees, outletDepth, sealThickness, spireCompanions, spireClearance);
-        if (coastalChance + perimeterChance > 1 || coveShoulderDegrees * 2 >= coveOpeningDegrees)
-            throw new IllegalArgumentException("Ocean edge probabilities or cove shoulder/opening are inconsistent");
+        if (coastalChance + perimeterChance > 1)
+            throw SettingIssue.invalid("ocean_probability_total", "coastalChance",
+                    "Coastal and perimeter probabilities must total at most one", "perimeterChance");
+        if (coveShoulderDegrees * 2 >= coveOpeningDegrees)
+            throw SettingIssue.invalid("ocean_cove_opening", "coveShoulderDegrees",
+                    "Twice the cove shoulder angle must be less than its opening angle", "coveOpeningDegrees");
     }
     public boolean admits(long seed) {
         return enabled && unit(seed ^ 0x607b1c192a8e34d5L) < admissionChance;

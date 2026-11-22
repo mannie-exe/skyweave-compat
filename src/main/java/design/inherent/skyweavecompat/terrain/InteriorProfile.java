@@ -2,6 +2,7 @@ package design.inherent.skyweavecompat.terrain;
 
 import design.inherent.skyweavecompat.configuration.SettingSpec;
 import design.inherent.skyweavecompat.configuration.RecordSettings;
+import design.inherent.skyweavecompat.configuration.SettingIssue;
 
 /** Interior choices do not change descriptor geometry or the anchor's geological datum. */
 public record InteriorProfile(
@@ -32,6 +33,9 @@ public record InteriorProfile(
     }
     public InteriorProfile {
         RecordSettings.validate(InteriorProfile.class, noiseChance, hollowChance, shellThickness, noiseHorizontalScale, noiseVerticalScale, passageWidth, chamberThreshold, hollowRadius, hollowHeight, openingChance, nativeCarvers, skylights);
-        if (noiseChance + hollowChance > 1 || skylights == null) throw new IllegalArgumentException("Interior probabilities exceed one or skylights are missing");
+        if (noiseChance + hollowChance > 1)
+            throw SettingIssue.invalid("interior_probability_total", "noiseChance",
+                    "Noise and hollow probabilities must total at most one; the remainder stays solid", "hollowChance");
+        if (skylights == null) throw SettingIssue.invalid("required", "skylights", "Skylight settings are missing");
     }
 }

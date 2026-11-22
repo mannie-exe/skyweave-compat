@@ -26,6 +26,9 @@ public final class NativeFields {
             return List.of();
         }
         public SettingDefinition definition() {
+            return definition("");
+        }
+        public SettingDefinition definition(String filename) {
             Object initial = defaultValue();
             Class<?> type = initial instanceof List<?> ? List.class : initial instanceof Enum<?> value ? value.getDeclaringClass() : initial.getClass();
             var range = spec().getRange();
@@ -36,6 +39,12 @@ public final class NativeFields {
             if (spec() instanceof ModConfigSpec.ListValueSpec list && list.getSizeRange() != null)
                 constraints = new SettingConstraints(constraints.minimum(), constraints.maximum(), false, constraints.step(), "", constraints.group(),
                         list.getSizeRange().getMax(), -1, false, "");
+            String unit = switch (filename) {
+                case "skyweave_compat-rendering-client.toml" -> key().equals("clouds.absolute") || key().equals("clouds.offset") ? "blocks" : "";
+                case "skyweave_compat-common.toml" -> java.util.Set.of("minimumGap", "maximumGap", "minimumIslandRadius").contains(key()) ? "blocks" : "";
+                default -> "";
+            };
+            if (!unit.isEmpty()) constraints = constraints.withUnit(unit);
             return new SettingDefinition(key(), type, initial, constraints);
         }
     }

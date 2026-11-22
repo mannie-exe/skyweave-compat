@@ -1,7 +1,7 @@
 package design.inherent.skyweavecompat.probe;
 
 import com.google.gson.JsonObject;
-import design.inherent.reform.neoforge.configuration.ServerSettings;
+import design.inherent.reform.minecraft.configuration.ServerSettings;
 import design.inherent.reform.operation.DocumentActions;
 import design.inherent.reform.operation.OperationDescriptor;
 import design.inherent.reform.operation.OperationHandle;

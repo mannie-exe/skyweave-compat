@@ -29,12 +29,6 @@ final class ClientRenderingStartupProbe {
                 boolean active = OptionalIntegrations.enabled(feature); report.addProperty(feature.name(), active);
                 if (active) throw new AssertionError("Unexpected optional target activation: " + feature);
             }
-            if (Boolean.getBoolean("skyweave_compat.probe.combatStartup"))
-                for (var feature : new Feature[]{Feature.CN_PUNCHY, Feature.CN_MOVES}) {
-                    boolean active = OptionalIntegrations.enabled(feature); report.addProperty(feature.name(), active);
-                    if (active != Boolean.getBoolean("skyweave_compat.probe.expected." + feature.name()))
-                        throw new AssertionError("Unexpected combat feature selection: " + feature);
-                }
             var mods = new JsonObject();
             net.neoforged.fml.ModList.get().getMods().forEach(mod -> mods.addProperty(mod.getModId(), mod.getVersion().toString()));
             report.add("mods", mods); report.addProperty("glError", org.lwjgl.opengl.GL11C.glGetError()); report.addProperty("complete", true);

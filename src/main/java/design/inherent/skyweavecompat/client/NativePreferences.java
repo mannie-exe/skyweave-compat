@@ -1,7 +1,7 @@
 package design.inherent.skyweavecompat.client;
 
 import design.inherent.reform.definition.DocumentId;
-import design.inherent.reform.neoforge.client.ClientForm;
+import design.inherent.reform.minecraft.client.ClientForm;
 import design.inherent.reform.neoforge.client.ClientRegisteredSettings;
 import design.inherent.reform.neoforge.configuration.RegisteredConfig;
 import design.inherent.skyweavecompat.OptionalIntegrations;
@@ -52,12 +52,12 @@ final class NativePreferences {
         var route = DocumentId.parse(entry.id());
         final ClientRegisteredSettings binding;
         if (config.getModId().equals(SkyweaveCompat.ID)) binding = ClientRegisteredSettings.registeredNeoForge(
-                bus, container, id, config, NativeSettingsPolicy.explicitTypes(fields), NativeSettingsPolicy.LIMITS, policy(entry, fields));
+                bus, container, id, config, NativeSettingsPolicy.explicitTypes(entry, fields), NativeSettingsPolicy.LIMITS, policy(entry, fields));
         else {
             var gate = NativeSettingsPolicy.delegation(entry, config, fields);
             fields = fields.stream().filter(field -> gate.fields().contains(NativeSettingsPolicy.path(field))).toList();
             binding = ClientRegisteredSettings.delegatedNeoForge(bus, container, route, config, id, gate,
-                    NativeSettingsPolicy.explicitTypes(fields), NativeSettingsPolicy.LIMITS, policy(entry, fields));
+                    NativeSettingsPolicy.explicitTypes(entry, fields), NativeSettingsPolicy.LIMITS, policy(entry, fields));
         }
         bindings.put(entry.filename(), new Binding(binding, fields));
         if (entry.help().equals("journal"))

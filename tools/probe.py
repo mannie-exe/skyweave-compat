@@ -74,6 +74,9 @@ mode.add_argument('--natural-inputs', action='store_true', help='Verify native C
 mode.add_argument('--village-support', action='store_true', help='Compare compiled processed feet with actual native template placement')
 mode.add_argument('--yung', choices=['policy', 'frames', 'supports', 'hut-supports', 'temples'], help='Verify native replacement flags, support bounds, coordinate frames or temple restrictions')
 mode.add_argument('--benchmark', action='store_true', help='Measure a fixed column and generated-chunk workload')
+parser.add_argument('--clearance-cost', action='store_true', help='With --benchmark, measure exact native floating-village rule reads without generating its layouts')
+parser.add_argument('--clearance-oracle', action='store_true', help='With --clearance-cost, compare presence against full native exterior columns outside timed intervals')
+parser.add_argument('--clearance-jfr', action='store_true', help='With --clearance-cost, capture diagnostic JFR; omit for comparison timings')
 mode.add_argument('--generation', choices=['current', 'adapted', 'vanilla'], help='Generate and count bounded interior chunk samples')
 mode.add_argument('--surface-climate', action='store_true', help='Inspect contiguous surface biomes and native snow placement')
 mode.add_argument('--habitats', action='store_true', help='Exercise native island habitat predicates in controlled physical fixtures')
@@ -179,6 +182,12 @@ if args.search_planning and not args.structure_search:
     parser.error('--search-planning requires --structure-search')
 if (args.settlement_review or args.sky_neighborhood) and not args.surface_structures:
     parser.error('--settlement-review/--sky-neighborhood require --surface-structures')
+if args.clearance_cost and (not args.benchmark or args.reopen):
+    parser.error('--clearance-cost requires --benchmark without --reopen; compare independent boots explicitly')
+if args.clearance_oracle and not args.clearance_cost:
+    parser.error('--clearance-oracle requires --clearance-cost')
+if args.clearance_jfr and not args.clearance_cost:
+    parser.error('--clearance-jfr requires --clearance-cost')
 if args.settlement_review and args.sky_neighborhood:
     parser.error('Select one settlement diagnostic')
 if args.village_witness and args.settlement_review != 'repairs':
@@ -435,6 +444,7 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
             continue
         if args.minimal or args.village_stack or (args.audio and args.audio != 'full'):
             selected = set() if args.wayfinder and args.minimal else {'sky_archipelago'}
+            if args.sky_neighborhood and args.minimal: selected.update({'skyvillages', 'architectury'})
             if args.village_stack:selected.update(village_mods)
             if args.audio in ('create', 'pair'): selected.add('create')
             if args.audio in ('analog', 'pair'): selected.add('analogaudio')
@@ -452,7 +462,9 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
     required_village_mods=village_mods-{'apollib','ponder'}
     if args.village_stack and not required_village_mods<=found_village_mods:
         raise SystemExit('Village fixture is missing: '+', '.join(sorted(required_village_mods-found_village_mods)))
-    if args.minimal and not args.wayfinder and len(list((run / 'mods').glob('*.jar'))) != 1:
+    if args.minimal and args.sky_neighborhood and len(list((run / 'mods').glob('*.jar'))) != 3:
+        raise SystemExit('Floating-village run requires Sky Archipelago, Sky Villages, and Architectury')
+    if args.minimal and not args.wayfinder and not args.sky_neighborhood and len(list((run / 'mods').glob('*.jar'))) != 1:
         raise SystemExit('Minimal run requires exactly one installed Sky Archipelago JAR')
     if args.audio and args.audio != 'full':
         expected = {'minimal': 1, 'create': 2, 'analog': 2, 'pair': 3}[args.audio]
@@ -719,6 +731,9 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
                f'-Dneighbors.probe.lookupStructure={args.lookup_structure}',
                f'-Dneighbors.probe.lookup={str(args.lookup).lower()}',
                f'-Dneighbors.probe.benchmark={str(args.benchmark).lower()}',
+               f'-Dneighbors.probe.clearanceCost={str(args.clearance_cost).lower()}',
+               f'-Dneighbors.probe.clearanceJfr={str(args.clearance_jfr).lower()}',
+               f'-Dneighbors.probe.clearanceOracle={str(args.clearance_oracle).lower()}',
                f'-Dneighbors.probe.surfaceClimate={str(args.surface_climate).lower()}',
                f'-Dneighbors.probe.habitats={str(args.habitats).lower()}',
                f'-Dneighbors.probe.floeLayers={str(args.floe_layers).lower()}',

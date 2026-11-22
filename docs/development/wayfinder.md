@@ -1,6 +1,6 @@
 # Wayfinder
 
-Wayfinder uses one server-authorized request per player. The G binding and `/skyweavecompat wayfinder` enter the same path. Configuration and defaults live in the [operator guide](../configuration.md#wayfinder).
+Wayfinder uses one server-authorized request per player. The native client shortcut and `/skyweavecompat wayfinder` enter the same path. Configuration and defaults live in the [operator guide](../configuration.md#wayfinder).
 
 ## Targeting and authority
 

@@ -40,7 +40,16 @@ public final class ProfileEditPlan {
         try {
             generation.validateAgainst(shapes);
         } catch (IllegalArgumentException invalid) {
-            return profileIssue(subject, "profile.pair", invalid.getMessage());
+            var issue = SettingIssue.find(invalid);
+            if (issue == null) return profileIssue(subject, "profile.pair", invalid.getMessage());
+            var generationIssue = new Issue("profile.pair", Issue.Severity.ERROR, ReformDocuments.path(issue.field()),
+                    issue.related().stream().map(ReformDocuments::path).toList(), Map.of(), issue.message());
+            var shapeIssue = new Issue("profile.pair", Issue.Severity.ERROR, ReformDocuments.path("outline.maximumAspectRatio"),
+                    List.of(ReformDocuments.path("enabled"), ReformDocuments.path("outline.aspectChance"),
+                            ReformDocuments.path("fringe.enabled"), ReformDocuments.path("fringe.falloffDistance"),
+                            ReformDocuments.path("fringe.disintegratingScale")), Map.of(), issue.message());
+            return new DocumentBatch.Check(Map.of(GENERATION.id(), new ValidationReport(List.of(generationIssue), true),
+                    SHAPES.id(), new ValidationReport(List.of(shapeIssue), true)), true);
         }
         if (dependent.size() == 2) {
             boolean generationFirst = dependent.getFirst().equals(GENERATION.id());

@@ -26,12 +26,14 @@ final class ClientConfigurationProbe {
     private int ticks, sequence = -1;
     private String lastError;
     private Boolean keyAccepted;
+    private long fieldEditNanos;
     private JsonObject nativeKey;
     private boolean wayfinderObserver;
     private volatile JsonObject serverProof;
     private net.minecraft.server.MinecraftServer firstServer;
     private java.util.UUID firstActor;
     private design.inherent.skyweavecompat.configuration.SettingsPolicy.Revision firstRevision;
+    private design.inherent.reform.minecraft.client.ClientEditingWorkflow observedWorkflow;
     ClientConfigurationProbe() {
         if (!Files.isRegularFile(root.resolve("config-review-fixture.json"))) throw new IllegalStateException("Configuration probe requires its disposable-fixture marker");
         NeoForge.EVENT_BUS.addListener(this::tick);
@@ -136,18 +138,99 @@ final class ClientConfigurationProbe {
                         case "reform-receipt" -> reformReceipt(mc);
                         case "reform-batch-proof" -> reformBatchProof(mc);
                         case "reform-catalog-proof" -> reformCatalogProof(mc);
+                        case "reform-show-placement" -> reformWorkflow(mc).showPlacement(
+                                design.inherent.reform.definition.DocumentId.parse(command.get("id").getAsString()));
+                        case "reform-reveal-operation" -> revealOperation(mc, command);
+                        case "reform-focus-field" -> {
+                            var target = command.has("document") ? reformWorkflow(mc).editor(
+                                    design.inherent.reform.definition.DocumentId.parse(command.get("document").getAsString())).form() : reformForm(mc);
+                            if (!target.focusField(reformField(command)))
+                                throw new IllegalStateException("The actual selected field is not mounted");
+                        }
+                        case "reform-field-click" -> {
+                            var widget = reformForm(mc).fieldControl(reformField(command)).orElseThrow();
+                            double x = widget.getX() + widget.getWidth() / 2.0, y = widget.getY() + widget.getHeight() / 2.0;
+                            if (!visibleTarget(mc.screen, widget, x, y)) throw new IllegalStateException("Actual field is outside its native viewport");
+                            try { if (!mc.screen.mouseClicked(x, y, 0)) throw new IllegalStateException("Native field click refused"); }
+                            finally { if (mc.screen != null) mc.screen.mouseReleased(x, y, 0); }
+                        }
+                        case "reform-information-proof" -> reformInformationProof(mc);
+                        case "reform-lifetime-proof" -> {
+                            if (observedWorkflow == null) throw new IllegalStateException("No actual workspace was observed");
+                            ProbeStateFiles.write(root.resolve("reform-lifetime-proof.json"), "{\"open\":" + observedWorkflow.isOpen() + "}");
+                        }
+                        case "reform-capture" -> {
+                            String name = command.get("name").getAsString();
+                            if (!name.matches("reform-[a-z0-9-]+\\.png") || Files.exists(root.resolve("screenshots").resolve(name)))
+                                throw new IllegalArgumentException("Choose a fresh owned re:form screenshot name");
+                            net.minecraft.client.Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), ignored -> {});
+                        }
                         case "native-preferences-proof" -> nativePreferencesProof();
                         case "native-owner-readers" -> nativeOwnerReaders();
                         case "reform-editor-proof" -> reformEditorProof(mc);
+                        case "reform-field-proof" -> reformFieldProof(mc, command);
+                        case "reform-reference-proof" -> reformReferenceProof(mc);
+                        case "modifier-proof" -> ClientModifierProbe.observe(root, mc);
+                        case "modifier-effortless" -> ClientModifierProbe.effortless(root, mc);
+                        case "effortless-build" -> ClientEffortlessBuildProbe.act(root, mc, command.get("action").getAsString(),
+                                command.has("configured") && command.get("configured").getAsBoolean());
+                        case "powergrid-setup" -> ClientPowerGridInputProbe.setup(root, mc);
+                        case "powergrid-open" -> ClientPowerGridInputProbe.open(root, mc);
+                        case "powergrid-editor" -> ClientPowerGridInputProbe.editor(root, mc);
+                        case "powergrid-input-proof" -> ClientPowerGridInputProbe.observe(root, mc);
+                        case "powergrid-seed-wire" -> ClientPowerGridInputProbe.seedWire(root, mc);
+                        case "powergrid-wire-proof" -> ClientPowerGridInputProbe.wire(root, mc);
+                        case "powergrid-held" -> ClientPowerGridInputProbe.held(root, mc, command.get("down").getAsBoolean());
+                        case "powergrid-server-proof" -> ClientPowerGridInputProbe.serverState(root, mc);
+                        case "modifier-persistence" -> ClientModifierProbe.persistence(root, mc, command.get("save").getAsBoolean());
+                        case "modifier-reload" -> {
+                            if (!Files.isRegularFile(root.resolve("modifier-review-fixture.json")))
+                                throw new IllegalStateException("Expected a disposable modifier fixture");
+                            mc.reloadResourcePacks();
+                        }
+                        case "reference-command" -> {
+                            if (!Files.isRegularFile(root.resolve("reference-review-fixture.json")) || mc.player == null
+                                    || mc.getSingleplayerServer() == null)
+                                throw new IllegalStateException("Expected a marked integrated reference fixture");
+                            String action = command.get("action").getAsString();
+                            String nativeCommand = switch (action) {
+                                case "reload" -> "reload";
+                                case "enable" -> "datapack enable \"file/reference-review\"";
+                                default -> throw new IllegalArgumentException("Unknown reference fixture command");
+                            };
+                            mc.player.connection.sendCommand(nativeCommand);
+                        }
+                        case "reference-tag-proof" -> {
+                            if (!Files.isRegularFile(root.resolve("reference-review-fixture.json")) || mc.level == null)
+                                throw new IllegalStateException("Expected a marked joined reference fixture");
+                            var tag = net.minecraft.tags.TagKey.create(net.minecraft.core.registries.Registries.BLOCK,
+                                    net.minecraft.resources.ResourceLocation.parse("skyweave_review:empty"));
+                            var values = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getTag(tag);
+                            var proof = new JsonObject(); proof.addProperty("exists", values.isPresent());
+                            proof.addProperty("matches", values.map(net.minecraft.core.HolderSet.Named::size).orElse(-1));
+                            ProbeStateFiles.write(root.resolve("reference-tag-proof.json"), proof.toString());
+                        }
+                        case "reform-select-section" -> {
+                            if (!reformForm(mc).selectSection(reformField(command)))
+                                throw new IllegalStateException("The actual selected section is unavailable");
+                        }
                         case "reform-operation-proof" -> {
-                            if (!(mc.screen instanceof design.inherent.reform.neoforge.client.OperationScreen<?> screen))
+                            if (!(mc.screen instanceof design.inherent.reform.minecraft.client.OperationScreen<?> screen))
                                 throw new IllegalStateException("Expected an actual contributed operation screen");
                             var current = screen.observedOperation().orElseThrow();
                             var result = new JsonObject(); result.addProperty("operation", current.operation().toString());
                             result.addProperty("state", current.state().name()); result.addProperty("terminal", current.terminal());
                             result.addProperty("report", current.report().toString());
                             result.addProperty("hasResult", current.result().isPresent());
-                            current.result().ifPresent(value -> result.add("result", new GsonBuilder().create().toJsonTree(value)));
+                            current.result().ifPresent(value -> {
+                                if (value instanceof design.inherent.reform.minecraft.client.OperationScreen.Outcome outcome) {
+                                    var projection = new JsonObject(); projection.addProperty("summary", outcome.summary().getString());
+                                    var rows = new JsonArray(); outcome.details().forEach(detail -> {
+                                        var row = new JsonObject(); row.addProperty("label", detail.label().getString());
+                                        row.addProperty("value", detail.value().getString()); rows.add(row);
+                                    }); projection.add("details", rows); result.add("result", projection);
+                                } else result.add("result", new GsonBuilder().create().toJsonTree(value));
+                            });
                             ProbeStateFiles.write(root.resolve("reform-operation-proof.json"), result.toString());
                         }
                         case "journal-shortcut" -> {
@@ -225,7 +308,9 @@ final class ClientConfigurationProbe {
                         }
                         case "field" -> {
                             var fields = widgets(mc.screen).stream().filter(w -> w instanceof net.minecraft.client.gui.components.EditBox).toList();
+                            long start = System.nanoTime();
                             ((net.minecraft.client.gui.components.EditBox) fields.get(command.get("index").getAsInt())).setValue(command.get("value").getAsString());
+                            fieldEditNanos = System.nanoTime() - start;
                         }
                         case "key" -> keyAccepted = mc.screen.keyPressed(command.get("key").getAsInt(), 0, command.has("modifiers") ? command.get("modifiers").getAsInt() : 0);
                         case "scroll" -> mc.screen.mouseScrolled(command.get("x").getAsDouble(), command.get("y").getAsDouble(), 0, command.get("amount").getAsDouble());
@@ -243,6 +328,7 @@ final class ClientConfigurationProbe {
                         case "resize" -> org.lwjgl.glfw.GLFW.glfwSetWindowSize(mc.getWindow().getWindow(), command.get("width").getAsInt(), command.get("height").getAsInt());
                         case "text" -> { for (char character : command.get("value").getAsString().toCharArray()) mc.screen.charTyped(character, 0); }
                         case "snapshot" -> {}
+                        case "focus-window" -> org.lwjgl.glfw.GLFW.glfwFocusWindow(mc.getWindow().getWindow());
                         case "narration" -> narration(mc);
                         case "journal-preferences-proof" -> journalPreferences();
                         case "journal-settings" -> {
@@ -309,12 +395,82 @@ final class ClientConfigurationProbe {
         proof.addProperty("screenIdentity",System.identityHashCode(mc.screen));
         ProbeStateFiles.write(root.resolve("hoofprint-observation.json"),new GsonBuilder().setPrettyPrinting().create().toJson(proof));
     }
+    static design.inherent.reform.minecraft.client.ClientEditingWorkflow reformWorkflow(Minecraft mc) throws Exception {
+        if (!mc.screen.getClass().getName().equals("design.inherent.reform.minecraft.client.ClientEditingWorkflow$Overview"))
+            throw new IllegalStateException("Expected the actual shared workspace");
+        var owner = mc.screen.getClass().getDeclaredField("this$0"); owner.setAccessible(true);
+        return (design.inherent.reform.minecraft.client.ClientEditingWorkflow) owner.get(mc.screen);
+    }
+    static design.inherent.reform.minecraft.client.SettingsForm<?> reformForm(Minecraft mc) throws Exception {
+        if (mc.screen instanceof design.inherent.reform.minecraft.client.SettingsForm<?> form) return form;
+        var workflow = reformWorkflow(mc);
+        var field = mc.screen.getClass().getDeclaredField("actionRoute"); field.setAccessible(true);
+        var route = (design.inherent.reform.definition.DocumentId) field.get(mc.screen);
+        if (route == null || workflow.documents().stream().noneMatch(state -> state.document().equals(route) && state.opened()))
+            throw new IllegalStateException("The selected actual editor has not opened");
+        return workflow.editor(route).form();
+    }
+    /** Fixture-only UI traversal: select the declared native group and focus its real row button. */
+    private void revealOperation(Minecraft mc, JsonObject command) throws Exception {
+        var workflow = reformWorkflow(mc);
+        var layoutField = workflow.getClass().getDeclaredField("layout"); layoutField.setAccessible(true);
+        var layout = (design.inherent.reform.minecraft.client.ClientWorkflowLayout) layoutField.get(workflow);
+        var id = design.inherent.reform.definition.DocumentId.parse(command.get("id").getAsString());
+        var group = layout.groups().stream().filter(value -> value.actions().stream().anyMatch(action -> action.id().equals(id)))
+                .findFirst().orElseThrow();
+        var category = group.path().getLast().id();
+        var declared = mc.screen.getClass().getDeclaredMethod("navigationEntries"); declared.setAccessible(true);
+        for (var entry : (java.util.List<?>) declared.invoke(mc.screen)) {
+            var keyMethod = entry.getClass().getDeclaredMethod("key"); keyMethod.setAccessible(true);
+            var key = keyMethod.invoke(entry);
+            var identity = key.getClass().getDeclaredMethod("placement"); identity.setAccessible(true);
+            if (!category.equals(identity.invoke(key))) continue;
+            var select = entry.getClass().getDeclaredMethod("select"); select.setAccessible(true);
+            ((Runnable) select.invoke(entry)).run();
+            break;
+        }
+        var panelField = mc.screen.getClass().getDeclaredField("panel"); panelField.setAccessible(true);
+        var panel = panelField.get(mc.screen);
+        var rowsField = panel.getClass().getDeclaredField("rows"); rowsField.setAccessible(true);
+        for (var row : (java.util.List<?>) rowsField.get(panel)) {
+            var keyMethod = row.getClass().getDeclaredMethod("key"); keyMethod.setAccessible(true);
+            if (!id.toString().equals(keyMethod.invoke(row))) continue;
+            var controls = row.getClass().getDeclaredMethod("controls"); controls.setAccessible(true);
+            var buttons = ((java.util.List<?>) controls.invoke(row)).stream()
+                    .filter(net.minecraft.client.gui.components.Button.class::isInstance)
+                    .map(net.minecraft.client.gui.components.Button.class::cast).toList();
+            var button = command.has("again") && command.get("again").getAsBoolean()
+                    ? buttons.stream().filter(value -> value.getMessage().getString().equals("Run again…")).findFirst().orElseThrow()
+                    : buttons.getFirst();
+            if (!focus(mc.screen, button)) throw new IllegalStateException("Operation button is not in the native focus tree");
+            return;
+        }
+        throw new IllegalStateException("The declared operation row is not mounted");
+    }
+    private static boolean focus(net.minecraft.client.gui.components.events.ContainerEventHandler parent,
+            net.minecraft.client.gui.components.events.GuiEventListener target) {
+        for (var child : parent.children()) {
+            if (child == target) {
+                parent.setFocused(child);
+                return true;
+            }
+            if (child instanceof net.minecraft.client.gui.components.events.ContainerEventHandler nested && widgets(nested).contains(target)) {
+                parent.setFocused(child);
+                return focus(nested, target);
+            }
+        }
+        return false;
+    }
+    private static design.inherent.reform.operation.OperationHandle<?> reformCommit(Minecraft mc) throws Exception {
+        Object form = reformForm(mc);
+        if (form instanceof design.inherent.reform.minecraft.client.SettingsScreen<?>) {
+            var retained = form.getClass().getDeclaredField("view"); retained.setAccessible(true); form = retained.get(form);
+        }
+        var field = form.getClass().getDeclaredField("lastCommit"); field.setAccessible(true);
+        return (design.inherent.reform.operation.OperationHandle<?>) field.get(form);
+    }
     private void reformReceipt(Minecraft mc) throws Exception {
-        if (!(mc.screen instanceof design.inherent.reform.neoforge.client.SettingsScreen<?>))
-            throw new IllegalStateException("Expected an actual re:form settings screen");
-        var field = design.inherent.reform.neoforge.client.SettingsScreen.class.getDeclaredField("lastCommit");
-        field.setAccessible(true);
-        var operation = (design.inherent.reform.operation.OperationHandle<?>) field.get(mc.screen);
+        var operation = reformCommit(mc);
         if (operation == null || !(operation.snapshot().result().orElse(null)
                 instanceof design.inherent.reform.owner.EditorActor.Commit<?> commit))
             throw new IllegalStateException("Expected a settled re:form settings commit");
@@ -327,16 +483,25 @@ final class ClientConfigurationProbe {
         ProbeStateFiles.write(root.resolve("reform-receipt.json"), evidence.toString());
     }
     private void reformCatalogProof(Minecraft mc) throws Exception {
-        if (!mc.screen.getClass().getName().equals("design.inherent.reform.neoforge.client.ClientEditingWorkflow$Overview"))
+        if (!mc.screen.getClass().getName().equals("design.inherent.reform.minecraft.client.ClientEditingWorkflow$Overview"))
             throw new IllegalStateException("Expected the real shared workflow overview");
         var owner = mc.screen.getClass().getDeclaredField("this$0"); owner.setAccessible(true);
-        var workflow = (design.inherent.reform.neoforge.client.ClientEditingWorkflow) owner.get(mc.screen);
+        var workflow = (design.inherent.reform.minecraft.client.ClientEditingWorkflow) owner.get(mc.screen);
+        observedWorkflow = workflow;
         var layout = workflow.getClass().getDeclaredField("layout"); layout.setAccessible(true);
-        var declared = (design.inherent.reform.neoforge.client.ClientWorkflowLayout) layout.get(workflow);
+        var declared = (design.inherent.reform.minecraft.client.ClientWorkflowLayout) layout.get(workflow);
         var proof = new JsonObject();
         proof.addProperty("groups", declared.groups().size());
         proof.addProperty("placements", declared.groups().stream().mapToLong(group -> group.placements().size()).sum());
         proof.addProperty("documents", workflow.documents().size());
+        var placements = new JsonArray();
+        declared.groups().forEach(group -> group.placements().forEach(placement -> placements.add(placement.id().toString())));
+        proof.add("placementIds", placements);
+        var actions = new JsonArray();
+        declared.groups().forEach(group -> group.actions().forEach(action -> {
+            var row = new JsonObject(); row.addProperty("id", action.id().toString());
+            row.addProperty("title", action.title().getString()); actions.add(row);
+        })); proof.add("actions", actions);
         var expected = new JsonArray();
         if (mc.screen.getTitle().getString().equals(net.minecraft.network.chat.Component.translatable("skyweave_compat.settings.running_server").getString())) {
             expected.add("skyweave_compat:wayfinder"); expected.add("skyweave_compat:search");
@@ -354,8 +519,31 @@ final class ClientConfigurationProbe {
         proof.add("owners", documents);
         ProbeStateFiles.write(root.resolve("reform-catalog-proof.json"), new GsonBuilder().setPrettyPrinting().create().toJson(proof));
     }
+    private void reformInformationProof(Minecraft mc) throws Exception {
+        reformWorkflow(mc);
+        var field = mc.screen.getClass().getDeclaredField("information"); field.setAccessible(true);
+        var holder = field.get(mc.screen);
+        var observation = holder.getClass().getDeclaredMethod("observation"); observation.setAccessible(true);
+        var value = (java.util.Optional<?>) observation.invoke(holder);
+        var result = new JsonObject(); result.addProperty("available", value.isPresent());
+        if (value.orElse(null) instanceof design.inherent.reform.operation.FieldInformation captured) {
+            result.addProperty("document", captured.target().document().toString());
+            result.addProperty("field", captured.path().toString());
+            result.addProperty("source", captured.source().location().orElse(""));
+            var metadata = holder.getClass().getDeclaredField("metadata"); metadata.setAccessible(true);
+            var details = (design.inherent.reform.minecraft.client.FormInformation.Subject) metadata.get(holder);
+            result.addProperty("purpose", details.purpose().getString());
+            result.addProperty("key", details.key().orElse(""));
+            var facts = new JsonArray(); details.facts().forEach(fact -> {
+                var row = new JsonObject(); row.addProperty("label", fact.label().getString());
+                row.addProperty("value", fact.value().getString()); facts.add(row);
+            }); result.add("facts", facts);
+            result.addProperty("related", details.related().size());
+        }
+        ProbeStateFiles.write(root.resolve("reform-information-proof.json"), result.toString());
+    }
     private void reformBatchProof(Minecraft mc) throws Exception {
-        if (!(mc.screen instanceof design.inherent.reform.neoforge.client.BatchReviewScreen screen))
+        if (!(mc.screen instanceof design.inherent.reform.minecraft.client.BatchReviewScreen screen))
             throw new IllegalStateException("Expected the actual shared batch review screen");
         var review = screen.reviewedInput().orElseThrow();
         var evidence = new JsonObject(); var entries = new JsonObject();
@@ -398,11 +586,7 @@ final class ClientConfigurationProbe {
     }
 
     private void reformEditorProof(Minecraft mc) throws Exception {
-        if (!(mc.screen instanceof design.inherent.reform.neoforge.client.SettingsScreen<?>))
-            throw new IllegalStateException("Expected an actual shared editor");
-        var type = design.inherent.reform.neoforge.client.SettingsScreen.class;
-        var field = type.getDeclaredField("actions"); field.setAccessible(true);
-        var actions = (design.inherent.reform.operation.DocumentActions<?>) field.get(mc.screen);
+        var actions = reformForm(mc).editingActions();
         var view = actions.view();
         var result = new JsonObject();
         result.addProperty("document", actions.definition().id().toString());
@@ -410,14 +594,21 @@ final class ClientConfigurationProbe {
         result.addProperty("dirty", view.dirty());
         result.addProperty("valid", view.validation().valid());
         result.addProperty("availability", view.availability().name());
+        result.addProperty("busy", actions.hasActiveOperations());
         result.addProperty("validation", view.validation().toString());
-        var latest = type.getDeclaredField("lastCommit"); latest.setAccessible(true);
-        var operation = (design.inherent.reform.operation.OperationHandle<?>) latest.get(mc.screen);
+        var operation = reformCommit(mc);
         if (operation != null) {
             var attempt = operation.snapshot();
             result.addProperty("attemptTerminal", attempt.terminal());
+            result.addProperty("attemptReport", attempt.report().toString());
             boolean refused = !attempt.report().valid();
             if (attempt.result().orElse(null) instanceof design.inherent.reform.owner.EditorActor.Commit<?> commit) {
+                result.addProperty("commitReport", commit.editorReport().toString());
+                commit.receipt().ifPresent(receipt -> {
+                    result.addProperty("persistence", receipt.persistence().name());
+                    result.addProperty("persistenceReport", receipt.persistenceReport().toString());
+                    result.addProperty("applicationReport", receipt.applicationReport().toString());
+                });
                 refused |= !commit.editorReport().valid() || commit.receipt().filter(receipt ->
                         receipt.persistence() == design.inherent.reform.owner.CommitReceipt.Persistence.REFUSED).isPresent();
             }
@@ -428,6 +619,84 @@ final class ClientConfigurationProbe {
                 .ifPresent(candidate -> result.add("draft", JsonParser.parseString(candidate.authoredJson())));
         result.addProperty("controls", widgets(mc.screen).size());
         ProbeStateFiles.write(root.resolve("reform-editor-proof.json"), result.toString());
+    }
+    private void reformFieldProof(Minecraft mc, JsonObject command) throws Exception {
+        var form = reformForm(mc);
+        var path = reformField(command);
+        var actions = form.editingActions();
+        var result = new JsonObject();
+        result.addProperty("document", form.document().toString());
+        result.addProperty("path", path.toString());
+        var type = design.inherent.reform.edit.DraftTypes.declaredAt(actions.definition().type(), path);
+        result.addProperty("shape", type.shape().toString());
+        var widget = form.fieldControl(path);
+        result.addProperty("mounted", widget.isPresent());
+        widget.ifPresent(control -> {
+            result.addProperty("active", control.active); result.addProperty("visible", control.visible);
+            result.addProperty("class", control.getClass().getName());
+            result.addProperty("label", control.getMessage().getString());
+            if (control instanceof net.minecraft.client.gui.components.EditBox field) {
+                result.addProperty("text", field.getValue()); result.addProperty("focused", field.isFocused());
+                result.addProperty("canConsumeInput", field.canConsumeInput());
+                try {
+                    var editable = net.minecraft.client.gui.components.EditBox.class.getDeclaredField("isEditable"); editable.setAccessible(true);
+                    result.addProperty("editable", editable.getBoolean(field));
+                } catch (ReflectiveOperationException failure) { throw new IllegalStateException("Native EditBox eligibility changed", failure); }
+            }
+        });
+        var view = actions.view();
+        view.snapshot().ifPresent(snapshot -> {
+            var node = snapshot.draft().at(path);
+            var observed = new JsonObject(); observed.addProperty("kind", node.getClass().getSimpleName());
+            if (node instanceof design.inherent.reform.edit.DraftNode.Scalar scalar) {
+                observed.addProperty("raw", scalar.raw());
+                scalar.unitInput().ifPresent(unit -> observed.addProperty("unitInput", unit.toString()));
+                if (type.shape() instanceof design.inherent.reform.value.ValueShape.Scalar shape && shape.numericDisplay().isPresent()) {
+                    var numeric = design.inherent.reform.presentation.NumericInput.open(shape, scalar);
+                    observed.addProperty("displayText", numeric.text());
+                    observed.addProperty("displayUnit", numeric.unit());
+                    observed.addProperty("hasSlider", numeric.position().isPresent());
+                    numeric.caption().ifPresent(caption -> observed.addProperty("caption", caption.fallback()));
+                    // Observe the public presentation without applying an edit or moving the thumb.
+                    observed.addProperty("rawAfterThumbRead", numeric.expected().raw());
+                }
+            } else observed.addProperty("retained", node.toString());
+            result.add("node", observed);
+        });
+        result.add("issues", new GsonBuilder().create().toJsonTree(view.validation().issues()));
+        ProbeStateFiles.write(root.resolve("reform-field-proof.json"), result.toString());
+    }
+    private void reformReferenceProof(Minecraft mc) throws Exception {
+        if (!mc.screen.getClass().getName().equals("design.inherent.reform.minecraft.client.CollectionScreen")
+                && !mc.screen.getClass().getName().equals("design.inherent.reform.minecraft.client.ReferenceScreen"))
+            throw new IllegalStateException("Expected the actual native reference/collection browser");
+        var field = mc.screen.getClass().getDeclaredField("browser"); field.setAccessible(true);
+        var browser = (design.inherent.reform.reference.ReferenceBrowser<?>) field.get(mc.screen);
+        var result = new JsonObject(); result.addProperty("bound", browser != null);
+        if (browser != null) {
+            result.addProperty("current", browser.current());
+            browser.page().ifPresent(page -> {
+                var observed = new JsonObject(); observed.addProperty("stamp", page.stamp().toString());
+                observed.addProperty("availability", page.availability().name()); observed.addProperty("reason", page.reason());
+                observed.addProperty("examined", page.examined()); observed.addProperty("exhausted", page.exhausted());
+                observed.add("choices", new GsonBuilder().create().toJsonTree(page.choices())); result.add("page", observed);
+            });
+            browser.resolution().ifPresent(resolution -> {
+                var observed = new JsonObject(); observed.addProperty("status", resolution.status().name());
+                observed.addProperty("reason", resolution.reason());
+                observed.add("preview", new GsonBuilder().create().toJsonTree(resolution.preview()));
+                resolution.value().ifPresent(value -> observed.add("value", new GsonBuilder().create().toJsonTree(value)));
+                result.add("resolution", observed);
+            });
+        }
+        ProbeStateFiles.write(root.resolve("reform-reference-proof.json"), result.toString());
+    }
+    private static design.inherent.reform.definition.FieldPath reformField(JsonObject command) {
+        var path = design.inherent.reform.definition.FieldPath.ROOT;
+        var field = command.get("field");
+        if (field.isJsonArray()) for (var segment : field.getAsJsonArray()) path = path.field(segment.getAsString());
+        else path = path.field(field.getAsString());
+        return path;
     }
     private static boolean visibleTarget(GuiEventListener listener, AbstractWidget target, double x, double y) {
         if (listener == target) return target.visible && target.active;
@@ -450,10 +719,21 @@ final class ClientConfigurationProbe {
             report.addProperty("width", mc.getWindow().getGuiScaledWidth()); report.addProperty("height", mc.getWindow().getGuiScaledHeight()); report.addProperty("scale", mc.options.guiScale().get());
             if (error != null) report.addProperty("error", error);
             report.addProperty("controlDown", net.minecraft.client.gui.screens.Screen.hasControlDown());
+            report.addProperty("fieldEditNanos", fieldEditNanos);
             report.addProperty("keyAccepted", keyAccepted);
             if (nativeKey != null) report.add("nativeKey", nativeKey);
             if (serverProof!=null) report.add("serverProof",serverProof);
             report.addProperty("integrated",mc.getSingleplayerServer()!=null);
+            report.addProperty("windowActive", mc.isWindowActive());
+            report.addProperty("powergridTableReady", ClientPowerGridInputProbe.ready(mc));
+            if (Files.isRegularFile(root.resolve("modifier-review-fixture.json"))
+                    && ModList.get().isLoaded("powergrid")) report.addProperty("powergridWireReady", ClientPowerGridInputProbe.wireReady(mc));
+            for (var mapping : mc.options.keyMappings) if (mapping.getName().equals("key.skyweave_compat.wayfinder")) {
+                var binding = new JsonObject(); binding.addProperty("key", mapping.getKey().getName());
+                binding.addProperty("defaultKey", mapping.getDefaultKey().getName());
+                binding.addProperty("modifier", mapping.getKeyModifier().name());
+                report.add("wayfinderBinding", binding);
+            }
             report.addProperty("playerReady",mc.player!=null);
             report.add("loadedMods",new GsonBuilder().create().toJsonTree(ModList.get().getMods().stream().map(mod -> mod.getModId()+"@"+mod.getVersion()).sorted().toList()));
             if (mc.screen != null) report.addProperty("focusOwner", String.valueOf(mc.screen.getFocused()));
@@ -462,9 +742,12 @@ final class ClientConfigurationProbe {
             if (mc.screen != null) for (var widget : widgets(mc.screen)) {
                 var row = new JsonObject();
                 row.addProperty("label", widget.getMessage().getString());
+                row.addProperty("bold", widget.getMessage().getStyle().isBold());
                 row.addProperty("x", widget.getX()); row.addProperty("y", widget.getY());
                 row.addProperty("width", widget.getWidth()); row.addProperty("height", widget.getHeight());
                 row.addProperty("active", widget.active); row.addProperty("focused", widget.isFocused());
+                row.addProperty("reachable", visibleTarget(mc.screen, widget,
+                        widget.getX() + widget.getWidth() / 2.0, widget.getY() + widget.getHeight() / 2.0));
                 row.addProperty("font", widget.getMessage().getStyle().getFont().toString());
                 if (widget instanceof net.minecraft.client.gui.components.EditBox input) {
                     row.addProperty("value", input.getValue()); row.addProperty("selection", input.getHighlighted());

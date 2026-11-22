@@ -46,6 +46,10 @@ public abstract class IslandFieldMixin implements ProfiledTerrain, GeologicalFie
     @Shadow public abstract org.sathrek.sky_archipelago.worldgen.generator.terrain.SkyIslandChunkTerrainSnapshot
             sampleChunkTerrainSnapshot(net.minecraft.world.level.ChunkPos chunk, SkyIslandSettings settings);
     @Shadow private ColumnData resolveBaseColumnData(int x, int z, SkyIslandSettings settings) { throw new AssertionError(); }
+    @Shadow private List<org.sathrek.sky_archipelago.worldgen.generator.field.internal.IslandColumnResolver.SnapshotCandidate>
+            pointCandidates(int x, int z, SkyIslandSettings settings) { throw new AssertionError(); }
+    @Shadow private int scanBottom(SkyIslandSettings settings) { throw new AssertionError(); }
+    @Shadow private int scanTop(SkyIslandSettings settings) { throw new AssertionError(); }
     @Unique private final com.google.common.cache.Cache<IslandContext.Key, IslandContext> skyweave$contexts =
             com.google.common.cache.CacheBuilder.newBuilder().maximumSize(2048).build();
 
@@ -108,6 +112,37 @@ public abstract class IslandFieldMixin implements ProfiledTerrain, GeologicalFie
     @Override public ColumnData skyweave$planningColumn(int x, int z, SkyIslandSettings settings, TerrainStage stage) {
         if (stage == TerrainStage.COMPLETE) throw new IllegalArgumentException("Planning must select an earlier terrain stage");
         return stage.query(() -> resolveBaseColumnData(x, z, settings));
+    }
+    @Override public Boolean skyweave$exteriorExists(int x, int z, SkyIslandSettings settings) {
+        if (skyweave$profile == null) return null;
+        return TerrainStage.EXTERIOR.query(() -> {
+            boolean present = false;
+            // Reuse native candidates, shape preparation, and the exact native solidity predicate.
+            // Presence needs no per-Y classification arrays, segments, or contributor metadata.
+            for (var candidate : pointCandidates(x, z, settings)) {
+                var plan = candidate.terrainPlan();
+                if (!plan.mightInfluence(x, z)) continue;
+                var horizontal = shapeSampler.sampleHorizontal(plan, x, z);
+                if (!horizontal.inInfluence()) continue;
+                var descriptor = plan.descriptor();
+                var prepared = densityEvaluator.prepareDensity(descriptor, horizontal, x, z, settings,
+                        biomeTerrainSampler.sample(x, descriptor.centerY(), z).terrainProfile());
+                int bottom = Math.max(scanBottom(settings), descriptor.centerY() - descriptor.maxVerticalReach() - 24);
+                int top = Math.min(scanTop(settings), descriptor.centerY() + descriptor.maxVerticalReach() + 24);
+                if (prepared.waterArchetype().exists()) {
+                    // Authored wet columns may have disconnected solid shelves. Keep the actual
+                    // native predicate instead of treating their outer envelope as occupied.
+                    for (int y = top; y >= bottom; y--)
+                        if (densityEvaluator.isSolidPreparedDensity(prepared, y)) { present = true; break; }
+                } else {
+                    var body = prepared.landBody();
+                    if (body.exists() && Math.max(bottom, body.bottomY()) <= Math.min(top, body.topY())) present = true;
+                }
+                // Complete the native candidate/biome preparation order even after a positive.
+                // Mutable upstream lookup hints must observe the same sequence as a full query.
+            }
+            return present;
+        });
     }
     @Override public synchronized void skyweave$configureInteriors(net.minecraft.world.level.levelgen.RandomState random,
             InteriorProfile profile) {

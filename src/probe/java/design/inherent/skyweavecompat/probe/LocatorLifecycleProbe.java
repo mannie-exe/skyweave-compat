@@ -28,6 +28,8 @@ final class LocatorLifecycleProbe {
             net.minecraft.server.level.TicketType.create("skyweave_probe_background", Integer::compareTo);
     private static net.minecraft.world.level.ChunkPos backgroundChunk;
     private static String structuresOutcome;
+    private static design.inherent.reform.minecraft.command.SearchRecipient capturedRecipient;
+    private static net.minecraft.world.phys.Vec3 capturedOrigin;
 
     private static void releaseBackground(MinecraftServer server) {
         if (backgroundChunk == null) return;
@@ -56,6 +58,8 @@ final class LocatorLifecycleProbe {
             } catch (Throwable failure) { recordFailure(failure); }
         });
         actor(server, "LocatorA");
+        capturedRecipient = design.inherent.reform.minecraft.command.SearchRecipient.capture(caller, 2);
+        capturedOrigin = capturedRecipient.origin();
         beginBoth(server, caller);
         var pos = level.getSharedSpawnPos();
         backgroundChunk = new net.minecraft.world.level.ChunkPos((pos.getX() >> 4) + 32, (pos.getZ() >> 4) + 32);
@@ -75,7 +79,20 @@ final class LocatorLifecycleProbe {
             if (++ticks > 1200) throw new AssertionError("Locator lifecycle fixture exceeded 1200 ticks");
             if (ticks - changed < 3) return;
             if (step == 0) {
+                runningBoth(server);
+                if (!player.teleportTo(player.serverLevel(), player.getX() + 16, player.getY(), player.getZ() + 16,
+                        Set.of(), player.getYRot(), player.getXRot())) throw new AssertionError("Native same-dimension teleport failed");
+                caller = player.createCommandSourceStack();
+                if (caller.getPosition().equals(capturedOrigin)) throw new AssertionError("Teleport did not move the actor");
+                step = 9;
+            } else if (step == 9) {
+                runningBoth(server);
+                if (!capturedRecipient.origin().equals(capturedOrigin)) throw new AssertionError("Teleport rewrote the captured search origin");
+                report.addProperty("sameDimensionTeleportRetainsBothSearches", true);
+                report.addProperty("capturedOriginStableAfterTeleport", true);
                 runningBoth(server); respawn(server); runningBoth(server);
+                if (!capturedRecipient.origin().equals(capturedOrigin)) throw new AssertionError("Respawn rewrote the captured search origin");
+                report.addProperty("capturedOriginStableAfterRespawn", true);
                 report.addProperty("sameConnectionRespawnRetainsBothSearches", true); step = 1;
             } else if (step == 1) {
                 runningBoth(server); cancelBothAsPlayer(server);

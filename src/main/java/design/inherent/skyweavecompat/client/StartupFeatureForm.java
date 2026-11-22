@@ -1,8 +1,9 @@
 package design.inherent.skyweavecompat.client;
 
 import design.inherent.reform.definition.FieldPath;
-import design.inherent.reform.neoforge.client.ClientFileSettings;
-import design.inherent.reform.neoforge.client.ClientForm;
+import design.inherent.reform.minecraft.client.ClientFileSettings;
+import design.inherent.reform.minecraft.client.ClientForm;
+import design.inherent.reform.minecraft.client.ClientFormOptions;
 import design.inherent.reform.presentation.FormCatalog;
 import design.inherent.reform.presentation.FormPresentation;
 import design.inherent.skyweavecompat.Feature;
@@ -12,6 +13,7 @@ import design.inherent.skyweavecompat.configuration.ReformDocuments;
 import design.inherent.skyweavecompat.configuration.SettingsCatalog;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Optional;
 import net.minecraft.network.chat.Component;
 import net.neoforged.bus.api.IEventBus;
@@ -28,11 +30,11 @@ final class StartupFeatureForm {
         var versions = new LinkedHashMap<String, String>();
         LoadingModList.get().getMods().forEach(mod -> versions.put(mod.getModId(), mod.getVersion().toString()));
         var store = ReformDocuments.startup(FMLPaths.CONFIGDIR.get(), active, versions, true);
-        binding = ClientFileSettings.startupFile(bus, container, store,
+        binding = ClientFileSettings.startupFile(design.inherent.reform.neoforge.client.NeoForgeClientRegistration.of(bus, container), store,
                 Optional.of(ReformDocuments.selectedStartup(store.definition(), active)));
     }
 
-    ClientForm form() {
+    ClientForm form(Map<String, ClientForm> relatedForms) {
         var title = Component.translatable(SettingsCatalog.file(FeatureSettings.FILE).labelKey());
         var sections = Arrays.stream(Feature.values()).map(feature -> {
             var entry = SettingsCatalog.entry(feature);
@@ -40,7 +42,11 @@ final class StartupFeatureForm {
                     Component.translatableWithFallback(entry.labelKey(), feature.key).getString(),
                     Component.translatableWithFallback(entry.summaryKey(), "").getString());
         }).toList();
-        return binding.form(title, FormPresentation.EMPTY.withCatalog(new FormCatalog(sections)));
+        var options = new ClientFormOptions<FeatureSettings>(FormPresentation.EMPTY.withCatalog(new FormCatalog(sections)), Map.of())
+                .withInformation(definition -> Optional.of(AdaptationInformation.describe(definition, relatedForms)))
+                .withDefaults(Component.translatable("skyweave_compat.settings.startup.restore_loaded"),
+                        Component.translatable("skyweave_compat.settings.startup.restore_loaded.help"));
+        return binding.form(title, options);
     }
 
 }

@@ -14,12 +14,12 @@ import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 @Mod(value = SkyweaveCompat.ID, dist = Dist.CLIENT)
 public final class ClientConfiguration {
     public ClientConfiguration(ModContainer container, IEventBus modBus) {
-        if (design.inherent.skyweavecompat.client.combat.ClientAttackBridge.admitted()) {
-            design.inherent.skyweavecompat.client.combat.ClientAttackBridge.register(modBus);
-            container.registerConfig(ModConfig.Type.CLIENT, design.inherent.skyweavecompat.client.combat.CombatPreferences.SPEC,
-                    design.inherent.skyweavecompat.configuration.ConfigLocations.registeredName(
-                            design.inherent.skyweavecompat.client.combat.CombatPreferences.FILE));
-        }
+        if (OptionalIntegrations.enabled(Feature.IPN_TEXT_INPUT))
+            design.inherent.skyweavecompat.client.input.IpnTextInput.register(modBus);
+        if (OptionalIntegrations.enabled(Feature.EFFORTLESS_KEY_MODIFIERS))
+            design.inherent.skyweavecompat.client.input.EffortlessRadialInput.register();
+        if (OptionalIntegrations.enabled(Feature.POWER_GRID_KEY_MODIFIERS))
+            design.inherent.skyweavecompat.client.input.PowerGridInput.register();
         if (OptionalIntegrations.enabled(Feature.WAYFINDER)) {
             WayfinderClient.register(modBus);
             container.registerConfig(ModConfig.Type.CLIENT,WayfinderPreferences.SPEC,
@@ -45,7 +45,7 @@ public final class ClientConfiguration {
                     (net.neoforged.neoforge.client.event.ModelEvent.ModifyBakingResult event) ->
                             PlainGlassModels.wrap(event, id -> !GlassBackfaces.vanillaPane(id)
                                     && TransparencyProfiles.current().wraps(id)));
-        var terrainProfiles = OptionalIntegrations.enabled(Feature.TERRAIN) ? new TerrainProfileForms(modBus, container) : null;
+        var terrainProfiles = new TerrainProfileForms(modBus, container);
         var startupSettings = new StartupFeatureForm(modBus, container);
         var nativePreferences = new NativePreferences(modBus, container);
         var settings = new ClientSettingsMenus(modBus, container, terrainProfiles, startupSettings, nativePreferences);

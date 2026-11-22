@@ -19,7 +19,7 @@ import org.lwjgl.glfw.GLFW;
 
 /** Deliberate world-only input and a single progressively evaluated server-authorized ray. */
 public final class WayfinderClient {
-    private final KeyMapping key = new KeyMapping("key.skyweave_compat.wayfinder",InputConstants.Type.KEYSYM,GLFW.GLFW_KEY_G,
+    private final KeyMapping key = new KeyMapping("key.skyweave_compat.wayfinder",InputConstants.Type.KEYSYM,GLFW.GLFW_KEY_F12,
             "key.categories.skyweave_compat");
     private boolean held;
     private Job job;

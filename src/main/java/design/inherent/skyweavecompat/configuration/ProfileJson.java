@@ -45,6 +45,7 @@ public final class ProfileJson {
             if (field.isRecord()) {
                 if (!value.isJsonObject()) throw new IllegalArgumentException("Expected group for " + key);
                 recordFields(value.getAsJsonObject(), field, key + ".");
+                continue;
             } else if (field == java.util.List.class) {
                 if (!value.isJsonArray() || value.getAsJsonArray().asList().stream()
                         .anyMatch(v -> !v.isJsonPrimitive() || !v.getAsJsonPrimitive().isString()))
@@ -64,6 +65,10 @@ public final class ProfileJson {
                     invalid.initCause(error); throw invalid;
                 }
             }
+            // Reuse the owner's annotation rules with the complete source path before Gson
+            // constructs nested records, whose local component names otherwise lose routing.
+            var parsed = JSON.fromJson(value, field);
+            new SettingDefinition(key, field, parsed, component.getAnnotation(SettingSpec.class)).validate(parsed);
         }
     }
     private ProfileJson() {}

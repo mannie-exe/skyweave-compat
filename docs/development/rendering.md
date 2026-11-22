@@ -4,8 +4,6 @@ These optional physical-client adapters do not require Sky Archipelago or the Sk
 
 Iris's private hand, material, shader, framebuffer, and lifecycle hooks retain exact adapter admission. [Dependency admission](dependencies.md) owns baseline/installed-version diagnostics and Mixin failure reporting; a public Iris version update does not qualify these private contracts automatically.
 
-[Attack presentation](combat.md) owns the independent Combat Nouveau/Punchy/Moves bridges and captured per-playback pacing. Their correctness rules, client preferences and session lifetime remain separate from shader, cape and glass adapters.
-
 ## Teleport presentation contract
 
 Minecraft 1.21.1's `ClientPacketListener.handleTeleportEntity` normally calls `lerpTo` with three interpolation steps for a remotely controlled entity. The packet name does not establish a gameplay teleport: `ServerEntity.sendChanges` also sends an absolute packet for relative-coordinate overflow, periodic resynchronization, riding transitions and ground-state changes. Snapping every such packet would change ordinary movement and construct presentation.

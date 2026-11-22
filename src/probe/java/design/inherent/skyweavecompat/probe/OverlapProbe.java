@@ -46,7 +46,7 @@ final class OverlapProbe {
                     .filter(p -> p.family() == IslandFamily.ANCHOR_PLATEAU)
                     .sorted(Comparator.comparingDouble(p -> Math.hypot(p.x(), p.z()))).limit(2).toList();
             for (var anchor : anchors) {
-                long columns = 0, occupied = 0, stacked = 0, voidVolume = 0, overlapVolume = 0;
+                long columns = 0, occupied = 0, stacked = 0, voidVolume = 0, overlapVolume = 0, thinColumns = 0;
                 int maximumSegments = 0, maximumAdded = 0, pointColumns = 0;
                 long pointChecks=0, simultaneousCavitySolid=0, fracturedCavitySolid=0, distinctDatumPoints=0, differentLayerColumns=0,biomeOwnerChecks=0;
                 long thermalChecks=0,rawThermalDisagreements=0,climateCaptureNanos=0;int maximumClimateLayers=0;
@@ -57,6 +57,10 @@ final class OverlapProbe {
                         columns++;
                         var before = ((InteriorField)(Object)field).skyweave$exteriorAt(x, z, voidSettings);
                         var after = ((InteriorField)(Object)field).skyweave$exteriorAt(x, z, overlapSettings);
+                        if (new design.inherent.skyweavecompat.placement.IslandTerrain(field, voidSettings, null).exists(x,z) != !before.isEmpty()
+                                || new design.inherent.skyweavecompat.placement.IslandTerrain(field, overlapSettings, null).exists(x,z) != !after.isEmpty())
+                            throw new AssertionError("Clearance presence changed native void/overlap occupancy at " + x + "," + z);
+                        if (after.stream().anyMatch(segment -> segment.topY() - segment.bottomY() + 1 < 16)) thinColumns++;
                         if (before.isEmpty() != after.isEmpty()
                                 || !before.isEmpty() && !before.getFirst().equals(after.getFirst())) {
                             throw new AssertionError("Overlap changed the upper exterior at " + x + "," + z);
@@ -125,6 +129,7 @@ final class OverlapProbe {
                 var row = new JsonObject();
                 row.addProperty("seed", Long.toString(seed)); row.add("anchor", new Gson().toJsonTree(anchor));
                 row.addProperty("sampleStep", 24); row.addProperty("columns", columns);
+                row.addProperty("clearancePresenceChecks", columns * 2); row.addProperty("thinExteriorColumns", thinColumns);
                 row.addProperty("occupiedColumns", occupied); row.addProperty("stackedColumns", stacked);
                 row.addProperty("voidSampledBlocks", voidVolume); row.addProperty("overlapSampledBlocks", overlapVolume);
                 row.addProperty("differentLayerColumns",differentLayerColumns);

@@ -17,18 +17,14 @@ import org.slf4j.LoggerFactory;
 public final class ClientFlightProbe {
     private int ticks;
     public ClientFlightProbe() {
-        long renderingFixtures = java.util.stream.Stream.of("shadows", "shadowRing", "shaderStatic", "coverage", "handEffects", "playerPoses", "renderStartup", "combat", "visualOptions", "resourceEvolution", "villages", "foliage")
+        if (Boolean.getBoolean("skyweave_compat.probe.ipn")) { new ClientIpnProbe(); return; }
+        long renderingFixtures = java.util.stream.Stream.of("shadows", "shadowRing", "shaderStatic", "coverage", "handEffects", "playerPoses", "renderStartup", "visualOptions", "resourceEvolution", "villages", "foliage")
                 .filter(name -> Boolean.getBoolean("skyweave_compat.probe." + name)).count();
         if (renderingFixtures > 1) throw new IllegalStateException("Select one rendering fixture per client");
         if (Boolean.getBoolean("skyweave_compat.probe.foliage")) { new ClientFoliageProbe(); return; }
         if (Boolean.getBoolean("skyweave_compat.probe.villages")) { new ClientVillageProbe(); return; }
         if (Boolean.getBoolean("skyweave_compat.probe.resourceEvolution")) { new ClientResourceEvolutionProbe(); return; }
         if (Boolean.getBoolean("skyweave_compat.probe.visualOptions")) { new ClientVisualOptionsProbe(); return; }
-        if (Boolean.getBoolean("skyweave_compat.probe.combat")) {
-            if (System.getProperty("skyweave_compat.probe.combat.role") != null) new ClientCombatNetworkProbe();
-            else new ClientCombatProbe();
-            return;
-        }
         if (Boolean.getBoolean("skyweave_compat.probe.renderStartup")) { new ClientRenderingStartupProbe(); return; }
         if (Boolean.getBoolean("skyweave_compat.probe.playerPoses")) { new ClientPoseProbe(); return; }
         if (Boolean.getBoolean("skyweave_compat.probe.shadows")) { new ClientShadowProbe(); return; }

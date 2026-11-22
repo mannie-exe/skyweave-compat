@@ -6,6 +6,9 @@ import java.util.List;
 public record SettingIssue(String code, String field, List<String> related, String message) {
     public SettingIssue { related = List.copyOf(related); }
     public boolean affects(String key) { return field.equals(key) || related.contains(key); }
+    public static InvalidValue invalid(String code, String field, String message, String... related) {
+        return new InvalidValue(new SettingIssue(code, field, List.of(related), message));
+    }
     public static SettingIssue find(Throwable failure) {
         var visited = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Throwable, Boolean>());
         while (failure != null && visited.add(failure)) {

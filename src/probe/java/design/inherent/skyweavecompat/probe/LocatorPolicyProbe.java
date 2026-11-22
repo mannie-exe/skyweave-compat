@@ -3,7 +3,7 @@ package design.inherent.skyweavecompat.probe;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import design.inherent.reform.definition.DocumentId;
-import design.inherent.reform.neoforge.configuration.ServerSettings;
+import design.inherent.reform.minecraft.configuration.ServerSettings;
 import design.inherent.reform.owner.CommitReceipt;
 import design.inherent.skyweavecompat.configuration.ConfigLocations;
 import design.inherent.skyweavecompat.terrain.structure.SearchSettings;

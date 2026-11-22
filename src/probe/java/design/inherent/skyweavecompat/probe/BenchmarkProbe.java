@@ -17,6 +17,7 @@ import org.sathrek.sky_archipelago.worldgen.generator.field.IslandField;
 final class BenchmarkProbe {
     private BenchmarkProbe() {}
     static void run(MinecraftServer server, Path output) throws Exception {
+        if (Boolean.getBoolean("neighbors.probe.clearanceCost")) { ClearanceCostProbe.run(server, output); return; }
         var level = server.overworld();
         var generator = (SkyIslandChunkGenerator)level.getChunkSource().getGenerator();
         var field = ((GeologicalGenerator)(Object)generator).skyweave$field(level.getChunkSource().randomState());

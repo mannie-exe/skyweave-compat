@@ -18,7 +18,13 @@ public record IslandTerrain(IslandField field, SkyIslandSettings settings, Villa
                 ? planning.skyweave$planningColumn(x, z, settings, TerrainStage.EXTERIOR)
                 : field.sampleChunkTerrainSnapshot(new net.minecraft.world.level.ChunkPos(Math.floorDiv(x, 16), Math.floorDiv(z, 16)), settings).columnDataAt(x, z);
     }
-    @Override public boolean exists(int x, int z) { return column(x, z).profile().exists(); }
+    @Override public boolean exists(int x, int z) {
+        if ((Object)field instanceof InteriorField planning) {
+            var present = planning.skyweave$exteriorExists(x, z, settings);
+            if (present != null) return present;
+        }
+        return column(x, z).profile().exists();
+    }
     @Override public int islandRadius(int x, int z) {
         var column = column(x, z);
         var descriptor = column.dominantDescriptor();

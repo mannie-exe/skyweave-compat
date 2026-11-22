@@ -1,8 +1,8 @@
 package design.inherent.skyweavecompat.client;
 
 import design.inherent.reform.definition.FieldPath;
-import design.inherent.reform.neoforge.client.ClientFileSettings;
-import design.inherent.reform.neoforge.client.ClientForm;
+import design.inherent.reform.minecraft.client.ClientFileSettings;
+import design.inherent.reform.minecraft.client.ClientForm;
 import design.inherent.reform.owner.ApplicationEffects;
 import design.inherent.reform.owner.FileOwner;
 import design.inherent.skyweavecompat.configuration.JsonSettings;
@@ -20,7 +20,8 @@ import net.neoforged.fml.loading.FMLPaths;
 
 /** Local files retain their real format and stage values for their existing runtime owners. */
 final class JsonPreferences {
-    private record Binding(ClientFileSettings<Map<String, Object>> owner, JsonSettings.Definition source) {}
+    private record Binding(ClientFileSettings<Map<String, Object>> owner, JsonSettings.Definition source,
+            SettingsReferenceSources<Map<String, Object>> references) {}
     private final Map<String, Binding> bindings = new LinkedHashMap<>();
     private final Map<String, String> refused = new LinkedHashMap<>();
 
@@ -28,7 +29,7 @@ final class JsonPreferences {
         bus.addListener((FMLCommonSetupEvent event) -> event.enqueueWork(() -> {
             for (var entry : SettingsCatalog.FILES) {
                 if (!entry.filename().endsWith(".json") || TerrainProfileForms.owns(entry.filename())
-                        || entry.help().equals("hoofprint_zoom") || !NativePreferences.admitted(entry)) continue;
+                        || entry.help().equals("hoofprint_zoom")) continue;
                 var source = JsonSettings.find(entry.filename());
                 if (source == null) {
                     refused.put(entry.filename(), "The optional native codec is unavailable");
@@ -40,9 +41,9 @@ final class JsonPreferences {
                             Set.of(NativeSettingsPolicy.timing(entry.timing())),
                             Component.translatable("skyweave_compat.settings.after_save."
                                     + entry.timing().name().toLowerCase(java.util.Locale.ROOT)).getString())));
-                    var owner = ClientFileSettings.stagedFile(bus, container, store,
+                    var owner = ClientFileSettings.stagedFile(design.inherent.reform.neoforge.client.NeoForgeClientRegistration.of(bus, container), store,
                             FileOwner.Initialization.DEFER_MISSING, effects);
-                    bindings.put(entry.filename(), new Binding(owner, source));
+                    bindings.put(entry.filename(), new Binding(owner, source, new SettingsReferenceSources<>(owner, source)));
                 } catch (RuntimeException failure) { refused.put(entry.filename(), String.valueOf(failure.getMessage())); }
             }
         }));
@@ -53,6 +54,6 @@ final class JsonPreferences {
         var binding = bindings.get(entry.filename());
         return binding == null ? NativePreferences.unavailable(entry,
                 refused.getOrDefault(entry.filename(), "The adaptation or its settings owner is unavailable"))
-                : binding.owner().form(Component.translatable(entry.labelKey()), SettingsPresentation.json(binding.source()));
+                : binding.references().form(Component.translatable(entry.labelKey()), SettingsPresentation.json(binding.source()));
     }
 }

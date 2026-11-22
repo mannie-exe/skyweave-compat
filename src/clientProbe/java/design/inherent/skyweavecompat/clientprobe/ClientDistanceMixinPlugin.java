@@ -10,6 +10,14 @@ public final class ClientDistanceMixinPlugin implements IMixinConfigPlugin {
     public void onLoad(String name) {}
     public String getRefMapperConfig() { return null; }
     public boolean shouldApplyMixin(String target, String mixin) {
+        if (mixin.endsWith(".MouseTweaksWitnessMixin")) return Boolean.getBoolean("skyweave_compat.probe.ipn")
+                && net.neoforged.fml.loading.LoadingModList.get().getModFileById("mousetweaks") != null;
+        if (mixin.endsWith(".EffortlessHistoryWitnessMixin")) return Boolean.getBoolean("skyweave_compat.probe.modifiers")
+                && net.neoforged.fml.loading.LoadingModList.get().getModFileById("effortlessbuilding") != null;
+        if (mixin.endsWith(".MovesPerspectiveWitnessMixin")) return Boolean.getBoolean("skyweave_compat.probe.modifiers")
+                && net.neoforged.fml.loading.LoadingModList.get().getModFileById("punchy_moves") != null;
+        if (mixin.endsWith(".ModifierPollingFixtureMixin")) return Boolean.getBoolean("skyweave_compat.probe.modifiers");
+        if (mixin.endsWith(".IpnReloadWitnessMixin") || mixin.endsWith(".IpnSortWitnessMixin")) return Boolean.getBoolean("skyweave_compat.probe.ipn");
         if (mixin.endsWith(".FoliageDrawProbeMixin")) return Boolean.getBoolean("skyweave_compat.probe.foliage");
         if (mixin.substring(mixin.lastIndexOf('.') + 1).startsWith("Combat")) return Boolean.getBoolean("skyweave_compat.probe.combat");
         if (mixin.endsWith(".HandEffectDrawMixin")) return Boolean.getBoolean("skyweave_compat.probe.handEffects.trace");

@@ -6,6 +6,9 @@ version = mod_version
 group = 'design.inherent'
 base.archivesName = 'skyweave-compat'
 def reformVersion = providers.gradleProperty('reform_version').get()
+def reformSha256 = providers.gradleProperty('reform_sha256').get()
+def reformMinimum = providers.gradleProperty('reform_minimum').get()
+def reformModule = 'reform-neoforge-1.21.1'
 def reformRepository = providers.gradleProperty('reform_repository')
 java {
     toolchain.languageVersion = JavaLanguageVersion.of(21)
@@ -18,11 +21,11 @@ repositories {
             else ivy {
                 name = 'reformRelease'
                 url = uri('https://github.com/mannie-exe/reform/releases/download')
-                patternLayout { artifact 'v[revision]/[artifact]-[revision]-mc1.21.1-neoforge.[ext]' }
+                patternLayout { artifact 'v[revision]/reform-[revision]-mc1.21.1-neoforge.[ext]' }
                 metadataSources { artifact() }
             }
         }
-        filter { includeModule 'design.inherent', 'reform' }
+        filter { includeModule 'design.inherent', reformModule }
     }
     mavenCentral()
     maven {
@@ -63,13 +66,15 @@ configurations {
 sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
 sourceSets.test.runtimeClasspath += sourceSets.main.runtimeClasspath
 dependencies {
-    implementation("design.inherent:reform:${reformVersion}") { transitive = false }
+    implementation("design.inherent:${reformModule}:${reformVersion}") { transitive = false }
     compileOnly('maven.modrinth:modefite-item-definition-backport:cy8BkRZc') { transitive = false }
-    compileOnly('maven.modrinth:combat-nouveau:us081FGF') { transitive = false }
-    compileOnly('maven.modrinth:puzzles-lib:kiX1lfse') { transitive = false }
     compileOnly('maven.modrinth:punchy-fpa:aVZEe0j8') { transitive = false }
     compileOnly('maven.modrinth:punchymoves:SYcipAjI') { transitive = false }
     compileOnly('maven.modrinth:variants-and-ventures:Efvt97uC') { transitive = false }
+    compileOnly('maven.modrinth:inventory-profiles-next:vjuNnHLv') { transitive = false }
+    compileOnly('maven.modrinth:libipn:BGe4KMlE') { transitive = false }
+    // Exact Kotlin API carried by the qualified optional IPN runtime; never bundled.
+    compileOnly('org.jetbrains.kotlin:kotlin-stdlib:2.4.21') { transitive = false }
     compileOnly('dev.ftb.mods:ftb-quests-neoforge:2101.1.38') { transitive = false }
     testRuntimeOnly('dev.ftb.mods:ftb-quests-neoforge:2101.1.38') { transitive = false }
     c2meSource('maven.modrinth:c2me-neoforge:VACgDPOc') { transitive = false }
@@ -146,27 +151,54 @@ tasks.named('jar', Jar) {
     from('licenses') { into 'licenses' }
 }
 tasks.named('sourcesJar', Jar) { from 'LICENSE', 'NOTICE'; from('licenses') { into 'licenses' } }
+tasks.register('preparePackagedClient') {
+    group = 'verification'
+    description = 'Prepare native launch inputs for disposable packaged-client probes without launching Minecraft.'
+    dependsOn 'prepareClientRun'
+    def destination = layout.buildDirectory.file('moddev/clientRunClasspath.json')
+    outputs.file destination
+    outputs.upToDateWhen { false }
+    doLast {
+        def client = tasks.named('runClient', JavaExec).get()
+        if (client.mainClass.get() != 'net.neoforged.devlaunch.Main')
+            throw new GradleException('Review the changed native ModDev client bootstrap before launching probes')
+        // ModDev assigns this collection to JavaExec only inside RunGameTask.exec().
+        def classpath = client.classpathProvider.asPath
+        if (classpath.isEmpty()) throw new GradleException('The pinned ModDev client classpath is empty')
+        destination.get().asFile.setText(groovy.json.JsonOutput.toJson([
+            schemaVersion: 1, arguments: ['-cp', classpath]
+        ]) + '\n', 'UTF-8')
+    }
+}
 tasks.named('processResources', ProcessResources) {
     inputs.property 'version', project.version
     inputs.property 'reform_version', reformVersion
+    inputs.property 'reform_sha256', reformSha256
+    inputs.property 'reform_minimum', reformMinimum
     inputs.property 'neo_version', neo_version
     inputs.property 'fml_version', fml_version
     filesMatching(['META-INF/neoforge.mods.toml', 'META-INF/skyweave-compat-development.properties']) {
-        expand version: project.version, reform_version: reformVersion, neo_version: neo_version, fml_version: fml_version
+        expand version: project.version, reform_version: reformVersion, reform_sha256: reformSha256, reform_minimum: reformMinimum, neo_version: neo_version, fml_version: fml_version
     }
 }
 tasks.named('test', Test) { useJUnitPlatform() }
 tasks.register('verifyUpstream') {
+    inputs.property 'reform_sha256', reformSha256
     inputs.files(configurations.runtimeClasspath)
     inputs.files(configurations.compileClasspath)
     doLast {
-        ['net.neoforged.fancymodloader:loader': fml_version, 'design.inherent:reform': reformVersion].each { coordinate, expected ->
+        ['net.neoforged.fancymodloader:loader': fml_version, ("design.inherent:${reformModule}"): reformVersion].each { coordinate, expected ->
             def artifact = configurations.compileClasspath.resolvedConfiguration.resolvedArtifacts.find {
                 "${it.moduleVersion.id.group}:${it.name}" == coordinate
             }
             if (artifact == null || artifact.moduleVersion.id.version != expected)
                 throw new GradleException("Development metadata for ${coordinate} must match the resolved version ${expected}")
         }
+        def reformArtifact = configurations.compileClasspath.resolvedConfiguration.resolvedArtifacts.find {
+            it.moduleVersion.id.group == 'design.inherent' && it.name == reformModule
+        }.file
+        if (!(reformSha256 ==~ /[0-9a-f]{64}/) || java.security.MessageDigest.getInstance('SHA-256').digest(reformArtifact.bytes).encodeHex().toString() != reformSha256)
+            throw new GradleException('Unexpected re:form development artifact digest')
         def quests = configurations.compileClasspath.resolvedConfiguration.resolvedArtifacts.find {
             it.moduleVersion.id.group == 'dev.ftb.mods' && it.name == 'ftb-quests-neoforge'
         }?.file
@@ -188,12 +220,12 @@ tasks.register('verifyUpstream') {
         }
 
         ['modefite-item-definition-backport': '959272d5a7acc809881da7bcadda84ec8b1bf75ffcd8f84e989758a262bc6696',
+         'inventory-profiles-next': '05f1b8660f74f543fba61d4ce7cf8632d4c69a95b7c15b1a6fd442be2e397ca6',
+         'libipn': '98f061ba69d31764fa10ab7810ca49062633e107a6b261ba3b66dc25ba5fef7b',
          'accessories': 'cbecac21acbaf323349afa263b22cda67c3e836f928f6cf3f951ba460c196d15',
          'accessories-compat-layer': '837a2c80a7b481d9ba44770cdec2d8d41f0e0900497e5338bcf4c6f048fb9f1e',
          'curios': '5ae6703ac25a5cfb138ce34924799b642021c8109aacef578e899e8591d67a3e',
          'copycats': 'eab9c71e0cc133c38f1063fc9c892599207240a1f0559ce1e3ecddc4ad7aa759',
-         'combat-nouveau': '57b95249fa1b5b3c38a02628cbd83f45ec3d1619392ace15cb83f593df9090b0',
-         'puzzles-lib': '5317fe131954accbe884b079f75713d6f9024b291085314d6c23b3a697fc2771',
          'punchy-fpa': '05c8258943d9cbd9aec4c929b78d00a4d42eb6126fbed761dc2f4bef3affdbbd',
          'punchymoves': 'c5b080a6994d8d0f2cfcea3c1923f87d78c19241d7eb939501624671dedebbe6',
          'surveyor': '4c4534517021e5b7212346e25510123944558e5b0fcf1d605189548b6811a6a0',
@@ -341,7 +373,7 @@ tasks.register('clientProbeJar', Jar) {
 
 tasks.register('verifyPackage', Exec) {
     dependsOn jar
-    commandLine 'python3', 'tools/verify_package.py', project.version.toString(), reformVersion
+    commandLine 'python3', 'tools/verify_package.py', project.version.toString(), reformVersion, reformMinimum, reformSha256
 }
 tasks.register('releaseToolTest', Exec) {
     commandLine 'python3', '-m', 'unittest', 'discover', '-s', 'tools/tests'

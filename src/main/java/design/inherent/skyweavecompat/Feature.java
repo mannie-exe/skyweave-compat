@@ -3,6 +3,10 @@ package design.inherent.skyweavecompat;
 /** Independently selectable adaptations. Selection happens before target classes load. */
 public enum Feature {
     MAIN_MENU_IDENTITY("interface.main_menu_identity"),
+    IPN_TEXT_INPUT("inventory_profiles_next.text_input_protection"),
+    MOVES_KEY_MODIFIERS("punchy_moves.keybinding_modifiers"),
+    EFFORTLESS_KEY_MODIFIERS("effortlessbuilding.keybinding_modifiers"),
+    POWER_GRID_KEY_MODIFIERS("powergrid.keybinding_modifiers"),
     BETTER_VILLAGE_CONFIG("bettervillage.configuration_writes"),
     PATROL_CHANCE("minecraft.patrol_probability"),
     VARIANT_SPAWNERS("variantsandventures.spawner_emissions"),
@@ -73,8 +77,6 @@ public enum Feature {
     CONSTRUCT_OCCLUSION("rendering.construct_occlusion"),
     CONSTRUCT_COVERAGE("rendering.construct_coverage"),
     MOVES_TOUCH_MOTION("punchy_moves.touch_n_motion"),
-    CN_PUNCHY("combat_nouveau.punchy_attacks"),
-    CN_MOVES("combat_nouveau.moves_attacks"),
     HAND_EFFECTS("iris.hand_effects"),
     HELD_MATERIALS("iris.held_materials"),
     MODEL_ROTATIONS("modefite.model_rotations"),

@@ -4,7 +4,9 @@
 
 [Encounter adaptations](encounters.md) owns the Minecraft patrol RNG slice, V&V per-emission loop, exact optional pin, loaded biome/water queries and their update controls. Static trial-template repairs remain pack-owned.
 
-[Attack presentation](combat.md) owns independent CN/Punchy and CN/Moves admission, native critical prediction, qualified visual unthrottling and captured pacing. Requalify its native/Puzzles event ordering, public Punchy APIs and private Moves clock independently of other player-rendering adapters.
+Requalify Punchy’s [held materials](rendering.md#held-bottle-materials) and Moves’ [Touch’n Motion bridge](rendering.md#moves-and-touchn-motion) through their owning fixtures. Each adapter has its own dependency gate and native consumer.
+
+[Input ownership](input.md) owns the IPN text-input repair, primary/alternative keybind identity, native focus and slot geometry, release cleanup, and optional EMI search API. It changes no inventory defaults or server policy.
 
 The opt-in [Curios binding bridge](../configuration.md#adaptation-switches) is for the pinned Accessories stack. Curios 9.6.0 reads datapack files before entity tags are available and resolves slot assignments afterward. The existing layer intercepts the older read method and suppresses Curios's native event registration. Compat retargets that layer's binding capture, invokes Curios's resolver on the server tag event, and merges the result into the freshly loaded Accessories map through the layer's converter. The native Accessories synchronization path publishes the resulting slots. Each reload starts from current input, and server shutdown releases the adapter's captured bindings. When upgrading either dependency, disable the bridge in a disposable fixture and verify direct and tag-based assignments, reload removal, and equipped inventory synchronization through both APIs before retiring it. [Curios entity-tag lifecycle](https://github.com/TheIllusiveC4/Curios/pull/657).
 

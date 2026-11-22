@@ -2,6 +2,7 @@ package design.inherent.skyweavecompat.terrain;
 
 import design.inherent.skyweavecompat.configuration.SettingSpec;
 import design.inherent.skyweavecompat.configuration.RecordSettings;
+import design.inherent.skyweavecompat.configuration.SettingIssue;
 
 /** Versioned terrain parameters. A changed layout requires a new generation identity. */
 public record GenerationProfile(
@@ -33,15 +34,29 @@ public record GenerationProfile(
 
     public GenerationProfile {
         RecordSettings.validate(GenerationProfile.class, spacing, jitter, centerMinY, centerMaxY, anchorMinRadius, anchorMaxRadius, anchorPlateau, anchorMinHeight, anchorMaxHeight, companionMinRadius, companionMaxRadius, companionMinOrbit, companionMaxOrbit, companionMinOffsetY, companionMaxOffsetY, minimumClusterGap, floorClearance, buildingHeadroom, activation);
-        if (2L * jitter >= spacing || centerMinY > centerMaxY || anchorMinRadius > anchorMaxRadius
-                || anchorMinHeight <= anchorPlateau + 64 || anchorMaxHeight < anchorMinHeight
-                || companionMinRadius > companionMaxRadius || companionMinOrbit > companionMaxOrbit
-                || companionMinOffsetY > companionMaxOffsetY)
-            throw new IllegalArgumentException("Invalid or unreachable island profile");
+        if (2L * jitter >= spacing)
+            throw SettingIssue.invalid("generation_jitter", "jitter", "Twice the jitter must be less than cell spacing", "spacing");
+        ordered("centerMinY", centerMinY, "centerMaxY", centerMaxY);
+        ordered("anchorMinRadius", anchorMinRadius, "anchorMaxRadius", anchorMaxRadius);
+        if (anchorMinHeight <= anchorPlateau + 64)
+            throw SettingIssue.invalid("generation_anchor_height", "anchorMinHeight",
+                    "Minimum anchor height must exceed plateau thickness by more than 64 blocks", "anchorPlateau");
+        ordered("anchorMinHeight", anchorMinHeight, "anchorMaxHeight", anchorMaxHeight);
+        ordered("companionMinRadius", companionMinRadius, "companionMaxRadius", companionMaxRadius);
+        ordered("companionMinOrbit", companionMinOrbit, "companionMaxOrbit", companionMaxOrbit);
+        ordered("companionMinOffsetY", companionMinOffsetY, "companionMaxOffsetY", companionMaxOffsetY);
         if (safeMinimumY(centerMinY, cliffDepth(anchorMaxHeight, anchorPlateau), anchorPlateau, companionMaxOffsetY, floorClearance)
                 > safeMaximumY(centerMaxY, anchorPlateau, companionMinOffsetY, buildingHeadroom)) {
-            throw new IllegalArgumentException("No island placement fits the floor clearance and building headroom");
+            throw SettingIssue.invalid("generation_vertical_fit", "floorClearance",
+                    "No island placement fits the floor clearance, height range, and building headroom",
+                    "buildingHeadroom", "centerMinY", "centerMaxY", "anchorMaxHeight", "anchorPlateau",
+                    "companionMinOffsetY", "companionMaxOffsetY");
         }
+    }
+
+    private static void ordered(String minimum, int low, String maximum, int high) {
+        if (low > high) throw SettingIssue.invalid("generation_range_order", minimum,
+                "The minimum must not exceed the maximum for this range", maximum);
     }
 
     // Bounds enclose native 1.4 plans; include one block for rounded companion offsets.
@@ -70,7 +85,9 @@ public record GenerationProfile(
     /** Validate an installation's complete proposed pair without changing running configuration. */
     public GenerationProfile validateAgainst(ShapeProfile shapes) {
         if (conflictCellCount(shapes) > 8)
-            throw new IllegalArgumentException("Generation and shape profiles require more than eight neighboring cells for clearance");
+            throw SettingIssue.invalid("generation_cell_reach", "spacing",
+                    "Generation and shape profiles require more than eight neighboring cells for clearance",
+                    "jitter", "minimumClusterGap", "anchorMaxRadius", "companionMaxOrbit", "companionMaxRadius");
         return this;
     }
     public int clusterReach() { return clusterReach(ShapeConfiguration.profile()); }

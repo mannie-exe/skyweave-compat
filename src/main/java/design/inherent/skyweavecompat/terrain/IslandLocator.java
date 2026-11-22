@@ -2,8 +2,8 @@ package design.inherent.skyweavecompat.terrain;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
-import design.inherent.reform.neoforge.command.SearchCommands;
-import design.inherent.reform.neoforge.command.SearchRecipient;
+import design.inherent.reform.minecraft.command.SearchCommands;
+import design.inherent.reform.minecraft.command.SearchRecipient;
 import design.inherent.reform.operation.SearchReport;
 import design.inherent.reform.operation.WorkBudget;
 import design.inherent.reform.owner.PolicyRefusal;

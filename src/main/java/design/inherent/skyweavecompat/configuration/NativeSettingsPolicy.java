@@ -66,7 +66,15 @@ public final class NativeSettingsPolicy {
     }
 
     public static Map<FieldPath, ValueType<?>> explicitTypes(List<NativeFields.Field> fields) {
+        return explicitTypes(null, fields);
+    }
+
+    public static Map<FieldPath, ValueType<?>> explicitTypes(SettingsCatalog.FileEntry entry, List<NativeFields.Field> fields) {
         var types = new LinkedHashMap<FieldPath, ValueType<?>>();
+        if (entry != null) for (var field : fields) {
+            var declared = field.definition(entry.filename());
+            if (!declared.unit().isEmpty()) types.put(path(field), ReformDocuments.scalarType(declared.valueType(), declared.constraints()));
+        }
         for (var field : fields) if (field.defaultValue() instanceof List<?> list) {
             if (!list.stream().allMatch(String.class::isInstance)) throw new IllegalArgumentException("Unsupported native collection " + field.key());
             types.put(path(field), ValueTypes.list(ValueTypes.text(ConfigFile.LIMIT), ConfigFile.LIMIT));

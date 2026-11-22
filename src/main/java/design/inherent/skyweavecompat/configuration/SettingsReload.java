@@ -1,9 +1,9 @@
 package design.inherent.skyweavecompat.configuration;
 
 import design.inherent.reform.definition.DocumentId;
-import design.inherent.reform.neoforge.command.SearchRecipient;
+import design.inherent.reform.minecraft.command.SearchRecipient;
 import design.inherent.reform.neoforge.configuration.ServerPolicyCommands;
-import design.inherent.reform.neoforge.configuration.ServerSettings;
+import design.inherent.reform.minecraft.configuration.ServerSettings;
 import design.inherent.reform.owner.ApplicationEffects;
 import design.inherent.reform.owner.CommitReceipt;
 import design.inherent.reform.owner.LiveApplication;
@@ -31,7 +31,7 @@ public final class SettingsReload {
             var container = ModList.get().getModContainerById(SkyweaveCompat.ID).orElseThrow();
             var store = ReformDocuments.json(FMLPaths.CONFIGDIR.get(), filename, definition);
             var application = new LiveApplication<T>(owner::matches, owner::publish);
-            ServerSettings.forServer(event.getServer()).serverPolicy(container, store, ApplicationEffects.OWNER_PUBLICATION, application);
+            ServerSettings.forServer(event.getServer()).serverPolicy(design.inherent.reform.neoforge.configuration.NeoForgeServerRegistration.of(container), store, ApplicationEffects.OWNER_PUBLICATION, application);
         });
         NeoForge.EVENT_BUS.addListener((RegisterCommandsEvent event) -> event.getDispatcher().register(
                 Commands.literal("skyweavecompat").then(Commands.literal("settings").requires(source -> source.hasPermission(2))

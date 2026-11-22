@@ -34,7 +34,6 @@ class SettingsInventoryTest {
             }
         }
         nativeFile("skyweave_compat-rendering-client.toml", design.inherent.skyweavecompat.client.RenderingPreferences.SPEC, "CLIENT");
-        nativeFile("skyweave_compat-combat-client.toml", design.inherent.skyweavecompat.client.combat.CombatPreferences.SPEC, "CLIENT");
         nativeFile("skyweave_compat-wayfinder-client.toml", design.inherent.skyweavecompat.client.WayfinderPreferences.SPEC, "CLIENT");
         nativeFile("skyweave_compat-journal-client.toml", design.inherent.skyweavecompat.questlog.client.JournalPreferences.SPEC, "CLIENT");
         nativeFile("skyweave_compat-common.toml", design.inherent.skyweavecompat.NeighborConfig.SPEC, "COMMON");
@@ -66,8 +65,9 @@ class SettingsInventoryTest {
     private void nativeFile(String filename, ModConfigSpec spec, String registration) throws Exception {
         var file = document(filename);
         for (var field : NativeFields.collect(spec)) {
-            assertDoesNotThrow(() -> field.definition().parse(field.definition().defaultText()));
-            var row = entry(file, field.definition(), "registered-toml");
+            var definition = field.definition(filename);
+            assertDoesNotThrow(() -> definition.parse(definition.defaultText()));
+            var row = entry(file, definition, "registered-toml");
             row.addProperty("timing", field.timing(filename).name());
             row.addProperty("native_registration", registration); row.addProperty("native_restart", field.spec().restartType().name());
         }

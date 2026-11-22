@@ -18,7 +18,8 @@ public final class DependencyVersions {
         public Contract { exactVersions = Set.copyOf(exactVersions); }
         public boolean accepts(String installed) {
             if (installed == null) return false;
-            if (stableRange == null) return exactVersions.contains(installed);
+            if (exactVersions.contains(installed)) return true;
+            if (stableRange == null) return false;
             // Maven places the next family's prereleases below its final release. They are
             // not part of our stable API-family admission, nor are snapshots or build aliases.
             if (!installed.matches("[0-9]+(?:\\.[0-9]+)*")) return false;
@@ -29,7 +30,8 @@ public final class DependencyVersions {
             }
         }
         public String accepted() {
-            return stableRange == null ? String.join(", ", exactVersions.stream().sorted().toList()) : "stable " + stableRange;
+            String exact = String.join(", ", exactVersions.stream().sorted().toList());
+            return stableRange == null ? exact : (exact.isEmpty() ? "" : exact + " or ") + "stable " + stableRange;
         }
         public String describe(String id, String installed) {
             return id + ": developed against " + developedAgainst + "; accepts " + accepted()
@@ -65,7 +67,7 @@ public final class DependencyVersions {
                         "minecraft", exact(required(properties, "minecraft")),
                         "javafml", new Contract(required(properties, "javafml"), Set.of(), "[4,5)"),
                         "neoforge", new Contract(required(properties, "neoforge"), Set.of(), "[" + required(properties, "neoforge") + ",21.2)"),
-                        "reform", new Contract(required(properties, "reform"), Set.of(), "[" + required(properties, "reform") + ",0.2)"));
+                        "reform", new Contract(required(properties, "reform"), Set.of(required(properties, "reform")), "[" + required(properties, "reform.minimum") + ",0.3)"));
             } catch (IOException failure) {
                 throw new IllegalStateException("Cannot read Skyweave: Compatibility Patches development dependency metadata", failure);
             }
@@ -84,7 +86,7 @@ public final class DependencyVersions {
             if (!entry.getValue().accepts(installed.get(entry.getKey())))
                 throw new IllegalStateException("Skyweave: Compatibility Patches cannot start. "
                         + entry.getValue().describe(entry.getKey(), installed.get(entry.getKey()))
-                        + ". Install a supported stable version for Minecraft 1.21.1.");
+                        + ". Install an accepted version for Minecraft 1.21.1.");
     }
 
     public static Map<String, String> describeBase(Map<String, String> installed) {

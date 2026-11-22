@@ -3,9 +3,7 @@
 import argparse
 import hashlib
 import json
-import os
 from pathlib import Path
-import shlex
 import shutil
 import signal
 import subprocess
@@ -13,34 +11,20 @@ import tempfile
 import time
 import tomllib
 
-from client_bootstrap import REPOSITORY, argument_file, mod_ids
+from client_bootstrap import REPOSITORY, argument_file, connector_bootstrap, packaged_bootstrap
 
 
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def packaged_command(root, java, clean):
-    moddev = REPOSITORY / 'build/moddev'
-
-    def runtime_library(path):
-        return not (str(REPOSITORY / 'build/classes') in path or str(REPOSITORY / 'build/resources') in path
-                    or mod_ids(Path(path)) - {'minecraft', 'neoforge'})
-
-    classpath = shlex.split((moddev / 'clientRunClasspath.txt').read_text())
-    for index, value in enumerate(classpath):
-        if index and classpath[index - 1] in ('-cp', '-classpath', '--class-path'):
-            classpath[index] = os.pathsep.join(path for path in value.split(os.pathsep) if runtime_library(path))
-    argument_file(root / 'classpath.args', classpath)
-    legacy = (moddev / 'clientLegacyClasspath.txt').read_text().splitlines()
-    (root / 'legacy-classpath.txt').write_text('\n'.join(path for path in legacy if runtime_library(path)) + '\n')
-    vm = shlex.split((moddev / 'clientRunVmArgs.txt').read_text())
-    vm = [value for value in vm if not value.startswith('-DlegacyClassPath.file=')]
-    vm.extend(['-DlegacyClassPath.file=' + str(root / 'legacy-classpath.txt'), '-Xms512M', '-Xmx2G',
-               '-Dconnector.clean.path=' + str(clean), '-Dskyweave_compat.probe.configuration=true',
-               '-Dskyweave_compat.probe.misc=true'])
+def packaged_command(root, java, clean=None, gameplay=True):
+    vm, program = packaged_bootstrap(root)
+    vm.extend(['-Xms512M', '-Xmx2G', '-Dskyweave_compat.probe.configuration=true'])
+    connector_bootstrap(vm, clean)
+    if gameplay:
+        vm.append('-Dskyweave_compat.probe.misc=true')
     argument_file(root / 'vm.args', vm)
-    program = shlex.split((moddev / 'clientRunProgramArgs.txt').read_text(), comments=True)
     argument_file(root / 'program.args', program)
     return [str(java), '@classpath.args', '@vm.args', 'net.neoforged.devlaunch.Main', '@program.args']
 
@@ -54,10 +38,12 @@ class Client:
 
     def until(self, predicate, reason):
         limit = min(self.deadline, time.monotonic() + 45)
-        while time.monotonic() < limit and self.process.poll() is None:
+        while time.monotonic() < limit:
             result = predicate()
             if result:
                 return result
+            if self.process.poll() is not None:
+                break
             time.sleep(.12)
         raise RuntimeError(f'{reason} (client exit {self.process.poll()})')
 
@@ -89,6 +75,20 @@ class Client:
     def click(self, label):
         return self.act('click', label=label)
 
+    def reveal(self, label, index=None):
+        """Scroll the native viewport; never bypass its clipping or click checks."""
+        for _ in range(12):
+            state = self.act('snapshot')
+            matches = [widget for widget in state['widgets'] if widget['label'] == label]
+            if (index is None and len(matches) != 1) or (index is not None and not 0 <= index < len(matches)):
+                raise RuntimeError(f'Expected one native control {label!r}, found {len(matches)}')
+            widget = matches[0 if index is None else index]
+            if widget['reachable']:
+                return
+            self.act('scroll', x=widget['x'] + widget['width'] / 2,
+                     y=state['height'] / 2, amount=-4 if widget['y'] >= state['height'] / 2 else 4)
+        raise RuntimeError(f'Native scrolling did not reveal {label!r}')
+
     def wait_active(self, label):
         return self.until(lambda: any(widget['label'] == label and widget['active']
                                       for widget in self.state().get('widgets', [])),
@@ -102,6 +102,15 @@ class Client:
             raise RuntimeError(f'Expected one native input with {before!r}: {[w["value"] for w in inputs]}')
         return self.act('field', index=matching[0], value=after)
 
+    def edit_field(self, path, before, after):
+        self.act('reform-focus-field', field=path)
+        inputs = [widget for widget in self.state()['widgets'] if 'value' in widget]
+        matches = [index for index, widget in enumerate(inputs)
+                   if widget.get('focused') and widget['value'] == before]
+        if len(matches) != 1:
+            raise RuntimeError(f'The selected native field {path!r} does not contain {before!r}')
+        return self.act('field', index=matches[0], value=after)
+
     def map(self):
         self.act('hoofprint-proof')
         return json.loads((self.root / 'hoofprint-observation.json').read_text())
@@ -111,20 +120,37 @@ class Client:
         self.wait_active(context)
         self.click(context)
         self.act('reform-catalog-proof')
-        self.field('', query, 'Search documents')
-        self.wait_active('Open')
-        self.click('Open')
+        self.act('reform-show-placement', id=query)
+        self.ready_editor()
+
+    def ready_editor(self):
+        def ready():
+            response = self.request('reform-editor-proof')
+            if response.get('error'):
+                return None
+            value = json.loads((self.root / 'reform-editor-proof.json').read_text())
+            return value if value['availability'] == 'READY' else None
+        return self.until(ready, 'the actual selected owner did not become ready')
 
     def navigate(self, query, actions=('Open', 'Resume')):
-        self.act('key', key=256)
+        if not self.state().get('screen', '').endswith('ClientEditingWorkflow$Overview'):
+            self.act('key', key=256)
         self.until(lambda: self.state().get('screen', '').endswith('ClientEditingWorkflow$Overview'),
                    'the retained editor did not return to its workflow')
-        search = [w for w in self.state()['widgets'] if w['label'] == 'Search documents'][0]
-        self.field(search['value'], query, 'Search documents')
-        action = self.until(lambda: next((w['label'] for w in self.state().get('widgets', [])
-                                         if w['active'] and w['label'] in actions), None),
-                            'the selected destination did not become available')
-        self.click(action)
+        catalog = self.proof('reform-catalog-proof', 'reform-catalog-proof.json')
+        if query in catalog['placementIds']:
+            self.act('reform-show-placement', id=query)
+            self.ready_editor()
+        elif query in {action['id'] for action in catalog['actions']}:
+            self.act('reform-reveal-operation', id=query, again='Run again…' in actions)
+            focused = [widget for widget in self.state()['widgets'] if widget.get('focused')]
+            if len(focused) != 1 or focused[0]['label'] not in ('Start…', 'View operation', 'Run again…'):
+                raise RuntimeError('The contributed operation did not focus its native action')
+            label = focused[0]['label']
+            matching = [widget for widget in self.state()['widgets'] if widget['label'] == label]
+            self.act('click', label=label, index=next(i for i, widget in enumerate(matching) if widget.get('focused')))
+        else:
+            raise ValueError('Select a declared placement or contributed operation')
 
     def proof(self, operation, filename):
         self.act(operation)
@@ -145,9 +171,7 @@ def verify_owner_surfaces(client, config):
     client.partial = observations
 
     client.open_form('skyweave_compat:files/world/dynamic_waters/watersheds')
-    client.wait_active('Item Speed')
-    client.click('Item Speed')
-    client.field('0.2', '0.35')
+    client.edit_field(['River Flow Speeds', 'itemSpeed'], '0.2', '0.35')
     assert native()[water_id] == before[water_id]
     client.wait_active('Save native settings')
     client.click('Save native settings')
@@ -158,9 +182,89 @@ def verify_owner_surfaces(client, config):
     observations['waterReceipt'] = client.proof('reform-receipt', 'reform-receipt.json')
     observations['waterFields'] = water[water_id]
 
+    def add_biome():
+        # Both lists render inline. Select the registered field, then use its
+        # focused real button rather than inventing a navigation row.
+        client.act('reform-focus-field', field=['Generation', 'biomeBlacklist'])
+        additions = [widget for widget in client.state()['widgets'] if widget['label'] == 'Add entry']
+        selected = [index for index, widget in enumerate(additions) if widget.get('focused')]
+        assert len(selected) == 1 and additions[selected[0]]['reachable'], additions
+        client.act('click', label='Add entry', index=selected[0])
+        client.until(lambda: any(widget['label'] == 'Entry 1' and widget.get('value') == ''
+                                 for widget in client.state()['widgets']),
+                     'The actual native list row did not mount its text control')
+        client.field('', 'minecraft:desert', 'Entry 1')
+
+    def remove_biome():
+        # Declaration order places the unchanged customEntitySpeeds row first.
+        client.act('reform-focus-field', field=['Generation', 'biomeBlacklist'])
+        removals = [widget for widget in client.act('snapshot')['widgets'] if widget['label'] == 'Remove']
+        assert len(removals) == 2, removals
+        client.reveal('Remove', index=1)
+        client.act('click', label='Remove', index=1)
+
+    def save_biomes(expected, stage):
+        baseline = native()[water_id]
+        source = config.parent / 'dynamicwaters-common.toml'
+        source_before = source.read_bytes()
+        stage()
+        for retry in range(2):
+            assert native()[water_id] == baseline
+            client.wait_active('Save native settings')
+            client.click('Save native settings')
+            attempt = client.until(lambda: value if (value := editor()).get('attemptTerminal')
+                                   and not value['busy'] else None, 'Native list save did not settle')
+            if not attempt.get('attemptRefused'):
+                assert attempt['persistence'] == 'SAVED', attempt
+                return client.until(lambda: value if (value := native())[water_id]['Generation.biomeBlacklist'] == expected else None,
+                                    'The real native list reader did not observe its saved value')
+            # A native file-watch reload retires the captured native identity.
+            # Exercise explicit reload/review, never bypass or silently retry it.
+            assert retry == 0 and attempt['persistence'] == 'REFUSED', attempt
+            assert 'code=native.context_changed' in attempt['persistenceReport'], attempt
+            assert 'Native source was reloaded; reload and review' in attempt['persistenceReport'], attempt
+            assert native()[water_id] == baseline and source.read_bytes() == source_before
+            observations.setdefault('nativeReloadRefusals', []).append(attempt)
+            client.click('More…')
+            client.reveal('Reload saved')
+            client.click('Reload saved')
+            client.wait_active('Review conflict…')
+            client.click('Review conflict…')
+            client.until(lambda: client.act('snapshot')['screen'].endswith('.ConflictScreen'),
+                         'The explicit native conflict review did not open')
+            client.until(lambda: any(widget['active'] and widget['label'] in ('Choose a value', 'Resolve draft')
+                                     for widget in client.act('snapshot')['widgets']),
+                         'The actual source comparison did not become ready')
+            selected = 0
+            for _ in range(64):
+                if not any(widget['label'] == 'Choose a value' for widget in client.act('snapshot')['widgets']):
+                    break
+                for label in ('Choose a value', 'Earlier saved value', 'Observed saved value'):
+                    client.reveal(label, index=0)
+                    client.act('click', label=label, index=0)
+                selected += 1
+            assert not any(widget['label'] == 'Choose a value' for widget in client.act('snapshot')['widgets'])
+            client.wait_active('Resolve draft')
+            client.click('Resolve draft')
+            client.until(lambda: client.act('snapshot')['screen'].endswith('ClientEditingWorkflow$Overview'),
+                         'The resolved native comparison did not return to its retained editor')
+            reviewed = editor()
+            assert reviewed['valid'] and reviewed['dirty']
+            assert reviewed['draft'] == attempt['draft']
+            assert native()[water_id] == baseline and source.read_bytes() == source_before
+            observations.setdefault('nativeReloadResolutions', []).append(dict(
+                selectedDraftChoices=selected, preservedDraft=True, sourceUnchanged=True))
+
+    listed = save_biomes(['minecraft:desert'], add_biome)
+    assert listed[water_id] == {**water[water_id], 'Generation.biomeBlacklist': ['minecraft:desert']}
+    restored = save_biomes([], remove_biome)
+    assert restored[water_id] == water[water_id], restored
+    observations['waterCollection'] = dict(saved=listed[water_id]['Generation.biomeBlacklist'], restored=[],
+                                           receipt=client.proof('reform-receipt', 'reform-receipt.json'))
+
     client.navigate('skyweave_compat:files/rendering/sky_archipelago/rendering_client/clouds.offset')
     client.until(lambda: any(w.get('value') == '0.0' for w in client.state().get('widgets', [])), 'cloud offset did not load')
-    client.field('0.0', '12.5')
+    client.edit_field(['clouds', 'offset'], '0.0', '12.5')
     first = editor()
     assert first['dirty'] and first['draft']['clouds']['offset'] == 12.5, first
     assert native()[render_id]['clouds.offset'] == 0
@@ -174,15 +278,13 @@ def verify_owner_surfaces(client, config):
     observations['sharedRendering'] = dict(first=first, second=second, native=rendering[render_id])
 
     client.navigate('skyweave_compat:files/world/sky_villages/villages')
-    client.wait_active('Minimum terrain gap')
-    client.click('Minimum terrain gap')
     source = config / 'skyweave_compat-common.toml'
     source_before = digest(source)
-    client.field('64', '129')
+    client.edit_field('minimumGap', '64', '129')
     invalid = client.until(lambda: value if not (value := editor())['valid'] else None,
                            'the complete village min/max rule did not reject the draft')
     assert digest(source) == source_before and native()[village_id] == before[village_id]
-    client.field('129', '65')
+    client.edit_field('minimumGap', '129', '65')
     client.wait_active('Save native settings')
     client.click('Save native settings')
     client.until(lambda: tomllib.loads(source.read_text())['minimumGap'] == 65, 'village native save did not complete')
@@ -192,8 +294,8 @@ def verify_owner_surfaces(client, config):
                                    native=native()[village_id], receipt=client.proof('reform-receipt', 'reform-receipt.json'))
 
     client.navigate('skyweave_compat:journal/images')
-    client.wait_active('true')
-    client.click('true')
+    client.act('reform-focus-field', field='itemImages')
+    client.act('reform-field-click', field='itemImages')
     staged = editor()
     assert staged['draft']['itemImages'] is False and staged['dirty'], staged
     assert native()[journal_id]['itemImages'] is True
@@ -214,6 +316,17 @@ def verify_owner_surfaces(client, config):
     assert refused['dirty'] and refused.get('attemptRefused'), refused
     assert journal_source.read_bytes() == journal_bytes and native()[journal_id] == current
     observations['journal'] = dict(staged=staged, shortcut=shortcut, native=current, retained=retained, refusal=refused)
+    client.navigate('skyweave_compat:files/maps/skyweave_compat/wayfinder_client')
+    client.act('reform-focus-field', field='debugMessages')
+    client.act('reform-field-click', field='debugMessages')
+    debug_id = 'skyweave_compat:wayfinder_client'
+    assert native()[debug_id]['debugMessages'] is False
+    client.wait_active('Save native settings')
+    client.click('Save native settings')
+    debug = client.until(lambda: value if (value := native())[debug_id]['debugMessages'] is True else None,
+                         'The actual client debug preference reader did not change')
+    observations['wayfinderDebug'] = dict(native=debug[debug_id], receipt=client.proof('reform-receipt', 'reform-receipt.json'),
+                                          scope='Native CLIENT preference reader; operator-message transport is unchanged and not exercised here')
     return observations
 
 
@@ -265,8 +378,6 @@ def verify(client, config, migrated):
     initial = digest(config)
     if migrated:
         client.open_form('skyweave_compat:files/maps/hoofprint/hoofprint_zoom')
-        client.wait_active('Maximum zoom')
-        client.click('Maximum zoom')
         client.until(lambda: any(w.get('value') == '32' for w in client.state().get('widgets', [])),
                      'the authored bare JSON did not load in the shared form')
     else:
@@ -275,7 +386,10 @@ def verify(client, config, migrated):
         client.wait_active('Hoofprint')
         client.click('Hoofprint')
     save = 'Save and apply' if migrated else 'Save changes'
-    client.field('32', '0.75')
+    if migrated:
+        client.edit_field('zoomMaximum', '32', '0.75')
+    else:
+        client.field('32', '0.75')
     client.wait_active(save)
     assert digest(config) == initial, 'staging changed the source'
     client.click(save)
@@ -288,9 +402,12 @@ def verify(client, config, migrated):
         assert receipt['persistence'] == 'SAVED' and receipt['application'] == 'APPLIED', receipt
         assert Path(receipt['source']).resolve() == config.resolve(), receipt
         assert receipt['savedRevision'] == 'sha256:' + digest(config), receipt
+        client.click('Done')
+        client.until(lambda: client.state().get('screen', '').endswith('ClientSettingsMenus$ContextScreen'),
+                     'the retained local workspace did not close')
+        client.click('Done')
+    else:
         client.act('key', key=256)
-        client.act('key', key=256)
-    client.act('key', key=256)
     after = client.map()
     assert after['connectionIdentity'] == live_connection, after
     assert after['preferences'] == saved and saved['zoomMaximum'] == .75, after
@@ -309,12 +426,10 @@ def verify_terrain_pair(client, config):
     before = {path.name: digest(path) for path in (generation, shapes)}
     original = json.loads(generation.read_text())
     client.open_form('skyweave_compat:files/world/sky_archipelago/generation')
-    client.wait_active('Cluster spacing')
-    client.click('Cluster spacing')
     previous = str(original['spacing'])
     client.until(lambda: any(w.get('value') == previous for w in client.state().get('widgets', [])),
                  'the authored generation profile did not load in the shared form')
-    client.field(previous, str(original['spacing'] + 100))
+    client.edit_field('spacing', previous, str(original['spacing'] + 100))
     review_action = 'Review Generation and shapes…'
     client.wait_active(review_action)
     assert digest(generation) == before[generation.name]
@@ -350,11 +465,9 @@ def verify_integrated_policy(client, config):
     original = effective()
     assert before == original['wayfinder'], original
     client.open_form('skyweave_compat:server/wayfinder', 'Running singleplayer server')
-    client.wait_active('Query work per tick')
-    client.click('Query work per tick')
     client.until(lambda: any(w.get('value') == str(before['stepsPerTick']) for w in client.state().get('widgets', [])),
                  'integrated re:form did not load the saved Wayfinder policy')
-    client.field(str(before['stepsPerTick']), '128')
+    client.edit_field('stepsPerTick', str(before['stepsPerTick']), '128')
     client.wait_active('Save and apply')
     assert digest(path) == original_hash and effective()['wayfinder'] == before
     client.click('Save and apply')
@@ -375,8 +488,8 @@ def verify_startup_property(client, config):
     path = config / 'skyweave_compat-features.properties'
     before = path.read_bytes()
     client.open_form('skyweave_compat:features/navigation.wayfinder')
-    client.wait_active('true')
-    client.click('true')
+    client.act('reform-focus-field', field='navigation.wayfinder')
+    client.act('reform-field-click', field='navigation.wayfinder')
     client.wait_active('Save for restart')
     assert path.read_bytes() == before
     client.click('Save for restart')
@@ -415,10 +528,12 @@ def verify_native_preferences(client, config):
     catalog = json.loads((client.root / 'reform-catalog-proof.json').read_text())
     assert {owner['route'] for owner in catalog['owners']} == set(catalog['expectedRoutes']), catalog
     assert catalog['documents'] == len(catalog['expectedRoutes']) and catalog['placements'] > 120, catalog
-    assert all(not owner['opened'] for owner in catalog['owners']), catalog
+    # The retained workspace initially displays startup switches. Other owners
+    # remain unopened until the explicit native-document selection.
+    assert {owner['route'] for owner in catalog['owners'] if owner['opened']} == {'skyweave_compat:features'}, catalog
     client.navigate('skyweave_compat:files/machines/redstone_link_gui/link_gui_common')
     client.until(lambda: any(w.get('value') == '24' for w in client.state().get('widgets', [])), 'native COMMON input did not load')
-    client.field('24', '25')
+    client.edit_field('moveRange', '24', '25')
     assert native() == changed
     client.wait_active('Save native settings')
     client.click('Save native settings')
@@ -468,7 +583,7 @@ def main():
             (root / marker).write_text('{}\n')
         (root / 'options.txt').write_text('onboardAccessibility:false\nguiScale:2\nfullscreen:false\n'
                                          'overrideWidth:1024\noverrideHeight:768\n'
-                                         'renderDistance:2\nsimulationDistance:2\nmaxFps:40\n')
+                                         'renderDistance:2\nsimulationDistance:5\nmaxFps:40\n')
         config = root / 'config/skyweave/skyweave_compat-hoofprint.json'
         config.parent.mkdir(parents=True)
         config.write_text('{"zoomMinimum":0.125,"zoomMaximum":32,"zoomInitial":0,"zoomStep":1.25}\n')
@@ -533,7 +648,7 @@ def main():
 
 
 def stop(_signum, _frame):
-    raise InterruptedError('Fixture stopped on loss of desktop access')
+    raise InterruptedError('Fixture interrupted by signal ' + str(_signum))
 
 
 if __name__ == '__main__':

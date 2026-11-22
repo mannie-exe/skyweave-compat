@@ -26,13 +26,13 @@ The standalone server and client probes are separate artifacts and never release
 | ------------------------------------------------------------------ | ------------------------------------------------- |
 | Optional admission, dependency updates, and retirement             | [Adapter maintenance](adapters.md)                |
 | Settings definitions, storage, commands, and native callbacks      | [Configuration](configuration.md)                 |
+| IPN shortcut ownership, text focus, and native input boundaries    | [Input ownership](input.md)                       |
 | Island geometry, geological frames, structures, and saved identity | [Island generation](terrain.md)                   |
 | Shapes, ocean admission, and metadata discovery                    | [Terrain variation](terrain-variation.md)         |
 | Targeting, search, teleport validation, and connection lifetimes   | [Wayfinder](wayfinder.md)                         |
 | DH lifecycle, cache, and optional data boundaries                  | [DH integration](lod.md)                          |
 | BlueMap's optional terrain view                                    | [BlueMap](bluemap.md)                             |
 | Client renderers, shaders, and item/model handoffs                 | [Rendering](rendering.md)                         |
-| Combat Nouveau, Punchy, and Moves presentation                     | [Attack presentation](combat.md)                  |
 | Patrols, spawners, and Murk water rules                            | [Encounters](encounters.md)                       |
 | Journal presentation, notifications, and rewards                   | [Questlog](questlog.md)                           |
 | Live map zoom and the Connector boundary                           | [Hoofprint](hoofprint.md)                         |

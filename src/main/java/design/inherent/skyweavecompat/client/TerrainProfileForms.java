@@ -2,13 +2,10 @@ package design.inherent.skyweavecompat.client;
 
 import design.inherent.reform.definition.DocumentDefinition;
 import design.inherent.reform.definition.DocumentId;
-import design.inherent.reform.definition.FieldPath;
-import design.inherent.reform.neoforge.client.ClientFileSettings;
-import design.inherent.reform.neoforge.client.ClientForm;
-import design.inherent.reform.neoforge.client.ClientWorkflowLayout;
+import design.inherent.reform.minecraft.client.ClientFileSettings;
+import design.inherent.reform.minecraft.client.ClientForm;
+import design.inherent.reform.minecraft.client.ClientWorkflowLayout;
 import design.inherent.reform.owner.FileOwner;
-import design.inherent.reform.presentation.FormCatalog;
-import design.inherent.reform.presentation.FormPresentation;
 import design.inherent.skyweavecompat.configuration.JsonSettings;
 import design.inherent.skyweavecompat.configuration.ProfileEditPlan;
 import design.inherent.skyweavecompat.configuration.ReformDocuments;
@@ -46,15 +43,9 @@ final class TerrainProfileForms {
 
     private static <T> ClientForm profile(IEventBus bus, ModContainer container, String name, DocumentDefinition<T> definition) {
         var store = ReformDocuments.json(FMLPaths.CONFIGDIR.get(), name, definition);
-        var binding = ClientFileSettings.newWorldDefaultsFile(bus, container, store, FileOwner.Initialization.DEFER_MISSING);
+        var binding = ClientFileSettings.newWorldDefaultsFile(design.inherent.reform.neoforge.client.NeoForgeClientRegistration.of(bus, container), store, FileOwner.Initialization.DEFER_MISSING);
         var entry = SettingsCatalog.file(name);
-        var sections = JsonSettings.find(name).fields().stream().map(field -> {
-            var path = FieldPath.ROOT;
-            for (String segment : field.key().split("\\.")) path = path.field(segment);
-            String key = KEY + "field." + entry.help() + "." + field.key();
-            return new FormCatalog.Section(path, key, Component.translatableWithFallback(key, field.key()).getString(),
-                    Component.translatableWithFallback(key + ".help", "").getString());
-        }).toList();
-        return binding.form(Component.translatable(entry.labelKey()), FormPresentation.EMPTY.withCatalog(new FormCatalog(sections)));
+        var source = JsonSettings.find(name);
+        return new SettingsReferenceSources<>(binding, source).form(Component.translatable(entry.labelKey()), SettingsPresentation.json(source));
     }
 }

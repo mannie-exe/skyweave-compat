@@ -35,6 +35,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
     public String describe(Feature feature) {
         var contracts = new java.util.TreeMap<>(dependencies(feature));
         if (feature == Feature.WAYFINDER && installed.containsKey("sable")) contracts.put("sable", "2.0.6");
+        if (feature == Feature.IPN_TEXT_INPUT && installed.containsKey("emi")) contracts.put("emi", "1.1.24+1.21.1+neoforge");
         if (feature == Feature.LINEAR_BOOTSTRAP && installed.containsKey("linearbearingsfix")) contracts.put("linearbearingsfix", "1.0.3");
         if (feature == Feature.YUNG_STRUCTURES)
             for (var target : design.inherent.skyweavecompat.configuration.YungReplacementBindings.TARGETS)
@@ -67,6 +68,8 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             }
             if (feature == Feature.WAYFINDER && mods.containsKey("sable") && !mods.get("sable").equals("2.0.6"))
                 throw DependencyVersions.unsupported(feature, "sable", DependencyVersions.exact("2.0.6"), mods.get("sable"));
+            if (feature == Feature.IPN_TEXT_INPUT && mods.containsKey("emi") && !mods.get("emi").equals("1.1.24+1.21.1+neoforge"))
+                throw DependencyVersions.unsupported(feature, "emi", DependencyVersions.exact("1.1.24+1.21.1+neoforge"), mods.get("emi"));
             for (var entry : new java.util.TreeMap<>(required).entrySet()) {
                 String version = mods.get(entry.getKey()), expected = entry.getValue();
                 var contract = DependencyVersions.contract(entry.getKey(), expected);
@@ -111,7 +114,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
 
     public static boolean clientOnly(Feature feature) {
         return switch (feature) {
-            case WAYFINDER_DH, MAIN_MENU_IDENTITY, CREATE_COPYCAT_BACKFACES, COPYCATS_BACKFACES, MOVES_TOUCH_MOTION, HAND_EFFECTS, HELD_MATERIALS, MODEL_ROTATIONS, ITEM_DEFINITIONS, CONSTRUCT_COVERAGE, CN_PUNCHY, CN_MOVES -> true;
+            case WAYFINDER_DH, MAIN_MENU_IDENTITY, IPN_TEXT_INPUT, MOVES_KEY_MODIFIERS, EFFORTLESS_KEY_MODIFIERS, POWER_GRID_KEY_MODIFIERS, CREATE_COPYCAT_BACKFACES, COPYCATS_BACKFACES, MOVES_TOUCH_MOTION, HAND_EFFECTS, HELD_MATERIALS, MODEL_ROTATIONS, ITEM_DEFINITIONS, CONSTRUCT_COVERAGE -> true;
             case HOOFPRINT_ZOOM, ISLAND_CLOUDS, ISLAND_VOID, ISLAND_SHADER_ENVIRONMENT, CONFECTIONERY_BACKFACES, BUBBLE_GUM_BACKFACES, ORNATE_GRATE_BACKFACES, INDUSTRIAL_GRATING_BACKFACES, MACAW_GLASS, CONSTRUCT_DISTANCE, CONSTRUCT_OCCLUSION, SHADER_PATCHES, TEXT_DISPLAY_LIGHTING, NAMETAG_LIGHTING, TEXT_DISPLAY_SHADOW, NAMETAG_SHADOW, CREATE_BACKFACES, FUSION_BACKFACES, CREATE_WINDOWS, RECHISELED_GLASS, AUDIO_TIMELINE, LINEAR_PONDER, COLORWHEEL_SAMPLERS, COLORWHEEL_MATERIALS, LIGHTING_LIFECYCLE, SODIUM_LIGHTING, DH_HANDOFF, FRAMEBUFFER, BALLOON, MATERIAL_IDS, MODEL_DATA, SINGLE_BLOCK_PASSES,
                     FTB_CREATIVE_RETURN, QUESTLOG_INTERFACE, QUESTLOG_NOTIFICATIONS -> true;
             default -> false;
@@ -121,14 +124,16 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
     public static Map<String, String> dependencies(Feature feature) {
         return switch (feature) {
             case MAIN_MENU_IDENTITY -> Map.of();
+            case IPN_TEXT_INPUT -> Map.of("inventoryprofilesnext", "2.2.5", "libipn", "6.6.3");
+            case MOVES_KEY_MODIFIERS -> Map.of("punchy_moves", "1.0.9");
+            case EFFORTLESS_KEY_MODIFIERS -> Map.of("effortlessbuilding", "4.2");
+            case POWER_GRID_KEY_MODIFIERS -> Map.of("powergrid", "0.6.2");
             case MODEL_ROTATIONS, ITEM_DEFINITIONS -> Map.of("modefite", "1.0.1+1.21.1");
             case PATROL_CHANCE -> Map.of();
             case VARIANT_SPAWNERS -> Map.of("variantsandventures", "1.0.30");
             case VARIANT_TRIAL_ALIASES -> Map.of("variantsandventures","1.0.30","lithostitched","1.8.1");
             case MURK_WATER -> Map.of("variantsandventures", "1.0.30", "sky_archipelago", "1.4");
             case MOVES_TOUCH_MOTION -> Map.of("punchy_moves", "1.0.9", "touch_n_motion", "1.0.5");
-            case CN_PUNCHY -> Map.of("combatnouveau", "21.1.2", "puzzleslib", "21.1.65", "punchy", "3.2b");
-            case CN_MOVES -> Map.of("combatnouveau", "21.1.2", "puzzleslib", "21.1.65", "punchy_moves", "1.0.9");
             case HELD_MATERIALS -> Map.of("iris", "1.8.14-beta.1+mc1.21.1", "punchy", "3.2b");
             case HAND_EFFECTS -> Map.of("iris", "1.8.14-beta.1+mc1.21.1", "hmioutline", "2.4.0+mc1.21.1");
             case BETTER_VILLAGE_CONFIG -> Map.of("bettervillage", "3.3.1", "libraryferret", "4.0.0");
@@ -214,8 +219,16 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                         "client.definitions.DefinitionBindingMixin", "client.definitions.DefinitionRegistryMixin",
                         "client.definitions.DefinitionResolverMixin", "client.definitions.DefinitionRenderingMixin");
                 case MOVES_TOUCH_MOTION -> List.of("client.MovesTouchMotionApiMixin", "client.TouchMotionCapeInvoker");
-                case CN_PUNCHY -> List.of("client.combat.PunchyAttackBindingMixin", "client.combat.PunchyAttackConsumerMixin", "client.combat.PunchyPlaybackPacingMixin");
-                case CN_MOVES -> List.of("client.combat.MovesAdmittedAttackMixin", "client.combat.MovesLocalInputMixin", "client.combat.MovesPlaybackPacingMixin");
+                case IPN_TEXT_INPUT -> List.of("client.input.IpnKeybindMixin", "client.input.IpnInputDispatchMixin", "client.input.IpnInventoryInputMixin", "client.input.RecipeSearchAccess", "client.input.IpnWindowMixin", "client.input.IpnContainerAccess");
+                case MOVES_KEY_MODIFIERS -> List.of("client.input.MovesBindingsMixin", "client.input.MovesKeyboardScopeMixin",
+                        "client.input.MovesPerspectiveDispatchMixin", "client.input.MovesNativePerspectiveMixin", "client.input.MovesSavedModifiersMixin",
+                        "client.input.MovesEmoteAccess", "client.input.MovesEmoteActivityMixin", "client.input.MovesKeyReleaseAccess");
+                case POWER_GRID_KEY_MODIFIERS -> List.of("client.input.PowerGridBindingsMixin", "client.input.PowerGridRegistrationMixin",
+                        "client.input.PowerGridEditorMixin", "client.input.PowerGridWireAccess", "client.input.PowerGridKeyAccess",
+                        "client.input.PowerGridDispatchMixin", "client.input.PowerGridWindowMixin");
+                case EFFORTLESS_KEY_MODIFIERS -> List.of("client.input.EffortlessHistoryMixin", "client.input.EffortlessKeysAccess", "client.input.EffortlessHeldMixin",
+                        "client.input.EffortlessKeyboardMixin", "client.input.EffortlessMouseMixin", "client.input.EffortlessRadialMixin",
+                        "client.input.EffortlessWindowMixin");
                 case HELD_MATERIALS -> List.of("client.materials.MaterialHandsAccess", "client.materials.MaterialIrisMixin",
                         "client.materials.MaterialPunchyMixin", "client.materials.MaterialItemMixin");
                 case HAND_EFFECTS -> List.of("client.OutlineLayersAccess", "client.OutlineGlowAccess", "client.OutlineMoldAccess",
@@ -338,8 +351,6 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
         if (enabled(Feature.TERRAIN) || enabled(Feature.WAYFINDER)) result.add("StructureSearchCacheAccess");
         if (enabled(Feature.TERRAIN) || enabled(Feature.VILLAGE_PLACEMENT)) result.add("PlacementSaltAccessor");
         if (enabled(Feature.STRUCTURE_LOCATION) || enabled(Feature.YUNG_STRUCTURES)) result.add("StructureLocateCheckMixin");
-        if (client && (enabled(Feature.CN_PUNCHY) || enabled(Feature.CN_MOVES)))
-            result.addAll(List.of("client.combat.NativeAttackScopeMixin", "client.combat.NativeCriticalResultMixin", "client.combat.NativeRetainedMissMixin"));
         if (client && (enabled(Feature.CONSTRUCT_DISTANCE) || enabled(Feature.CONSTRUCT_OCCLUSION)))
             result.addAll(List.of("client.ConstructDrawMixin", "client.ConstructBufferMixin", "client.ConstructProgramMixin"));
         if (client && enabled(Feature.CLIMATE)) result.addAll(List.of("client.WeatherClimateMixin", "client.ChunkClimateMixin"));

@@ -2,6 +2,7 @@ package design.inherent.skyweavecompat.encounters;
 
 import design.inherent.skyweavecompat.configuration.RecordSettings;
 import design.inherent.skyweavecompat.configuration.SettingSpec;
+import design.inherent.skyweavecompat.configuration.SettingIssue;
 import java.util.List;
 
 /** Server-owned encounter policy. Rule slots name the six existing V&V mappings. */
@@ -23,12 +24,15 @@ public record EncounterProfile(
         public Rules {
             if (husk==null || gelid==null || thicket==null || stray==null || bogged==null || verdant==null)
                 throw new IllegalArgumentException("Missing spawner rule");
-            unique(List.of(husk,gelid,thicket)); unique(List.of(stray,bogged,verdant));
+            unique(List.of("husk", "gelid", "thicket"), List.of(husk,gelid,thicket));
+            unique(List.of("stray", "bogged", "verdant"), List.of(stray,bogged,verdant));
         }
-        private static void unique(List<Rule> rules) {
-            if (rules.stream().filter(Rule::enabled).map(Rule::priority).distinct().count()
-                    != rules.stream().filter(Rule::enabled).count())
-                throw new IllegalArgumentException("Enabled rules in one family need distinct priorities");
+        private static void unique(List<String> names, List<Rule> rules) {
+            for (int i = 0; i < rules.size(); i++) for (int j = 0; j < i; j++)
+                if (rules.get(i).enabled() && rules.get(j).enabled() && rules.get(i).priority() == rules.get(j).priority())
+                    throw SettingIssue.invalid("encounter_priority_collision", "spawners.rules." + names.get(i) + ".priority",
+                            "Enabled " + names.get(i) + " and " + names.get(j) + " rules need distinct priorities",
+                            "spawners.rules." + names.get(j) + ".priority");
         }
     }
     public record Spawners(Mode mode,

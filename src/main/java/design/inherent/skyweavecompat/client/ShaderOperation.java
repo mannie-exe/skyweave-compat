@@ -1,8 +1,8 @@
 package design.inherent.skyweavecompat.client;
 
 import design.inherent.reform.definition.DocumentId;
-import design.inherent.reform.neoforge.client.ClientWorkflowLayout;
-import design.inherent.reform.neoforge.client.OperationScreen;
+import design.inherent.reform.minecraft.client.ClientWorkflowLayout;
+import design.inherent.reform.minecraft.client.OperationScreen;
 import design.inherent.reform.operation.OperationDescriptor;
 import design.inherent.reform.operation.OperationScope;
 import design.inherent.reform.owner.OwnerContext;

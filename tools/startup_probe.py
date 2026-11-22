@@ -5,7 +5,6 @@ import hashlib
 import json
 import re
 import select
-import socket
 import shutil
 import subprocess
 import sys
@@ -28,12 +27,11 @@ def main():
                                              'unsupported-disabled', 'unsupported-enabled', 'questlog', 'questlog-disabled', 'jade', 'macaw', 'macaw-disabled'], required=True)
     parser.add_argument('--mod', type=Path)
     parser.add_argument('--extra-mod', type=Path, action='append', default=[], help='Additional explicit read-only artifacts for a bounded startup boundary')
-    parser.add_argument('--reform-metadata-version', choices=['0.1.99', '0.2.0-rc.1'],
+    parser.add_argument('--reform-metadata-version', choices=['0.2.0', '0.2.99', '0.3.0-rc.1'],
                         help='Standalone fixture only: alter the copied library metadata, preserving its bytecode; this tests admission, not a future binary')
     parser.add_argument('--output', type=Path, help='New owned evidence directory; preserve other probe reports')
     parser.add_argument('--fixture-config', type=Path, help='Explicit read-only config tree for this disposable fixture')
     parser.add_argument('--capture-config', action='store_true', help='Retain bounded generated fixture configs with the evidence')
-    parser.add_argument('--combat-network', type=Path, help='Owned standalone --serve combat scene; read CN rules from this pack')
     parser.add_argument('--resource-patches', type=Path, help='Read-only candidate resource JAR for full/all-disabled fixtures')
     parser.add_argument('--configuration-pack', type=Path, help='Authored common/server settings for the owned full served fixture')
     parser.add_argument('--serve', action='store_true', help='Keep an owned loopback server running; forward console input until stop')
@@ -48,8 +46,6 @@ def main():
         parser.error('--reform-metadata-version requires standalone')
     if args.scenario == 'unsupported-enabled' and len(args.enable) > 1:
         parser.error('An unsupported-enabled fixture must select one refusal owner')
-    if args.combat_network and (not args.serve or args.scenario != 'standalone'):
-        parser.error('--combat-network requires standalone --serve')
     if args.resource_patches:
         if args.scenario not in {'full','all-disabled'} or args.configuration_pack:
             parser.error('--resource-patches requires full/all-disabled without --configuration-pack')
@@ -178,15 +174,6 @@ def main():
                                               'sourceSha256': selected[library.name],
                                               'scope': 'metadata only; original library code and other resources unchanged'}
             selected[library.name] = hashlib.sha256(library.read_bytes()).hexdigest()
-        if args.combat_network:
-            (run / 'owned-combat-network.json').write_text('{"owner":"startup_probe.py"}\n')
-            probe = ROOT / 'build/probe/skyweave-compat-probe.jar'
-            if not probe.is_file():
-                parser.error('Build probeJar before the network scene')
-            copy_owned(probe, run / 'mods' / probe.name, run)
-            selected[probe.name] = hashlib.sha256(probe.read_bytes()).hexdigest()
-            for source in (args.combat_network / 'overrides/common/config').glob('combatnouveau-*.toml'):
-                copy_owned(source, run / 'config' / source.name, run)
         if args.scenario in {'all-disabled', 'terrain-disabled', 'unsupported-disabled', 'questlog-disabled', 'macaw-disabled'}:
             keys = re.findall(r'\("([a-z_]+\.[a-z_]+)"', (ROOT / 'src/main/java/design/inherent/skyweavecompat/Feature.java').read_text())
             (run / 'config/skyweave/skyweave_compat-features.properties').write_text(''.join(f'{key}=false\n' for key in keys))
@@ -244,9 +231,6 @@ def main():
         report['replayInputs']=stage_replay(None,args.replay_dh,run,args.seed)
         report['worldPreset']=preset
         port = 0
-        if args.combat_network:
-            with socket.socket() as listener:
-                listener.bind(('127.0.0.1', 0)); port = listener.getsockname()[1]
         (run / 'server.properties').write_text(
             f'server-ip=127.0.0.1\nserver-port={port}\nonline-mode=false\nlevel-name=probe-world\n'
             f'level-type={preset}\ngenerate-structures=false\nview-distance=2\nsimulation-distance=2\nmax-tick-time=0\n'
@@ -254,9 +238,6 @@ def main():
             + ('difficulty=peaceful\ngamemode=creative\n' if args.serve else ''))
         command = [args.java, '-Xmx'+args.heap, '-XX:+ExitOnOutOfMemoryError', '-Dmixin.debug.export=true', '-Dmixin.debug.verbose=true',
                    '@' + str(launch[0]), 'nogui']
-        if args.combat_network:
-            command.insert(4, '-Dneighbors.probe.combatNetwork=true')
-            command.insert(5, '-Dneighbors.probe.output=' + str(run / 'combat-network-server.json'))
         report['command'] = command
         log_path = output / f'startup-{args.scenario}.log'
         started = time.monotonic()
@@ -303,9 +284,6 @@ def main():
                       generated_config=sorted(p.name for p in (run / 'config').iterdir()))
         report['generated_config_files'] = sorted(str(path.relative_to(run / 'config'))
                                                 for path in (run / 'config').rglob('*') if path.is_file())
-        if args.combat_network:
-            result_file = run / 'combat-network-server.json'
-            report['combatNetwork'] = json.loads(result_file.read_text()) if result_file.exists() else {'complete': False}
         inactive = args.scenario in {'all-disabled', 'terrain-disabled', 'unsupported-disabled', 'questlog-disabled', 'macaw-disabled'}
         report['passed'] = (done and process.returncode == 0 and bool(report['active_lines'])
                             and (not inactive or (not references and any('adaptations: []' in line for line in report['active_lines']))))
@@ -328,14 +306,10 @@ def main():
             report['passed'] = (done and process.returncode == 0 and
                 (not references if args.without_compat else sorted(references) == sorted(expected)
                  and any('PATROL_CHANCE' in line and 'WAYFINDER' in line for line in report['active_lines'])))
-            if args.reform_metadata_version == '0.2.0-rc.1':
+            if args.reform_metadata_version == '0.3.0-rc.1':
                 report['passed'] = (not done and not report['active_lines']
                                     and 'reform: developed against ' in text
-                                    and 'installed 0.2.0-rc.1' in text)
-        if args.combat_network:
-            report['passed'] = report['passed'] and report['combatNetwork'].get('complete') is True
-            side = run / 'combat-network-server.json.dist.json'
-            report['combatSideLoading'] = json.loads(side.read_text()) if side.exists() else None
+                                    and 'installed 0.3.0-rc.1' in text)
         if args.capture_config:
             configs = sorted(path for path in (run / 'config').rglob('*') if path.is_file())
             if len(configs) > 64 or sum(path.stat().st_size for path in configs) > 4 * 1024 * 1024:

@@ -85,6 +85,10 @@ class ReformStartupTest {
         var path = properties(feature.key + "=false\n");
         var active = FeatureSettings.read(new StringReader(Files.readString(path)));
         var store = ReformDocuments.startup(root, active, Map.of("ftblibrary", "9.0"), true);
+        // Definition defaults must stay valid when explicit false admits an otherwise
+        // unsupported optional dependency. A field's omitted-key fallback is distinct.
+        assertTrue(feature.defaultEnabled);
+        assertFalse(store.definition().defaults().enabled(feature));
         var draft = store.read().draft().orElseThrow();
         assertFalse(store.inspectDraft(edit(draft, feature, true)).report().valid());
         assertEquals(feature.key + "=false\n", Files.readString(path));

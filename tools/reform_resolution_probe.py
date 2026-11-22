@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check the default re:form release resolver in a disposable clean source checkout."""
+"""Check the default re:form resolver using a committed or explicit working-tree snapshot."""
 import argparse
 from contextlib import ExitStack
 import hashlib
@@ -16,6 +16,7 @@ import threading
 
 REPOSITORY = Path(__file__).resolve().parents[1]
 RELEASE_URL = 'https://github.com/mannie-exe/reform/releases/download'
+MODULE = 'reform-neoforge-1.21.1'
 INIT = '''
 gradle.projectsEvaluated {
     def p = gradle.rootProject
@@ -34,12 +35,12 @@ gradle.projectsEvaluated {
         doLast {
             def version = p.providers.gradleProperty('reform_version').get()
             def artifact = p.configurations.compileClasspath.resolvedConfiguration.resolvedArtifacts.find {
-                it.moduleVersion.id.group == 'design.inherent' && it.name == 'reform'
+                it.moduleVersion.id.group == 'design.inherent' && it.name == 'reform-neoforge-1.21.1'
             }
             assert artifact != null && artifact.moduleVersion.id.version == version
             def digest = java.security.MessageDigest.getInstance('SHA-256').digest(artifact.file.bytes).encodeHex().toString()
             assert digest == System.getenv('REFORM_CANDIDATE_SHA256')
-            def result = [coordinate: "design.inherent:reform:${version}", file: artifact.file.name, sha256: digest,
+            def result = [coordinate: "design.inherent:reform-neoforge-1.21.1:${version}", file: artifact.file.name, sha256: digest,
                           repository: repo.url.toString(), publicOnly: publicOnly]
             p.layout.buildDirectory.file('reform-resolution.json').get().asFile.with {
                 parentFile.mkdirs(); text = groovy.json.JsonOutput.toJson(result)
@@ -50,28 +51,59 @@ gradle.projectsEvaluated {
 '''
 
 
+def snapshot_working_tree(repository, destination):
+    """Include selected uncommitted sources while excluding ignored build and host data."""
+    names = subprocess.check_output(['git', 'ls-files', '--cached', '--others', '--exclude-standard', '-z'],
+                                    cwd=repository).split(b'\0')
+    manifest = {}
+    for name in sorted(set(filter(None, names))):
+        relative = Path(os.fsdecode(name))
+        source = repository / relative
+        if source.is_symlink():
+            raise ValueError(f'Source snapshot requires a regular file: {relative}')
+        if not source.exists():
+            continue
+        if not source.is_file():
+            raise ValueError(f'Source snapshot requires a regular file: {relative}')
+        target = destination / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+        manifest[relative.as_posix()] = hashlib.sha256(target.read_bytes()).hexdigest()
+    encoded = json.dumps(manifest, sort_keys=True, separators=(',', ':')).encode()
+    return dict(files=len(manifest), sha256=hashlib.sha256(encoded).hexdigest(),
+                buildInputs={name: manifest[name] for name in ('build.gradle', 'gradle.properties')})
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--library', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--public', action='store_true', help='Use the declared public release repository without a local mirror')
+    parser.add_argument('--working-tree', action='store_true', help='Snapshot current nonignored sources for an unpublished local-mirror check')
     args = parser.parse_args()
     if args.output.exists():
         parser.error('Choose a new receipt path')
+    if args.public and args.working_tree:
+        parser.error('Public release verification requires committed source')
     source = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=REPOSITORY, text=True).strip()
-    archive = subprocess.check_output(['git', 'archive', '--format=tar', source], cwd=REPOSITORY)
+    archive = None if args.working_tree else subprocess.check_output(
+        ['git', 'archive', '--format=tar', source], cwd=REPOSITORY)
     jar = args.library.resolve(strict=True)
     digest = hashlib.sha256(jar.read_bytes()).hexdigest()
     requests = []
-    evidence = dict(source=source, librarySha256=digest, releaseUrl=RELEASE_URL,
+    evidence = dict(source=source, sourceSelection='working-tree' if args.working_tree else 'committed',
+                    librarySha256=digest, releaseUrl=RELEASE_URL,
                     qualification=('Public release resolution with no development override or loopback repository.' if args.public else
                                    'Local mirror proves default resolver mechanics and exact candidate bytes; public release availability is not exercised.'))
     with tempfile.TemporaryDirectory(prefix='skyweave-reform-resolution-') as temporary:
         root = Path(temporary)
         checkout = root / 'checkout'
         checkout.mkdir()
-        with tarfile.open(fileobj=io.BytesIO(archive)) as bundle:
-            bundle.extractall(checkout, filter='data')
+        if args.working_tree:
+            evidence['sourceSnapshot'] = snapshot_working_tree(REPOSITORY, checkout)
+        else:
+            with tarfile.open(fileobj=io.BytesIO(archive)) as bundle:
+                bundle.extractall(checkout, filter='data')
         properties = dict(line.split('=', 1) for line in (checkout / 'gradle.properties').read_text().splitlines()
                           if '=' in line and not line.startswith('#'))
         version = properties['reform_version']
@@ -112,7 +144,7 @@ def main():
                                 command=['./gradlew', '--no-daemon', '--init-script', '<public-verification>' if args.public else '<local-mirror-only>', 'verifyCandidateDependency'])
                 result.check_returncode()
                 resolved = json.loads((checkout / 'build/reform-resolution.json').read_text())
-                assert resolved['coordinate'] == f'design.inherent:reform:{version}' and resolved['sha256'] == digest, resolved
+                assert resolved['coordinate'] == f'design.inherent:{MODULE}:{version}' and resolved['sha256'] == digest, resolved
                 if args.public:
                     assert resolved['repository'] == RELEASE_URL and resolved['publicOnly'], resolved
                     assert not requests

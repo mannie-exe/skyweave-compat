@@ -1,8 +1,8 @@
 package design.inherent.skyweavecompat.client;
 
 import design.inherent.reform.definition.FieldPath;
-import design.inherent.reform.neoforge.client.ClientFileSettings;
-import design.inherent.reform.neoforge.client.ClientForm;
+import design.inherent.reform.minecraft.client.ClientFileSettings;
+import design.inherent.reform.minecraft.client.ClientForm;
 import design.inherent.reform.owner.ApplicationEffects;
 import design.inherent.reform.owner.SettingsHandle;
 import design.inherent.skyweavecompat.configuration.ReformDocuments;
@@ -31,7 +31,7 @@ public final class HoofprintPreferences {
     private HoofprintPreferences() {}
 
     static void register(IEventBus bus, ModContainer container) {
-        owner = ClientFileSettings.clientFile(bus, container,
+        owner = ClientFileSettings.clientFile(design.inherent.reform.neoforge.client.NeoForgeClientRegistration.of(bus, container),
                 ReformDocuments.json(FMLPaths.CONFIGDIR.get(), MapZoomSettings.FILE, MapZoomSettings.definition()), EFFECTS);
     }
 

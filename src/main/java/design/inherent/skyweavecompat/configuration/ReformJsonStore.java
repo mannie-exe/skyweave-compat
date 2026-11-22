@@ -23,7 +23,6 @@ import design.inherent.reform.validation.ValidationReport;
 import design.inherent.reform.value.ValueType;
 import design.inherent.reform.value.ValueTypes;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -73,7 +72,7 @@ public final class ReformJsonStore<T> extends TextStore<T> {
             else {
                 var declared = source.field(path);
                 if (declared == null) throw new IllegalStateException("Missing declared JSON field " + path);
-                field = fieldType(declared);
+                field = fieldType(source.filename(), declared);
             }
             add(builder, keys, FieldKey.of(name, field));
         }
@@ -85,21 +84,14 @@ public final class ReformJsonStore<T> extends TextStore<T> {
         builder.field(key, value -> key.type().codec().parse(JsonOps.INSTANCE, JSON.toJsonTree(value.get(key.id()))).getOrThrow());
     }
 
-    private static ValueType<?> fieldType(SettingDefinition field) {
-        var minimum = field.minimum();
-        var maximum = field.maximum();
+    private static ValueType<?> fieldType(String filename, SettingDefinition field) {
         return switch (field.kind()) {
             case BOOLEAN -> ValueTypes.bool();
-            case INTEGER -> ReformDocuments.display(ValueTypes.integer(minimum == null ? Integer.MIN_VALUE : minimum.intValueExact(),
-                    maximum == null ? Integer.MAX_VALUE : maximum.intValueExact()), field.constraints());
-            case LONG -> ReformDocuments.display(ValueTypes.longInteger(minimum == null ? Long.MIN_VALUE : minimum.longValueExact(),
-                    maximum == null ? Long.MAX_VALUE : maximum.longValueExact()), field.constraints());
-            case DECIMAL -> ReformDocuments.display(ValueTypes.decimal(minimum == null ? BigDecimal.valueOf(-Double.MAX_VALUE) : minimum,
-                    maximum == null ? BigDecimal.valueOf(Double.MAX_VALUE) : maximum), field.constraints());
-            case STRING -> ValueTypes.text(field.constraints().maximumLength() < 0 ? ConfigFile.LIMIT : field.constraints().maximumLength());
+            case INTEGER, LONG, DECIMAL -> ReformDocuments.scalarType(field.valueType(), field.constraints(), filename, field.key());
+            case STRING -> SettingsReferences.text(filename, field.key(), field.constraints().maximumLength() < 0 ? ConfigFile.LIMIT : field.constraints().maximumLength());
             case CHOICE -> enumType(field.valueType());
             case STRINGS -> {
-                var text = ValueTypes.text(field.constraints().maximumLength() < 0 ? ConfigFile.LIMIT : field.constraints().maximumLength());
+                var text = SettingsReferences.text(filename, field.key(), field.constraints().maximumLength() < 0 ? ConfigFile.LIMIT : field.constraints().maximumLength());
                 int count = field.maximumEntries() < 0 ? ConfigFile.LIMIT : field.maximumEntries();
                 yield field.valueType() == Set.class ? ValueTypes.set(text, count) : ValueTypes.list(text, count);
             }

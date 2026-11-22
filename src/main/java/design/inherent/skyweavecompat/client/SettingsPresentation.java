@@ -24,12 +24,20 @@ final class SettingsPresentation {
             String key = "skyweave_compat.settings.field." + entry.help() + "." + field.key();
             return new FormCatalog.Section(ReformDocuments.path(field.key()), key,
                     Component.translatableWithFallback(key, readable(field.key())).getString(),
-                    Component.translatableWithFallback(key + ".help", "").getString());
+                    jsonHelp(entry, field.key(), key));
         }).toList();
         var ranges = SettingsCatalog.ranges(source.filename()).stream().map(range -> new FormPresentation.Range(
                 range.id(), range.labelKey(), Component.translatable(range.labelKey()).getString(), "",
                 ReformDocuments.path(range.minimum()), ReformDocuments.path(range.maximum()))).toList();
-        return new FormPresentation(ranges, FormDependencies.NONE, new FormCatalog(sections));
+        return new FormPresentation(ranges, SettingsCatalog.dependencies(source.filename()), new FormCatalog(sections));
+    }
+
+    private static String jsonHelp(SettingsCatalog.FileEntry entry, String field, String key) {
+        String help = Component.translatableWithFallback(key + ".help", "").getString();
+        help += "\n" + Component.translatable("skyweave_compat.settings.after_save."
+                + entry.timing(field).name().toLowerCase(java.util.Locale.ROOT)).getString();
+        if (!NativePreferences.admitted(entry)) help += "\n" + Component.translatable("skyweave_compat.settings.staged_inactive").getString();
+        return help;
     }
 
     static FormPresentation nativeFields(SettingsCatalog.FileEntry entry, List<NativeFields.Field> fields) {

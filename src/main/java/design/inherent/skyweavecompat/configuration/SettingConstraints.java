@@ -20,6 +20,10 @@ public record SettingConstraints(BigDecimal minimum, BigDecimal maximum, boolean
                 spec.step().isEmpty() ? BigDecimal.ONE : new BigDecimal(spec.step()), spec.unit(), spec.group(),
                 spec.maximumEntries(), spec.maximumLength(), spec.unique(), spec.pattern(), spec.nonBlank());
     }
+    public SettingConstraints withUnit(String declared) {
+        return new SettingConstraints(minimum, maximum, exclusiveMinimum, step, declared, group,
+                maximumEntries, maximumLength, unique, pattern, nonBlank);
+    }
     private static BigDecimal number(String value) { return value.isEmpty() ? null : new BigDecimal(value); }
     public static SettingConstraints nativeRange(Number minimum, Number maximum, boolean integer, String group) {
         return new SettingConstraints(minimum == null ? null : new BigDecimal(minimum.toString()),

@@ -9,6 +9,8 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 version = sys.argv[1]
 reform_version = sys.argv[2]
+reform_minimum = sys.argv[3]
+reform_sha256 = sys.argv[4]
 with zipfile.ZipFile(root / f'build/libs/skyweave-compat-{version}-mc1.21.1-neoforge.jar') as jar:
     names = set(jar.namelist())
     metadata = tomllib.loads(jar.read('META-INF/neoforge.mods.toml').decode())
@@ -17,10 +19,12 @@ with zipfile.ZipFile(root / f'build/libs/skyweave-compat-{version}-mc1.21.1-neof
     assert deps['minecraft']['versionRange'] == '[1.21.1]'
     required = {'minecraft', 'neoforge', 'reform'}
     assert {name for name, d in deps.items() if d['type'] == 'required'} == required
-    assert deps['reform']['versionRange'] == f'[{reform_version},0.2)'
+    assert deps['reform']['versionRange'] == f'[{reform_minimum},0.3)'
     assert deps['reform']['side'] == 'BOTH'
     development = dict(line.split('=', 1) for line in jar.read('META-INF/skyweave-compat-development.properties').decode().splitlines() if line)
     assert development['reform'] == reform_version
+    assert development['reform.minimum'] == reform_minimum
+    assert development['reform.sha256'] == reform_sha256
     assert development['minecraft'] == '1.21.1'
     assert metadata['loaderVersion'] == '[4,5)'
     assert deps['neoforge']['versionRange'] == f"[{development['neoforge']},21.2)"

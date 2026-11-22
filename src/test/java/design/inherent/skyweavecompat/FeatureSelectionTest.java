@@ -1,5 +1,6 @@
 package design.inherent.skyweavecompat;
 
+import design.inherent.skyweavecompat.configuration.SettingsCatalog;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import java.io.StringReader;
@@ -12,6 +13,55 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class FeatureSelectionTest {
+    @Test void powerGridInputRepairKeepsOptionalClientAdmissionAndIndependentOptOut() {
+        var feature = Feature.POWER_GRID_KEY_MODIFIERS;
+        var selected = FeatureSelection.select(only(feature), Map.of("powergrid", "0.6.2"), true);
+        assertTrue(selected.enabled(feature)); assertEquals(7, selected.mixins(true).size());
+        assertEquals(SettingsCatalog.Category.INTERFACE, SettingsCatalog.group(feature).category);
+        assertTrue(FeatureSelection.select(only(feature), Map.of(), true).mixins(true).isEmpty());
+        assertTrue(FeatureSelection.select(only(feature), Map.of("powergrid", "future"), false).mixins(false).isEmpty());
+        assertTrue(FeatureSelection.select(only(), Map.of("powergrid", "future"), true).mixins(true).isEmpty());
+        assertThrows(IllegalStateException.class, () -> FeatureSelection.select(only(feature), Map.of("powergrid", "future"), true));
+    }
+    @Test void effortlessModifierRepairUsesActualRuntimeVersionAndNoClientTargetsOnOptOutOrServer() {
+        var feature = Feature.EFFORTLESS_KEY_MODIFIERS;
+        var selected = FeatureSelection.select(only(feature), Map.of("effortlessbuilding", "4.2"), true);
+        assertTrue(selected.enabled(feature)); assertEquals(7, selected.mixins(true).size());
+        assertEquals(SettingsCatalog.Category.INTERFACE, SettingsCatalog.group(feature).category);
+        assertTrue(FeatureSelection.select(only(feature), Map.of(), true).mixins(true).isEmpty());
+        assertTrue(FeatureSelection.select(only(feature), Map.of("effortlessbuilding", "future"), false).mixins(false).isEmpty());
+        assertTrue(FeatureSelection.select(only(), Map.of("effortlessbuilding", "future"), true).mixins(true).isEmpty());
+        assertThrows(IllegalStateException.class, () -> FeatureSelection.select(only(feature), Map.of("effortlessbuilding", "future"), true));
+    }
+    @Test void movesModifierRepairIsIndependentClientOnlyAndPreservesExactAdmissionAndOptOut() {
+        var feature = Feature.MOVES_KEY_MODIFIERS;
+        var selected = FeatureSelection.select(only(feature), Map.of("punchy_moves", "1.0.9"), true);
+        assertTrue(selected.enabled(feature));
+        assertEquals(8, selected.mixins(true).size());
+        assertEquals(SettingsCatalog.Category.INTERFACE, SettingsCatalog.group(feature).category);
+        assertTrue(FeatureSelection.select(only(feature), Map.of(), true).mixins(true).isEmpty());
+        assertTrue(FeatureSelection.select(only(feature), Map.of("punchy_moves", "future"), false).mixins(false).isEmpty());
+        assertTrue(FeatureSelection.select(only(), Map.of("punchy_moves", "future"), true).mixins(true).isEmpty());
+        assertThrows(IllegalStateException.class, () -> FeatureSelection.select(only(feature), Map.of("punchy_moves", "future"), true));
+        assertFalse(selected.enabled(Feature.MOVES_TOUCH_MOTION));
+    }
+    @Test void ipnTextProtectionRequiresExactClientPairAndKeepsOptOutAndOptionalSearchProvider() {
+        var feature = Feature.IPN_TEXT_INPUT;
+        var versions = Map.of("inventoryprofilesnext", "2.2.5", "libipn", "6.6.3");
+        assertTrue(FeatureSelection.select(only(feature), versions, true).enabled(feature));
+        assertEquals(6, FeatureSelection.select(only(feature), versions, true).mixins(true).size());
+        assertTrue(FeatureSelection.select(only(feature), Map.of(), true).mixins(true).isEmpty());
+        assertTrue(FeatureSelection.select(only(feature), Map.of("inventoryprofilesnext", "2.2.5"), true).mixins(true).isEmpty());
+        var unsupported = Map.of("inventoryprofilesnext", "future", "libipn", "future", "emi", "future");
+        assertTrue(FeatureSelection.select(only(), unsupported, true).mixins(true).isEmpty());
+        assertTrue(FeatureSelection.select(only(feature), unsupported, false).mixins(false).isEmpty());
+        assertThrows(IllegalStateException.class, () -> FeatureSelection.select(only(feature), unsupported, true));
+        assertThrows(IllegalStateException.class, () -> FeatureSelection.select(only(feature),
+                Map.of("inventoryprofilesnext", "2.2.5", "libipn", "6.6.3", "emi", "future"), true));
+        assertTrue(FeatureSelection.select(only(feature), Map.of("inventoryprofilesnext", "2.2.5", "libipn", "6.6.3",
+                "emi", "1.1.24+1.21.1+neoforge"), true).enabled(feature));
+        assertEquals(SettingsCatalog.Category.INVENTORY, SettingsCatalog.group(feature).category);
+    }
     @Test void typedDefinitionsRequireOnlyThePinnedClientOwnerAndRespectOptOut() {
         var feature = Feature.ITEM_DEFINITIONS;
         var selected = FeatureSelection.select(only(feature), Map.of("modefite", "1.0.1+1.21.1"), true);
@@ -103,29 +153,6 @@ class FeatureSelectionTest {
         assertTrue(FeatureSelection.select(only(feature), future, false).mixins(false).isEmpty());
         assertTrue(FeatureSelection.select(only(), future, true).mixins(true).isEmpty());
         assertThrows(IllegalStateException.class, () -> FeatureSelection.select(only(feature), future, true));
-    }
-
-    @Test void combatBridgesAreIndependentAndMetadataFirst() {
-        for (var feature : List.of(Feature.CN_PUNCHY, Feature.CN_MOVES)) {
-            var mods = new HashMap<>(FeatureSelection.dependencies(feature));
-            var selected = FeatureSelection.select(only(feature), mods, true);
-            assertEquals(java.util.Set.of(feature), selected.active());
-            assertTrue(selected.mixins(true).contains("client.combat.NativeAttackScopeMixin"));
-            assertEquals(1, selected.mixins(true).stream().filter(name -> name.equals("client.combat.NativeAttackScopeMixin")).count());
-            assertTrue(FeatureSelection.select(only(feature), mods, false).mixins(false).isEmpty());
-            assertTrue(FeatureSelection.select(only(), mods, true).mixins(true).isEmpty());
-            for (String missing : mods.keySet()) {
-                var incomplete = new HashMap<>(mods); incomplete.remove(missing);
-                assertTrue(FeatureSelection.select(only(feature), incomplete, true).mixins(true).isEmpty());
-            }
-            mods.replaceAll((key, value) -> "unsupported");
-            assertThrows(IllegalStateException.class, () -> FeatureSelection.select(only(feature), mods, true));
-            assertTrue(FeatureSelection.select(only(feature), mods, false).mixins(false).isEmpty());
-            assertTrue(FeatureSelection.select(only(), mods, true).mixins(true).isEmpty());
-        }
-        var both = Map.of("combatnouveau", "21.1.2", "puzzleslib", "21.1.65", "punchy", "3.2b", "punchy_moves", "1.0.9");
-        var selected = FeatureSelection.select(only(Feature.CN_PUNCHY, Feature.CN_MOVES), both, true);
-        assertEquals(1, selected.mixins(true).stream().filter(name -> name.equals("client.combat.NativeAttackScopeMixin")).count());
     }
 
     @Test void movesTouchBridgeRequiresOnlyThePinnedClientOwners() {

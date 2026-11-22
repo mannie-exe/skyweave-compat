@@ -1,4 +1,5 @@
 import shutil
+import json
 import os
 import subprocess
 import sys
@@ -10,10 +11,64 @@ from pathlib import Path
 
 TOOLS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(TOOLS))
-from client_bootstrap import argument_file, packaged_bootstrap
+from client_bootstrap import argument_file, connector_bootstrap, packaged_bootstrap, native_classpath, game_arguments, mod_ids
 
 
 class ClientBootstrapTest(unittest.TestCase):
+    def test_connector_input_requires_matching_provenance_and_identity_without_partial_arguments(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary); clean = root / 'rename_fixture_output.jar'; metadata = root / 'rename_fixture.txt'
+            metadata.write_text(json.dumps({'type': 'rename', 'components': {'versionManifest': {'annotation': 'minecraft_1.21.1_version_manifest.json'}}}))
+            with zipfile.ZipFile(clean, 'w') as archive:
+                archive.writestr('net/minecraft/SharedConstants.class', b'fixture1.21.1')
+            vm = []
+            receipt = connector_bootstrap(vm, clean)
+            self.assertEqual(['-Dconnector.clean.path=' + str(clean.resolve())], vm)
+            self.assertEqual('1.21.1', receipt['mc'])
+            with zipfile.ZipFile(clean, 'w') as archive:
+                archive.writestr('net/minecraft/SharedConstants.class', b'other game version')
+            vm = []
+            with self.assertRaisesRegex(ValueError, 'Minecraft identity'): connector_bootstrap(vm, clean)
+            self.assertEqual([], vm)
+            metadata.write_text('{"type":"patched"}')
+            with self.assertRaisesRegex(ValueError, 'provenance'): connector_bootstrap(vm, clean)
+            self.assertEqual([], vm)
+    def test_game_directory_is_explicit_and_cannot_retain_a_different_prepared_target(self):
+        with tempfile.TemporaryDirectory(prefix='owned Ünicode fixture ') as temporary:
+            root = Path(temporary)
+            self.assertEqual(['--gameDir', str(root.resolve())], game_arguments(root, []))
+            self.assertEqual(['--username', 'Name', '--gameDir', str(root.resolve())],
+                             game_arguments(root, ['--username', 'Name', '--gameDir', '/unrelated/world']))
+            for arguments in (['--gameDir'], ['--gameDir', '--username', 'Name'],
+                              ['--gameDir=a'], ['--gameDir', 'a', '--gameDir', 'b']):
+                with self.assertRaises(ValueError): game_arguments(root, arguments)
+
+    def test_fabric_gameplay_metadata_is_not_a_bootstrap_library(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / 'foreign.jar'
+            with zipfile.ZipFile(path, 'w') as archive:
+                archive.writestr('fabric.mod.json', json.dumps({'id': 'foreign'}))
+            self.assertEqual({'foreign'}, mod_ids(path))
+    def test_prepared_classpath_preserves_literal_paths_and_refuses_malformed_current_input(self):
+        with tempfile.TemporaryDirectory(prefix='native classpath ') as temporary:
+            root = Path(temporary)
+            arguments = ['-cp', os.pathsep.join(['space and Ünicode', r'path\with\slashes'])]
+            prepared = root / 'clientRunClasspath.json'
+            prepared.write_text(json.dumps({'schemaVersion': 1, 'arguments': arguments}), encoding='utf-8')
+            self.assertEqual(arguments, native_classpath(root))
+            argument_file(root / 'clientRunClasspath.txt', ['-cp', 'stale'])
+            for value in [[], {'schemaVersion': 2, 'arguments': arguments},
+                          {'schemaVersion': 1, 'arguments': ['-other', 'value']},
+                          {'schemaVersion': 1, 'arguments': ['-cp', None]},
+                          {'schemaVersion': 1, 'arguments': ['-cp', '']}]:
+                prepared.write_text(json.dumps(value), encoding='utf-8')
+                with self.assertRaises(ValueError): native_classpath(root)
+
+    def test_missing_launch_preparation_has_an_actionable_error(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            with self.assertRaisesRegex(FileNotFoundError, 'preparePackagedClient'):
+                native_classpath(Path(temporary))
+
     def test_packaged_bootstrap_excludes_gameplay_and_source_roots(self):
         with tempfile.TemporaryDirectory(prefix='packaged client ') as temporary:
             root=Path(temporary);repository=root/'repository';moddev=repository/'build/moddev';moddev.mkdir(parents=True)
@@ -34,10 +89,11 @@ class ClientBootstrapTest(unittest.TestCase):
             classpath=(game/'classpath.args').read_text()
             self.assertNotIn('content.jar',classpath);self.assertNotIn('build/classes',classpath);self.assertNotIn('build/resources',classpath)
             self.assertEqual(['-Dother=retained','-DlegacyClassPath.file='+str(game/'legacy-classpath.txt')],vm)
-            self.assertEqual(['--username','Literal User'],program)
+            self.assertEqual(['--username','Literal User','--gameDir',str(game.resolve())],program)
 
     def test_runner_help_is_available_without_a_fixture_or_launch(self):
-        for name in ('combat_probe.py', 'reform_probe.py', 'reform_resolution_probe.py', 'world_scope_probe.py', 'world_scope_client.py'):
+        for name in ('rendering_probe.py', 'reform_probe.py', 'reform_workspace_probe.py', 'reform_resolution_probe.py',
+                     'ipn_probe.py', 'settings_refinement_probe.py', 'world_scope_probe.py', 'world_scope_client.py'):
             with self.subTest(runner=name):
                 result = subprocess.run([sys.executable, str(TOOLS / name), '--help'],
                                         text=True, capture_output=True, timeout=10)

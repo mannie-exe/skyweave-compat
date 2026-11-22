@@ -2,12 +2,13 @@ package design.inherent.skyweavecompat.terrain;
 
 import design.inherent.skyweavecompat.configuration.SettingSpec;
 import design.inherent.skyweavecompat.configuration.RecordSettings;
+import design.inherent.skyweavecompat.configuration.SettingIssue;
 import java.util.List;
 
 /** Exterior choices around the protected native body and independent interiors. */
 public record ShapeProfile(
         boolean enabled,
-        @SettingSpec(minimum="0", maximum=".5", unit="factor") double strengthVariation,
+        @SettingSpec(minimum="0", maximum=".5", unit="factor", step=".01") double strengthVariation,
         Outline outline,
         Fringe fringe,
         Fractures fractures,
@@ -48,7 +49,9 @@ public record ShapeProfile(
             @SettingSpec(minimum="0", maximum="12", unit="blocks") int undersideAccent) {
         public Fringe {
             RecordSettings.validate(Fringe.class, enabled, minimumSmoothFraction, maximumSmoothFraction, falloffDistance, disintegratingChance, disintegratingScale, fragmentScale, fragmentDepthRatio, density, falloffExponent, undersideAccent);
-            if (minimumSmoothFraction > maximumSmoothFraction) throw new IllegalArgumentException("Minimum smooth fraction exceeds maximum");
+            if (minimumSmoothFraction > maximumSmoothFraction)
+                throw SettingIssue.invalid("fringe_smooth_order", "fringe.minimumSmoothFraction",
+                        "Minimum smooth fraction must not exceed maximum smooth fraction", "fringe.maximumSmoothFraction");
         }
         /** All possible widths, including the rare disintegrating case. */
         public int maximumReach(int radius) {
@@ -65,7 +68,9 @@ public record ShapeProfile(
             @SettingSpec(minimum="0", maximum=".1", unit="probability", step=".01") double deepDarkChance) {
         public Fractures {
             RecordSettings.validate(Fractures.class, chance, biomes, cellSize, gapWidth, verticalRange, removalChance, deepDarkChance);
-            if (gapWidth * 4 >= cellSize) throw new IllegalArgumentException("Fracture gap must be less than one quarter of cell size");
+            if (gapWidth * 4 >= cellSize)
+                throw SettingIssue.invalid("fracture_gap", "fractures.gapWidth",
+                        "Fracture gap must be less than one quarter of cell size", "fractures.cellSize");
             biomes = List.copyOf(biomes);
         }
     }
