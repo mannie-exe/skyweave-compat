@@ -2,6 +2,20 @@
 
 Generated from Git history. Player-facing release summaries are in [release notes](RELEASE_NOTES.md).
 
+## v0.42.0 · 2026-11-22
+
+### Features
+
+- **settings:** Refine domains and input ownership ([86c1972](https://github.com/mannie-exe/skyweave-compat/commit/86c1972d22a57105d7ffd49bca15728c07f0accb))
+
+### Fixes
+
+- Scope worldgen and dependency admission ([4b245ee](https://github.com/mannie-exe/skyweave-compat/commit/4b245eec21d74b7605ebf5015201055a1bbb9271))
+
+### Documentation
+
+- Record public 0.41.0 qualification ([d8a7efb](https://github.com/mannie-exe/skyweave-compat/commit/d8a7efb55ede2c6afb3dbaeebd8809acef685289))
+
 ## v0.41.0 · 2026-11-20
 
 ### Features
@@ -31,6 +45,8 @@ Generated from Git history. Player-facing release summaries are in [release note
 - **config:** Record final pack qualification ([c1d50fc](https://github.com/mannie-exe/skyweave-compat/commit/c1d50fc4b3e5c2184d695225641f52cc3e8acc18))
 
 - Refresh maintenance references ([d376da3](https://github.com/mannie-exe/skyweave-compat/commit/d376da3b78f2a1109880b4758f5bae31943ac224))
+
+- Record integrated village checks ([03ab46a](https://github.com/mannie-exe/skyweave-compat/commit/03ab46a405a94dade1613b146e3613da1be72be5))
 
 ### Build and verification
 
