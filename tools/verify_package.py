@@ -15,7 +15,7 @@ with zipfile.ZipFile(root / f'build/libs/skyweave-compat-{version}-mc1.21.1-neof
     names = set(jar.namelist())
     metadata = tomllib.loads(jar.read('META-INF/neoforge.mods.toml').decode())
     assert metadata['license'] == 'Apache-2.0 AND LGPL-3.0-only AND MIT'
-    assert metadata['mods'][0]['authors'] == 'mannie-exe'
+    assert metadata['mods'][0]['authors'] == 'inherent.design contributors'
     assert '#credits' in metadata['mods'][0]['credits']
     assert metadata['mods'][0]['version'] == version
     deps = {entry['modId']: entry for entry in metadata['dependencies']['skyweave_compat']}
