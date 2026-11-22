@@ -10,8 +10,9 @@ public final class OptionalIntegrations {
     private OptionalIntegrations() {}
 
     private static final class Startup {
+        static final java.util.Map<String, String> VERSIONS = versions();
         static final FeatureSettings SETTINGS = load();
-        static final FeatureSelection SELECTION = select();
+        static final FeatureSelection SELECTION = FeatureSelection.select(SETTINGS, VERSIONS, FMLEnvironment.dist.isClient());
         private static FeatureSettings load() {
             try {
                 return FeatureSettings.load(design.inherent.skyweavecompat.configuration.ConfigLocations.prepare(FMLPaths.CONFIGDIR.get()));
@@ -19,15 +20,19 @@ public final class OptionalIntegrations {
                 throw new IllegalStateException("Cannot load " + FeatureSettings.FILE, failure);
             }
         }
-        private static FeatureSelection select() {
+        private static java.util.Map<String, String> versions() {
             var versions = new LinkedHashMap<String, String>();
             for (var mod : LoadingModList.get().getMods())
                 versions.put(mod.getModId(), mod.getVersion().toString());
-            return FeatureSelection.select(SETTINGS, versions, FMLEnvironment.dist.isClient());
+            versions.put("javafml", net.neoforged.fml.loading.FMLLoader.versionInfo().fmlVersion());
+            DependencyVersions.requireBase(versions);
+            com.mojang.logging.LogUtils.getLogger().info("Skyweave: Compatibility Patches dependency baselines and installed versions: {}", DependencyVersions.describeBase(versions));
+            return java.util.Map.copyOf(versions);
         }
     }
 
     public static FeatureSelection selection() { return Startup.SELECTION; }
+    public static String describe(Feature feature) { return selection().describe(feature); }
     public static FeatureSettings startupSettings() { return Startup.SETTINGS; }
     public static boolean enabled(Feature feature) { return selection().enabled(feature); }
     public static boolean configured(Feature feature) { return Startup.SETTINGS.enabled(feature); }

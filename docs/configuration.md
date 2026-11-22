@@ -34,7 +34,7 @@ Client-owned `config/skyweave/skyweave_compat-combat-client.toml` contains indep
 
 `config/skyweave/skyweave_compat-features.properties` is the authoritative startup feature file. It is created when absent; supplied values are preserved. Use literal `true` or `false`. Unknown keys, duplicates, and invalid values fail with an explanation. Missing keys use their documented defaults. Restart the entire game/server after changing switches; applied mixins cannot be unloaded during play.
 
-Switches default to `true` unless stated below. Explicit `false` selections remain authoritative. A true setting makes an adapter eligible. Missing targets, physical-side restrictions, or disabled prerequisites leave it inactive. An active combination validates the versions below. Disabling its switch avoids that validation, its mixins, callbacks, and integration data. No switch enables a disabled prerequisite. Startup logs list active adaptations. Debug logs explain inactive selections.
+Switches default to `true` unless stated below. Explicit `false` selections remain authoritative. A true setting makes an adapter eligible. Missing targets, physical-side restrictions, or disabled prerequisites leave it inactive. An active combination validates the versions below. Disabling its switch avoids that validation, its mixins, callbacks, and integration data. No switch enables a disabled prerequisite. Startup logs list active adaptations and base dependency baselines versus installed versions. Debug logs explain inactive selections and admitted adapter contracts. Unsupported-version errors identify the feature, development baseline, accepted versions, and installed version. [Dependency admission](development/dependencies.md) owns the range and update policy.
 
 | Switch                                     | Adaptation                                                                                        | Prerequisites                                                                                                                                |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -77,12 +77,12 @@ Switches default to `true` unless stated below. Explicit `false` selections rema
 | `rendering.island_cloud_height`            | Expanded-envelope cloud provider                                                                  | Client, active preset                                                                                                                        |
 | `rendering.island_void_visuals`            | Remove native height fog/black underside sky                                                      | Client, active preset                                                                                                                        |
 | `iris.island_environment`                  | Native precipitation uniform and scoped shader environment inputs                                 | Client, active preset, Iris 1.8.14-beta.1+mc1.21.1                                                                                           |
-| `villages.clearance`                       | Village footprint clearance/proximity                                                             | Sky Archipelago 1.4, Sky Villages 1.0.6, Architectury 13.x                                                                                   |
-| `villages.placement`                       | Village altitude and cluster allowance                                                            | Active preset, Sky Villages 1.0.6, Architectury 13.x                                                                                         |
+| `villages.clearance`                       | Village footprint clearance/proximity                                                             | Sky Archipelago 1.4, Sky Villages 1.0.6, Architectury stable 13.0.12 or newer within 13                                                      |
+| `villages.placement`                       | Village altitude and cluster allowance                                                            | Active preset, Sky Villages 1.0.6, Architectury stable 13.0.12 or newer within 13                                                            |
 | `sable.island_pressure`                    | Island-altitude pressure                                                                          | Active preset, Sable 2.0.6                                                                                                                   |
 | `delivery.horizontal_distance`             | Horizontal route distance                                                                         | Active preset, ADQ 1.1.1                                                                                                                     |
 | `delivery.chunk_loading`                   | Retained chunk requests and cleanup                                                               | Active preset, ADQ 1.1.1                                                                                                                     |
-| `delivery.village_landing`                 | Bounded village surface retry                                                                     | Active preset, ADQ 1.1.1, Sky Villages 1.0.6, Architectury 13.x                                                                              |
+| `delivery.village_landing`                 | Bounded village surface retry                                                                     | Active preset, ADQ 1.1.1, Sky Villages 1.0.6, Architectury stable 13.0.12 or newer within 13                                                 |
 | `analog_audio.movement_registration`       | Radio handler registration                                                                        | Analog Audio 0.1.5-hotfix.1, Create 6.0.10                                                                                                   |
 | `analog_audio.playback_timeline`           | Current media position after loading and standby                                                  | Client, Analog Audio 0.1.5-hotfix.1, AnalogLib 0.1.0                                                                                         |
 | `yigd.construct_recovery`                  | Construct graves, bounded fallback and world-space tracking                                       | Sable 2.0.6, YiGD 2.0.13; item and XP storage enabled                                                                                        |
@@ -105,9 +105,9 @@ Switches default to `true` unless stated below. Explicit `false` selections rema
 | `lighting.sodium`                          | Position-aware moving-light lookup in Sodium                                                      | Client, Sable Dynamic Lights 2.0.1, LambDynamicLights 4.8.11+1.21.1, Create 6.0.10, Sodium 0.8.13+mc1.21.1; Sable and Iris are not required  |
 | `ftbquests.item_alternatives`              | Item choices and tag filters through native FTB task matching                                     | Both sides, FTB Quests 2101.1.38                                                                                                             |
 | `ftblibrary.creative_inventory_return`     | Match restored inventory screens to their active menus                                            | Client, FTB Library 2101.1.39                                                                                                                |
-| `questlog.interface`                       | Wrapped conditions, reward preview and scrollbar/input adaptation                                 | Client, Questlog 3.5.0 or 3.5.3                                                                                                              |
-| `questlog.notifications`                   | First-progress and completion toasts                                                              | Client, Questlog 3.5.0 or 3.5.3                                                                                                              |
-| `questlog.reward_validation`               | Validate eligibility and choices before grants                                                    | Logical server, Questlog 3.5.0 or 3.5.3                                                                                                      |
+| `questlog.interface`                       | Wrapped conditions, reward preview and scrollbar/input adaptation                                 | Client, Questlog 3.5.0, 3.5.3, or 3.5.4                                                                                                      |
+| `questlog.notifications`                   | First-progress and completion toasts                                                              | Client, Questlog 3.5.0, 3.5.3, or 3.5.4                                                                                                      |
+| `questlog.reward_validation`               | Validate eligibility and choices before grants                                                    | Logical server, Questlog 3.5.0, 3.5.3, or 3.5.4                                                                                              |
 | `bluemap.viewer`                           | Viewer adapter registration                                                                       | Dedicated server, BlueMap 5.7, Sky Archipelago 1.4; map opt-in below                                                                         |
 | `surveyor.structure_starts`                | Ignore rejected starts when recording map structures; native negative-cache entries remain intact | Shared, Sky Archipelago 1.4 and Surveyor 1.2.4 (NeoForge metadata `1.2.4_1.21`); default on                                                  |
 | `rendering.shader_patches`                 | Assemble verified shader recipes before Iris opens them; default on                               | Client, Iris 1.8.14-beta.1+mc1.21.1; recipe-specific runtime requirements are separate                                                       |
@@ -146,7 +146,7 @@ Glass adapters share final-shape contact separation, including qualified Copycat
 
 For rendering fixes alone, disable `terrain.preset`, `villages.clearance`, `bluemap.viewer`, and unwanted independent adaptations. To make Skyweave: Compatibility Patches inert, set every switch to false. An installed mod's own behavior and dependencies remain its responsibility. Skyweave: Compatibility Patches still reads its own feature file and protects its own saved generation identity; disabling terrain is not a way to convert a marked save.
 
-The island preset is never chosen automatically. Generation-related switches are part of saved generation identity; changed generation choices require a fresh world. Ordinary worlds are not converted. Internal terrain helpers form one preset feature; its geometry/interior/water settings tune that feature rather than providing separate class-loading switches.
+The island preset is never chosen automatically. Generation-related settings and switches take effect at startup and follow the [saved world policy](development/terrain.md#saved-worlds). Released, dedicated and standalone installations need matching settings or a new world. Integrated Create: Skyweave DEV can reopen a compatible save and generate new chunks with the current settings. Internal terrain helpers form one preset feature; its geometry/interior/water settings tune that feature rather than providing separate class-loading switches.
 
 ## Wayfinder
 
@@ -201,7 +201,7 @@ Distances accept integers from 0 to 2048. `maximumGap` must be at least `minimum
 
 ## Island geometry
 
-`config/skyweave/skyweave_compat-generation.json` is created at startup and applies only to **Skyweave Islands**. Edit it with the game/server stopped; restart the whole process to reload it. It is separate from the NeoForge village settings screen. Use matching files on client and server. Geometry changes require a fresh world; the saved identity rejects changes to an existing world.
+`config/skyweave/skyweave_compat-generation.json` is created at startup and applies only to **Skyweave Islands**. Edit it with the game/server stopped; restart the whole process to reload it. It is separate from the NeoForge village settings screen. Use matching files on client and server. Geometry changes follow the saved world policy.
 
 | Fields                                       | Defaults  | Purpose                                                                                  |
 | -------------------------------------------- | --------- | ---------------------------------------------------------------------------------------- |
@@ -223,7 +223,7 @@ Geometry, activation, floor/headroom and gap controls have this single owner. Up
 
 ## Island interiors
 
-`config/skyweave/skyweave_compat-interiors.json` controls interior selection in Skyweave Islands. It is generated at startup, applies only to the opted-in preset, and is part of saved generation identity. Restart with a fresh world after changing it. Current records require all fields; the complete older interior record receives the skylight defaults without being rewritten on load. Invalid values and unknown fields fail explicitly.
+`config/skyweave/skyweave_compat-interiors.json` controls interior selection in Skyweave Islands. It is generated at startup, applies only to the opted-in preset, and is part of saved generation identity. Current records require all fields; the complete older interior record receives the skylight defaults without being rewritten on load. Invalid values and unknown fields fail explicitly.
 
 | Fields                                                            | Defaults      | Purpose                                                                       |
 | ----------------------------------------------------------------- | ------------- | ----------------------------------------------------------------------------- |
@@ -243,13 +243,13 @@ Small bodies without four shell-thicknesses of cliff depth keep baseline interio
 
 `config/skyweave/skyweave_compat-ancient-cities.json` contains `minimumBuriedFraction`, default `0.90`. Values from 0 to 1 set the minimum sampled share of a normal/NOISE city inside its host's exterior; use `0.95` for a stricter check. Core and floor support remain required independently. HOLLOW cities must remain inside the host and fit an existing cavity floor and roof; they do not inherit the partial-exposure allowance.
 
-This file uses the shared optimistic JSON editor under terrain tuning. Values apply to new worlds and are recorded in generation identity. The [terrain guide](development/terrain.md#structures) defines the metric, scope and fit limits. The `terrain.ancient_cities` startup switch owns interior placement and bounded room clearance together. Clearance uses the final piece layout, retains the island shell, foundations and authored water beds, and leaves natural terrain between separate pieces. Disabling the switch does not convert saved starts.
+This file uses the shared optimistic JSON editor under terrain tuning. The effective values enter generation identity. The [terrain guide](development/terrain.md#structures) defines the metric, scope and fit limits. The `terrain.ancient_cities` startup switch owns interior placement and bounded room clearance together. Clearance uses the final piece layout, retains the island shell, foundations and authored water beds, and leaves natural terrain between separate pieces. Disabling the switch does not convert saved starts.
 
 ## Rivers and lakes
 
-Dynamic Waters' registered generation values update their owner when saved. The editor keeps these drafts unsaved while an integrated server is running; leave the local world before saving them, then create a fresh world. This prevents a native TOML edit from changing terrain underneath the active world. Other local settings retain their registered application timing.
+Dynamic Waters' registered generation values update their owner when saved. The editor keeps these drafts unsaved while an integrated server is running; leave the local world before saving them and follow the saved world policy above. This prevents a native TOML edit from changing terrain underneath the active world. Other local settings retain their registered application timing.
 
-`config/skyweave/skyweave_compat-rivers.json` controls native Sky Archipelago 1.4 hydrology in Skyweave Islands. It uses the upstream codec and explicit new-world defaults; missing, unknown or incorrectly typed fields fail instead of silently restoring defaults. Values apply at startup, belong to saved generation identity and require a fresh world when changed. The shared editor groups the native anchor and satellite settings.
+`config/skyweave/skyweave_compat-rivers.json` controls native Sky Archipelago 1.4 hydrology in Skyweave Islands. It uses the upstream codec and explicit new-world defaults; missing, unknown or incorrectly typed fields fail instead of silently restoring defaults. Values apply at startup and enter generation identity. The shared editor groups the native anchor and satellite settings.
 
 | Fields                                                             | Defaults                                    | Purpose                                                                    |
 | ------------------------------------------------------------------ | ------------------------------------------- | -------------------------------------------------------------------------- |
@@ -273,7 +273,7 @@ These native controls remain available when the optional Dynamic Waters adaptati
 
 ## Dynamic Waters
 
-The optional adaptation uses Dynamic Waters 13.1.0's mountain watershed planner against the accepted island surface. Connected void mouths retain their incoming routed height; impossible uphill water receivers are refused before path publication. These are correctness rules under `dynamic_waters.island_hydrology`, without separate tuning fields. In **World → Dynamic Waters**, the registered TOML editor exposes `config/dynamicwaters-common.toml`, including quoted string lists. Validation, serialization and reloads remain owned by the upstream NeoForge specification. Edits preserve external changes and drafts through the shared optimistic editor. `Generation` changes trigger the fresh-world confirmation and enter the saved generator identity; force, visual and audio controls do not change terrain identity. Flow, particle, panorama and sound readers consult current registered values. The main-menu button is created when its screen is initialized; welcome text is checked on the next player join. These are distinct application boundaries, shown on the individual controls.
+The optional adaptation uses Dynamic Waters 13.1.0's mountain watershed planner against the accepted island surface. Connected void mouths retain their incoming routed height; impossible uphill water receivers are refused before path publication. These are correctness rules under `dynamic_waters.island_hydrology`, without separate tuning fields. In **World → Dynamic Waters**, the registered TOML editor exposes `config/dynamicwaters-common.toml`, including quoted string lists. Validation, serialization and reloads remain owned by the upstream NeoForge specification. Edits preserve external changes and drafts through the shared optimistic editor. `Generation` changes trigger the generation-change confirmation and enter the saved generator identity; force, visual and audio controls do not change terrain identity. Flow, particle, panorama and sound readers consult current registered values. The main-menu button is created when its screen is initialized; welcome text is checked on the next player join. These are distinct application boundaries, shown on the individual controls.
 
 `General.disableTectonicUndergroundRivers` is a native config-load/server-start action, not a live river preference. When enabled, Dynamic Waters can set `continents.underground_rivers` to false in an existing `config/tectonic.json`. Turning the option off does not restore that file; Tectonic owns consumption of its changed settings. Editing this local common config does not administer a connected remote server.
 
@@ -287,7 +287,7 @@ See [terrain stages](development/terrain.md#local-water) for placement ownership
 
 ## Island climate
 
-`config/skyweave/skyweave_compat-climate.json` is server-owned startup policy under **World → Sky Archipelago → Tuning → Island climate**. It participates in generation identity; changed depth/biome policy needs a fresh compatible world. Runtime temperature also affects existing entities and ice after startup. Remote clients consume the server's tracked policy, not a locally edited generation configuration.
+`config/skyweave/skyweave_compat-climate.json` is server-owned startup policy under **World → Sky Archipelago → Tuning → Island climate**. The depth and biome policy enter generation identity. Runtime temperature also affects existing entities and ice after startup. Remote clients consume the server's tracked policy, not a locally edited generation configuration.
 
 | Field              | Default | Meaning                                                                                         |
 | ------------------ | ------- | ----------------------------------------------------------------------------------------------- |
@@ -296,7 +296,7 @@ See [terrain stages](development/terrain.md#local-water) for placement ownership
 | `minimumCaveCover` | 16      | Surface cover reserved before ordinary cave-biome selection                                     |
 | `bottomDepth`      | 1.1     | Native multi-noise depth coordinate at the contributor's bottom                                 |
 
-Physical world Y, thermal altitude, underground cover and geological ore reference are distinct. Climate does not cancel mountain cooling by using each column's actual surface as its datum. Missing context uses a reference-Y64 fallback; cold biomes retain their native modifiers. See [climate ownership and tracking](development/terrain.md#climate-and-villages).
+Physical world Y, thermal altitude, underground cover and geological ore reference are distinct. Climate does not cancel mountain cooling by using each column's actual surface as its datum. An owned server generator projects temperature. A remote client keeps physical coordinates until the current level has admitted server climate policy; unavailable columns after admission use reference Y=64. Cold biomes retain their native modifiers. See [climate ownership and tracking](development/terrain.md#climate-and-villages).
 
 ## Island environment
 
@@ -310,7 +310,7 @@ The Iris adaptation supplies precipitation through the same island-relative temp
 
 ## Island outlines and fractured terrain
 
-`config/skyweave/skyweave_compat-shapes.json` controls seeded horizontal variation in the Skyweave preset. The native main body retains its taper; added outer fragments have independent depth and a small configurable underside accent. Settings apply at startup, enter saved generation identity, and require a new world when changed. Use the typed editor under **World → Sky Archipelago → Tuning**; nested groups share the same validation as startup.
+`config/skyweave/skyweave_compat-shapes.json` controls seeded horizontal variation in the Skyweave preset. The native main body retains its taper; added outer fragments have independent depth and a small configurable underside accent. Settings apply at startup and enter generation identity. Use the typed editor under **World → Sky Archipelago → Tuning**; nested groups share the same validation as startup.
 
 | Field/group                                             | Defaults                                                    | Meaning                                                                                   |
 | ------------------------------------------------------- | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
@@ -354,7 +354,7 @@ These are selection settings, not measured worldwide frequencies. Deep Dark sele
 
 Open-cove mode lowers a broad arc of the Lagoon shore with graded shoulders, retaining native basin floors and interior islets. Perimeter mode lowers the rim around the wet footprint. All ocean anchors use the normal generation radii and seeded aspect/warp settings. Mixed and Disintegrating dry fragments can surround the native outer footprint; they do not replace water beds and are restricted to the sampled outer silhouette, and the cove mouth stays clear. Broken Reef and other native water types retain their own wet edges. Ocean clusters receive solid spires rather than ordinary land satellites. There is no separate enclosed-basin or underside-outlet generator. Actual fluid ticks and feature generation remain authoritative over realized waterfalls.
 
-All fields enter generation identity and need a fresh world when changed. Supply the complete canonical profile; retired schemas, unknown fields and incomplete or malformed profiles are rejected. Startup and opening the editor do not rewrite files. Saving writes the complete validated schema through the existing conflict checks. Explicit false values remain authoritative. [Verification](development/verification.md) records tested material, flow, persistence, and consumer coverage separately from aquatic progression.
+All fields enter generation identity. Supply the complete canonical profile; retired schemas, unknown fields and incomplete or malformed profiles are rejected. Startup and opening the editor do not rewrite files. Saving writes the complete validated schema through the existing conflict checks. Explicit false values remain authoritative. [Verification](development/verification.md) records tested material, flow, persistence, and consumer coverage separately from aquatic progression.
 
 ## Structure distribution
 
@@ -380,7 +380,7 @@ Most rates start near half the nominal vanilla source-opportunity density. Villa
 
 The policy preserves native templates, processors and loot. Selected destinations are fitted before commitments. `villageFitting` controls village support and the bounded alternatives independently of the family allowance:
 
-The same `terrain.village_support` adaptation can enforce data-authored required content for composed villages. Bounded `village_composition/` resources identify exact native template/type/processor/projection alternatives and minimum distinct physical pieces. Fitting and commitment retain one immutable contract through support trimming; missing landmarks, unsupported identities and exhausted assessment are separate refusals. A composed-village tag requires a matching contract. No contract means no extra policy for an ordinary legacy definition. These are pack generation rules, not player preferences or a separate UI. An unchanged resource reload remains valid. Changed contracts require a restart and must match the saved generation identity; restarting cannot apply a different required-content policy to an existing adapted world. With the adaptation disabled, this consumer is not registered and claims no content qualification.
+The same `terrain.village_support` adaptation can enforce data-authored required content for composed villages. Bounded `village_composition/` resources identify exact native template/type/processor/projection alternatives and minimum distinct physical pieces. Fitting and commitment retain one immutable contract through support trimming; missing landmarks, unsupported identities and exhausted assessment are separate refusals. A composed-village tag requires a matching contract. No contract means no extra policy for an ordinary legacy definition. These are pack generation rules, not player preferences or a separate UI. An unchanged resource reload remains valid. Changed contracts require a restart and follow the saved world policy. With the adaptation disabled, this consumer is not registered and claims no content qualification.
 
 | Field                            |   Default | Accepted range |
 | -------------------------------- | --------: | -------------: |
@@ -399,9 +399,9 @@ With `requireCompleteBuildingSupport` enabled, centers, buildings and farms requ
 
 Support measures structural footing rather than the entire piece rectangle. Unsupported depth is the number of neighboring footing columns to the nearest supported footing; a shallow overhang differs from a deep unsupported strip. The retained-building minimum compares inhabited pieces with the original assembled layout. Sites prefer well-retained layouts before accepting a more trimmed fallback. Biome rejection does not consume an assembly attempt; the weighted variant scan has a separate 256-entry bound. Column limits apply to each support/closure evaluation, not the whole cluster. Other structure slots retain eight ranked alternatives.
 
-These settings affect generation identity. Newly added fields receive defaults in memory without rewriting a file or replacing explicit family rates. Changing generation settings requires a fresh compatible world; it does not move saved buildings. Owned igloos use an island-relative surface anchor for their top, ladder and optional basement; their anchor persists through saving. Existing city burial and cavern rules remain independently authoritative. Owned desert pyramids retain their accepted island height instead of reanchoring to a void column during block placement. Water structure placement remains native.
+These settings affect generation identity. Newly added fields receive defaults in memory without rewriting a file or replacing explicit family rates. Saved buildings retain their placement. Owned igloos use an island-relative surface anchor for their top, ladder and optional basement; their anchor persists through saving. Existing city burial and cavern rules remain independently authoritative. Owned desert pyramids retain their accepted island height instead of reanchoring to a void column during block placement. Water structure placement remains native.
 
-All fields are required, validated at startup and editable through the existing typed configuration page. Changes require a restart and a new world. The saved generation identity includes the effective policy; incompatible worlds fail clearly rather than changing generation silently. See [placement ownership and update checks](development/terrain.md#cluster-structure-policy).
+All fields are required, validated at startup and editable through the existing typed configuration page. Changes require a restart and follow the saved world policy. See [placement ownership and update checks](development/terrain.md#cluster-structure-policy).
 
 ## Structure search
 
@@ -432,7 +432,7 @@ The neighbor filter uses the resolved terrain settings and island field. In ordi
 
 ## Tuning
 
-Skyweave records these neighbor settings in saved generation identity. Changed values require a fresh Skyweave world; restarting alone does not migrate an existing save.
+Skyweave records these neighbor settings in saved generation identity.
 
 Increase `maximumGap` to admit more distant floating villages. Decrease it to keep villages closer, at the cost of more clusters without a village. Decrease `minimumIslandRadius` to allow small islands to qualify as hosts. Increase `minimumGap` to leave a wider void around villages.
 
@@ -496,8 +496,8 @@ Native CLIENT/COMMON forms offer **Save native settings** and retain their own s
 | ----------------------------------------------------- | ----------------------------- | ---------------------------------------------------- |
 | Adaptation switches                                   | Staged switches and Details   | Full game/server restart                             |
 | Journal preferences                                   | Shared native form            | Native readers after Save; shortcuts share the owner |
-| Village distances                                     | Embedded staged fields        | Server restart and a new Skyweave world              |
-| Island geometry, interiors, water, oceans, structures | Typed numeric/boolean forms   | Game/server restart and a new world                  |
+| Village distances                                     | Embedded staged fields        | Restart and saved world validation                   |
+| Island geometry, interiors, water, oceans, structures | Typed numeric/boolean forms   | Restart and saved world validation                   |
 | BlueMap adaptation                                    | Typed fields and map-ID list  | Owning server's BlueMap reload                       |
 | Redstone Link GUI client/common                       | Shared native enum/range form | Native timing, after Save                            |
 

@@ -62,10 +62,13 @@ final class ClientMiscProbe {
                                 .createWorldDimensions(), mc.screen);
             }
             var control = root.resolve("misc-review-control.json");
-            if (mc.player != null && Files.isRegularFile(control) && Files.size(control) < 16384) {
+            if (Files.isRegularFile(control) && Files.size(control) < 16384) {
                 var command = JsonParser.parseString(Files.readString(control)).getAsJsonObject();
                 int next = command.get("sequence").getAsInt();
-                if (next != sequence) { sequence = next; error = null; apply(mc, command); }
+                String operation=command.get("operation").getAsString();
+                if (next != sequence && (mc.player != null || java.util.Set.of("connect","shutdown","state").contains(operation))) {
+                    sequence = next; error = null; apply(mc, command);
+                }
             }
         } catch (Exception failure) { error = failure.toString(); failure.printStackTrace(); }
         try { Files.writeString(root.resolve("misc-review-state.json"), new GsonBuilder().setPrettyPrinting().create().toJson(state(mc))); }
@@ -75,6 +78,12 @@ final class ClientMiscProbe {
         switch (command.get("operation").getAsString()) {
             case "wayfinder" -> WayfinderFixture.apply(mc,command);
             case "state" -> { }
+            case "connect" -> {
+                String address=command.get("address").getAsString();
+                if(!address.matches("127\\.0\\.0\\.1:[0-9]{1,5}"))throw new IllegalArgumentException("Expected loopback fixture");
+                System.setProperty("skyweave_compat.probe.misc.server",address);opened=false;mc.setScreen(new TitleScreen());
+            }
+            case "disconnect" -> { opened=true;mc.disconnect(new TitleScreen()); }
             case "spawn-snapshot" -> {
                 var server = mc.getSingleplayerServer();
                 if (server == null) throw new IllegalStateException("Expected owned integrated fixture");
@@ -262,6 +271,16 @@ final class ClientMiscProbe {
         if (mc.screen != null && mc.screen.getClass().getName().equals("dev.ftb.mods.ftblibrary.ui.ScreenWrapper")) {
             var gui = mc.screen.getClass().getMethod("getGui").invoke(mc.screen);
             row.add("previousScreen", identity(gui.getClass().getMethod("getPrevScreen").invoke(gui)));
+        }
+        if(Boolean.getBoolean("skyweave_compat.probe.worldScope")) {
+            row.add("climateTracking",new Gson().toJsonTree(design.inherent.skyweavecompat.client.ClimateClient.observe(mc.level,net.minecraft.core.BlockPos.ZERO)));
+            if(mc.level!=null) {
+                var position=mc.player==null?net.minecraft.core.BlockPos.ZERO:new net.minecraft.core.BlockPos(mc.player.getBlockX(),200,mc.player.getBlockZ());
+                row.addProperty("climateApplies",design.inherent.skyweavecompat.climate.IslandClimate.applies(mc.level));
+                row.addProperty("temperatureY200",design.inherent.skyweavecompat.climate.IslandClimate.temperaturePosition(mc.level,position).getY());
+                row.add("columnReferenceY200",new Gson().toJsonTree(design.inherent.skyweavecompat.climate.ClimateRuntime.referenceY(mc.level,position)));
+                row.addProperty("missingTemperatureY200",design.inherent.skyweavecompat.climate.IslandClimate.temperaturePosition(mc.level,new net.minecraft.core.BlockPos(100000,200,100000)).getY());
+            }
         }
         if (mc.player == null) return row;
         var position = new JsonObject(); position.addProperty("x", mc.player.getX());

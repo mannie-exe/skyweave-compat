@@ -17,8 +17,13 @@ with zipfile.ZipFile(root / f'build/libs/skyweave-compat-{version}-mc1.21.1-neof
     assert deps['minecraft']['versionRange'] == '[1.21.1]'
     required = {'minecraft', 'neoforge', 'reform'}
     assert {name for name, d in deps.items() if d['type'] == 'required'} == required
-    assert deps['reform']['versionRange'] == f'[{reform_version}]'
+    assert deps['reform']['versionRange'] == f'[{reform_version},0.2)'
     assert deps['reform']['side'] == 'BOTH'
+    development = dict(line.split('=', 1) for line in jar.read('META-INF/skyweave-compat-development.properties').decode().splitlines() if line)
+    assert development['reform'] == reform_version
+    assert development['minecraft'] == '1.21.1'
+    assert metadata['loaderVersion'] == '[4,5)'
+    assert deps['neoforge']['versionRange'] == f"[{development['neoforge']},21.2)"
     assert not any(name.startswith('design/inherent/reform/') for name in names), 're:form is a separate base library'
     retired = ['client/ConfigurationOverview', 'client/SettingsPanel', 'client/SettingsControls',
                'client/ServerSettingsView', 'configuration/JsonEdits', 'configuration/RegisteredEdits',

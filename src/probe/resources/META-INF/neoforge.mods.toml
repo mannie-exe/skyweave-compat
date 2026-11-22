@@ -10,3 +10,6 @@ config="skyweave_water_stage_probe.mixins.json"
 
 [[mixins]]
 config="skyweave_encounter_probe.mixins.json"
+
+[[mixins]]
+config="skyweave_world_scope_probe.mixins.json"

@@ -17,6 +17,7 @@ import org.sathrek.sky_archipelago.worldgen.generator.core.SkyIslandChunkGenerat
 public final class ClimateRuntime {
     @FunctionalInterface public interface ClientLookup { Integer referenceY(LevelReader level, BlockPos position); }
     public static ClientLookup client = (level,position) -> null;
+    public static java.util.function.Predicate<LevelReader> clientAdmitted = level -> false;
     private static final Map<ServerLevel,State> LEVELS = new IdentityHashMap<>();
     private record Sent(ServerPlayer player, UUID epoch) {}
     private static final Map<UUID,Sent> SENT = new HashMap<>();
@@ -54,7 +55,7 @@ public final class ClimateRuntime {
 
     private static void sent(ChunkWatchEvent.Sent event) {
         var level = event.getLevel(); var player = event.getPlayer();
-        if (player.serverLevel() != level || !IslandClimate.applies(level) || !player.connection.hasChannel(ClimatePacket.TYPE)) return;
+        if (player.serverLevel() != level || !IslandClimate.applies(level) || !owned(level) || !player.connection.hasChannel(ClimatePacket.TYPE)) return;
         var state = LEVELS.computeIfAbsent(level,ignored -> new State());
         var previous = SENT.get(player.getUUID());
         if (previous == null || previous.player() != player || !state.epoch.equals(previous.epoch())) {
@@ -104,6 +105,7 @@ public final class ClimateRuntime {
         ServerLevel level = reader instanceof ServerLevel value ? value
                 : reader instanceof WorldGenLevel world ? world.getLevel() : null;
         if (level == null) return client.referenceY(reader,pos);
+        if (!owned(level)) return null;
         try {
             if(reader instanceof ServerLevel && level.getServer().isSameThread()) {
                 int cx=Math.floorDiv(pos.getX(),16),cz=Math.floorDiv(pos.getZ(),16);
@@ -115,6 +117,14 @@ public final class ClimateRuntime {
             }
             return column(level,pos.getX(),pos.getZ()).referenceY(pos.getY(),ClimateConfiguration.profile());
         } catch(ClimateColumn.Unavailable unavailable) {unavailable(unavailable);return null;}
+    }
+    static boolean admitted(LevelReader reader) {
+        ServerLevel level = reader instanceof ServerLevel value ? value
+                : reader instanceof WorldGenLevel world ? world.getLevel() : null;
+        return level == null ? clientAdmitted.test(reader) : owned(level);
+    }
+    private static boolean owned(ServerLevel level) {
+        return level.getChunkSource().getGenerator() instanceof GeologicalGenerator generator && generator.skyweave$isEnabled();
     }
     private static void unavailable(ClimateColumn.Unavailable unavailable) {
         if(WARNED.add(unavailable.reason()))com.mojang.logging.LogUtils.getLogger().warn(

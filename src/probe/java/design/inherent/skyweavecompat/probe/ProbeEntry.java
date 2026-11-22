@@ -13,6 +13,7 @@ public final class ProbeEntry {
     private MinecraftServer pending;
     public ProbeEntry() {
         SideLoadingProbe.install();
+        if (!System.getProperty("neighbors.probe.worldScope", "").isEmpty()) { new WorldScopeProbe(); return; }
         if (Boolean.getBoolean("neighbors.probe.combatNetwork")) { new CombatNetworkProbe(); return; }
         if (Boolean.getBoolean("neighbors.probe.encounters")) { new EncounterProbe(); return; }
         if (Boolean.getBoolean("neighbors.probe.settingsPolicy")) { new SettingsPolicyProbe(); return; }

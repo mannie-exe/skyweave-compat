@@ -28,7 +28,8 @@ abstract class WorldLevelKeyMixin {
             if (key != null) result.setReturnValue(key);
         } catch (java.io.IOException invalid) {
             // Never silently fall back to a seed-derived name that could select another world's cache.
-            throw new IllegalStateException("Cannot establish the Sky Archipelago DH cache namespace", invalid);
+            throw new IllegalStateException("Cannot establish the Sky Archipelago DH cache namespace. "
+                    + design.inherent.skyweavecompat.OptionalIntegrations.describe(design.inherent.skyweavecompat.Feature.DH_CACHE), invalid);
         }
     }
 }

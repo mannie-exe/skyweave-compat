@@ -1,0 +1,32 @@
+# Dependency admission
+
+An exact development pin identifies the artifact used for compilation and qualification. Runtime admission describes which installed versions an adapter accepts. An accepted version is not evidence that every supported feature was tested with it. Keep these facts separate in code, diagnostics, and release evidence.
+
+`build.gradle` and `gradle.properties` own reproducible dependency pins and artifact checks. The packaged `META-INF/skyweave-compat-development.properties` records the Minecraft, NeoForge, FML, and re:form baselines from those inputs. Build verification checks the resolved FML and re:form versions against that metadata. `FeatureSelection.dependencies` records optional adapter baselines; `DependencyVersions` owns their runtime contracts and reviewed metadata aliases. Modpack pins remain exact, independently of this mod's runtime admission.
+
+## Runtime contracts
+
+Minecraft remains exactly 1.21.1. NeoForge accepts stable releases from the development baseline within 21.1; FML accepts stable releases within major 4. re:form accepts stable releases from its development baseline within 0.1. A 0.2 API requires a separate consumer review. Loader metadata uses bounded Maven ranges; early metadata-only validation additionally refuses snapshots, prereleases, and qualified builds in these API families. Maven ordering alone can otherwise admit a next-family prerelease below its final release.
+
+Architectury is an API/presence prerequisite for Sky Villages, not a private injection target. It accepts stable versions from 13.0.12 below 14. Other optional contracts remain exact unless they explicitly list reviewed alternatives. Questlog is developed against 3.5.4 and also admits the reviewed 3.5.0 and 3.5.3 artifacts. Connector's known Surveyor and Hoofprint version spellings identify the same artifacts; they do not grant a patch-version range. Confectionery's actual `1.1.3.` metadata is an exact value, not a prefix wildcard.
+
+Each enabled adapter checks its own dependencies before selecting hooks. Explicit false, an inapplicable physical side, a missing owner, or an inactive prerequisite prevents those checks and target-class resolution. Optional NeoForge dependency entries therefore retain unrestricted version metadata; narrowing them would constrain installations that have disabled the corresponding adaptation. Missing base libraries remain required dependencies.
+
+Private hooks stay conservative even when an upstream project offers a public API. DH 3.3.3 Wayfinder reads use its repository, pooled source, and compressed-column internals. Cache identity, wrapper handoff, shutdown, and coverage publication have separate storage or lifecycle contracts. Iris hand passes, framebuffer ownership, shader transformations, materials, and pipeline teardown also use private contracts. The installed DH or Iris patch number alone cannot prove those boundaries remain valid. Each affected feature retains its exact reviewed version, including Iris's beta and Minecraft suffix. [LOD maintenance](lod.md#dependency-updates) and [rendering maintenance](rendering.md) own the required behavioral controls.
+
+## Failure reporting
+
+Startup logs report the base development and installed versions, plus admitted optional versions that differ from their baselines. Debug logs record each admitted adapter's baseline, accepted versions, and installed metadata. Admission errors identify the exact feature and dependency, then offer disabling that feature or installing an accepted version. They do not suggest disabling unrelated adapters.
+
+The Mixin error handler adds the selected adapter and dependency context to preparation/application failures. It preserves the original exception and Mixin's requested failure action. It never makes a required failed injection optional. Euphoria assembly has its own exact admission; an unsupported installed patcher is reported as unavailable, and its recipes still require the supported producer.
+
+DH Wayfinder reports the first read/submission/decode failure per preview session, preserving the original exception and adapter versions. Read/submission failures retain the session's failed state; decode failures retain the affected column's failed result. Repeated polls do not repeat the log. A closed session can dispose a late result without reporting cancellation as a new failure. Cache-identity failures retain their original cause and refuse fallback to another world's key. Shader-selection reload errors retain their cause and shader adapter context. None of these reports claims rollback of earlier effects.
+
+## Updating a dependency
+
+1. Update the exact build artifact and its digest. Read the installed mod metadata; filenames and distribution version IDs may differ from the runtime version. Keep generated baseline metadata and optional adapter baselines aligned with the artifact actually developed against.
+2. Review public API promises and each affected private target, descriptor, local capture, injection order, and lifecycle. A matching method descriptor alone does not qualify semantic compatibility. Add a reviewed exact release or a justified stable API family; do not loosen all adapters because one boundary passed.
+3. Run admission controls for the baseline, accepted alternatives, unsupported versions, prereleases, missing owners, explicit opt-outs, prerequisites, and physical sides. Qualify actual changed consumers with their owning native fixtures. Keep storage, wire, and saved generation identities separate from library versions.
+4. Run `./gradlew --no-daemon check build`, inspect packaged metadata, and record the exact artifacts, commands, outcomes, and limits in verification evidence. A metadata-only version fixture proves admission, not a new upstream binary's behavior. [Testing](testing.md) owns fixture operation, and [publishing](../publishing.md) owns release resolution.
+
+Retire a patch only after the released upstream implementation passes equivalent positive and negative controls. Refuse integrity-sensitive unsupported behavior before placement, mutation, or publication; do not silently drop a hook or claim rollback after an effect.

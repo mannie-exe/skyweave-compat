@@ -3,6 +3,7 @@ package design.inherent.skyweavecompat.presentation;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import net.neoforged.fml.ModList;
 
 /** Installed resource-mod metadata, separate from its own mod version or user settings. */
 public record PackIdentity(String version) {
@@ -21,5 +22,10 @@ public record PackIdentity(String version) {
         Object version = properties.get("skyweave:pack-version");
         return version instanceof String text && VERSION.matcher(text).matches()
                 ? Optional.of(new PackIdentity(text)) : Optional.empty();
+    }
+
+    public static Optional<PackIdentity> installed(ModList mods) {
+        return mods.getModContainerById("skyweave_resource_patches")
+                .flatMap(mod -> read(mod.getModInfo().getModProperties()));
     }
 }

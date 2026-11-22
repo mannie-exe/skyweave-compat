@@ -8,6 +8,8 @@ The entrypoint checks the physical dedicated-server side and exact BlueMap 5.7 l
 
 The adapter registers `skyweave-compat/viewer.js` through BlueMap's webapp API. Schema 2 settings include per-map exclusive height bounds. API reload and server shutdown clear selection. The original renderer returns when selection is empty, settings are invalid or the supported browser implementation is unavailable.
 
+Create: Skyweave's fresh map configuration leaves min/maxY unspecified so BlueMap uses the actual world envelope, including taller or deeper foreign worlds. Explicit operator crops remain authoritative and Seed-owned; the viewer adapter does not rewrite them. Cave visibility is separate policy.
+
 ## Rendering and limits
 
 The detailed render pass extends BlueMap's camera-distance cutoff while retaining its floating-origin transform. Loading uses the actual vertical bounds for frustum tests, a bounded tile radius and concurrent-request limit. Retained vertex/index buffer usage reduces the radius when the budget is reached. An individual oversized tile falls back to coarse rendering. This is not a total browser/GPU memory limit: textures, pending downloads and temporary allocations are additional costs.

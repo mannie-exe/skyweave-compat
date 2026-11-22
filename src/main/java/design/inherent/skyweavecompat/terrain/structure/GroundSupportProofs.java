@@ -74,7 +74,10 @@ public final class GroundSupportProofs {
             }
         }
         boolean matches(ServerLevel level,ChunkAccess at) {
-            return seed==level.getSeed() && generation.equals(GenerationGuard.fingerprint(level.getServer())) && dimension.equals(level.dimension().location())
+            return sameChunk(level,at) && generation.equals(GenerationGuard.fingerprint(level));
+        }
+        private boolean sameChunk(ServerLevel level,ChunkAccess at) {
+            return seed==level.getSeed() && dimension.equals(level.dimension().location())
                     && chunk.equals(at.getPos()) && minY==at.getMinBuildHeight() && height==at.getHeight();
         }
     }
@@ -102,7 +105,7 @@ public final class GroundSupportProofs {
             }
             entries.add(new Entry(foot,outcome,supported || outcome==VillageFoundation.Outcome.AUTHORED_CLEAR?State.PENDING:State.REFUSED,required,supported?binding.sourceState():null));
         }
-        var proof=new Proof(level.getSeed(),GenerationGuard.fingerprint(level.getServer()),level.dimension().location(),chunk.getPos(),
+        var proof=new Proof(level.getSeed(),GenerationGuard.fingerprint(level),level.dimension().location(),chunk.getPos(),
                 chunk.getMinBuildHeight(),chunk.getHeight(),source.grading().layout(),entries);
         if(chunk.hasData(TYPE) && !chunk.getData(TYPE).equals(proof))throw new IllegalStateException("Support evidence differs on FEATURES replay");
         chunk.setData(TYPE,proof);chunk.setUnsaved(true);
@@ -118,7 +121,13 @@ public final class GroundSupportProofs {
     public static void verify(ServerLevel level,ChunkAccess chunk) {
         if(!NaturalStructureInputs.owned(level) || !chunk.hasData(TYPE))return;
         if(chunk.getPersistedStatus().isBefore(ChunkStatus.INITIALIZE_LIGHT))throw new IllegalStateException("Support verification before native feature closure");
-        var proof=existing(level,chunk);if(proof==null)throw new IllegalStateException("Mismatched support evidence at LIGHT");
+        var proof=chunk.getData(TYPE);
+        if(!proof.matches(level,chunk)) {
+            if(!proof.sameChunk(level,chunk) || !GenerationGuard.usesDevPolicy(level.getServer()))
+                throw new IllegalStateException("Mismatched support evidence at LIGHT");
+            chunk.removeData(TYPE);chunk.setUnsaved(true);
+            return;
+        }
         var source=NaturalStructureInputs.existing(level,chunk);
         boolean authentic=source!=null && source.grading()!=null && source.grading().layout().equals(proof.layout());
         boolean survivingSource=chunk.hasData(NaturalStructureInputs.TYPE);

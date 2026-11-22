@@ -2,6 +2,8 @@
 
 These optional physical-client adapters do not require Sky Archipelago or the Skyweave modpack. [Configuration](../configuration.md#adaptation-switches) owns activation and versions. No renderer classes load on dedicated-server paths.
 
+Iris's private hand, material, shader, framebuffer, and lifecycle hooks retain exact adapter admission. [Dependency admission](dependencies.md) owns baseline/installed-version diagnostics and Mixin failure reporting; a public Iris version update does not qualify these private contracts automatically.
+
 [Attack presentation](combat.md) owns the independent Combat Nouveau/Punchy/Moves bridges and captured per-playback pacing. Their correctness rules, client preferences and session lifetime remain separate from shader, cape and glass adapters.
 
 ## Teleport presentation contract
@@ -266,6 +268,8 @@ The adaptation reuses Sable's renderer and queue clearing. It changes no mesh, p
 `./gradlew check build` transforms the released Veil and Aeronautics targets, NeoForge ModelBlockRenderer, and Sable's platform class. Controlled execution checks framebuffer restoration and shadow-pass cancellation; material-scope tests exercise recursion and exceptions. These tests require no window or GL context. They do not prove native shader output. [Verification](verification.md) records the tested artifact and current startup checks.
 
 Native checks cover the released 0.6.0 and the 0.6.1 correction on macOS arm64, with the pack's Complementary Unbound/Euphoria shader selection. Ponder, shader toggling/reload, valid heated balloons, materials, and single-block glass controls are recorded in [verification](verification.md). These are bounded observations, not validation of every driver, shader pack, or special block model.
+
+Shader-lab's retired DH shadow adapter has a separately reproduced flat-terrain projection defect. Current recipes retain upstream shadow behavior without those custom DH programs; independent material, environment and runtime adapters remain. Ownership and correction boundaries belong to [shader-lab](https://github.com/mannie-exe/create-skyweave/blob/main/tools/shader-lab/README.md#dh-shadows); the [flat-plane controls](verification.md#flat-plane-dh-shadow-projection) distinguish it from dynamic-light behavior. Neither the earlier cavity fixture nor correct material classification establishes coarse-face shadow depth and coverage.
 
 Airship shadows flickering or appearing separated remain unresolved. There is no source evidence here establishing whether precision/filtering, culling, or moving construct transforms cause that symptom. A future authorized comparison should use ordinary blocks versus special models, balloon inflated/deflated, stationary versus moving ship, and camera movement. Compare shader settings only where they distinguish causes. Neither the material-ID nor balloon guard is claimed to fix geometric shadow continuity. Sable's separate default-off skylight-shadow setting is not Iris's shadow enable switch and is not changed.
 

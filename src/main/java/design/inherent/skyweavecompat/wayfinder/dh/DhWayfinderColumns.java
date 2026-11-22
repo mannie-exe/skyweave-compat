@@ -27,7 +27,7 @@ public final class DhWayfinderColumns implements LodColumns {
     private final LinkedHashMap<Long,Boolean> absent=new LinkedHashMap<>(128,.75f,true);
     private record CellKey(long section,int column) {}
     private final LinkedHashMap<CellKey,Column> columns=new LinkedHashMap<>(256,.75f,true);
-    private boolean pending,closed;
+    private boolean pending,closed,failureReported;
     private State failure;
     private long reads;
 
@@ -76,8 +76,9 @@ public final class DhWayfinderColumns implements LodColumns {
                         synchronized(DhWayfinderColumns.this) {
                             try {
                                 if(closed || error!=null || received==null || received.getPos()!=key) {
+                                    if(!closed)failed("read stored column", error != null ? error
+                                            : new IllegalStateException("DH returned a missing or mismatched source for section " + key));
                                     if(received!=null)received.close();
-                                    if(!closed)failure=State.FAILED;
                                 } else if(received.isEmpty) {
                                     received.close();absent.put(key,true);
                                     while(absent.size()>128)absent.remove(absent.keySet().iterator().next());
@@ -91,7 +92,7 @@ public final class DhWayfinderColumns implements LodColumns {
                         }
                     })) {pending=false;return Column.state(State.PENDING);}
                     reads++;
-                } catch(RuntimeException error){pending=false;failure=State.FAILED;}
+                } catch(RuntimeException error){pending=false;failed("submit stored-column read", error);}
                 return Column.state(failure==null?State.PENDING:failure);
             }
             var column=decode(source,x,z,detail);
@@ -123,25 +124,41 @@ public final class DhWayfinderColumns implements LodColumns {
             // the minimum generation step of all four children; incomplete parents cannot certify coverage.
             if(source.columnGenerationSteps.getByte(index)<EDhApiWorldGenerationStep.TERRAIN.value)
                 return Column.state(State.INCOMPLETE);
-            if(source.getDataDetailLevel()!=detail || data.size()>maxY-minY+1)return Column.state(State.FAILED);
+            if(source.getDataDetailLevel()!=detail || data.size()>maxY-minY+1)
+                throw new IllegalArgumentException("DH column detail or length does not match its admitted bounds");
             var bands=new ArrayList<Band>(data.size());
             for(int i=0;i<data.size();i++) {
                 long value=data.getLong(i);
                 int bottom=minY+FullDataPointUtil.getBottomY(value),top=bottom+FullDataPointUtil.getHeight(value);
                 boolean air=source.mapping.getBlockStateWrapper(FullDataPointUtil.getId(value)).isAir();
-                if(bottom<minY || top>maxY+(air?1:0) || bottom>=top)return Column.state(State.FAILED);
+                if(bottom<minY || top>maxY+(air?1:0) || bottom>=top)
+                    throw new IllegalArgumentException("DH column band is outside the native build bounds");
                 if(bottom<maxY)bands.add(new Band(bottom,Math.min(top,maxY),air));
             }
             bands.sort(Comparator.comparingInt(Band::bottom));int covered=minY;
             for(var band:bands) {
-                if(band.bottom()<covered)return Column.state(State.FAILED);
+                if(band.bottom()<covered)throw new IllegalArgumentException("DH column contains overlapping bands");
                 covered=band.top();
             }
             // Native visual compression can omit lower depth. Certify only the requested
             // ray interval, never synthesize air beneath the retained observation.
             // Coarse material/height is a representative observation, not exact child collision.
             return new Column(State.READY,bands,detail);
-        } catch(RuntimeException invalid){return Column.state(State.FAILED);}
+        } catch(RuntimeException invalid){
+            reportFailure("decode stored column at " + x + "," + z + " detail " + detail, invalid);
+            return Column.state(State.FAILED);
+        }
+    }
+    private void failed(String operation, Throwable cause) {
+        failure=State.FAILED;
+        reportFailure(operation,cause);
+    }
+    private void reportFailure(String operation, Throwable cause) {
+        // One report per preview session; subsequent polls retain FAILED without log churn.
+        if(failureReported)return;
+        failureReported=true;
+        com.mojang.logging.LogUtils.getLogger().error("Cannot {}. {}", operation,
+                design.inherent.skyweavecompat.OptionalIntegrations.describe(design.inherent.skyweavecompat.Feature.WAYFINDER_DH), cause);
     }
     public synchronized long readCount(){return reads;}
     @Override public synchronized void close() {

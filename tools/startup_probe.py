@@ -28,6 +28,8 @@ def main():
                                              'unsupported-disabled', 'unsupported-enabled', 'questlog', 'questlog-disabled', 'jade', 'macaw', 'macaw-disabled'], required=True)
     parser.add_argument('--mod', type=Path)
     parser.add_argument('--extra-mod', type=Path, action='append', default=[], help='Additional explicit read-only artifacts for a bounded startup boundary')
+    parser.add_argument('--reform-metadata-version', choices=['0.1.99', '0.2.0-rc.1'],
+                        help='Standalone fixture only: alter the copied library metadata, preserving its bytecode; this tests admission, not a future binary')
     parser.add_argument('--output', type=Path, help='New owned evidence directory; preserve other probe reports')
     parser.add_argument('--fixture-config', type=Path, help='Explicit read-only config tree for this disposable fixture')
     parser.add_argument('--capture-config', action='store_true', help='Retain bounded generated fixture configs with the evidence')
@@ -42,6 +44,10 @@ def main():
     parser.add_argument('--replay-dh', type=Path, help='Existing cache copy for natural server-to-client LOD transfer')
     parser.add_argument('--enable', action='append', default=[], help='Explicit startup feature key to enable in this disposable fixture')
     args = parser.parse_args()
+    if args.reform_metadata_version and args.scenario != 'standalone':
+        parser.error('--reform-metadata-version requires standalone')
+    if args.scenario == 'unsupported-enabled' and len(args.enable) > 1:
+        parser.error('An unsupported-enabled fixture must select one refusal owner')
     if args.combat_network and (not args.serve or args.scenario != 'standalone'):
         parser.error('--combat-network requires standalone --serve')
     if args.resource_patches:
@@ -60,12 +66,12 @@ def main():
     if (args.replay_regions or args.replay_dh) and not(args.serve and args.islands):
         parser.error('Replay inputs require an owned served island fixture')
     server = args.server.expanduser().resolve()
-    version = next(line.split('=', 1)[1] for line in (ROOT / 'gradle.properties').read_text().splitlines()
-                   if line.startswith('mod_version='))
+    properties = dict(line.split('=', 1) for line in (ROOT / 'gradle.properties').read_text().splitlines() if '=' in line)
+    version = properties['mod_version']
     mod = args.mod or ROOT / f'build/libs/skyweave-compat-{version}-mc1.21.1-neoforge.jar'
-    launch = list((server / 'libraries/net/neoforged/neoforge').glob('21.1.265/unix_args.txt'))
+    launch = list((server / 'libraries/net/neoforged/neoforge').glob(f"{properties['neo_version']}/unix_args.txt"))
     if len(launch) != 1:
-        parser.error('Expected the supported NeoForge 21.1.265 launch configuration')
+        parser.error(f"Expected the developed-against NeoForge {properties['neo_version']} launch configuration")
     output = args.output.expanduser().resolve() if args.output else ROOT / 'build/verification'
     if args.output and output.exists():
         parser.error('Explicit evidence directory must not already exist')
@@ -147,6 +153,31 @@ def main():
                 parser.error('Extra startup artifacts must be existing JARs with unique filenames')
             copy_owned(source, destination, run)
             selected[source.name] = hashlib.sha256(source.read_bytes()).hexdigest()
+        if args.reform_metadata_version:
+            libraries = []
+            for path in (run / 'mods').glob('*.jar'):
+                with zipfile.ZipFile(path) as archive:
+                    if 'META-INF/neoforge.mods.toml' not in archive.namelist(): continue
+                    metadata = tomllib.loads(archive.read('META-INF/neoforge.mods.toml').decode())
+                    if any(mod['modId'] == 'reform' for mod in metadata.get('mods', [])): libraries.append(path)
+            if len(libraries) != 1: parser.error('The metadata fixture requires exactly one copied re:form JAR')
+            library = libraries[0]
+            with zipfile.ZipFile(library) as archive:
+                entries = [(entry, archive.read(entry.filename)) for entry in archive.infolist()]
+            rewritten = library.with_suffix('.fixture')
+            with zipfile.ZipFile(rewritten, 'w') as archive:
+                for entry, data in entries:
+                    if entry.filename == 'META-INF/neoforge.mods.toml':
+                        data, count = re.subn(r'(?m)^version\s*=\s*"[^"\n]+"',
+                                             f'version="{args.reform_metadata_version}"', data.decode())
+                        if count != 1: parser.error('Ambiguous re:form fixture version')
+                        data = data.encode()
+                    archive.writestr(entry, data)
+            rewritten.replace(library)
+            report['reformMetadataFixture'] = {'advertised': args.reform_metadata_version,
+                                              'sourceSha256': selected[library.name],
+                                              'scope': 'metadata only; original library code and other resources unchanged'}
+            selected[library.name] = hashlib.sha256(library.read_bytes()).hexdigest()
         if args.combat_network:
             (run / 'owned-combat-network.json').write_text('{"owner":"startup_probe.py"}\n')
             probe = ROOT / 'build/probe/skyweave-compat-probe.jar'
@@ -162,8 +193,9 @@ def main():
         if args.scenario == 'unsupported-enabled':
             # One known target owns this refusal; unrelated newer adapters stay disabled.
             keys = re.findall(r'\("([a-z_]+\.[a-z_]+)"', (ROOT / 'src/main/java/design/inherent/skyweavecompat/Feature.java').read_text())
+            enabled = set(args.enable or ['navigation.wayfinder'])
             (run / 'config/skyweave/skyweave_compat-features.properties').write_text(
-                ''.join(f'{key}={str(key == "navigation.wayfinder").lower()}\n' for key in keys))
+                ''.join(f'{key}={str(key in enabled).lower()}\n' for key in keys))
         if args.enable:
             keys = set(re.findall(r'\("([a-z_]+\.[a-z_]+)"', (ROOT / 'src/main/java/design/inherent/skyweavecompat/Feature.java').read_text()))
             if not set(args.enable) <= keys:
@@ -278,10 +310,9 @@ def main():
         report['passed'] = (done and process.returncode == 0 and bool(report['active_lines'])
                             and (not inactive or (not references and any('adaptations: []' in line for line in report['active_lines']))))
         if args.scenario == 'unsupported-enabled':
-            refusal = ("variantsandventures.spawner_emissions requires variantsandventures 1.0.30; found 999.0.0"
-                       if 'variantsandventures.spawner_emissions' in args.enable else
-                       "Review Wayfinder's coordinate-frame guard for Sable 999.0.0; supported optional version is 2.0.6")
-            report['passed'] = not done and refusal in text
+            refusal = 'cannot enable ' + (args.enable[0] if args.enable else 'navigation.wayfinder') + '.'
+            report['passed'] = (not done and refusal in text and 'installed 999.0.0' in text
+                                and 'developed against ' in text and not report['active_lines'])
         if args.scenario in {'library-missing', 'library-unsupported'}:
             report['libraryDiagnostics'] = [line for line in text.splitlines() if 'reform' in line.lower() or 'mandatory dependencies' in line.lower()][:24]
             expected = '[MISSING]' if args.scenario == 'library-missing' else '0.0.0'
@@ -297,6 +328,10 @@ def main():
             report['passed'] = (done and process.returncode == 0 and
                 (not references if args.without_compat else sorted(references) == sorted(expected)
                  and any('PATROL_CHANCE' in line and 'WAYFINDER' in line for line in report['active_lines'])))
+            if args.reform_metadata_version == '0.2.0-rc.1':
+                report['passed'] = (not done and not report['active_lines']
+                                    and 'reform: developed against ' in text
+                                    and 'installed 0.2.0-rc.1' in text)
         if args.combat_network:
             report['passed'] = report['passed'] and report['combatNetwork'].get('complete') is True
             side = run / 'combat-network-server.json.dist.json'

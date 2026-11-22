@@ -15,7 +15,8 @@ public abstract class ShaderAssemblyMixin {
         if (migrated && Iris.getIrisConfig() != null) {
             try { Iris.getIrisConfig().initialize(); }
             catch (java.io.IOException failure) {
-                com.mojang.logging.LogUtils.getLogger().error("Cannot reload migrated shader selection", failure);
+                com.mojang.logging.LogUtils.getLogger().error("Cannot reload migrated shader selection. {}",
+                        design.inherent.skyweavecompat.OptionalIntegrations.describe(design.inherent.skyweavecompat.Feature.SHADER_PATCHES), failure);
                 callback.cancel(); return;
             }
         }

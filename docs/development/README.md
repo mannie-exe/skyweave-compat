@@ -12,6 +12,8 @@ Build outputs are in `build/libs`. The minimum installation requires Minecraft, 
 
 `FeatureSettings` reads immutable startup switches before Mixin target resolution. `FeatureSelection` admits dependencies, physical sides, and explicit prerequisites from loader metadata; `OptionalMixinPlugin` selects only admitted mixins. Disabled integrations neither resolve foreign classes nor constrain their versions. `SkyweaveCompat` registers admitted callbacks. `IntegrationPacks` exposes separately gated built-in data packs rather than unconditional integration data at the JAR root.
 
+[Dependency admission](dependencies.md) owns development baselines, justified runtime ranges, reviewed aliases, and failure context. Keep private DH/Iris contracts separate from public API-family acceptance.
+
 Keep geometry independent of Minecraft APIs and native adapters small. Generation queries must not load neighboring chunks or depend on visitation order. Minimum, enabled, disabled, and unsupported-disabled native fixtures qualify different boundaries. Unit results, startup, physical generation, and visible rendering retain separate evidence.
 
 The standalone server and client probes are separate artifacts and never release contents. [Testing](testing.md) owns invocation, fixture inputs, and cleanup; [verification](verification.md) owns qualified artifact identities and limits. Historical comparisons use the exact old artifact, not a second implementation compiled into the current suite.

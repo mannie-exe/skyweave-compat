@@ -41,7 +41,7 @@ repositories {
     }
 }
 neoForge {
-    version = '21.1.265'
+    version = neo_version
     runs {
         client { client(); gameDirectory = file('runs/client') }
         server { server(); gameDirectory = file('runs/server'); programArgument '--nogui' }
@@ -149,13 +149,24 @@ tasks.named('sourcesJar', Jar) { from 'LICENSE', 'NOTICE'; from('licenses') { in
 tasks.named('processResources', ProcessResources) {
     inputs.property 'version', project.version
     inputs.property 'reform_version', reformVersion
-    filesMatching('META-INF/neoforge.mods.toml') { expand version: project.version, reform_version: reformVersion }
+    inputs.property 'neo_version', neo_version
+    inputs.property 'fml_version', fml_version
+    filesMatching(['META-INF/neoforge.mods.toml', 'META-INF/skyweave-compat-development.properties']) {
+        expand version: project.version, reform_version: reformVersion, neo_version: neo_version, fml_version: fml_version
+    }
 }
 tasks.named('test', Test) { useJUnitPlatform() }
 tasks.register('verifyUpstream') {
     inputs.files(configurations.runtimeClasspath)
     inputs.files(configurations.compileClasspath)
     doLast {
+        ['net.neoforged.fancymodloader:loader': fml_version, 'design.inherent:reform': reformVersion].each { coordinate, expected ->
+            def artifact = configurations.compileClasspath.resolvedConfiguration.resolvedArtifacts.find {
+                "${it.moduleVersion.id.group}:${it.name}" == coordinate
+            }
+            if (artifact == null || artifact.moduleVersion.id.version != expected)
+                throw new GradleException("Development metadata for ${coordinate} must match the resolved version ${expected}")
+        }
         def quests = configurations.compileClasspath.resolvedConfiguration.resolvedArtifacts.find {
             it.moduleVersion.id.group == 'dev.ftb.mods' && it.name == 'ftb-quests-neoforge'
         }?.file

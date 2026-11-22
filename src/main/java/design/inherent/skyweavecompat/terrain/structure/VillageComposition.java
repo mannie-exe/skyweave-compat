@@ -9,6 +9,8 @@ import design.inherent.skyweavecompat.mixin.VillageTemplateAccess;
 import java.io.IOException;
 import java.util.*;
 import net.minecraft.core.RegistryAccess;
+import net.minecraft.server.MinecraftServer;
+import design.inherent.skyweavecompat.terrain.GenerationGuard;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
@@ -22,7 +24,7 @@ import net.minecraft.world.level.levelgen.structure.pools.*;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.AddReloadListenerEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
-import net.neoforged.neoforge.event.server.ServerStartedEvent;
+import net.neoforged.neoforge.event.server.ServerAboutToStartEvent;
 
 /** Required authored content, assessed on the actual assembly and retained start without world reads. */
 public final class VillageComposition {
@@ -46,7 +48,7 @@ public final class VillageComposition {
     private static final TagKey<net.minecraft.world.level.levelgen.structure.Structure> COMPOSED = TagKey.create(
             Registries.STRUCTURE, ResourceLocation.fromNamespaceAndPath("skyweave_compat", "managed/composed_villages"));
     private static volatile Map<ResourceLocation, Contract> contracts = Map.of();
-    private static volatile boolean serverStarted;
+    private static volatile MinecraftServer activeServer;
     private VillageComposition() {}
 
     /** Stable semantic inputs for saved generation identity, independent of map/set iteration order. */
@@ -72,8 +74,8 @@ public final class VillageComposition {
 
     public static void register() {
         NeoForge.EVENT_BUS.addListener((AddReloadListenerEvent event) -> event.addListener(new Loader(event.getRegistryAccess())));
-        NeoForge.EVENT_BUS.addListener((ServerStartedEvent event) -> serverStarted = true);
-        NeoForge.EVENT_BUS.addListener((ServerStoppedEvent event) -> { serverStarted = false; contracts = Map.of(); });
+        NeoForge.EVENT_BUS.addListener((ServerAboutToStartEvent event) -> activeServer = event.getServer());
+        NeoForge.EVENT_BUS.addListener((ServerStoppedEvent event) -> { if (activeServer == event.getServer()) { activeServer = null; contracts = Map.of(); } });
     }
 
     private static final class Loader extends SimplePreparableReloadListener<Map<ResourceLocation, Contract>> {
@@ -108,8 +110,9 @@ public final class VillageComposition {
         @Override protected void apply(Map<ResourceLocation, Contract> prepared, ResourceManager resources, ProfilerFiller profiler) {
             // Existing immutable fitted plans were made against the startup contract.
             // Do not hot-swap their policy while another chunk commits that plan.
-            if (serverStarted && !contracts.equals(prepared))
-                throw new IllegalStateException("Village composition changed; restart the server to rebuild generation plans");
+            var server = activeServer;
+            if (server != null && GenerationGuard.hasOwnedDimension(server) && !contracts.equals(prepared))
+                throw new IllegalStateException("Village composition changed for an owned dimension. Restore its recorded contract or create a separate world; live replacement is unsupported.");
             contracts = prepared;
         }
     }

@@ -1,6 +1,6 @@
 # Distant Horizons integration
 
-Skyweave: Compatibility Patches uses DH's ordinary terrain generation, storage and rendering. It does not provide a separate terrain predictor. Optional hooks target DH 3.3.3 on Minecraft 1.21.1 / NeoForge 21.1.264. The compile-only artifact is pinned by SHA-256 in `build.gradle`; `FeatureSelection` and active feature tests must agree.
+Skyweave: Compatibility Patches uses DH's ordinary terrain generation, storage and rendering. It does not provide a separate terrain predictor. Optional hooks target DH 3.3.3 on Minecraft 1.21.1. The compile-only artifact is pinned by SHA-256 in `build.gradle`; `FeatureSelection` and active feature tests must agree. [Dependency admission](dependencies.md) owns development-versus-installed diagnostics and explains why these private contracts do not accept an arbitrary DH patch. Historical scene evidence below retains its actual NeoForge version.
 
 ## Lifecycle ownership
 

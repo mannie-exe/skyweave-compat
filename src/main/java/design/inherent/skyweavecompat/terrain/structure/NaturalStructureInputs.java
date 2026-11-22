@@ -59,8 +59,10 @@ public final class NaturalStructureInputs {
         /** Intended patch only; this is not a final support/acceptance receipt. */
         public Journal grading() { return grading; }
         private boolean matches(ServerLevel level,ChunkAccess chunk) {
-            return seed==level.getSeed() && identity.equals(GenerationGuard.fingerprint(level.getServer()))
-                    && dimension.equals(level.dimension().location()) && position.equals(chunk.getPos())
+            return sameChunk(level,chunk) && identity.equals(GenerationGuard.fingerprint(level));
+        }
+        private boolean sameChunk(ServerLevel level,ChunkAccess chunk) {
+            return seed==level.getSeed() && dimension.equals(level.dimension().location()) && position.equals(chunk.getPos())
                     && terrain.minY==chunk.getMinBuildHeight() && terrain.height==chunk.getHeight();
         }
     }
@@ -98,7 +100,7 @@ public final class NaturalStructureInputs {
         // A late caller cannot certify already decorated terrain as the natural source.
         if(!chunk.getPersistedStatus().isBefore(ChunkStatus.CARVERS))
             throw new IllegalStateException("Natural terrain capture must precede CARVERS completion");
-        var data=new Snapshot(level.getSeed(),GenerationGuard.fingerprint(level.getServer()),level.dimension().location(),
+        var data=new Snapshot(level.getSeed(),GenerationGuard.fingerprint(level),level.dimension().location(),
                 chunk.getPos(),new StructureTerrainView.ColumnChunk(chunk));
         chunk.setData(TYPE,data);chunk.setUnsaved(true);
     }
@@ -111,7 +113,10 @@ public final class NaturalStructureInputs {
         if(!owned(level) || !chunk.hasData(TYPE))return;
         if(chunk.getPersistedStatus().isBefore(ChunkStatus.INITIALIZE_LIGHT))
             throw new IllegalStateException("Natural support source retired before the native FEATURES barrier");
-        if(!chunk.getData(TYPE).matches(level,chunk))throw new IllegalStateException("Mismatched natural source at retirement");
+        var snapshot=chunk.getData(TYPE);
+        if(!snapshot.matches(level,chunk) && !(snapshot.sameChunk(level,chunk) && GenerationGuard.usesDevPolicy(level.getServer())))
+            throw new IllegalStateException("Mismatched natural source at retirement");
+        // History can be discarded at LIGHT after all readers are closed. It cannot authorize a new write.
         chunk.removeData(TYPE);chunk.setUnsaved(true);
     }
     /** Caller supplies already available chunks; this method does not request any status. */

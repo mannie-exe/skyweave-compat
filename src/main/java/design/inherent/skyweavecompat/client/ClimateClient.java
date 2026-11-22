@@ -26,6 +26,7 @@ public final class ClimateClient {
     private static void clear() { TRACKED.clear();clearChunks(); }
     public static void register() {
         ClimateNetwork.client=ClimateClient::receive;ClimateRuntime.client=ClimateClient::lookup;
+        ClimateRuntime.clientAdmitted=TRACKED::synchronizedPolicy;
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut event)->clear());
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.level.LevelEvent.Unload event)->{
             if(event.getLevel() instanceof net.minecraft.client.multiplayer.ClientLevel) { TRACKED.unloaded(event.getLevel());clearChunks(); }

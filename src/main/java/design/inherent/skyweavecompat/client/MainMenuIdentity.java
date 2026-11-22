@@ -1,7 +1,6 @@
 package design.inherent.skyweavecompat.client;
 
 import design.inherent.skyweavecompat.presentation.PackIdentity;
-import java.util.Map;
 import net.minecraft.network.chat.Component;
 import net.neoforged.fml.ModList;
 
@@ -13,9 +12,7 @@ public final class MainMenuIdentity {
         var mods = ModList.get();
         var compat = mods.getModContainerById("skyweave_compat").orElseThrow();
         String version = compat.getModInfo().getVersion().toString();
-        var properties = mods.getModContainerById("skyweave_resource_patches")
-                .map(mod -> mod.getModInfo().getModProperties()).orElse(Map.of());
-        return PackIdentity.read(properties)
+        return PackIdentity.installed(mods)
                 .map(pack -> Component.translatable("skyweave_compat.branding.pack", pack.version(), version).getString())
                 .orElseGet(() -> Component.translatable("skyweave_compat.branding.standalone", version).getString());
     }

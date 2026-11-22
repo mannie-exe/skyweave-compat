@@ -6,12 +6,11 @@ import json
 import os
 import re
 from pathlib import Path
-import shlex
 import shutil
 import subprocess
 import zipfile
 
-from client_bootstrap import REPOSITORY, argument_file, mod_ids
+from client_bootstrap import REPOSITORY, argument_file, mod_ids, packaged_bootstrap
 
 
 def resource_format_range(path):
@@ -300,22 +299,8 @@ def main():
 
     # Keep the pinned ModDev loader/bootstrap, but remove content mods and project source roots.
     # The only gameplay/probe artifacts must be the packaged JARs above.
-    moddev = REPOSITORY / 'build/moddev'
-    def library(path):
-        candidate = Path(path)
-        if str(REPOSITORY / 'build/classes') in path or str(REPOSITORY / 'build/resources') in path:
-            return False
-        return not (mod_ids(candidate) - {'minecraft', 'neoforge'})
-    classpath = shlex.split((moddev / 'clientRunClasspath.txt').read_text())
-    for i, value in enumerate(classpath):
-        if i and classpath[i - 1] in ('-cp', '-classpath', '--class-path'):
-            classpath[i] = os.pathsep.join(path for path in value.split(os.pathsep) if library(path))
-    argument_file(root / 'classpath.args', classpath)
-    legacy_paths = (moddev / 'clientLegacyClasspath.txt').read_text().splitlines()
-    (root / 'legacy-classpath.txt').write_text('\n'.join(path for path in legacy_paths if library(path)) + '\n')
-    vm = shlex.split((moddev / 'clientRunVmArgs.txt').read_text())
-    vm = [value for value in vm if not value.startswith('-DlegacyClassPath.file=')]
-    vm += ['-DlegacyClassPath.file=' + str(root / 'legacy-classpath.txt'), '-Xms512M', '-Xmx' + args.heap,
+    vm, program = packaged_bootstrap(root)
+    vm += ['-Xms512M', '-Xmx' + args.heap,
            '-Dmixin.debug.export=true', '-Dmixin.debug.export.filter=net.minecraft.client.Minecraft']
     connector_input = None
     if args.connector_clean:
@@ -377,7 +362,6 @@ def main():
     if args.settings_only:
         vm.append('-Dskyweave_compat.probe.combat.settingsOnly=true')
     argument_file(root / 'vm.args', vm)
-    program = shlex.split((moddev / 'clientRunProgramArgs.txt').read_text(), comments=True)
     if args.network_role:
         username = 'CombatActor' if args.network_role == 'actor' else 'CombatObserver'
         if '--username' in program:

@@ -33,9 +33,21 @@ public final class ClientShaderStaticProbe {
             finished = true;
             try {
                 if (net.irisshaders.iris.Iris.isPackInUseQuick()) throw new IllegalStateException("Static fixture requires shaders disabled");
-                String name = design.inherent.skyweavecompat.shader.ShaderRecipe.filename(System.getProperty("skyweave_compat.probe.shaderStatic.archive"));
-                main(new String[]{root.resolve("shaderpacks/" + name).toString(), root.resolve(".cache/shader-static").toString(),
-                        System.getProperty("skyweave_compat.probe.shaderStatic.compiler", "glslangValidator")});
+                var names = new java.util.ArrayList<String>();
+                String batch = System.getProperty("skyweave_compat.probe.shaderStatic.archives");
+                if (batch == null) names.add(System.getProperty("skyweave_compat.probe.shaderStatic.archive"));
+                else {
+                    if (batch.length() > 8192) throw new IllegalArgumentException("Static archive list exceeds fixture budget");
+                    for (var name : com.google.gson.JsonParser.parseString(batch).getAsJsonArray()) names.add(name.getAsString());
+                }
+                if (names.isEmpty() || names.size() > 3) throw new IllegalArgumentException("Expected one to three shader archives");
+                for (int i = 0; i < names.size(); i++) {
+                    String name = design.inherent.skyweavecompat.shader.ShaderRecipe.filename(names.get(i));
+                    Path output = root.resolve(".cache/shader-static");
+                    if (names.size() > 1) output = output.resolve(Integer.toString(i));
+                    main(new String[]{root.resolve("shaderpacks/" + name).toString(), output.toString(),
+                            System.getProperty("skyweave_compat.probe.shaderStatic.compiler", "glslangValidator")});
+                }
             } catch (Throwable failure) {
                 failure.printStackTrace();
                 try { Files.createDirectories(root.resolve(".cache/shader-static")); Files.writeString(root.resolve(".cache/shader-static/failure.txt"), failure.toString()); }
@@ -60,19 +72,26 @@ public final class ClientShaderStaticProbe {
             String id = dimension.replace('-', 'n') + (caustics ? "-caustics-on" : "-caustics-off");
             String vertex = expand(files, "shaders/" + dimension + "/dh_shadow.vsh", new HashSet<>(), new int[]{0});
             String fragment = expand(files, "shaders/" + dimension + "/dh_shadow.fsh", new HashSet<>(), new int[]{0});
+            String geometryPath = "shaders/" + dimension + "/dh_shadow.gsh";
+            String geometry = files.containsKey(geometryPath) ? expand(files, geometryPath, new HashSet<>(), new int[]{0}) : null;
             vertex = option(vertex, "WATER_CAUSTICS", caustics); fragment = option(fragment, "WATER_CAUSTICS", caustics);
             vertex = JcppProcessor.glslPreprocessSource(vertex, defines);
             fragment = JcppProcessor.glslPreprocessSource(fragment, defines);
-            var transformed = TransformPatcher.patchDHTerrain("skyweave-static-" + id, vertex, null, null, null, fragment,
+            if (geometry != null) geometry = JcppProcessor.glslPreprocessSource(option(geometry, "WATER_CAUSTICS", caustics), defines);
+            var transformed = TransformPatcher.patchDHTerrain("skyweave-static-" + id, vertex, null, null, geometry, fragment,
                     new Object2ObjectOpenHashMap<>());
             Path v = output.resolve(id + ".vert"), f = output.resolve(id + ".frag");
             Files.writeString(v, transformed.get(PatchShaderType.VERTEX)); Files.writeString(f, transformed.get(PatchShaderType.FRAGMENT));
-            var process = new ProcessBuilder(args[2], "-l", v.toString(), f.toString()).redirectErrorStream(true)
+            var command = new java.util.ArrayList<>(List.of(args[2], "-l", v.toString(), f.toString()));
+            Path g = output.resolve(id + ".geom");
+            if (geometry != null) { Files.writeString(g, transformed.get(PatchShaderType.GEOMETRY)); command.add(g.toString()); }
+            var process = new ProcessBuilder(command).redirectErrorStream(true)
                     .redirectOutput(output.resolve(id + ".log").toFile()).start();
             if (!process.waitFor(30, TimeUnit.SECONDS)) { process.destroyForcibly(); throw new IllegalStateException("GLSL compiler timeout"); }
             var row = new JsonObject(); row.addProperty("case", id); row.addProperty("exit", process.exitValue());
             row.addProperty("vertexSha256", ShaderArchives.sha256(Files.readAllBytes(v)));
             row.addProperty("fragmentSha256", ShaderArchives.sha256(Files.readAllBytes(f))); cases.add(row);
+            if (geometry != null) row.addProperty("geometrySha256", ShaderArchives.sha256(Files.readAllBytes(g)));
             Files.writeString(output.resolve("results.json"), new GsonBuilder().setPrettyPrinting().create().toJson(report) + "\n");
             if (process.exitValue() != 0) throw new IllegalStateException("GLSL compile/link failed: " + id + "\n" + Files.readString(output.resolve(id + ".log")));
         }

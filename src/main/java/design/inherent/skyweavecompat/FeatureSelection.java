@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.Set;
 
 /** Dependency decisions use metadata only; disabled features impose no version constraints. */
-public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactive, Map<Feature, Reason> reasons) {
+public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactive, Map<Feature, Reason> reasons, Map<String, String> installed) {
     public enum InactiveKind { DISABLED, WRONG_SIDE, PREREQUISITE, MISSING, EXTERNAL }
     public record Reason(InactiveKind kind, List<String> details) {
         public Reason { details = List.copyOf(details); }
@@ -26,14 +26,22 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
         active = Set.copyOf(active);
         inactive = Map.copyOf(inactive);
         reasons = Map.copyOf(reasons);
+        installed = Map.copyOf(installed);
     }
 
     public boolean enabled(Feature feature) { return active.contains(feature); }
 
-    /** Connector can report the same pinned Fabric artifact with '+' or normalized '_'. */
-    private static boolean fabricVersionSpelling(String id,String version,String expected) {
-        return id.equals("surveyor") && expected.equals("1.2.4_1.21") && version.equals("1.2.4+1.21")
-                || id.equals("hoofprint") && expected.equals("1.3.0_1.21") && version.equals("1.3.0+1.21");
+    /** Metadata only; this must remain usable while reporting a foreign class-loading failure. */
+    public String describe(Feature feature) {
+        var contracts = new java.util.TreeMap<>(dependencies(feature));
+        if (feature == Feature.WAYFINDER && installed.containsKey("sable")) contracts.put("sable", "2.0.6");
+        if (feature == Feature.LINEAR_BOOTSTRAP && installed.containsKey("linearbearingsfix")) contracts.put("linearbearingsfix", "1.0.3");
+        if (feature == Feature.YUNG_STRUCTURES)
+            for (var target : design.inherent.skyweavecompat.configuration.YungReplacementBindings.TARGETS)
+                if (installed.containsKey(target.mod())) contracts.put(target.mod(), target.version());
+        return feature.key + " [" + String.join("; ", contracts.entrySet().stream()
+                .map(entry -> DependencyVersions.contract(entry.getKey(), entry.getValue()).describe(entry.getKey(), installed.get(entry.getKey())))
+                .toList()) + "]";
     }
 
     public static FeatureSelection select(FeatureSettings settings, Map<String, String> mods, boolean client) {
@@ -53,22 +61,16 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             if (!missing.isEmpty()) { reasons.put(feature, new Reason(InactiveKind.MISSING, missing)); continue; }
             if (feature == Feature.LINEAR_BOOTSTRAP && mods.containsKey("linearbearingsfix")) {
                 if (!mods.get("linearbearingsfix").equals("1.0.3"))
-                    throw new IllegalStateException("Review the installed Linear Bearings Fix before enabling "
-                            + feature.key + "; supported companion version is 1.0.3. Disable this adaptation in " + FeatureSettings.FILE + ".");
+                    throw DependencyVersions.unsupported(feature, "linearbearingsfix", DependencyVersions.exact("1.0.3"), mods.get("linearbearingsfix"));
                 reasons.put(feature, new Reason(InactiveKind.EXTERNAL, List.of("Linear Bearings Fix 1.0.3")));
                 continue;
             }
             if (feature == Feature.WAYFINDER && mods.containsKey("sable") && !mods.get("sable").equals("2.0.6"))
-                throw new IllegalStateException("Review Wayfinder's coordinate-frame guard for Sable " + mods.get("sable")
-                        + "; supported optional version is 2.0.6. Disable " + feature.key + " in " + FeatureSettings.FILE + ".");
-            for (var entry : required.entrySet()) {
+                throw DependencyVersions.unsupported(feature, "sable", DependencyVersions.exact("2.0.6"), mods.get("sable"));
+            for (var entry : new java.util.TreeMap<>(required).entrySet()) {
                 String version = mods.get(entry.getKey()), expected = entry.getValue();
-                if (!(expected.endsWith(".") ? version.startsWith(expected) : version.equals(expected))
-                        && !fabricVersionSpelling(entry.getKey(), version, expected)
-                        && !(entry.getKey().equals("questlog") && expected.equals("3.5.0") && (version.equals("3.5.3") || version.equals("3.5.4"))))
-                    throw new IllegalStateException("Skyweave: Compatibility Patches " + feature.key + " requires "
-                            + entry.getKey() + " " + expected + "; found " + version
-                            + ". Disable this adaptation in " + FeatureSettings.FILE + " or install the supported version.");
+                var contract = DependencyVersions.contract(entry.getKey(), expected);
+                if (!contract.accepts(version)) throw DependencyVersions.unsupported(feature, entry.getKey(), contract, version);
             }
             if (feature == Feature.FRAMEBUFFER && mods.containsKey("veil_iris_fix"))
                 throw new IllegalStateException("Remove Veil Iris Fix: its framebuffer correction is included in Skyweave: Compatibility Patches. "
@@ -79,13 +81,12 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             if (feature == Feature.YUNG_STRUCTURES)
                 for (var target : design.inherent.skyweavecompat.configuration.YungReplacementBindings.TARGETS)
                     if (mods.containsKey(target.mod()) && !mods.get(target.mod()).equals(target.version()))
-                        throw new IllegalStateException("Review " + feature.key + " for " + target.mod() + " " + mods.get(target.mod())
-                                + "; supported version is " + target.version() + ". Disable the adaptation or install the supported version.");
+                        throw DependencyVersions.unsupported(feature, target.mod(), DependencyVersions.exact(target.version()), mods.get(target.mod()));
             active.add(feature);
         }
         var inactive = new LinkedHashMap<Feature, String>();
         reasons.forEach((feature, reason) -> inactive.put(feature, reason.debugMessage()));
-        return new FeatureSelection(active, inactive, reasons);
+        return new FeatureSelection(active, inactive, reasons, mods);
     }
 
     public static Feature prerequisite(Feature feature) {
@@ -163,13 +164,13 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             case FUSION_BACKFACES -> Map.of("fusion", "1.3.16");
             case CREATE_WINDOWS -> Map.of("create", "6.0.10");
             case RECHISELED_GLASS -> Map.of("rechiseled", "1.2.6");
-            case QUESTLOG_INTERFACE, QUESTLOG_NOTIFICATIONS, QUESTLOG_REWARD_VALIDATION -> Map.of("questlog", "3.5.0");
+            case QUESTLOG_INTERFACE, QUESTLOG_NOTIFICATIONS, QUESTLOG_REWARD_VALIDATION -> Map.of("questlog", "3.5.4");
             case TERRAIN, ORE_PLACEMENT, CARVERS, CAVE_BIOMES, ANCIENT_CITIES, SPAWN,
                     STRUCTURE_LOCATION, STRUCTURE_COMMAND, STRUCTURE_DISTRIBUTION, GROUND_SUPPORT, ALTITUDE_HABITATS, WATER_SPAWNS, CLIMATE, ISLAND_CLOUDS, ISLAND_VOID -> Map.of("sky_archipelago", "1.4");
-            case VILLAGE_CLEARANCE, VILLAGE_PLACEMENT -> Map.of("sky_archipelago", "1.4", "skyvillages", "1.0.6", "architectury", "13.");
+            case VILLAGE_CLEARANCE, VILLAGE_PLACEMENT -> Map.of("sky_archipelago", "1.4", "skyvillages", "1.0.6", "architectury", "13.0.12");
             case PRESSURE -> Map.of("sable", "2.0.6");
             case DELIVERY_DISTANCE, DELIVERY_CHUNKS -> Map.of("aeronautics_delivery_quests", "1.1.1");
-            case DELIVERY_LANDING -> Map.of("aeronautics_delivery_quests", "1.1.1", "skyvillages", "1.0.6", "architectury", "13.");
+            case DELIVERY_LANDING -> Map.of("aeronautics_delivery_quests", "1.1.1", "skyvillages", "1.0.6", "architectury", "13.0.12");
             case SABLE_GRAVES -> Map.of("sable", "2.0.6", "yigd", "2.0.13");
             case AUDIO_TIMELINE -> Map.of("analogaudio", "0.1.5-hotfix.1", "analoglib", "0.1.0");
             case ANALOG_AUDIO -> Map.of("analogaudio", "0.1.5-hotfix.1", "create", "6.0.10");

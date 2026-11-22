@@ -1,5 +1,5 @@
 modLoader="javafml"
-loaderVersion="[4,)"
+loaderVersion="[4,5)"
 license="MIT AND LGPL-3.0-only"
 issueTrackerURL="https://github.com/mannie-exe/skyweave-compat/issues"
 [[mods]]
@@ -21,12 +21,12 @@ side="BOTH"
 [[dependencies.skyweave_compat]]
 modId="neoforge"
 type="required"
-versionRange="[21.1.265,21.2)"
+versionRange="[${neo_version},21.2)"
 side="BOTH"
 [[dependencies.skyweave_compat]]
 modId="reform"
 type="required"
-versionRange="[${reform_version}]"
+versionRange="[${reform_version},0.2)"
 ordering="AFTER"
 side="BOTH"
 [[dependencies.skyweave_compat]]

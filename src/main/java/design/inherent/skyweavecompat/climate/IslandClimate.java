@@ -26,7 +26,7 @@ public final class IslandClimate {
     }
 
     public static BlockPos temperaturePosition(LevelReader level, BlockPos position) {
-        if (referencePosition(position) || !applies(level)) return position;
+        if (referencePosition(position) || !applies(level) || !ClimateRuntime.admitted(level)) return position;
         var reference = ClimateRuntime.referenceY(level,position);
         // Explicit compatibility fallback while remote tracked metadata is unavailable.
         return atReference(position,reference == null ? 64 : reference);

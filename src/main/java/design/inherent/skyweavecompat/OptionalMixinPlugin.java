@@ -10,7 +10,10 @@ import java.util.Set;
 /** Select optional mixins before Mixin resolves their target classes. */
 public final class OptionalMixinPlugin implements IMixinConfigPlugin {
     @Override public List<String> getMixins() {
-        var selected = new java.util.ArrayList<>(OptionalIntegrations.selection().mixins(net.neoforged.fml.loading.FMLEnvironment.dist.isClient()));
+        var selection = OptionalIntegrations.selection();
+        boolean client = net.neoforged.fml.loading.FMLEnvironment.dist.isClient();
+        DependencyDiagnostics.prepare(selection, client);
+        var selected = new java.util.ArrayList<>(selection.mixins(client));
         if (OptionalIntegrations.enabled(Feature.SHADER_PATCHES)) {
             var mod = net.neoforged.fml.loading.LoadingModList.get().getMods().stream()
                 .filter(m -> m.getModId().equals("euphoria_patcher")).findFirst();
@@ -21,14 +24,18 @@ public final class OptionalMixinPlugin implements IMixinConfigPlugin {
                             .anyMatch(step -> step.getAsJsonObject().get("type").getAsString().equals(ShaderEngine.EUPHORIA_STEP)));
                     if (eligible) selected.addAll(List.of("client.EuphoriaAssemblyMixin", "client.EuphoriaOwnedOutputMixin", "client.EuphoriaDetectorMixin"));
                 } catch (java.io.IOException | RuntimeException failure) {
-                    com.mojang.logging.LogUtils.getLogger().error("Cannot qualify Euphoria shader recipe", failure);
+                    com.mojang.logging.LogUtils.getLogger().error("Cannot qualify Euphoria shader recipe. {}", DependencyDiagnostics.forMixin("design.inherent.skyweavecompat.mixin.client.EuphoriaAssemblyMixin"), failure);
                 }
+            } else if (mod.isPresent()) {
+                com.mojang.logging.LogUtils.getLogger().warn("Euphoria assembly hooks unavailable. {}. Install an accepted version before assembling Euphoria recipes.",
+                        DependencyVersions.exact(ShaderEngine.EUPHORIA_VERSION).describe("euphoria_patcher", mod.get().getVersion().toString()));
             }
         }
         return List.copyOf(selected);
     }
 
     @Override public void onLoad(String mixinPackage) {
+        org.spongepowered.asm.mixin.Mixins.registerErrorHandlerClass(OptionalMixinErrorHandler.class.getName());
         if (OptionalIntegrations.enabled(Feature.ACCESSORIES_CURIOS_BINDINGS))
             design.inherent.skyweavecompat.accessories.CuriosBindingAdjuster.register();
         org.spongepowered.asm.mixin.injection.selectors.TargetSelector.register(
