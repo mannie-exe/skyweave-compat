@@ -8,6 +8,8 @@ Generated from Git history. Player-facing release summaries are in [release note
 
 - **cookery:** Preserve millstone insertion custody ([adcd661](https://github.com/mannie-exe/skyweave-compat/commit/adcd66180a130fa2483e590b77706b30ab95ad95))
 
+- **cookery:** Reject invalid stack limits ([c5874ca](https://github.com/mannie-exe/skyweave-compat/commit/c5874ca56eeb3e184b1ade4f1e6ff3b64393566b))
+
 ### Documentation
 
 - Record public 0.42.0 qualification ([92bf0db](https://github.com/mannie-exe/skyweave-compat/commit/92bf0dbed451b8a06100528a7877fc5df6911efc))
