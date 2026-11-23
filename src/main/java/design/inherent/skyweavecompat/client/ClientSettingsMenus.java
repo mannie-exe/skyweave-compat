@@ -2,6 +2,7 @@ package design.inherent.skyweavecompat.client;
 
 import design.inherent.reform.definition.DocumentId;
 import design.inherent.reform.definition.FieldPath;
+import design.inherent.reform.minecraft.client.ClientChoiceScreen;
 import design.inherent.reform.minecraft.client.ClientEditingWorkflow;
 import design.inherent.reform.minecraft.client.ClientForm;
 import design.inherent.reform.minecraft.client.ClientFormOptions;
@@ -25,10 +26,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.MultiLineLabel;
-import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.neoforged.bus.api.IEventBus;
@@ -58,7 +55,24 @@ final class ClientSettingsMenus {
             bus.addListener((FMLClientSetupEvent event) -> event.enqueueWork(() -> shaders = new ShaderOperation()));
     }
 
-    Screen screen(Screen parent) { return new ContextScreen(parent); }
+    Screen screen(Screen parent) {
+        var client = Minecraft.getInstance();
+        return new ClientChoiceScreen(parent, Component.translatable("skyweave_compat.configuration.title"),
+                text("context_choice_help"), List.of(
+                        new ClientChoiceScreen.Choice("local_files", text("local_files"), text("page_scope"),
+                                Optional::empty, () -> client.setScreen(local(client.screen))),
+                        new ClientChoiceScreen.Choice("running_server", text("running_server"), text("server_policy_scope"),
+                                this::serverBlocked, () -> client.setScreen(server(client.screen)))),
+                Component.translatable("gui.done"));
+    }
+
+    private Optional<Component> serverBlocked() {
+        var client = Minecraft.getInstance();
+        if (client.getSingleplayerServer() == null || client.player == null)
+            return Optional.of(text("server_requires_world"));
+        if (!client.player.hasPermissions(2)) return Optional.of(text("server_requires_operator"));
+        return Optional.empty();
+    }
 
     private Screen local(Screen parent) {
         if (files == null) files = new SettingsFiles();
@@ -84,7 +98,9 @@ final class ClientSettingsMenus {
                 category("catalog/interface", "category.interface", "page_scope"),
                 category("catalog/interface/skyweave_compat", "mod.skyweave_compat", "page_scope"),
                 category("catalog/interface/skyweave_compat/controls", "controls", "controls_help")),
-                List.of(placement(id("controls/keys"), controlForm, controlForm.title(), Component.empty(), Optional.empty(), Set.of())), List.of()));
+                List.of(placement(id("controls/keys"), controlForm, controlForm.title(), Component.empty(), Optional.empty(), Set.of())
+                        .inSection(new ClientWorkflowLayout.Section(id("section/controls"), text("controls"), Component.empty())
+                                .withEyebrow(text("mod.skyweave_compat")))), List.of()));
         var reviews = terrain == null ? List.<ClientWorkflowLayout.ReviewScope>of() : List.of(terrain.review());
         return ClientEditingWorkflow.open(parent, text("local_files"), List.copyOf(forms.values()),
                 new ClientWorkflowLayout(groups, reviews)).screen();
@@ -99,11 +115,8 @@ final class ClientSettingsMenus {
             for (var item : section.items()) {
                 if (item instanceof SettingsCatalog.Fix fix) {
                     var entry = SettingsCatalog.entry(fix.feature());
-                    var help = Component.translatable(entry.summaryKey());
-                    var inactive = OptionalIntegrations.selection().inactive().get(fix.feature());
-                    if (inactive != null) help = help.copy().append("\n").append(inactive);
                     placements.add(placement(id("features/" + fix.feature().key), forms.get(FeatureSettings.FILE),
-                            Component.translatable(entry.labelKey()), help,
+                            Component.translatable(entry.labelKey()), Component.empty(),
                             Optional.of(FieldPath.ROOT.field(fix.feature().key)), Set.of(ApplicationEffects.Timing.GAME_RESTART)));
                 } else if (item instanceof SettingsCatalog.Preference preference) {
                     String key = switch (preference.key()) {
@@ -124,25 +137,34 @@ final class ClientSettingsMenus {
                                 placements.add(placement(id("files/" + page.id() + "/" + entry.help() + "/" + field.key().toLowerCase(Locale.ROOT)), form,
                                         field.spec().getTranslationKey() == null ? Component.literal(field.key())
                                                 : Component.translatable(field.spec().getTranslationKey()),
-                                        Component.literal(field.spec().getComment() == null ? "" : field.spec().getComment()),
+                                        Component.empty(),
                                         Optional.of(NativeSettingsPolicy.path(field)), Set.of(NativeSettingsPolicy.timing(entry.timing(field.key()))))));
-                    } else placements.add(placement(id("files/" + page.id() + "/" + entry.help()), form,
-                            Component.translatable(entry.labelKey()), Component.translatable(entry.summaryKey()),
-                            Optional.empty(), nativePreferences.fields(entry).isEmpty()
-                                    ? Set.of(NativeSettingsPolicy.timing(entry.timing()))
-                                    : nativePreferences.fields(entry).stream().map(field -> NativeSettingsPolicy.timing(field.timing(entry.filename())))
-                                            .collect(java.util.stream.Collectors.toSet())));
+                    } else {
+                        var documentFrame = new ClientWorkflowLayout.Section(id(section.id() + "/" + entry.help()),
+                                Component.translatable(entry.labelKey()), Component.empty()).withEyebrow(
+                                Component.translatable("skyweave_compat.settings.document_context",
+                                        text("mod." + page.label()), text(section.kind().label)));
+                        placements.add(placement(id("files/" + page.id() + "/" + entry.help()), form,
+                                Component.translatable(entry.labelKey()), SettingsPresentation.documentHelp(entry),
+                                Optional.empty(), nativePreferences.fields(entry).isEmpty()
+                                        ? Set.of(NativeSettingsPolicy.timing(entry.timing()))
+                                        : nativePreferences.fields(entry).stream().map(field -> NativeSettingsPolicy.timing(field.timing(entry.filename())))
+                                                .collect(java.util.stream.Collectors.toSet())).inSection(documentFrame));
+                    }
                 } else if (item instanceof SettingsCatalog.ShaderWorkspace && shaders != null) {
                     actions.add(shaders.action());
                     actions.add(shaders.statusAction());
                 }
             }
+            var frame = new ClientWorkflowLayout.Section(id(section.id()), text(section.kind().label),
+                    section.kind() == SettingsCatalog.SectionKind.FIXES ? text("after_save.game_restart") : Component.empty())
+                    .withEyebrow(text("mod." + page.label()));
             if (!placements.isEmpty() || !actions.isEmpty()) groups.add(new ClientWorkflowLayout.Group(List.of(
                     category("catalog/" + page.category().name().toLowerCase(Locale.ROOT),
                             "category." + page.category().name().toLowerCase(Locale.ROOT), "page_scope"),
                     category(prefix, "mod." + page.label(), "page_scope"),
                     category(prefix + "/" + section.kind().name().toLowerCase(Locale.ROOT), section.kind().label, "page_scope")),
-                    placements, actions));
+                    placements.stream().map(placement -> placement.section().isPresent() ? placement : placement.inSection(frame)).toList(), actions));
         }
         return groups;
     }
@@ -158,7 +180,11 @@ final class ClientSettingsMenus {
             groups.add(new ClientWorkflowLayout.Group(List.of(
                     category("server/" + page.id(), "mod." + page.label(), "server_policy_scope")),
                     List.of(placement(id("server/" + entry.help()), form, form.title(), text("server_file_policy"),
-                            Optional.empty(), Set.of(ApplicationEffects.Timing.OWNER_PUBLICATION))), List.of()));
+                            Optional.empty(), Set.of(ApplicationEffects.Timing.OWNER_PUBLICATION))
+                            .inSection(new ClientWorkflowLayout.Section(id("section/server/" + entry.help()),
+                                    form.title(), text("server_policy_scope"))
+                                    .withEyebrow(Component.translatable("skyweave_compat.settings.document_context",
+                                            text("mod." + page.label()), text("server_policy"))))), List.of()));
         }
         return ClientEditingWorkflow.open(parent, text("running_server"), forms, new ClientWorkflowLayout(groups, List.of())).screen();
     }
@@ -166,7 +192,7 @@ final class ClientSettingsMenus {
     private static <T> ClientForm policy(String filename, design.inherent.reform.definition.DocumentDefinition<T> definition) {
         var entry = SettingsCatalog.file(filename);
         return IntegratedSettings.form(Component.translatable(entry.labelKey()), DocumentId.parse(entry.id()), 2, definition,
-                new ClientFormOptions<>(SettingsPresentation.json(design.inherent.skyweavecompat.configuration.JsonSettings.find(filename)), Map.of()));
+                new ClientFormOptions<>(SettingsPresentation.policy(design.inherent.skyweavecompat.configuration.JsonSettings.find(filename)), Map.of()));
     }
 
     private static ClientWorkflowLayout.Placement placement(DocumentId id, ClientForm form, Component title, Component help,
@@ -183,29 +209,4 @@ final class ClientSettingsMenus {
     }
     private static Component text(String key) { return Component.translatable("skyweave_compat.settings." + key); }
 
-    private final class ContextScreen extends Screen {
-        private final Screen parent;
-        private MultiLineLabel help;
-        ContextScreen(Screen parent) { super(Component.translatable("skyweave_compat.configuration.title")); this.parent = parent; }
-        @Override protected void init() {
-            int span = Math.max(120, Math.min(310, width - 24));
-            help = MultiLineLabel.create(font, text("context_choice_help"), Math.max(100, Math.min(480, width - 24)));
-            int top = Math.max(49 + help.getLineCount() * font.lineHeight, height / 2 - 48);
-            addRenderableWidget(Button.builder(text("local_files"), ignored -> minecraft.setScreen(local(this)))
-                    .bounds((width - span) / 2, top, span, 20).tooltip(Tooltip.create(text("page_scope"))).build());
-            var running = Button.builder(text("running_server"), ignored -> minecraft.setScreen(server(this)))
-                    .bounds((width - span) / 2, top + 28, span, 20).tooltip(Tooltip.create(text("server_policy_scope"))).build();
-            running.active = minecraft.getSingleplayerServer() != null && minecraft.player != null && minecraft.player.hasPermissions(2);
-            addRenderableWidget(running);
-            addRenderableWidget(Button.builder(Component.translatable("gui.done"), ignored -> onClose())
-                    .bounds((width - span) / 2, top + 68, span, 20).build());
-        }
-        @Override public void onClose() { minecraft.setScreen(parent); }
-        @Override public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-            renderBackground(graphics, mouseX, mouseY, partialTick);
-            graphics.drawCenteredString(font, title, width / 2, 20, 0xffffff);
-            help.renderCentered(graphics, width / 2, 37, font.lineHeight, 0xb0b0b0);
-            super.render(graphics, mouseX, mouseY, partialTick);
-        }
-    }
 }

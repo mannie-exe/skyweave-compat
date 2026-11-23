@@ -162,6 +162,22 @@ def verify_numeric(client, output):
             return value if value.get('sequence') == request and value.get('wayfinder', {}).get('cooldownTicks') == ticks else None
         return client.until(observed, 'Actual server policy did not report expected cooldown')
     result['firstServer'] = policy(30)
+    # Inspect the actual live owner before returning to next-server defaults. A
+    # running policy must not inherit the local file's next-start help caption.
+    original_source = saved.read_bytes()
+    client.act('open')
+    client.wait_active('Running singleplayer server')
+    client.click('Running singleplayer server')
+    client.navigate('skyweave_compat:server/wayfinder')
+    running = client.until(lambda: value if (value := client.ready_editor())['document'] == 'skyweave_compat:wayfinder'
+                           else None, 'The actual running policy did not open')
+    assert running['draft']['cooldownTicks'] == 30, running
+    result['runningPolicyView'] = running
+    result['runningPolicyCapture'] = capture(client, output, 'reform-running-policy.png')
+    layout = client.proof('reform-layout-proof', 'reform-layout-proof.json')
+    fields = [row for panel in layout['panels'] for row in panel['rows']]
+    assert fields and not any('next local server start' in row['help'] for row in fields), fields
+    assert saved.read_bytes() == original_source
     client.act('open'); client.wait_active('Local files'); client.click('Local files'); route(client, 'wayfinder')
     before = field(client, 'cooldownTicks')['text']
     result['stagedZero'] = edit(client, 'cooldownTicks', before, '0')
@@ -451,7 +467,7 @@ def run(args):
                 process = subprocess.Popen(command, cwd=root, stdout=console, stderr=subprocess.STDOUT)
                 client = Client(root, process)
                 client.deadline = time.monotonic() + 240
-                client.until(lambda: client.state().get('screen', '').endswith('ClientSettingsMenus$ContextScreen'), 'Configure did not open')
+                client.ready_context()
                 if args.suite in ('modifiers', 'effortless', 'powergrid'):
                     report['observations'] = {'modifiers': verify_modifiers, 'effortless': verify_effortless,
                                               'powergrid': verify_powergrid}[args.suite](client, args.output, args.expected)
@@ -471,7 +487,7 @@ def run(args):
                     process = subprocess.Popen(command, cwd=root, stdout=console, stderr=subprocess.STDOUT)
                     client = Client(root, process)
                     client.deadline = time.monotonic() + 180
-                    client.until(lambda: client.state().get('screen', '').endswith('ClientSettingsMenus$ContextScreen'), 'Restart Configure did not open')
+                    client.ready_context()
                     client.act('modifier-persistence', save=False)
                     restarted = json.loads((root / 'modifier-persistence-proof.json').read_text())
                     report['restarted'] = restarted

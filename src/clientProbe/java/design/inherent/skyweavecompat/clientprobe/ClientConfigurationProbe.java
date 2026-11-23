@@ -168,6 +168,8 @@ final class ClientConfigurationProbe {
                         case "native-preferences-proof" -> nativePreferencesProof();
                         case "native-owner-readers" -> nativeOwnerReaders();
                         case "reform-editor-proof" -> reformEditorProof(mc);
+                        case "reform-layout-proof" -> ProbeStateFiles.write(root.resolve("reform-layout-proof.json"),
+                                ClientLayoutProof.inspect(mc.screen).toString());
                         case "reform-field-proof" -> reformFieldProof(mc, command);
                         case "reform-reference-proof" -> reformReferenceProof(mc);
                         case "modifier-proof" -> ClientModifierProbe.observe(root, mc);
@@ -497,6 +499,22 @@ final class ClientConfigurationProbe {
         var placements = new JsonArray();
         declared.groups().forEach(group -> group.placements().forEach(placement -> placements.add(placement.id().toString())));
         proof.add("placementIds", placements);
+        var composition = new JsonArray();
+        declared.groups().forEach(group -> group.placements().forEach(placement -> {
+            var row = new JsonObject();
+            row.addProperty("placement", placement.id().toString());
+            row.addProperty("route", placement.route().toString());
+            row.addProperty("field", placement.field().map(Object::toString).orElse(""));
+            row.addProperty("placementHelp", placement.help().getString());
+            placement.section().ifPresent(section -> {
+                row.addProperty("section", section.id().toString());
+                row.addProperty("title", section.title().getString());
+                row.addProperty("eyebrow", section.eyebrow().getString());
+                row.addProperty("help", section.help().getString());
+            });
+            composition.add(row);
+        }));
+        proof.add("composition", composition);
         var actions = new JsonArray();
         declared.groups().forEach(group -> group.actions().forEach(action -> {
             var row = new JsonObject(); row.addProperty("id", action.id().toString());
@@ -715,8 +733,13 @@ final class ClientConfigurationProbe {
         try {
             var mc = Minecraft.getInstance(); var report = new JsonObject();
             report.addProperty("pid", ProcessHandle.current().pid()); report.addProperty("sequence", sequence); report.addProperty("screen", mc.screen == null ? "none" : mc.screen.getClass().getName());
+            if (mc.screen != null) report.addProperty("screenTitle", mc.screen.getTitle().getString());
             if(wayfinderObserver && mc.player!=null)report.add("wayfinder",WayfinderFixture.state(mc));
             report.addProperty("width", mc.getWindow().getGuiScaledWidth()); report.addProperty("height", mc.getWindow().getGuiScaledHeight()); report.addProperty("scale", mc.options.guiScale().get());
+            int[] windowWidth = new int[1], windowHeight = new int[1];
+            org.lwjgl.glfw.GLFW.glfwGetWindowSize(mc.getWindow().getWindow(), windowWidth, windowHeight);
+            report.addProperty("windowWidth", windowWidth[0]); report.addProperty("windowHeight", windowHeight[0]);
+            report.addProperty("actualGuiScale", mc.getWindow().getGuiScale());
             if (error != null) report.addProperty("error", error);
             report.addProperty("controlDown", net.minecraft.client.gui.screens.Screen.hasControlDown());
             report.addProperty("fieldEditNanos", fieldEditNanos);

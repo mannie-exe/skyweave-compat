@@ -9,6 +9,7 @@ import design.inherent.skyweavecompat.configuration.NativeFields;
 import design.inherent.skyweavecompat.configuration.NativeSettingsPolicy;
 import design.inherent.skyweavecompat.configuration.ReformDocuments;
 import design.inherent.skyweavecompat.configuration.SettingsCatalog;
+import design.inherent.skyweavecompat.configuration.SettingsLayout;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -19,37 +20,63 @@ final class SettingsPresentation {
     private SettingsPresentation() {}
 
     static FormPresentation json(JsonSettings.Definition source) {
+        return json(source, true);
+    }
+
+    static FormPresentation policy(JsonSettings.Definition source) {
+        return json(source, false);
+    }
+
+    private static FormPresentation json(JsonSettings.Definition source, boolean local) {
         var entry = SettingsCatalog.file(source.filename());
+        boolean fieldTiming = local && uniformTiming(source).isEmpty();
         var sections = source.fields().stream().map(field -> {
             String key = "skyweave_compat.settings.field." + entry.help() + "." + field.key();
             return new FormCatalog.Section(ReformDocuments.path(field.key()), key,
                     Component.translatableWithFallback(key, readable(field.key())).getString(),
-                    jsonHelp(entry, field.key(), key));
+                    Component.translatableWithFallback(key + ".help", "").getString())
+                    .withSupplementalHelp(fieldTiming ? afterSave(entry.timing(field.key())) : "");
         }).toList();
         var ranges = SettingsCatalog.ranges(source.filename()).stream().map(range -> new FormPresentation.Range(
                 range.id(), range.labelKey(), Component.translatable(range.labelKey()).getString(), "",
                 ReformDocuments.path(range.minimum()), ReformDocuments.path(range.maximum()))).toList();
-        return new FormPresentation(ranges, SettingsCatalog.dependencies(source.filename()), new FormCatalog(sections));
+        return new FormPresentation(ranges, SettingsCatalog.dependencies(source.filename()), new FormCatalog(sections))
+                .withLayout(SettingsLayout.json(source));
     }
 
-    private static String jsonHelp(SettingsCatalog.FileEntry entry, String field, String key) {
-        String help = Component.translatableWithFallback(key + ".help", "").getString();
-        help += "\n" + Component.translatable("skyweave_compat.settings.after_save."
-                + entry.timing(field).name().toLowerCase(java.util.Locale.ROOT)).getString();
-        if (!NativePreferences.admitted(entry)) help += "\n" + Component.translatable("skyweave_compat.settings.staged_inactive").getString();
+    /** Uniform local context belongs beside the document, rather than repeated on every field. */
+    static Component documentHelp(SettingsCatalog.FileEntry entry) {
+        var help = Component.translatable(entry.summaryKey()).copy();
+        var source = JsonSettings.find(entry.filename());
+        if (source == null) return help;
+        uniformTiming(source).ifPresent(timing -> help.append("\n").append(afterSave(timing)));
+        if (!NativePreferences.admitted(entry))
+            help.append("\n").append(Component.translatable("skyweave_compat.settings.staged_inactive"));
         return help;
+    }
+
+    private static java.util.Optional<SettingsCatalog.Timing> uniformTiming(JsonSettings.Definition source) {
+        var entry = SettingsCatalog.file(source.filename());
+        var timings = source.fields().stream().map(field -> entry.timing(field.key())).distinct().toList();
+        return timings.size() == 1 ? java.util.Optional.of(timings.getFirst()) : java.util.Optional.empty();
+    }
+
+    private static String afterSave(SettingsCatalog.Timing timing) {
+        return Component.translatable("skyweave_compat.settings.after_save."
+                + timing.name().toLowerCase(java.util.Locale.ROOT)).getString();
     }
 
     static FormPresentation nativeFields(SettingsCatalog.FileEntry entry, List<NativeFields.Field> fields) {
         var sections = fields.stream().map(field -> {
             String translation = field.spec().getTranslationKey();
             if (translation == null || translation.isBlank()) translation = "skyweave_compat.settings.native." + entry.help() + "." + field.key();
-            String help = field.spec().getComment() == null ? "" : field.spec().getComment();
-            help += "\n" + Component.translatable("skyweave_compat.settings.after_save."
-                    + field.timing(entry.filename()).name().toLowerCase(java.util.Locale.ROOT)).getString();
-            for (String notice : entry.notices(field.key())) help += "\n" + Component.translatable("skyweave_compat.settings." + notice).getString();
+            String help = Component.translatableWithFallback(translation + ".help",
+                    field.spec().getComment() == null ? "" : field.spec().getComment()).getString();
+            String facts = afterSave(field.timing(entry.filename()));
+            for (String notice : entry.notices(field.key())) facts += "\n" + Component.translatable("skyweave_compat.settings." + notice).getString();
             return new FormCatalog.Section(NativeSettingsPolicy.path(field), translation,
-                    Component.translatableWithFallback(translation, readable(field.key())).getString(), help);
+                    Component.translatableWithFallback(translation, readable(field.key())).getString(), help)
+                    .withSupplementalHelp(facts);
         }).toList();
         var dependencies = new ArrayList<FormDependencies.Rule>();
         if (entry.help().equals("rendering_client")) {
@@ -66,6 +93,7 @@ final class SettingsPresentation {
                 "skyweave_compat.settings.field_unavailable", "The owning adaptation is inactive: "
                         + design.inherent.skyweavecompat.OptionalIntegrations.selection().inactive().get(entry.fieldOwner(field.key())))).toList();
         return new FormPresentation(List.of(), new FormDependencies(dependencies), new FormCatalog(sections))
+                .withLayout(SettingsLayout.nativeFields(fields))
                 .withUnavailableFields(unavailable);
     }
 

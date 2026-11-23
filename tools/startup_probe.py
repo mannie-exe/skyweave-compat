@@ -27,7 +27,7 @@ def main():
                                              'unsupported-disabled', 'unsupported-enabled', 'questlog', 'questlog-disabled', 'jade', 'macaw', 'macaw-disabled'], required=True)
     parser.add_argument('--mod', type=Path)
     parser.add_argument('--extra-mod', type=Path, action='append', default=[], help='Additional explicit read-only artifacts for a bounded startup boundary')
-    parser.add_argument('--reform-metadata-version', choices=['0.2.0', '0.2.99', '0.3.0-rc.1'],
+    parser.add_argument('--reform-metadata-version', choices=['0.2.0', '0.3.0', '0.3.99', '0.4.0-rc.1'],
                         help='Standalone fixture only: alter the copied library metadata, preserving its bytecode; this tests admission, not a future binary')
     parser.add_argument('--output', type=Path, help='New owned evidence directory; preserve other probe reports')
     parser.add_argument('--fixture-config', type=Path, help='Explicit read-only config tree for this disposable fixture')
@@ -340,10 +340,14 @@ def main():
             report['passed'] = (done and process.returncode == 0 and
                 (not references if args.without_compat else sorted(references) == sorted(expected)
                  and any('PATROL_CHANCE' in line and 'WAYFINDER' in line for line in report['active_lines'])))
-            if args.reform_metadata_version == '0.3.0-rc.1':
+            if args.reform_metadata_version == '0.2.0':
+                report['passed'] = (not done and not report['active_lines']
+                                    and "Mod ID: 'reform', Requested by: 'skyweave_compat'" in text
+                                    and 'Missing or unsupported mandatory dependencies' in text)
+            if args.reform_metadata_version == '0.4.0-rc.1':
                 report['passed'] = (not done and not report['active_lines']
                                     and 'reform: developed against ' in text
-                                    and 'installed 0.3.0-rc.1' in text)
+                                    and 'installed 0.4.0-rc.1' in text)
         if args.capture_config:
             configs = sorted(path for path in (run / 'config').rglob('*') if path.is_file())
             if len(configs) > 64 or sum(path.stat().st_size for path in configs) > 4 * 1024 * 1024:

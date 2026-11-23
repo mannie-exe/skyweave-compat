@@ -32,7 +32,7 @@ side="BOTH"
 [[dependencies.skyweave_compat]]
 modId="reform"
 type="required"
-versionRange="[${reform_minimum},0.3)"
+versionRange="[${reform_minimum},0.4)"
 ordering="AFTER"
 side="BOTH"
 [[dependencies.skyweave_compat]]

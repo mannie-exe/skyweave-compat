@@ -38,9 +38,12 @@ final class StartupFeatureForm {
         var title = Component.translatable(SettingsCatalog.file(FeatureSettings.FILE).labelKey());
         var sections = Arrays.stream(Feature.values()).map(feature -> {
             var entry = SettingsCatalog.entry(feature);
+            var inactive = OptionalIntegrations.selection().inactive().get(feature);
             return new FormCatalog.Section(FieldPath.ROOT.field(feature.key), entry.labelKey(),
                     Component.translatableWithFallback(entry.labelKey(), feature.key).getString(),
-                    Component.translatableWithFallback(entry.summaryKey(), "").getString());
+                    Component.translatableWithFallback(entry.summaryKey(), "").getString())
+                    .withSupplementalHelp(inactive == null ? "" : Component.translatable(
+                            "skyweave_compat.settings.adaptation_inactive", inactive).getString());
         }).toList();
         var options = new ClientFormOptions<FeatureSettings>(FormPresentation.EMPTY.withCatalog(new FormCatalog(sections)), Map.of())
                 .withInformation(definition -> Optional.of(AdaptationInformation.describe(definition, relatedForms)))

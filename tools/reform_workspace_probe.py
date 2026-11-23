@@ -11,6 +11,8 @@ import zipfile
 from reform_probe import Client, digest, packaged_command
 
 LONG_LABEL = 'Wayfinder for distant landscape targeting with a deliberately long translated setting name'
+LONG_CONTEXT = 'Skyweave: Compatibility Patches — local preferences, installation defaults, and running singleplayer server policies'
+TRANSLATED_HELP = 'Translated distant targeting note.'
 
 
 def observed(client, operation, filename, ready):
@@ -63,12 +65,112 @@ def open_information(client, field='navigation.wayfinder', expected_label=None):
 
 
 def capture(client, output, name):
-    client.act('snapshot')
+    state = client.act('snapshot')
+    measured = client.proof('reform-layout-proof', 'reform-layout-proof.json')
+    geometry_file = output / (Path(name).stem + '-layout.json')
+    geometry_file.write_text(json.dumps(measured, indent=2) + '\n')
     client.act('reform-capture', name=name)
     source = client.root / 'screenshots' / name
     client.until(lambda: source.is_file() and source.stat().st_size > 100, 'Native frame is missing')
     shutil.copy2(source, output / name)
-    return {'file': name, 'sha256': digest(source)}
+    # Retain the actual native widget geometry beside the frame. Reachable means the
+    # existing native hit/focus-tree observer admitted the widget's center, not that
+    # every pixel of a disabled or clipped widget is visible.
+    snapshot = output / (Path(name).stem + '-widgets.json')
+    snapshot.write_text(json.dumps(state, indent=2) + '\n')
+    assert measured['panels'], 'The actual screen exposed no measured settings panel'
+    assert all(not panel['intersections'] for panel in measured['panels']), measured
+    assert all(not panel['splitStepPairs'] for panel in measured['panels']), measured
+    assert all(not panel['mixedRelatedRows'] for panel in measured['panels']), measured
+    assert not measured['screenControlIntersections'] and not measured['screenControlsOutsideBounds'], measured
+    assert state['screenFocusAttached'], state['focusOwner']
+    reachable = [widget for widget in state['widgets'] if widget.get('reachable')]
+    return {'file': name, 'sha256': digest(source),
+            'measuredLayout': {'file': geometry_file.name, 'sha256': digest(geometry_file)},
+            'widgets': {'file': snapshot.name, 'sha256': digest(snapshot)},
+            'geometry': {'width': state['width'], 'height': state['height'], 'scale': state['scale'],
+                         'reachableControls': len(reachable),
+                         'reachableEditBoxes': sum('value' in widget for widget in reachable),
+                         'reachableControlRows': len({widget['y'] for widget in reachable})}}
+
+
+def context_scenes(client, output):
+    """Inspect the real shared chooser without entering either owner."""
+    original = client.act('snapshot')
+    result = []
+    for size, width, height, scale in (('wide', 1100, 760, 2), ('narrow', 427, 320, 2),
+                                       ('high-gui', 1100, 760, 4)):
+        client.act('resize', width=width, height=height)
+        client.act('scale', value=scale)
+        client.ready_context()
+        state = client.act('snapshot')
+        choices = {widget['label']: widget['active'] for widget in state['widgets']
+                   if widget['label'] in ('Local files', 'Running singleplayer server')}
+        assert choices == {'Local files': True, 'Running singleplayer server': False}, choices
+        result.append(capture(client, output, 'reform-context-' + size + '.png'))
+        proof = client.proof('reform-layout-proof', 'reform-layout-proof.json')
+        rows = [row for panel in proof['panels'] for row in panel['contentRows']]
+        reasons = [row['help'] for row in rows if row['key'] == 'choice:running_server']
+        assert len(reasons) == 1 and 'Open a singleplayer world' in reasons[0], reasons
+    client.act('resize', width=original['windowWidth'], height=original['windowHeight'])
+    client.act('scale', value=original['scale'])
+    client.ready_context()
+    return result
+
+
+def layout_scenes(client, output, catalog, result):
+    """Capture matched real documents without changing their values or saving."""
+    for suffix in ('generation', 'interiors', 'shapes'):
+        matches = [value for value in catalog['placementIds'] if value.endswith('/' + suffix)]
+        if len(matches) != 1:
+            raise AssertionError(('Expected one authored document placement', suffix, matches))
+        client.navigate(matches[0])
+        initial = client.until(lambda: value if (value := editor(client)) and
+                               value['document'] == 'skyweave_compat:' + suffix else None,
+                               'The selected layout document did not become the actual native editor: ' + suffix)
+        row = {'document': initial['document'], 'initialEditor': initial, 'captures': []}
+        result.append(row)
+        state = client.act('snapshot')
+        focused = [widget for widget in state['widgets'] if widget.get('focused')]
+        assert len(focused) == 1, focused
+        if 'value' in focused[0]:
+            assert client.act('key', key=263)['keyAccepted'], 'The native input did not accept Left'
+        focused = [widget for widget in client.act('snapshot')['widgets'] if widget.get('focused')]
+        caret = {key: focused[0][key] for key in ('value', 'cursor', 'selection') if key in focused[0]}
+        proof = client.proof('reform-layout-proof', 'reform-layout-proof.json')
+        focus_keys = [key for panel in proof['panels'] for key in panel['focusedFieldKeys']]
+        assert len(focus_keys) == 1, focus_keys
+        row['focus'] = {'fieldKeys': focus_keys, 'input': caret}
+        source = client.root / 'config/skyweave' / ('skyweave_compat-' + suffix + '.json')
+        source_before = digest(source) if source.is_file() else None
+        row['sourceBefore'] = source_before
+        for size, width, height, scale in (('wide', 1100, 760, 2), ('narrow', 427, 320, 2),
+                                            ('high-gui', 1100, 760, 4)):
+            client.act('resize', width=width, height=height)
+            client.act('scale', value=scale)
+            client.ready_editor()
+            row['captures'].append(capture(client, output, 'reform-layout-' + suffix + '-' + size + '.png'))
+            focus_state = client.act('snapshot')
+            current = [widget for widget in focus_state['widgets'] if widget.get('focused')]
+            assert len(current) == 1, current
+            assert {key: current[0][key] for key in ('value', 'cursor', 'selection') if key in current[0]} == caret, current
+            proof = client.proof('reform-layout-proof', 'reform-layout-proof.json')
+            assert [key for panel in proof['panels'] for key in panel['focusedFieldKeys']] == focus_keys, proof
+            first_field = {'generation': 'spacing', 'interiors': 'noiseChance', 'shapes': 'enabled'}[suffix]
+            purposes = [field['help'] for panel in proof['panels'] for field in panel['rows']
+                        if field['key'] == 'skyweave_compat:' + suffix + ':root/f'
+                        + str(len(first_field)) + ':' + first_field + '/']
+            assert len(purposes) == 1 and purposes[0] and not purposes[0].startswith('skyweave_compat.'), purposes
+            retained = client.ready_editor()
+            assert (retained['context'] == initial['context'] and retained['draft'] == initial['draft']
+                    and retained['dirty'] == initial['dirty']), retained
+        row['sourceAfter'] = digest(source) if source.is_file() else None
+        assert row['sourceAfter'] == source_before, ('Layout inspection changed the source', row)
+    client.act('resize', width=1100, height=760)
+    client.act('scale', value=2)
+    client.navigate('skyweave_compat:features/navigation.wayfinder')
+    client.ready_editor()
+    return result
 
 
 def retained_workspace(client, expected):
@@ -107,7 +209,7 @@ def narrow_information(client, output, name):
     details = information(client)
     assert details and details['key'] == 'navigation.wayfinder'
     result = {'width': state['width'], 'height': state['height'], 'capture': capture(client, output, name)}
-    client.act('resize', width=854, height=480)
+    client.act('resize', width=before['windowWidth'], height=before['windowHeight'])
     client.until(lambda: client.act('snapshot')['width'] == before['width'], 'The native window did not restore')
     client.act('scale', value=4)
     scaled = client.until(lambda: value if (value := client.act('snapshot'))['width'] < before['width'] else None,
@@ -115,17 +217,19 @@ def narrow_information(client, output, name):
     assert information(client)['key'] == 'navigation.wayfinder'
     result['highGui'] = {'width': scaled['width'], 'height': scaled['height'], 'scale': scaled['scale'],
                          'capture': capture(client, output, 'reform-compat-high-gui-information.png')}
-    client.act('scale', value=2)
+    client.act('scale', value=before['scale'])
     client.until(lambda: client.act('snapshot')['width'] == before['width'], 'The native GUI scale did not restore')
     return result
 
 
 def loaded_choices(client, features, loaded, output, name):
     previous = features.read_bytes()
-    client.click('More…')
+    client.document_actions()
     client.reveal('Restore loaded choices')
     frame = capture(client, output, name)
     client.click('Restore loaded choices')
+    client.until(lambda: client.state().get('screen', '').endswith('ClientEditingWorkflow$Overview'),
+                 'The document action did not return to its retained owner')
     restored = client.until(lambda: value if (value := editor(client)) and
                             not value['busy'] and value['valid'] and
                             value['draft'].get('navigation.wayfinder', True) is loaded else None,
@@ -138,7 +242,7 @@ def loaded_choices(client, features, loaded, output, name):
     return {'loadedChoice': loaded, 'sourceUnchanged': True, 'restoredDraft': restored, 'capture': frame}
 
 
-def run(java, artifacts, output, long_labels=False):
+def run(java, artifacts, output, long_labels=False, layouts=False):
     if output.exists():
         raise ValueError('Choose a new receipt directory')
     output.mkdir(parents=True)
@@ -162,7 +266,9 @@ def run(java, artifacts, output, long_labels=False):
             with zipfile.ZipFile(resource_pack, 'w') as archive:
                 archive.writestr('pack.mcmeta', json.dumps({'pack': {'pack_format': 34, 'description': 'Owned settings label review fixture'}}))
                 archive.writestr('assets/skyweave_compat/lang/en_us.json', json.dumps({
+                    'skyweave_compat.configuration.title': LONG_CONTEXT,
                     'skyweave_compat.configuration.feature.navigation.wayfinder': LONG_LABEL,
+                    'skyweave_compat.configuration.feature.navigation.wayfinder_dh.help': TRANSLATED_HELP,
                     'skyweave_compat.settings.mod.skyweave_compat': 'Skyweave Compatibility Patches with a long localized navigation name'}))
             report['labelFixtureSha256'] = digest(resource_pack)
             resource_options = 'resourcePacks:' + json.dumps(['vanilla', 'mod_resources', 'file/reform-label-review.zip']) + '\n'
@@ -184,15 +290,35 @@ def run(java, artifacts, output, long_labels=False):
                 with (output / ('reopen.log' if reopen else 'first.log')).open('wb') as console:
                     process = subprocess.Popen(command, cwd=game, stdout=console, stderr=subprocess.STDOUT)
                     client = Client(game, process)
-                    client.until(lambda: client.state().get('pid') == process.pid and
-                                 client.state().get('screen', '').endswith('ClientSettingsMenus$ContextScreen'),
-                                 'The actual Configure entry did not arrive')
+                    if long_labels:
+                        client.context_title = LONG_CONTEXT
+                    # The nine-scene gallery is additional work before the unchanged
+                    # full workspace/reopen assertions. Its first measured run used
+                    # all115seconds before quit could be polled; retain a bounded
+                    # larger first-boot allowance rather than skipping those checks.
+                    if layouts and not reopen:
+                        client.deadline += 65
+                    boot['timeoutSeconds'] = 180 if layouts and not reopen else 115
+                    context = client.ready_context()
+                    assert context['pid'] == process.pid, context
                     boot['loadedMods'] = client.state()['loadedMods']
+                    if layouts and not reopen:
+                        boot['contextScenes'] = context_scenes(client, output)
                     client.wait_active('Local files')
                     client.click('Local files')
                     catalog = client.proof('reform-catalog-proof', 'reform-catalog-proof.json')
                     boot['catalog'] = catalog
                     assert catalog['documents'] == len(catalog['expectedRoutes'])
+                    assert len(catalog['composition']) == catalog['placements']
+                    assert all(row.get('section') and row.get('title') and row.get('eyebrow')
+                               for row in catalog['composition']), catalog['composition']
+                    generation_help = [row['placementHelp'] for row in catalog['composition']
+                                       if row['placement'].endswith('/generation')]
+                    assert len(generation_help) == 1 and 'Restart after saving.' in generation_help[0]
+                    assert 'inactive in this session' in generation_help[0]
+                    if layouts and not reopen:
+                        boot['layoutScenes'] = []
+                        layout_scenes(client, output, catalog, boot['layoutScenes'])
                     client.navigate('skyweave_compat:features/navigation.wayfinder')
                     boot['initialEditor'] = client.until(lambda: editor(client), 'Startup owner is unavailable')
                     first = open_information(client, expected_label=LONG_LABEL if long_labels else 'Wayfinder')
@@ -244,6 +370,14 @@ def run(java, artifacts, output, long_labels=False):
 
                     client.navigate('skyweave_compat:features/navigation.wayfinder_dh')
                     client.until(lambda: editor(client), 'Optional startup field is unavailable')
+                    if long_labels:
+                        layout = client.proof('reform-layout-proof', 'reform-layout-proof.json')
+                        descriptions = [row['help'] for panel in layout['panels'] for row in panel['rows']
+                                        if 'navigation.wayfinder_dh/' in row['key']]
+                        assert len(descriptions) == 1 and TRANSLATED_HELP in descriptions[0], descriptions
+                        expected_reason = 'requires active navigation.wayfinder' if reopen else 'missing distanthorizons'
+                        assert 'inactive in this session: ' + expected_reason in descriptions[0].lower(), descriptions
+                        boot['translatedPurposeWithOwnerFacts'] = descriptions[0]
                     missing = open_information(client, 'navigation.wayfinder_dh')
                     boot['missingDependency'] = missing
                     missing_facts = {fact['label']: fact['value'] for fact in missing['facts']}
@@ -281,6 +415,9 @@ def run(java, artifacts, output, long_labels=False):
             report['error'] = str(failure)
             if process is not None:
                 report['lastState'] = client.state()
+                proof = game / 'reform-editor-proof.json'
+                if proof.is_file():
+                    report['lastEditorProof'] = json.loads(proof.read_text())
             raise
         finally:
             if process is not None and process.poll() is None:
@@ -300,5 +437,6 @@ if __name__ == '__main__':
     for name in ('java', 'compat', 'probe', 'reform', 'output'):
         parser.add_argument('--' + name, type=Path, required=True)
     parser.add_argument('--long-labels', action='store_true', help='Use an owned temporary language pack for long-label layout and native narration checks')
+    parser.add_argument('--layout-scenes', action='store_true', help='Capture the actual context chooser and generation, interior and shape forms at matched wide/narrow/high-GUI sizes without editing')
     args = parser.parse_args()
-    run(args.java, [args.compat, args.probe, args.reform], args.output, args.long_labels)
+    run(args.java, [args.compat, args.probe, args.reform], args.output, args.long_labels, args.layout_scenes)

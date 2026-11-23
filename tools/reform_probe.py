@@ -35,6 +35,7 @@ class Client:
         self.process = process
         self.deadline = time.monotonic() + 115
         self.sequence = 0
+        self.context_title = 'Skyweave: Compatibility Patches'
 
     def until(self, predicate, reason):
         limit = min(self.deadline, time.monotonic() + 45)
@@ -52,6 +53,12 @@ class Client:
             return json.loads((self.root / f'{probe}-review-state.json').read_text())
         except (FileNotFoundError, json.JSONDecodeError):
             return {}
+
+    def ready_context(self):
+        return self.until(lambda: state if (state := self.state()).get('screen') ==
+                          'design.inherent.reform.minecraft.client.ClientChoiceScreen'
+                          and state.get('screenTitle') == self.context_title else None,
+                          'The actual Compat configuration context chooser did not arrive')
 
     def request(self, operation, probe='config', **arguments):
         self.sequence += 1
@@ -131,6 +138,11 @@ class Client:
             value = json.loads((self.root / 'reform-editor-proof.json').read_text())
             return value if value['availability'] == 'READY' else None
         return self.until(ready, 'the actual selected owner did not become ready')
+
+    def document_actions(self):
+        self.click('Document actions…')
+        return self.until(lambda: value if (value := self.state()).get('screen', '').endswith('DocumentActionsScreen') else None,
+                          'Document actions did not open its actual auxiliary screen')
 
     def navigate(self, query, actions=('Open', 'Resume')):
         if not self.state().get('screen', '').endswith('ClientEditingWorkflow$Overview'):
@@ -225,7 +237,7 @@ def verify_owner_surfaces(client, config):
             assert 'Native source was reloaded; reload and review' in attempt['persistenceReport'], attempt
             assert native()[water_id] == baseline and source.read_bytes() == source_before
             observations.setdefault('nativeReloadRefusals', []).append(attempt)
-            client.click('More…')
+            client.document_actions()
             client.reveal('Reload saved')
             client.click('Reload saved')
             client.wait_active('Review conflict…')
@@ -403,8 +415,7 @@ def verify(client, config, migrated):
         assert Path(receipt['source']).resolve() == config.resolve(), receipt
         assert receipt['savedRevision'] == 'sha256:' + digest(config), receipt
         client.click('Done')
-        client.until(lambda: client.state().get('screen', '').endswith('ClientSettingsMenus$ContextScreen'),
-                     'the retained local workspace did not close')
+        client.ready_context()
         client.click('Done')
     else:
         client.act('key', key=256)
