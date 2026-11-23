@@ -42,9 +42,13 @@ def main():
     parser.add_argument('--replay-dh', type=Path, help='Existing cache copy for natural server-to-client LOD transfer')
     parser.add_argument('--enable', action='append', default=[], help='Explicit startup feature key to enable in this disposable fixture')
     parser.add_argument('--cookery', choices=['original', 'repaired'], help='Exercise the actual optional millstone capability in the owned server; requires explicit Cookery and probe extra JARs')
+    parser.add_argument('--connector', choices=['original', 'repaired'], help='Observe actual connector COMMON loading and native range readers; requires explicit connector, Aeronautics, Create, Ponder and probe JARs')
+    parser.add_argument('--connector-ceiling', type=int, choices=[40, 255], default=255, help='Expected actual Simulated ceiling in the explicit connector fixture config')
     args = parser.parse_args()
     if args.cookery and args.scenario != 'standalone':
         parser.error('--cookery requires standalone')
+    if args.connector and (args.scenario != 'standalone' or args.cookery or args.serve):
+        parser.error('--connector requires a non-served standalone fixture without --cookery')
     if args.reform_metadata_version and args.scenario != 'standalone':
         parser.error('--reform-metadata-version requires standalone')
     if args.scenario == 'unsupported-enabled' and len(args.enable) > 1:
@@ -108,7 +112,7 @@ def main():
             # Disabled adapters must neither reject their versions nor resolve their APIs.
             metadata = 'modLoader="lowcodefml"\nloaderVersion="[1,)"\nlicense="Apache-2.0"\n'
             for target in ['bettervillage', 'libraryferret', 'sky_archipelago', 'skyvillages', 'architectury', 'sable', 'aeronautics_delivery_quests',
-                           'distanthorizons', 'bluemap', 'surveyor', 'lithostitched', 'yungsapi', 'betterdeserttemples', 'betterjungletemples', 'bettermineshafts', 'betterwitchhuts', 'betteroceanmonuments', 'analogaudio', 'analoglib', 'yigd', 'create', 'veil', 'iris', 'sodium', 'aeronautics', 'questlog', 'sabledynlights', 'lambdynlights', 'colorwheel', 'flywheel', 'linearbearing', 'linearbearingsfix', 'simulated', 'aeronautics_utility_objects', 'fusion', 'rechiseled', 'mcwbridges', 'ssrd', 'variantsandventures', 'kaleidoscope_cookery']:
+                           'distanthorizons', 'bluemap', 'surveyor', 'lithostitched', 'yungsapi', 'betterdeserttemples', 'betterjungletemples', 'bettermineshafts', 'betterwitchhuts', 'betteroceanmonuments', 'analogaudio', 'analoglib', 'yigd', 'create', 'veil', 'iris', 'sodium', 'aeronautics', 'questlog', 'sabledynlights', 'lambdynlights', 'colorwheel', 'flywheel', 'linearbearing', 'linearbearingsfix', 'simulated', 'aeronautics_utility_objects', 'fusion', 'rechiseled', 'mcwbridges', 'ssrd', 'variantsandventures', 'kaleidoscope_cookery', 'create_aeronautics_throwable_rope_connector']:
                 metadata += f'[[mods]]\nmodId="{target}"\nversion="999.0.0"\ndisplayName="Fixture {target}"\n'
             with zipfile.ZipFile(run / 'mods/future-targets-fixture.jar', 'w') as fixture:
                 fixture.writestr('META-INF/neoforge.mods.toml', metadata)
@@ -244,6 +248,9 @@ def main():
         if args.cookery:
             command[1:1] = ['-Dneighbors.probe.cookery=' + args.cookery]
             (run / 'cookery-fixture.json').write_text('{}\n')
+        if args.connector:
+            command[1:1] = ['-Dneighbors.probe.connector=' + args.connector]
+            (run / 'connector-fixture.json').write_text(json.dumps({'ceiling': args.connector_ceiling}) + '\n')
         report['command'] = command
         log_path = output / f'startup-{args.scenario}.log'
         started = time.monotonic()
@@ -253,7 +260,9 @@ def main():
             try:
                 deadline = time.monotonic() + 240
                 while process.poll() is None and time.monotonic() < deadline:
-                    if 'Done (' in log_path.read_text(errors='replace') and (not args.cookery or (run / 'cookery-proof.json').is_file()):
+                    if ('Done (' in log_path.read_text(errors='replace')
+                            and (not args.cookery or (run / 'cookery-proof.json').is_file())
+                            and (not args.connector or (run / 'connector-proof.json').is_file())):
                         done = True
                         if args.serve:
                             report['replayInputs'].update(stage_replay(args.replay_regions,None,run,args.seed))
@@ -291,6 +300,9 @@ def main():
         if args.cookery:
             proof = run / 'cookery-proof.json'
             report['cookery'] = json.loads(proof.read_text()) if proof.is_file() else {'passed': False, 'error': 'Native fixture produced no report'}
+        if args.connector:
+            proof = run / 'connector-proof.json'
+            report['connector'] = json.loads(proof.read_text()) if proof.is_file() else {'passed': False, 'error': 'Native fixture produced no report'}
         report['generated_config_files'] = sorted(str(path.relative_to(run / 'config'))
                                                 for path in (run / 'config').rglob('*') if path.is_file())
         inactive = args.scenario in {'all-disabled', 'terrain-disabled', 'unsupported-disabled', 'questlog-disabled', 'macaw-disabled'}
@@ -312,7 +324,7 @@ def main():
             expected = ['class/design/inherent/skyweavecompat/mixin/StructureSearchCacheAccess.class',
                         'class/net/minecraft/server/level/ServerChunkCache.class',
                         'class/net/minecraft/world/level/levelgen/PatrolSpawner.class']
-            if args.cookery:
+            if args.cookery or args.connector:
                 # The explicit probe JAR instruments these native classes; ordinary standalone
                 # startup retains its stricter three-target boundary.
                 expected += ['class/' + name + '.class' for name in [
@@ -323,6 +335,8 @@ def main():
                     'net/minecraft/world/level/chunk/status/ChunkStatusTasks']]
                 if args.cookery == 'repaired':
                     expected += ['class/com/github/ysbbbbbb/kaleidoscopecookery/inventory/itemhandler/MillstoneInputHandler.class']
+                if args.connector == 'repaired':
+                    expected += ['class/net/sprocketgames/create_aeronautics_throwable_rope_connector/config/ModCommonConfig.class']
             report['passed'] = (done and process.returncode == 0 and
                 (not references if args.without_compat else sorted(references) == sorted(expected)
                  and any('PATROL_CHANCE' in line and 'WAYFINDER' in line for line in report['active_lines'])))
@@ -341,6 +355,8 @@ def main():
                 report['capturedConfigs'][relative.as_posix()] = hashlib.sha256(source.read_bytes()).hexdigest()
         if args.cookery:
             report['passed'] = report['passed'] and report['cookery'].get('passed', False)
+        if args.connector:
+            report['passed'] = report['passed'] and report['connector'].get('passed', False)
         (output / f'startup-{args.scenario}.json').write_text(json.dumps(report, indent=2) + '\n')
         print(json.dumps({key: report[key] for key in ['scenario', 'sha256', 'startup', 'exit_code', 'seconds', 'active_lines', 'passed']}, indent=2), flush=True)
         if not report['passed']:

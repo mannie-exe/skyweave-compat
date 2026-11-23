@@ -54,7 +54,7 @@ with zipfile.ZipFile(root / f'build/libs/skyweave-compat-{version}-mc1.21.1-neof
         for notice in ['LICENSE', 'NOTICE', 'licenses/LICENSE.txt', 'licenses/LICENSE.LESSER.txt', 'licenses/BlueMap-MIT.txt']:
             expected = (root / notice).read_bytes()
             assert jar.read(notice) == expected and sources.read(notice) == expected, notice
-    assert not any(n.startswith(('dev/ftb/', 'org/sathrek/', 'com/ishland/', 'com/aureljz/', 'de/bluecolored/', 'com/palm1/', 'com/b1n_ry/', 'me/shedaniel/', 'com/simibubi/', 'com/copycatsplus/', 'com/supermartijn642/', 'fr0nick/', 'dev/lambdaurora/', 'net/caffeinemc/', 'dev/djefrey/', 'dev/engine_room/', 'com/bearing/', 'com/mcwbridges/', 'dev/simulated_team/', 'dev/ryanhcode/', 'net/createmod/')) or '/probe/' in n or n.endswith('.jar') for n in names)
+    assert not any(n.startswith(('dev/ftb/', 'org/sathrek/', 'com/ishland/', 'com/aureljz/', 'de/bluecolored/', 'com/palm1/', 'com/b1n_ry/', 'me/shedaniel/', 'com/simibubi/', 'com/copycatsplus/', 'com/supermartijn642/', 'fr0nick/', 'dev/lambdaurora/', 'net/caffeinemc/', 'dev/djefrey/', 'dev/engine_room/', 'com/bearing/', 'com/mcwbridges/', 'dev/simulated_team/', 'dev/ryanhcode/', 'net/createmod/', 'net/sprocketgames/')) or '/probe/' in n or n.endswith('.jar') for n in names)
     mixin = json.loads(jar.read('skyweave_compat.mixins.json'))
     assert mixin['required'] and mixin['injectors']['defaultRequire'] == 1
     assert mixin['mixins'] == [] and mixin['client'] == [], 'Every target hook must be selected at startup'

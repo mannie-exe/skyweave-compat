@@ -15,6 +15,11 @@ description='''Optional, individually configurable terrain, gameplay, and render
 [[mixins]]
 config="skyweave_compat.mixins.json"
 [[dependencies.skyweave_compat]]
+modId="create_aeronautics_throwable_rope_connector"
+type="optional"
+versionRange="[0,)"
+side="BOTH"
+[[dependencies.skyweave_compat]]
 modId="minecraft"
 type="required"
 versionRange="[1.21.1]"

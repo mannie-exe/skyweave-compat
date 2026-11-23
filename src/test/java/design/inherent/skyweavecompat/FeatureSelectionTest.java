@@ -13,6 +13,22 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class FeatureSelectionTest {
+    @Test void connectorRangesRemainOptionalAndQualifiedBeforeCommonTargetsResolve() {
+        var feature = Feature.ROPE_CONNECTOR_RANGES;
+        var versions = Map.of("create_aeronautics_throwable_rope_connector", "0.4.3", "simulated", "1.3.2");
+        for (boolean client : List.of(false, true)) {
+            var admitted = FeatureSelection.select(only(feature), versions, client);
+            assertTrue(admitted.enabled(feature));
+            assertEquals(List.of("RopeConnectorRangeMixin"), admitted.mixins(client));
+            assertTrue(FeatureSelection.select(only(feature), Map.of(), client).mixins(client).isEmpty());
+            assertTrue(FeatureSelection.select(only(feature), Map.of("create_aeronautics_throwable_rope_connector", "0.4.3"), client).mixins(client).isEmpty());
+            var future = Map.of("create_aeronautics_throwable_rope_connector", "future", "simulated", "future");
+            assertTrue(FeatureSelection.select(only(), future, client).mixins(client).isEmpty());
+            assertThrows(IllegalStateException.class, () -> FeatureSelection.select(only(feature), future, client));
+        }
+        assertTrue(new FeatureSettings(Map.of()).enabled(feature));
+        assertEquals(SettingsCatalog.Category.SHIPS, SettingsCatalog.group(feature).category);
+    }
     @Test void cookeryInsertionIsOptionalCommonAndExactVersionGated() {
         var feature = Feature.COOKERY_MILLSTONE;
         for (boolean client : List.of(false, true)) {

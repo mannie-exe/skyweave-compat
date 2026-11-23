@@ -81,6 +81,16 @@ Emit strict component matching as the fallback. With the adapter disabled, ordin
 
 On an FTB or Minecraft update, recheck adapter registration order, native matcher precedence, custom-data stack decoding, tag reloads and display-stack caching. Verify mixed quantities, a nonmatching ordinary paper stack, malformed selectors, absence/disabled loading and dedicated-server execution. The upstream artifact is compile-only and hash checked; it must never be bundled.
 
+## Throwable Rope Connector range limits
+
+`throwable_rope_connector.range_limits` is an independently optional common adaptation for Throwable Rope Connector 0.4.3 and Create Simulated 1.3.2. It defaults on when both owners qualify and appears under Ships → Throwable Rope Connector → Server range limits. Explicit false prevents selection and version checks; the provider remains optional in loader metadata.
+
+The native COMMON-loading listener corrects ranges against `getSimulatedMaxRopeRange`, whose unavailable-config fallback is 40. This can destroy larger configured launcher values before the actual server maximum loads. The adaptation prevents this cross-config rewrite and bounds each of the three native effective-range readers by the actual Simulated maximum when `serverLoaded()` is true. When unavailable, a reader retains its configured value; this is not an invented authoritative server ceiling. Native configuration validation, launch mechanics, projectile behavior, and rope connection authority remain upstream-owned.
+
+Configured ranges and effective ranges stay separate across hosts and ceilings. Already overwritten values cannot be reconstructed: restore the desired authored settings through their owning configuration workflow. No filenames, defaults, generation identity, or server maximum are changed by this adaptation.
+
+Before updating or retiring the adapter, inspect the exact COMMON load/reload listener, three range readers, all launcher/throw consumers, Simulated's `serverLoaded()` contract, and its rope-range owner. Qualify unavailable loading, a higher and a lower actual ceiling, explicit opt-out/absence, raw configuration retention and another JVM. A getter fixture establishes range/config behavior, not actual projectile flight, remote-client synchronization, or full-pack integration. Upstream code and binaries are not bundled.
+
 ## Cookery millstone insertion
 
 `kaleidoscope_cookery.millstone_insertion` qualifies the exact Cookery `1.6.0-neoforge+mc1.21.1` handler on both physical sides. It is independently optional, defaults on with that owner present, and appears under Machines → Kaleidoscope Cookery → Millstone insertion. Startup opt-out prevents target selection and version checks; optional loader metadata does not constrain disabled installations.

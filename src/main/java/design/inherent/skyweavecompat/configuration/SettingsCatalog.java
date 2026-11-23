@@ -30,6 +30,7 @@ public final class SettingsCatalog {
         MACAW(Category.SHIPS, "mcwbridges"),
         GRAVES(Category.INVENTORY, "yigd"), ACCESSORIES(Category.INVENTORY, "accessories_compat_layer"), AUDIO(Category.AUDIO, "analog_audio"),
         COOKERY(Category.MACHINES, "kaleidoscope_cookery"),
+        ROPE_CONNECTOR(Category.SHIPS, "throwable_rope_connector"),
         IPN(Category.INVENTORY, "inventory_profiles_next"),
         DELIVERY(Category.SHIPS, "delivery"), QUESTLOG_SERVER(Category.INTERFACE, "questlog"),
         HOOFPRINT(Category.MAPS, "hoofprint"), DH(Category.MAPS, "distant_horizons"), BLUEMAP(Category.MAPS, "bluemap"), SURVEYOR(Category.MAPS, "surveyor"),
@@ -220,6 +221,7 @@ public final class SettingsCatalog {
         return switch (feature) {
             case MAIN_MENU_IDENTITY -> Group.COMPAT_INTERFACE;
             case COOKERY_MILLSTONE -> Group.COOKERY;
+            case ROPE_CONNECTOR_RANGES -> Group.ROPE_CONNECTOR;
             case IPN_TEXT_INPUT -> Group.IPN;
             case MOVES_KEY_MODIFIERS -> Group.MOVES_INPUT;
             case EFFORTLESS_KEY_MODIFIERS -> Group.EFFORTLESS_INPUT;

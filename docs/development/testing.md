@@ -69,6 +69,12 @@ The input server is read-only. The fixture uses a temporary save and random loca
 
 After `./gradlew clientProbeJar`, `tools/world_scope_client.py --server /path/to/server/game --java /path/to/java --output /new/evidence` uses packaged products with the pinned ModDev bootstrap and no project source roots. It requires coordinated desktop access. One disposable client connects to sequential climate-on/off loopback servers and checks policy, foreign dimension/reset, return, reconnect, disconnect cleanup and physical-coordinate fallback without a channel. It has no personal-instance inputs or shader/full-pack qualification. Both runners bound processes and retain reports outside disposable runtimes.
 
+## Connector range contract
+
+Use `tools/startup_probe.py --scenario standalone --connector original|repaired --connector-ceiling 255|40 --fixture-config <owned-config-directory> --capture-config`, with the normal read-only server, Java, output and artifact options. Supply the exact connector, Create, Ponder, Aeronautics bundle, Sable, public re:form and server probe JARs through `--extra-mod`. The connector's own required Aeronautics bundle also requires Sable; an absent dependency is a loader refusal, not an adapter result.
+
+The explicit fixture observes the connector's real COMMON-loading event after its listener, then the actual loaded Simulated owner on a server tick. It records all three configured values and native effective readers, checks the public correction method and never fires a projectile. Seed the real native COMMON files with 16/64/128 and the selected Simulated maximum. Reopen from the captured config directory in another JVM and compare the connector file's actual bytes. An original-mode run with the feature explicitly false qualifies opt-out; ordinary minimum and unsupported fixtures qualify selection boundaries without the foreign owners. Preserve failing receipts and distinguish configuration/reader proof from actual flight, remote-client sync or complete pack testing.
+
 ## Cookery inventory contract
 
 Build `probeJar`, then run a disposable standalone server with the exact Cookery runtime, re:form, Compat, and probe JARs:

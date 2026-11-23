@@ -13,6 +13,7 @@ public final class ProbeEntry {
     private MinecraftServer pending;
     public ProbeEntry() {
         SideLoadingProbe.install();
+        if (!System.getProperty("neighbors.probe.connector", "").isEmpty()) { new RopeConnectorRangeProbe(); return; }
         if (!System.getProperty("neighbors.probe.cookery", "").isEmpty()) { new CookeryInventoryProbe(); return; }
         if (!System.getProperty("neighbors.probe.worldScope", "").isEmpty()) { new WorldScopeProbe(); return; }
         if (Boolean.getBoolean("neighbors.probe.encounters")) { new EncounterProbe(); return; }
