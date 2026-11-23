@@ -1,5 +1,11 @@
 # Verification
 
+## Grouped reference correction (0.3 candidate)
+
+Unpublished Compat `0.43.0-layout-dev.6`, SHA-256 `7ed99334eee3b1d55533b8e9fd58931c975b2049800047c9b1d39d133d10690b`, selects frozen re:form `0.3.0-dev.10`, SHA-256 `99596d436394a8599666860750a9bfdd8eb51898580bd8b7763927e7b61609c0`. The library corrects a grouped titled-reference rebuild crash exposed by Lootr, preserves owner help, and retains authored related-row identities. Its public API is unchanged. All Compat runtime classes remain byte-identical to the initial candidate below; only the pin and packaged development metadata change. The stable family remains `[0.3.0,0.4)`, with only the exact selected development exception. An admission regression explicitly refuses the previously selected development version.
+
+Required check/build passes 479 Java cases and 21 tooling cases. Exact minimum dedicated startup passes with the new library. The actual Compat Configure factory passes twelve matched layout scenes, eighteen inspected or geometry-bound frames, retained invalid input, actions, source guards, and two-JVM saved reopening. A separate staged fixture passes coupled-error attribution, inactive-value retention, exact stepping, paired review, and native save. The library's independently inspected new evidence covers four-target workspace pairs and the NeoForge 1.21.1 authoring pair, including the reproduced grouped-reference failure. Other authoring, native-owner, policy, and operation evidence retains its earlier artifact identity. Neither these checks nor the independently owned Lootr retry establish combined-pack coexistence or personal rollout.
+
 ## Settings composition (0.3 candidate)
 
 The unpublished Compat `0.43.0-layout-dev.5` product has SHA-256 `9c536946689418c27c00d17215c2d4360f2b231d88eeded4733b22374a7a127e` and selects re:form `0.3.0-dev.8`, SHA-256 `130e11b5d9057c2048fc58bef33b53024011642ff66cbabab6b67abd1daadcba`. The stable admission floor remains 0.3.0, independently of that exact development exception. Required build/check passes 479 Java cases, 21 tooling cases, packaging, upstream, Ponder, Iris, and physical-server controls. Actual minimum dedicated startup passes with the selected library. This is a local candidate, not a published release.
