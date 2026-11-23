@@ -1,5 +1,9 @@
 # Verification
 
+## Public re:form 0.3 adoption
+
+Unpublished Compat `0.43.0-layout-dev.7`, SHA-256 `6cc41e747d4fb1c741975b464cd7fdf9e8fecf89a0e1e34acf679c5d3ef9fcaa`, selects public re:form `0.3.0`, SHA-256 `8a3fcc486b44351962535b4b63b83caee538e086e35529ec6710ed5c6397b7ab`. The stable admission family remains `[0.3.0,0.4)`; the previous development candidates are explicitly refused. A fresh artifact-only Gradle consumer downloads the exact binary from the public GitHub release without a local repository fallback. The actual Compat build runs without a repository override and passes the required 479 Java and 21 tooling cases. Exact minimum dedicated startup and an actual two-JVM Configure workflow pass, including source guards, explicit false, document actions, information, and saved reopening. All 667 owned re:form classes match qualified `dev.10`, and all 1,035 Compat runtime classes match candidate 6; the earlier native geometry and interaction evidence retains its stated scope.
+
 ## Grouped reference correction (0.3 candidate)
 
 Unpublished Compat `0.43.0-layout-dev.6`, SHA-256 `7ed99334eee3b1d55533b8e9fd58931c975b2049800047c9b1d39d133d10690b`, selects frozen re:form `0.3.0-dev.10`, SHA-256 `99596d436394a8599666860750a9bfdd8eb51898580bd8b7763927e7b61609c0`. The library corrects a grouped titled-reference rebuild crash exposed by Lootr, preserves owner help, and retains authored related-row identities. Its public API is unchanged. All Compat runtime classes remain byte-identical to the initial candidate below; only the pin and packaged development metadata change. The stable family remains `[0.3.0,0.4)`, with only the exact selected development exception. An admission regression explicitly refuses the previously selected development version.
