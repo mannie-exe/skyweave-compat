@@ -14,6 +14,8 @@ public final class IslandStyles {
     public IslandStyles(ShapeProfile profile, BiomeTerrainSampler biomes) { this.profile = profile; this.biomes = biomes; }
     public ShapeProfile profile() { return profile; }
     public Style style(IslandDescriptor island) {
+        var cached = styles.getIfPresent(island);
+        if (cached != null) return cached;
         try { return styles.get(island, () -> {
             var biome = biomes.sample(island.centerX(), island.centerY() + island.plateauHeight(), island.centerZ()).biomeId();
             String id = biome == null ? "" : biome.toString();

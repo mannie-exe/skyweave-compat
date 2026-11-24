@@ -12,10 +12,11 @@ public enum TerrainStage {
 
     public <T> T query(Supplier<T> query) {
         var previous = ACTIVE.get();
+        if (previous == this) return query.get();
         ACTIVE.set(this);
         try { return query.get(); }
-        finally {
-            if (previous == COMPLETE) ACTIVE.remove(); else ACTIVE.set(previous);
-        }
+        // This slot holds only an enum singleton, never a query or world owner.
+        // Removing COMPLETE recreated a ThreadLocal entry at every outer read.
+        finally { ACTIVE.set(previous); }
     }
 }

@@ -14,6 +14,11 @@ class TerrainStageTest {
                 throw new IllegalStateException("expected");
             }));
             assertEquals(TerrainStage.INTERIOR, TerrainStage.current());
+            assertThrows(IllegalArgumentException.class, () -> TerrainStage.INTERIOR.query(() -> {
+                assertEquals(TerrainStage.INTERIOR, TerrainStage.current());
+                throw new IllegalArgumentException("same-stage failure");
+            }));
+            assertEquals(TerrainStage.INTERIOR, TerrainStage.current());
             assertEquals(TerrainStage.COMPLETE, CompletableFuture.supplyAsync(TerrainStage::current).join());
             return null;
         });
