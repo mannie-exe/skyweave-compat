@@ -3,7 +3,45 @@ import hashlib
 import json
 import re
 import shutil
+import zipfile
 from pathlib import Path
+
+
+def nested_compile_archives(files, destination):
+    """Resolve only the nested JARs of frozen fixture inputs, never stale build-cache libraries."""
+    destination = Path(destination)
+    destination.mkdir()
+    pending, seen, result = list(files), set(), []
+    total = 0
+    while pending:
+        source = pending.pop()
+        identity = hashlib.sha256(source.read_bytes()).hexdigest()
+        if identity in seen:
+            continue
+        seen.add(identity)
+        if len(seen) > 1024:
+            raise ValueError('Fixture compile graph exceeds 1024 archives')
+        with zipfile.ZipFile(source) as archive:
+            if 'META-INF/jarjar/metadata.json' not in archive.namelist():
+                continue
+            metadata = json.loads(archive.read('META-INF/jarjar/metadata.json'))
+            for row in metadata['jars']:
+                member = row['path']
+                if not member.startswith('META-INF/') or Path(member).is_absolute() or '..' in Path(member).parts:
+                    raise ValueError('Nested compile archive has an invalid member path')
+                if archive.namelist().count(member) != 1:
+                    raise ValueError('Nested compile archive is missing or ambiguous')
+                total += archive.getinfo(member).file_size
+                if total > 1024 * 1024 * 1024:
+                    raise ValueError('Fixture compile graph exceeds 1 GiB of nested archives')
+                payload = archive.read(member)
+                digest = hashlib.sha256(payload).hexdigest()
+                output = destination / (digest + '.jar')
+                if not output.exists():
+                    output.write_bytes(payload)
+                    result.append(output)
+                    pending.append(output)
+    return result
 
 
 def copy_owned(source, destination, root):

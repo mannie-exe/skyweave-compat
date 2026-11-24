@@ -18,9 +18,6 @@ final class ShadowPassProbe {
         public boolean isRenderingShadowPass() { return shadow; }
     }
 
-    static void verify(ClassNode target) throws Exception {
-        verify(target, "skyweave$skipShadowComposite");
-    }
     static void verify(ClassNode target, String handler) throws Exception {
         var originalMethod = target.methods.stream().filter(m -> m.name.endsWith(handler)).findFirst().orElseThrow();
         var method = new MethodNode(Opcodes.ASM9, originalMethod.access, originalMethod.name, originalMethod.desc, null, null);

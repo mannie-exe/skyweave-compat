@@ -83,7 +83,7 @@ On an FTB or Minecraft update, recheck adapter registration order, native matche
 
 ## Throwable Rope Connector range limits
 
-`throwable_rope_connector.range_limits` is an independently optional common adaptation for Throwable Rope Connector 0.4.3 and Create Simulated 1.3.2. It defaults on when both owners qualify and appears under Ships → Throwable Rope Connector → Server range limits. Explicit false prevents selection and version checks; the provider remains optional in loader metadata.
+`throwable_rope_connector.range_limits` is an independently optional common adaptation for Throwable Rope Connector 0.4.3 and Create Simulated 1.3.3. It defaults on when both owners qualify and appears under Ships → Throwable Rope Connector → Server range limits. Explicit false prevents selection and version checks; the provider remains optional in loader metadata.
 
 The native COMMON-loading listener corrects ranges against `getSimulatedMaxRopeRange`, whose unavailable-config fallback is 40. This can destroy larger configured launcher values before the actual server maximum loads. The adaptation prevents this cross-config rewrite and bounds each of the three native effective-range readers by the actual Simulated maximum when `serverLoaded()` is true. When unavailable, a reader retains its configured value; this is not an invented authoritative server ceiling. Native configuration validation, launch mechanics, projectile behavior, and rope connection authority remain upstream-owned.
 

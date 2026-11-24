@@ -18,7 +18,7 @@ public final class SettingsCatalog {
         FTB_QUESTS(Category.INTERFACE, "ftbquests"),
         FTB_LIBRARY(Category.INVENTORY, "ftblibrary"), JOURNAL(Category.INTERFACE, "questlog"), AUDIO_CLIENT(Category.AUDIO, "analog_audio"),
         DH_CLIENT(Category.MAPS, "distant_horizons"), SABLE_CLIENT(Category.RENDERING, "sable"),
-        VEIL(Category.RENDERING, "veil"), IRIS(Category.RENDERING, "iris"), AERONAUTICS(Category.RENDERING, "aeronautics"),
+        VEIL(Category.RENDERING, "veil"), IRIS(Category.RENDERING, "iris"),
         PLAYER_ANIMATION(Category.RENDERING, "punchy_moves"), MODEFITE(Category.RENDERING, "modefite"),
         SSRD(Category.MAPS, "ssrd"), COLORWHEEL(Category.RENDERING, "colorwheel"), LIGHTS(Category.RENDERING, "lighting"),
         CREATE_CLIENT(Category.RENDERING, "create"), FUSION(Category.RENDERING, "fusion"),
@@ -252,11 +252,10 @@ public final class SettingsCatalog {
             case MODEL_DATA, MATERIAL_IDS, SINGLE_BLOCK_PASSES -> Group.SABLE_CLIENT;
             case FRAMEBUFFER -> Group.VEIL;
             case SHADER_PATCHES, HAND_EFFECTS, HELD_MATERIALS, TEXT_DISPLAY_LIGHTING, NAMETAG_LIGHTING, TEXT_DISPLAY_SHADOW, NAMETAG_SHADOW -> Group.IRIS;
-            case BALLOON -> Group.AERONAUTICS;
             case COLORWHEEL_SAMPLERS, COLORWHEEL_MATERIALS -> Group.COLORWHEEL;
             case LIGHTING_LIFECYCLE, SODIUM_LIGHTING -> Group.LIGHTS;
             case LINEAR_PONDER -> Group.LINEAR_CLIENT;
-            case LINKAGE_INTERACTIONS, LINKAGE_JADE -> Group.LINKAGE;
+            case LINKAGE_INTERACTIONS, LINKAGE_JOINT_BODIES, LINKAGE_JADE -> Group.LINKAGE;
             case LINK_GUI_INTERACTIONS, LINK_GUI_RELOCATION, LINK_GUI_SABLE -> Group.LINK_GUI;
             case REDSTONE_LOGIC -> Group.REDSTONE;
             case LINEAR_BOOTSTRAP, LINEAR_CARRIAGE, LINEAR_TRANSMISSION, LINEAR_GYRO, LINEAR_JADE -> Group.LINEAR;

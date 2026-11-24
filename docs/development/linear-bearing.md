@@ -1,6 +1,6 @@
 # Linear Bearing adaptations
 
-The adaptations target Linear Bearing 1.3.5, Create 6.0.10, Sable 2.0.6 and Simulated 1.3.2. They are independent of island generation and client renderers. The four startup switches are listed in [configuration](../configuration.md). Client and dedicated installations use the same machinery rules; physics and network mutations run on the logical server.
+The adaptations target Linear Bearing 1.3.5, Create 6.0.10, Sable 2.0.6 and Simulated 1.3.3. They are independent of island generation and client renderers. The four startup switches are listed in [configuration](../configuration.md). Client and dedicated installations use the same machinery rules; physics and network mutations run on the logical server.
 
 ## Repair ownership
 

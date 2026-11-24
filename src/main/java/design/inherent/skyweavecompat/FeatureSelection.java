@@ -115,7 +115,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
     public static boolean clientOnly(Feature feature) {
         return switch (feature) {
             case WAYFINDER_DH, MAIN_MENU_IDENTITY, IPN_TEXT_INPUT, MOVES_KEY_MODIFIERS, EFFORTLESS_KEY_MODIFIERS, POWER_GRID_KEY_MODIFIERS, CREATE_COPYCAT_BACKFACES, COPYCATS_BACKFACES, MOVES_TOUCH_MOTION, HAND_EFFECTS, HELD_MATERIALS, MODEL_ROTATIONS, ITEM_DEFINITIONS, CONSTRUCT_COVERAGE -> true;
-            case HOOFPRINT_ZOOM, ISLAND_CLOUDS, ISLAND_VOID, ISLAND_SHADER_ENVIRONMENT, CONFECTIONERY_BACKFACES, BUBBLE_GUM_BACKFACES, ORNATE_GRATE_BACKFACES, INDUSTRIAL_GRATING_BACKFACES, MACAW_GLASS, CONSTRUCT_DISTANCE, CONSTRUCT_OCCLUSION, SHADER_PATCHES, TEXT_DISPLAY_LIGHTING, NAMETAG_LIGHTING, TEXT_DISPLAY_SHADOW, NAMETAG_SHADOW, CREATE_BACKFACES, FUSION_BACKFACES, CREATE_WINDOWS, RECHISELED_GLASS, AUDIO_TIMELINE, LINEAR_PONDER, COLORWHEEL_SAMPLERS, COLORWHEEL_MATERIALS, LIGHTING_LIFECYCLE, SODIUM_LIGHTING, DH_HANDOFF, FRAMEBUFFER, BALLOON, MATERIAL_IDS, MODEL_DATA, SINGLE_BLOCK_PASSES,
+            case HOOFPRINT_ZOOM, ISLAND_CLOUDS, ISLAND_VOID, ISLAND_SHADER_ENVIRONMENT, CONFECTIONERY_BACKFACES, BUBBLE_GUM_BACKFACES, ORNATE_GRATE_BACKFACES, INDUSTRIAL_GRATING_BACKFACES, MACAW_GLASS, CONSTRUCT_DISTANCE, CONSTRUCT_OCCLUSION, SHADER_PATCHES, TEXT_DISPLAY_LIGHTING, NAMETAG_LIGHTING, TEXT_DISPLAY_SHADOW, NAMETAG_SHADOW, CREATE_BACKFACES, FUSION_BACKFACES, CREATE_WINDOWS, RECHISELED_GLASS, AUDIO_TIMELINE, LINEAR_PONDER, COLORWHEEL_SAMPLERS, COLORWHEEL_MATERIALS, LIGHTING_LIFECYCLE, SODIUM_LIGHTING, DH_HANDOFF, FRAMEBUFFER, MATERIAL_IDS, MODEL_DATA, SINGLE_BLOCK_PASSES,
                     FTB_CREATIVE_RETURN, QUESTLOG_INTERFACE, QUESTLOG_NOTIFICATIONS -> true;
             default -> false;
         };
@@ -125,7 +125,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
         return switch (feature) {
             case MAIN_MENU_IDENTITY -> Map.of();
             case COOKERY_MILLSTONE -> Map.of("kaleidoscope_cookery", "1.6.0-neoforge+mc1.21.1");
-            case ROPE_CONNECTOR_RANGES -> Map.of("create_aeronautics_throwable_rope_connector", "0.4.3", "simulated", "1.3.2");
+            case ROPE_CONNECTOR_RANGES -> Map.of("create_aeronautics_throwable_rope_connector", "0.4.3", "simulated", "1.3.3");
             case IPN_TEXT_INPUT -> Map.of("inventoryprofilesnext", "2.2.5", "libipn", "6.6.3");
             case MOVES_KEY_MODIFIERS -> Map.of("punchy_moves", "1.0.9");
             case EFFORTLESS_KEY_MODIFIERS -> Map.of("effortlessbuilding", "4.2");
@@ -181,7 +181,8 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             case SABLE_GRAVES -> Map.of("sable", "2.0.6", "yigd", "2.0.13");
             case AUDIO_TIMELINE -> Map.of("analogaudio", "0.1.5-hotfix.1", "analoglib", "0.1.0");
             case ANALOG_AUDIO -> Map.of("analogaudio", "0.1.5-hotfix.1", "create", "6.0.10");
-            case LINKAGE_INTERACTIONS -> Map.of("aeronautics_utility_objects", "0.2.9", "create", "6.0.10", "sable", "2.0.6", "simulated", "1.3.2");
+            case LINKAGE_INTERACTIONS -> Map.of("aeronautics_utility_objects", "0.2.9", "create", "6.0.10", "sable", "2.0.6", "simulated", "1.3.3");
+            case LINKAGE_JOINT_BODIES -> Map.of("aeronautics_utility_objects", "0.2.9", "sable", "2.0.6");
             case LINKAGE_JADE -> Map.of("aeronautics_utility_objects", "0.2.9", "jade", "15.10.6+neoforge");
             case LINK_GUI_INTERACTIONS, LINK_GUI_RELOCATION -> Map.of("createredstonelinkgui", "1.21.1-1.9.2", "create", "6.0.10");
             case LINK_GUI_SABLE -> Map.of("createredstonelinkgui", "1.21.1-1.9.2", "create", "6.0.10", "sable", "2.0.6");
@@ -189,7 +190,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                     "accessories_compat_layer", "0.1.13");
             case REDSTONE_LOGIC -> Map.of("create_redstone_additions", "1.0.6", "create", "6.0.10");
             case LINEAR_BOOTSTRAP -> Map.of("linearbearing", "1.3.5");
-            case LINEAR_CARRIAGE, LINEAR_TRANSMISSION -> Map.of("linearbearing", "1.3.5", "create", "6.0.10", "sable", "2.0.6", "simulated", "1.3.2");
+            case LINEAR_CARRIAGE, LINEAR_TRANSMISSION -> Map.of("linearbearing", "1.3.5", "create", "6.0.10", "sable", "2.0.6", "simulated", "1.3.3");
             case LINEAR_GYRO -> Map.of("linearbearing", "1.3.5", "create", "6.0.10", "sable", "2.0.6");
             case LINEAR_PONDER -> Map.of("linearbearing", "1.3.5", "create", "6.0.10", "ponder", "1.0.87+mc1.21.1");
             case LINEAR_JADE -> Map.of("linearbearing", "1.3.5", "jade", "15.10.6+neoforge");
@@ -198,7 +199,6 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             case BLUEMAP -> Map.of("bluemap", "5.7", "sky_archipelago", "1.4");
             case SURVEYOR_STRUCTURES -> Map.of("surveyor", "1.2.4_1.21", "sky_archipelago", "1.4");
             case FRAMEBUFFER -> Map.of("veil", "4.3.2", "iris", "1.8.14-beta.1+mc1.21.1");
-            case BALLOON -> Map.of("aeronautics", "1.3.2", "iris", "1.8.14-beta.1+mc1.21.1");
             case TEXT_DISPLAY_LIGHTING, NAMETAG_LIGHTING, TEXT_DISPLAY_SHADOW, NAMETAG_SHADOW -> Map.of("iris", "1.8.14-beta.1+mc1.21.1");
             case MATERIAL_IDS, SINGLE_BLOCK_PASSES -> Map.of("sable", "2.0.6", "iris", "1.8.14-beta.1+mc1.21.1", "sodium", "0.8.13+mc1.21.1");
             case COLORWHEEL_SAMPLERS -> Map.of("colorwheel", "1.3.2+mc1.21.1", "iris", "1.8.14-beta.1+mc1.21.1", "flywheel", "1.0.6");
@@ -301,6 +301,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                 case LINKAGE_INTERACTIONS -> client
                         ? List.of("linkage.LinkagePacketMixin", "linkage.LinkageBindingMixin", "linkage.LinkageJointBindingMixin", "linkage.LinkageBlockMixin", "linkage.LinkageUseMixin", "linkage.LinkageWrenchMixin", "linkage.LinkageMenuButtonMixin", "client.LinkageRodInputMixin")
                         : List.of("linkage.LinkagePacketMixin", "linkage.LinkageBindingMixin", "linkage.LinkageJointBindingMixin", "linkage.LinkageBlockMixin", "linkage.LinkageUseMixin", "linkage.LinkageWrenchMixin", "linkage.LinkageMenuButtonMixin");
+                case LINKAGE_JOINT_BODIES -> List.of("linkage.HydraulicJointBodiesMixin");
                 case LINKAGE_JADE -> List.of("linkage.ConversionStateAccessor");
                 case LINK_GUI_INTERACTIONS -> List.of("redstone.GuiPacketMixin", "redstone.GuiOpenPacketMixin", "redstone.GuiSwapPacketMixin", "redstone.GuiMenuMixin");
                 case LINK_GUI_RELOCATION -> client ? List.of("redstone.GuiRelocationMixin", "client.GuiRelocationScreenMixin") : List.of("redstone.GuiRelocationMixin");
@@ -316,7 +317,6 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                 case DH_CACHE -> client ? List.of("dh.WorldLevelKeyMixin", "dh.LegacyCacheMixin") : List.of("dh.WorldLevelKeyMixin");
                 case BLUEMAP, LINEAR_PONDER, LINEAR_JADE -> List.of();
                 case FRAMEBUFFER -> List.of("client.ShaderWrapperMixin");
-                case BALLOON -> List.of("client.BalloonShadowMixin");
                 case TEXT_DISPLAY_SHADOW -> List.of("client.TextDisplayShadowMixin");
                 case NAMETAG_SHADOW -> List.of("client.NametagShadowMixin");
                 case TEXT_DISPLAY_LIGHTING -> List.of("client.TextDisplayLightingMixin");

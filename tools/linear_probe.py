@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import tempfile
 import zipfile
+from fixture_files import nested_compile_archives
 
 ROOT = Path(__file__).resolve().parents[1]
 LINEAR_HASH = '29563cdb52a82ac7d8b3aca823cd47a15c443e06314df06ca1a635ae9e91a253'
@@ -37,8 +38,11 @@ def main():
     parser.add_argument('--yigd', type=Path, help='Exact YiGD recovery fixture dependency')
     parser.add_argument('--linkage', type=Path, help='Unmodified Transmission & Linkage 0.2.9 JAR')
     parser.add_argument('--linkage-baseline', action='store_true', help='Disable the Linkage adapters for a native failure control')
+    parser.add_argument('--linkage-controller', choices=['retained', 'switched'], default='retained', help='Native controller order in the lifecycle scene, using pre-allocation UUID inputs')
+    parser.add_argument('--linkage-joint-bodies', choices=['on', 'off'], help='Override the independent hydraulic body-binding repair in the disposable fixture')
     parser.add_argument('--fix', type=Path, help='Optional unmodified Linear Bearings Fix 1.0.3 JAR')
     parser.add_argument('--mod', type=Path)
+    parser.add_argument('--output', type=Path, help='New evidence directory; must not already exist')
     parser.add_argument('--minimal', action='store_true', help='Only the selected scene’s required target dependencies')
     parser.add_argument('--scenario', choices=SCENES, required=True)
     parser.add_argument('--orientation', choices=['floor', 'ceiling', 'wall-front', 'wall-back', 'height', 'quarter'], default='floor')
@@ -76,6 +80,7 @@ def main():
         minimal_keys = {'sable', 'cloth-config', 'macaws-bridges'}
     if args.scenario == 'redstone':
         minimal_keys = {'create', 'ponder'}
+    minimal_keys.add('reform')
     files = [Path(row['path']) for row in runtime['mods'] if row['key'] not in excluded
              and (not args.minimal or row['key'] in minimal_keys)]
     if not args.minimal:
@@ -108,6 +113,10 @@ def main():
         output = output.with_name(output.name + '-baseline')
     if args.linkage_baseline:
         output = output.with_name(output.name + '-baseline')
+    if args.output:
+        output = args.output.resolve()
+        if output.exists():
+            parser.error('Evidence directory already exists; preserve it and choose a new --output')
     output.mkdir(parents=True, exist_ok=True)
     manifest = {'scenario': args.scenario, 'orientation': args.orientation,
                 'artifact': str(mod), 'sha256': digest(mod),
@@ -121,7 +130,8 @@ def main():
         libraries = args.server / 'libraries'
         (run / 'libraries').symlink_to(libraries, target_is_directory=True)
         game = libraries / 'net/neoforged/neoforge/21.1.265/neoforge-21.1.265-server.jar'
-        dependencies = list((ROOT / 'build/dependencies').glob('*.jar'))
+        dependencies = nested_compile_archives(sorted((run / 'mods').glob('*.jar')), run / 'compile-libraries')
+        manifest['compileDependencies'] = {path.name: digest(path) for path in dependencies}
         classpath = ':'.join(map(str, [game, *sorted(libraries.rglob('*.jar')), *sorted((run / 'mods').glob('*.jar')), *dependencies, *[p.resolve() for p in [args.redstone_gui, args.redstone_additions] if p]]))
         classes = run / 'classes'
         classes.mkdir()
@@ -129,6 +139,8 @@ def main():
         compile_command = [str(args.java.with_name('javac')), '-proc:none', '-cp', classpath, '-d', str(classes), str(source)]
         if args.scenario == 'recovery' and not args.minimal:
             compile_command.append(str(ROOT / 'tools/fixtures/recovery/BackpackRecovery.java'))
+        linkage_helpers = [ROOT / 'tools/fixtures/linkage' / name for name in ['LinkageIdentitySource.java', 'LinkageIdentityMixin.java']] if args.scenario == 'linkage-lifecycle' else []
+        compile_command.extend(map(str, linkage_helpers))
         if args.scenario == 'redstone':
             compile_command.append(str(ROOT / 'tools/fixtures/redstone/RedstoneGuiProbe.java'))
         if args.scenario == 'redstone' and not args.minimal:
@@ -140,14 +152,23 @@ def main():
         with zipfile.ZipFile(run / 'mods/linear-review-probe.jar', 'w') as jar:
             for path in classes.rglob('*.class'):
                 jar.write(path, path.relative_to(classes))
-            jar.writestr('META-INF/neoforge.mods.toml', 'modLoader="javafml"\nloaderVersion="[4,)"\nlicense="Apache-2.0"\n[[mods]]\nmodId="linear_review_probe"\nversion="1.0.0"\ndisplayName="Isolated compatibility checks"\n')
+            metadata = 'modLoader="javafml"\nloaderVersion="[4,)"\nlicense="Apache-2.0"\n[[mods]]\nmodId="linear_review_probe"\nversion="1.0.0"\ndisplayName="Isolated compatibility checks"\n'
+            if linkage_helpers:
+                metadata += '[[mixins]]\nconfig="linkage_identity_probe.mixins.json"\n'
+                jar.writestr('linkage_identity_probe.mixins.json', json.dumps({'required': True, 'minVersion': '0.8', 'package': 'linearreview.mixin', 'compatibilityLevel': 'JAVA_21', 'mixins': ['LinkageIdentityMixin']}))
+            jar.writestr('META-INF/neoforge.mods.toml', metadata)
         shutil.copytree(args.pack / 'overrides/common/config', run / 'config')
         if args.linkage_baseline:
             settings = run / 'config/skyweave/skyweave_compat-features.properties'
             import re
             text = settings.read_text() if settings.exists() else ''
-            text = re.sub(r'(?m)^transmission_linkage\.[^\n]*\n?', '', text)
+            text = re.sub(r'(?m)^transmission_linkage\.(?:interactions|jade)=[^\n]*\n?', '', text)
             settings.write_text(text + '\ntransmission_linkage.interactions=false\ntransmission_linkage.jade=false\n')
+        if args.linkage_joint_bodies:
+            settings = run / 'config/skyweave/skyweave_compat-features.properties'
+            import re
+            text = re.sub(r'(?m)^transmission_linkage\.joint_bodies[^\n]*\n?', '', settings.read_text() if settings.exists() else '')
+            settings.write_text(text + '\ntransmission_linkage.joint_bodies=' + str(args.linkage_joint_bodies == 'on').lower() + '\n')
         if args.redstone_baseline:
             settings = run / 'config/skyweave/skyweave_compat-features.properties'
             import re
@@ -162,6 +183,9 @@ def main():
         (run / 'server.properties').write_text('server-ip=127.0.0.1\nserver-port=0\nonline-mode=false\nlevel-name=fixture\nlevel-type=minecraft:flat\ngenerate-structures=false\nview-distance=2\nsimulation-distance=2\nmax-tick-time=0\n')
         manifest['probeSha256'] = digest(run / 'mods/linear-review-probe.jar')
         manifest['sources'] = {str(source.relative_to(ROOT)): digest(source)}
+        manifest['sources'].update({str(path.relative_to(ROOT)): digest(path) for path in linkage_helpers})
+        if linkage_helpers:
+            manifest['controllerOrder'] = args.linkage_controller
         if args.scenario == 'redstone':
             for helper in ['RedstoneGuiProbe.java', *(['RedstoneShipProbe.java'] if not args.minimal else [])]:
                 path = ROOT / 'tools/fixtures/redstone' / helper
@@ -181,6 +205,7 @@ def main():
                        f'-Dlinear.review.restore={str(phase == "restore").lower()}',
                        f'-Dredstone.review.baseline={str(args.redstone_baseline).lower()}',
                        f'-Dlinkage.review.baseline={str(args.linkage_baseline).lower()}',
+                       f'-Dlinkage.review.controller={args.linkage_controller}',
                        f'-Dlinear.review.reopen={str(args.scenario == "reopen").lower()}',
                        '@' + str(libraries / 'net/neoforged/neoforge/21.1.265/unix_args.txt'), 'nogui']
             with (output / f'{phase}.log').open('w') as log:

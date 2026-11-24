@@ -48,10 +48,6 @@ public final class PatchTest {
         assertEquals(2, calls(method(node, "veilIrisFix$restore"), "_glBindFramebuffer"));
         assertFalse(method(node, "veilIrisFix$clear").tryCatchBlocks.isEmpty(), "restoration must run on clear failure");
         FramebufferProbe.verify(transformed);
-        String balloon = "dev.eriksonn.aeronautics.content.blocks.hot_air.balloon.effect.ClientBalloonEffectRenderer";
-        var balloonNode = transformed(service, transformer, balloon);
-        assertEquals(1, calls(method(balloonNode, "onRenderLevelStage"), "skyweave$skipShadowComposite"));
-        ShadowPassProbe.verify(balloonNode);
         var display = transformed(service, transformer, "net.minecraft.client.renderer.entity.DisplayRenderer$TextDisplayRenderer");
         assertEquals(1, display.methods.stream().filter(m -> m.name.equals("renderInner"))
                 .mapToLong(m -> calls(m, "skyweave$skipTextDisplayShadow")).sum(), "inject the concrete overload once, not its bridge");

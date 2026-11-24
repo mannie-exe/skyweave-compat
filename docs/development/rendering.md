@@ -223,9 +223,9 @@ Before updating Minecraft or Iris, recheck concrete/bridge descriptors, font ren
 
 ## Balloon overlay
 
-`BalloonShadowMixin` skips Aeronautics' hot-air effect callback when Iris reports its shadow pass. Aeronautics 1.3.2 otherwise creates an overlay framebuffer and runs screen-space post-processing during that pass. The ordinary render-stage callback is preserved, as is actual ship geometry in the shadow map.
+Aeronautics 1.3.3 owns hot-air effect admission through its native `enableHotAirRendering` preference. It disables that screen-space effect whenever Iris shaders are active and releases the retained overlay framebuffer on the disabled path. With shaders inactive and the preference enabled, the ordinary render path remains admitted. No Compat balloon shadow adapter or separate feature switch is needed. This policy affects the hot-air effect, not balloon physics or ship geometry.
 
-Upstream reference: [Simulated PR #1298](https://github.com/Creators-of-Aeronautics/Simulated-Project/pull/1298). This is separate from framebuffer restoration. The PR's End Sea and physics-staff guards are not included: the reported symptom and inspected balloon callback justify this bounded adaptation, while those additional effects lack equivalent pack-specific evidence. Review their own callbacks if symptoms appear. Retire when released Aeronautics excludes the hot-air composite from shadow passes.
+A focused fixture executes the released renderer's unchanged decision prefix with controlled native inputs, observing its cleanup and render boundary for every stage, preference, and Iris-availability combination. It establishes native admission and the cleanup call, not actual OpenGL resource release, visual quality, or GPU cost. Those remain part of the combined shader and lifecycle qualification. See the [Aeronautics 1.3.3 release](https://modrinth.com/mod/create-aeronautics/version/demX2roU) for the native rendering policy and related upstream fixes.
 
 ## Construct materials and single-block models
 

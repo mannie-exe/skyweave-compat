@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class FeatureSelectionTest {
     @Test void connectorRangesRemainOptionalAndQualifiedBeforeCommonTargetsResolve() {
         var feature = Feature.ROPE_CONNECTOR_RANGES;
-        var versions = Map.of("create_aeronautics_throwable_rope_connector", "0.4.3", "simulated", "1.3.2");
+        var versions = Map.of("create_aeronautics_throwable_rope_connector", "0.4.3", "simulated", "1.3.3");
         for (boolean client : List.of(false, true)) {
             var admitted = FeatureSelection.select(only(feature), versions, client);
             assertTrue(admitted.enabled(feature));
@@ -521,10 +521,26 @@ class FeatureSelectionTest {
         assertThrows(IllegalStateException.class, () -> FeatureSelection.select(settings,
                 Map.of("analoglib", "future", "analogaudio", "0.1.5-hotfix.1"), true));
     }
+    @Test void hydraulicBodyBindingIsIndependentOfInteractionPolicyAndForeignClasses() {
+        var feature = Feature.LINKAGE_JOINT_BODIES;
+        var versions = Map.of("aeronautics_utility_objects", "0.2.9", "sable", "2.0.6");
+        for (boolean client : List.of(false, true)) {
+            assertEquals(List.of("linkage.HydraulicJointBodiesMixin"),
+                    FeatureSelection.select(only(feature), versions, client).mixins(client));
+            for (var dependency : versions.keySet()) {
+                var partial = new HashMap<>(versions); partial.remove(dependency);
+                assertTrue(FeatureSelection.select(only(feature), partial, client).mixins(client).isEmpty());
+                var future = new HashMap<>(versions); future.put(dependency, "future");
+                assertThrows(IllegalStateException.class, () -> FeatureSelection.select(only(feature), future, client));
+                assertTrue(FeatureSelection.select(only(), future, client).mixins(client).isEmpty());
+            }
+        }
+        assertEquals(SettingsCatalog.Group.LINKAGE, SettingsCatalog.group(feature));
+    }
     @Test void linkageRequiresItsCompletePairAndKeepsJadeIndependent() {
         var settings = only(Feature.LINKAGE_INTERACTIONS, Feature.LINKAGE_JADE);
         var versions = new HashMap<>(Map.of("aeronautics_utility_objects", "0.2.9", "create", "6.0.10",
-                "sable", "2.0.6", "simulated", "1.3.2", "jade", "15.10.6+neoforge"));
+                "sable", "2.0.6", "simulated", "1.3.3", "jade", "15.10.6+neoforge"));
         for (boolean client : new boolean[]{false, true}) {
             var selection = FeatureSelection.select(settings, versions, client);
             assertTrue(selection.enabled(Feature.LINKAGE_INTERACTIONS));
@@ -545,7 +561,7 @@ class FeatureSelectionTest {
     }
     @Test void linearGuidanceRequiresItsApisAndAnActiveCarriageAdapter() {
         var versions = new HashMap<>(Map.of("linearbearing", "1.3.5", "create", "6.0.10",
-                "sable", "2.0.6", "simulated", "1.3.2", "ponder", "1.0.87+mc1.21.1", "jade", "15.10.6+neoforge"));
+                "sable", "2.0.6", "simulated", "1.3.3", "ponder", "1.0.87+mc1.21.1", "jade", "15.10.6+neoforge"));
         var settings = only(Feature.LINEAR_CARRIAGE, Feature.LINEAR_PONDER, Feature.LINEAR_JADE);
         assertTrue(FeatureSelection.select(settings, versions, true).enabled(Feature.LINEAR_PONDER));
         assertTrue(FeatureSelection.select(settings, versions, false).enabled(Feature.LINEAR_JADE));
@@ -562,7 +578,7 @@ class FeatureSelectionTest {
     @Test void linearMachineryNeedsItsOwnApisAndSurvivesStandaloneFixCoexistence() {
         var settings = only(Feature.LINEAR_BOOTSTRAP, Feature.LINEAR_CARRIAGE, Feature.LINEAR_TRANSMISSION, Feature.LINEAR_GYRO);
         var versions = new HashMap<>(Map.of("linearbearing", "1.3.5", "linearbearingsfix", "1.0.3",
-                "create", "6.0.10", "sable", "2.0.6", "simulated", "1.3.2"));
+                "create", "6.0.10", "sable", "2.0.6", "simulated", "1.3.3"));
         for (boolean client : new boolean[]{false, true}) {
             var selection = FeatureSelection.select(settings, versions, client);
             assertEquals(java.util.Set.of(Feature.LINEAR_CARRIAGE, Feature.LINEAR_TRANSMISSION, Feature.LINEAR_GYRO), selection.active());
@@ -638,7 +654,7 @@ class FeatureSelectionTest {
             Map.entry("mcwwindows", "2.4.2"), Map.entry("ssrd", "1.8.8"), Map.entry("iris", "1.8.14-beta.1+mc1.21.1"), Map.entry("sodium", "0.8.13+mc1.21.1"),
             Map.entry("sabledynlights", "2.0.1"), Map.entry("lambdynlights", "4.8.11+1.21.1"),
             Map.entry("flywheel", "1.0.6"), Map.entry("colorwheel", "1.3.2+mc1.21.1"),
-            Map.entry("aeronautics", "1.3.2"), Map.entry("questlog", "3.5.0"));
+            Map.entry("aeronautics", "1.3.3"), Map.entry("questlog", "3.5.0"));
 
     @Test void colorwheelBridgeRequiresItsOwnerAndRespectsAbsenceDisableAndSide() {
         var settings = only(Feature.MATERIAL_IDS, Feature.COLORWHEEL_MATERIALS);
@@ -803,7 +819,6 @@ class FeatureSelectionTest {
         versions.put("iris", "unsupported");
         var selection = FeatureSelection.select(new FeatureSettings(Map.of()), versions, false);
         assertFalse(selection.enabled(Feature.FRAMEBUFFER));
-        assertFalse(selection.enabled(Feature.BALLOON));
         assertFalse(selection.enabled(Feature.MATERIAL_IDS));
         assertFalse(selection.enabled(Feature.MODEL_DATA));
         assertFalse(selection.enabled(Feature.SINGLE_BLOCK_PASSES));

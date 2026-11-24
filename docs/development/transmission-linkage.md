@@ -1,6 +1,6 @@
 # Transmission & Linkage
 
-The optional interaction adapter targets Transmission & Linkage 0.2.9 with Create 6.0.10, Sable 2.0.6 and Simulated 1.3.2. It does not require the terrain preset. [Configuration](../configuration.md#adaptation-switches) owns activation.
+The optional interaction adapter targets Transmission & Linkage 0.2.9 with Create 6.0.10, Sable 2.0.6 and Simulated 1.3.3. It does not require the terrain preset. [Configuration](../configuration.md#adaptation-switches) owns activation.
 
 ## Player mutations
 
@@ -18,6 +18,16 @@ The inspected source is [`bd1f0bf`](https://github.com/userenxv/aeronautics-util
 
 The giant-rod visual helper caps visible extension at 18.0625 blocks. Stock maximum link length 15 and break distance 17 avoid the enlarged-configuration case described in [upstream issue 5](https://github.com/userenxv/aeronautics-utility-objects/issues/5). Do not enlarge the range without aligning rendering, selection bounds and physical length. No range extension is implemented here.
 
+## Joint body lifetime
+
+A valid native joint can still bind the previous pair of physics bodies after an endpoint moves. Updating its local anchor frames cannot change those participating bodies. The 0.2.9 hydraulic callback reuses a valid cached joint, while link-reference remapping changes endpoint positions and body identifiers. The interaction adapter does not repair that lifetime contract.
+
+`transmission_linkage.joint_bodies` is an independent adaptation for 0.2.9 and Sable 2.0.6. It records the actual participants only after native joint creation succeeds. At the native reuse decision, a valid joint also needs to match that same handle and ordered pair of body objects. A changed or unknown binding takes upstream's existing removal and creation branch before new frames are written. Native controller selection, axes, motors, forces and cleanup remain upstream behavior. This switch does not depend on the player interaction policy or Simulated APIs.
+
+Each endpoint retains three weak references: its recorded handle and the two possible body participants. The world endpoint uses the native null sentinel; a collected body cannot turn into that sentinel. There is no global body ledger, added chunk query, per-tick allocation or repeated replacement for an unchanged binding. The implementation does not claim a general Sable or universal-joint repair.
+
+The lifecycle fixture supplies identities at the native `SubLevelContainer.allocateNewSubLevel` UUID input, before allocation and registration. It never changes a published body identity. Both controller orders use actual assembly, physics, persistence and endpoint removal. The original retained-controller case fails; the switched-controller control succeeds. With the repair both cases remove the old joint, create the replacement, retain the same replacement through later physics/wake callbacks, and preserve saved identities on reopen. Explicit false restores the retained-controller failure. These bounded controls do not establish arbitrary hinge transitions, concurrent assembly or combined-pack cost.
+
 ## Ponder wording
 
 The six native tutorials use shared English keys under `aeronautics_utility_objects.ponder.shared`. Text corrections can be supplied by a resource pack or resource-only mod; they do not require a new optional runtime adapter. Keep them with the distributing pack's maintained resources rather than duplicating them in Skyweave: Compatibility Patches.
@@ -28,7 +38,7 @@ The settings tutorial's initial pointer targets the lower head although normal r
 
 ## Checks and updates
 
-`tools/linear_probe.py --scenario linkage --linkage /path/to/0.2.9.jar` reuses the isolated machinery runner. Supply its normal read-only server, pack, Java and Linear Bearing inputs. `--minimal` selects the reduced Create/Sable runtime; `--linkage-baseline` disables these adapters for the original-behavior control. The fixture uses a real world-to-assembled-body rod and native packet handlers. It records artifact/source hashes and deletes its temporary world.
+`tools/linear_probe.py --scenario linkage --linkage /path/to/0.2.9.jar` reuses the isolated machinery runner. Supply its normal read-only server, pack, Java and Linear Bearing inputs. `--minimal` selects the reduced Create/Sable runtime; `--linkage-baseline` disables the interaction and Jade adapters for the original player-behavior control. `--linkage-joint-bodies on|off` controls the independent physics repair. The fixture uses a real world-to-assembled-body rod and native packet handlers. It records artifact/source hashes and deletes its temporary world.
 
 The baseline permits bare removal. The adapted fixture rejects bare removal, adventure/spectator removal, a protected opposite endpoint, unauthorized settings and a stale distant menu, while allowing authorized settings and sneak-wrench removal. This check does not establish interactive client input, every lifecycle transition, claim-mod coverage or multiplayer packet ordering.
 
@@ -36,4 +46,4 @@ The baseline permits bare removal. The adapted fixture rejects bare removal, adv
 
 Before updating upstream, inspect packet lambdas, menu checks, block/wrench use, binding call sites and remapped selection locals. The authorization injections depend on these exact released shapes. Update compile hashes, feature gates and native positive/denied controls together. Verify dedicated-server loading and client rod input separately; neither successful compilation nor one fixture proves both. Retire an individual hook only when the selected upstream release provides the complete corresponding behavior. Do not suppress an upstream repair merely to retain this adapter.
 
-The lifecycle scene (`--scenario linkage-lifecycle`) saves and cold-reopens three real links: ordinary world-to-ship, reversed-order giant actuation, and a rotated off-center ship-to-ship pair. It also assembles an already linked endpoint and checks isolated endpoint removal. Each surviving pair must have one live rod constraint. This does not establish every hinge layout or mid-session chunk unload order. Stock actuation and powered-regulator semantics remain upstream behavior; the adapter introduces no fuel or kinetic-input requirement.
+The lifecycle scene (`--scenario linkage-lifecycle`) saves and cold-reopens three real links: ordinary world-to-ship, reversed-order giant actuation, and a rotated off-center ship-to-ship pair. It also assembles an already linked endpoint and checks isolated endpoint removal. `--linkage-controller retained|switched` selects the UUID order, without changing native controller rules. Each surviving pair must have one live rod constraint. This does not establish every hinge layout or mid-session chunk unload order. Stock actuation and powered-regulator semantics remain upstream behavior; the adapter introduces no fuel or kinetic-input requirement.

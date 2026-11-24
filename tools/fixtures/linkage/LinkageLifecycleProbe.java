@@ -33,6 +33,8 @@ public final class LinkageLifecycleProbe {
     private final BlockPos[] a = new BlockPos[3], b = new BlockPos[3];
     private final ServerSubLevel[] bodies = new ServerSubLevel[3];
     private ServerSubLevel parent;
+    private PhysicsConstraintHandle oldJoint, replacementJoint;
+    private final Map<ServerSubLevel,java.lang.ref.WeakReference<PhysicsConstraintHandle>> holds=new IdentityHashMap<>();
     public LinkageLifecycleProbe() {
         NeoForge.EVENT_BUS.addListener((ServerStartedEvent e)->started=true);
         NeoForge.EVENT_BUS.addListener(this::tick);
@@ -62,7 +64,9 @@ public final class LinkageLifecycleProbe {
                         level.setBlock(moving,block.defaultBlockState().setValue(BlockStateProperties.FACING,Direction.WEST),3);
                         level.setBlock(moving.above(),Blocks.STONE.defaultBlockState(),3);
                         var positions=List.of(moving,moving.above());
-                        bodies[i]=SubLevelAssemblyHelper.assembleBlocks(level,moving,positions,BoundingBox3i.from(positions));
+                        final int index=i;
+                        bodies[i]=LinkageIdentitySource.allocate(i+1,()->SubLevelAssemblyHelper.assembleBlocks(level,moving,positions,BoundingBox3i.from(positions)));
+                        require(bodies[i].getUniqueId().equals(new UUID(0,i+1)),"native identity input not retained "+i);
                         b[i]=bodies[i].getPlot().getCenterBlock();
                         if(i<2) {
                             var result=i==0?head(level,a[i]).createMutualLink(head(level,b[i]))
@@ -70,7 +74,7 @@ public final class LinkageLifecycleProbe {
                             require(head(level,a[i]).hasLink(),"initial link failed "+result);
                             hold(level,bodies[i],b[i]);
                         } else {
-                            parent=SubLevelAssemblyHelper.assembleBlocks(level,a[i],List.of(a[i]),BoundingBox3i.from(List.of(a[i])));
+                            parent=LinkageIdentitySource.allocate(4,()->SubLevelAssemblyHelper.assembleBlocks(level,a[index],List.of(a[index]),BoundingBox3i.from(List.of(a[index]))));
                             a[i]=parent.getPlot().getCenterBlock();
                             var origin=new Vector3d(parent.logicalPose().position());
                             var rotation=new Quaterniond().rotationY(Math.PI/2);
@@ -90,10 +94,30 @@ public final class LinkageLifecycleProbe {
             }
             if(!restore && tick==10) {
                 // Move an already linked world endpoint into a second actual body.
+                snapshotPair(level,0,"beforeAssembly");
+                oldJoint=joint(head(level,b[0]));
+                require(oldJoint!=null&&oldJoint.isValid(),"original controller has no live joint");
                 var old=a[0];
-                var body=SubLevelAssemblyHelper.assembleBlocks(level,old,List.of(old),BoundingBox3i.from(List.of(old)));
+                boolean switched=System.getProperty("linkage.review.controller").equals("switched");
+                long identity=switched?0:5;
+                var body=LinkageIdentitySource.allocate(identity,()->SubLevelAssemblyHelper.assembleBlocks(level,old,List.of(old),BoundingBox3i.from(List.of(old))));
+                require(body.getUniqueId().equals(new UUID(0,identity)),"new endpoint identity differs");
+                require((bodies[0].getUniqueId().compareTo(body.getUniqueId())<0)==!switched,"controller order differs");
+                report.addProperty("retainedOriginalController",!switched);
+                report.addProperty("originalControllerIdentity",bodies[0].getUniqueId().toString());
+                report.addProperty("newEndpointIdentity",body.getUniqueId().toString());
                 a[0]=body.getPlot().getCenterBlock();hold(level,body,a[0]);
+                snapshotPair(level,0,"afterAssembly");
                 report.addProperty("linkedEndpointAssembly",true);
+            }
+            if(!restore && Set.of(11,15,20,25,30).contains(tick))snapshotPair(level,0,"motion"+tick);
+            if(!restore && tick==15) {
+                boolean switched=System.getProperty("linkage.review.controller").equals("switched");
+                replacementJoint=joint(head(level,switched?a[0]:b[0]));
+                require(replacementJoint!=null&&replacementJoint.isValid(),"new binding has no live joint");
+                require(replacementJoint!=oldJoint&&!oldJoint.isValid(),"previous body binding was reused or left live");
+                report.addProperty("previousJointRemoved",true);
+                report.addProperty("newJointCreated",true);
             }
             if(tick==40) {
                 for(int i=0;i<3;i++)checkPair(level,i);
@@ -101,6 +125,7 @@ public final class LinkageLifecycleProbe {
                 if(!restore) {
                     for(int i=0;i<3;i++) {
                         report.addProperty("a"+i,a[i].asLong());report.addProperty("b"+i,b[i].asLong());
+                        report.addProperty("bIdentity"+i,bodies[i].getUniqueId().toString());
                         report.addProperty("assembledMass"+i,((Number)bodies[i].getMassTracker().getClass().getMethod("getMass").invoke(bodies[i].getMassTracker())).doubleValue());
                     }
                     var weights=new JsonArray();
@@ -112,6 +137,12 @@ public final class LinkageLifecycleProbe {
                     }
                     report.add("blockMasses",weights);
                 } else {
+                    var saved=JsonParser.parseString(Files.readString(Path.of(System.getProperty("linear.review.previous")))).getAsJsonObject();
+                    for(int i=0;i<3;i++) {
+                        var body=dev.ryanhcode.sable.Sable.HELPER.getContaining(level,b[i]);
+                        require(body!=null && body.getUniqueId().toString().equals(saved.get("bIdentity"+i).getAsString()),"saved body identity changed "+i);
+                    }
+                    report.addProperty("savedBodyIdentitiesRetained",true);
                     level.destroyBlock(b[0],false);
                 }
             }
@@ -128,7 +159,12 @@ public final class LinkageLifecycleProbe {
                     require(!head(level,a[0]).hasLink(),"removed endpoint left a live link");
                     checkPair(level,1);checkPair(level,2);
                     report.addProperty("endpointRemovalIsolated",true);
-                } else for(int i=0;i<3;i++)checkPair(level,i);
+                } else {
+                    for(int i=0;i<3;i++)checkPair(level,i);
+                    boolean switched=System.getProperty("linkage.review.controller").equals("switched");
+                    require(joint(head(level,switched?a[0]:b[0]))==replacementJoint,"unchanged body pair recreated its joint");
+                    report.addProperty("unchangedBindingReusedAfterWake",true);
+                }
                 int bodyCount=0;for(var body:SubLevelContainer.getContainer(level).getAllSubLevels())if(!body.isRemoved())bodyCount++;
                 require(bodyCount==5,"unexpected body duplication/removal: "+bodyCount);
                 report.addProperty("bodyCount",bodyCount);
@@ -137,26 +173,59 @@ public final class LinkageLifecycleProbe {
             }
         } catch(Throwable failure) {
             failure.printStackTrace();
-            try {Files.writeString(Path.of(System.getProperty("linear.review.output")+".failure"),failure.toString());}catch(Exception ignored){}
+            try {
+                Files.writeString(Path.of(System.getProperty("linear.review.output")+".failure"),failure.toString());
+                report.addProperty("failedAtTick",tick);report.addProperty("failure",failure.toString());
+                Files.writeString(Path.of(System.getProperty("linear.review.output")+".partial"),new GsonBuilder().setPrettyPrinting().create().toJson(report));
+            }catch(Exception ignored){}
             event.getServer().halt(false);
         }
     }
     private void checkPair(ServerLevel level,int i) throws Exception {
+        snapshotPair(level,i,"check"+tick);
         var own=head(level,a[i]);var other=head(level,b[i]);
         require(own!=null&&other!=null&&own.hasLink()&&other.hasLink()&&own.references(other)&&other.references(own),"broken mutual references "+i);
-        var field=HydraulicConnectionHeadBlockEntity.class.getDeclaredField("constraintHandle");field.setAccessible(true);
         int live=0;
         for(var entity:List.of(own,other)) {
-            var handle=(PhysicsConstraintHandle)field.get(entity);
+            var handle=joint(entity);
             if(handle!=null&&handle.isValid())live++;
         }
         require(live==1,"expected one live rod constraint, found "+live+" in pair "+i);
     }
-    private static void hold(ServerLevel level,ServerSubLevel body,BlockPos plot) {
+    private PhysicsConstraintHandle joint(HydraulicConnectionHeadBlockEntity entity) throws Exception {
+        if(entity==null)return null;
+        var field=HydraulicConnectionHeadBlockEntity.class.getDeclaredField("constraintHandle");field.setAccessible(true);
+        return (PhysicsConstraintHandle)field.get(entity);
+    }
+    private void snapshotPair(ServerLevel level,int i,String stage) {
+        // Diagnostics must not warm plot chunks or recreate block entities between native ticks.
+        var aChunk=level.getChunkSource().getChunkNow(a[i].getX()>>4,a[i].getZ()>>4);
+        var bChunk=level.getChunkSource().getChunkNow(b[i].getX()>>4,b[i].getZ()>>4);
+        var aEntity=aChunk==null?null:aChunk.getBlockEntities().get(a[i]);
+        var bEntity=bChunk==null?null:bChunk.getBlockEntities().get(b[i]);
+        var own=aEntity instanceof HydraulicConnectionHeadBlockEntity value?value:null;
+        var other=bEntity instanceof HydraulicConnectionHeadBlockEntity value?value:null;
+        var row=new JsonObject();row.addProperty("aChunkCached",aChunk!=null);row.addProperty("bChunkCached",bChunk!=null);
+        row.addProperty("a",a[i].toString());row.addProperty("b",b[i].toString());
+        row.addProperty("aPresent",own!=null);row.addProperty("bPresent",other!=null);
+        if(bChunk!=null)row.addProperty("bBlock",BuiltInRegistries.BLOCK.getKey(bChunk.getBlockState(b[i]).getBlock()).toString());
+        if(bodies[i]!=null) {
+            row.addProperty("bBodyRemoved",bodies[i].isRemoved());
+            var position=bodies[i].logicalPose().transformPosition(b[i].getCenter());row.addProperty("bWorld",position.toString());
+            var weak=holds.get(bodies[i]);var handle=weak==null?null:weak.get();row.addProperty("holdHandleRetained",handle!=null);
+            if(handle!=null)row.addProperty("holdValid",handle.isValid());
+        }
+        if(own!=null){row.addProperty("aLinked",own.hasLink());if(!stage.startsWith("motion"))row.addProperty("aData",own.saveWithoutMetadata(level.registryAccess()).toString());}
+        if(other!=null){row.addProperty("bLinked",other.hasLink());if(!stage.startsWith("motion"))row.addProperty("bData",other.saveWithoutMetadata(level.registryAccess()).toString());}
+        if(own!=null&&other!=null){row.addProperty("aReferencesB",own.references(other));row.addProperty("bReferencesA",other.references(own));}
+        report.add("pair"+i+"_"+stage,row);
+    }
+    private void hold(ServerLevel level,ServerSubLevel body,BlockPos plot) {
         var world=body.logicalPose().transformPosition(plot.getCenter());
-        SubLevelContainer.getContainer(level).physicsSystem().getPipeline().addConstraint(body,null,
+        var handle=SubLevelContainer.getContainer(level).physicsSystem().getPipeline().addConstraint(body,null,
                 new FixedConstraintConfiguration(new Vector3d(plot.getX()+.5,plot.getY()+.5,plot.getZ()+.5),
                         new Vector3d(world.x,world.y,world.z),new Quaterniond(body.logicalPose().orientation()).conjugate()));
+        holds.put(body,new java.lang.ref.WeakReference<>(handle));
     }
     private static void require(boolean value,String message){if(!value)throw new AssertionError(message);}
 }
