@@ -51,7 +51,7 @@ public final class ClientPoseProbe {
     private final Path root = FMLPaths.GAMEDIR.get();
     private final JsonObject report = new JsonObject();
     private final JsonArray samples = new JsonArray();
-    private final List<String> shaders = List.of("off", "Complementary Unbound r5.10 + Euphoria 1.11.1 + Skyweave 0.4.0.zip", "BSL_v10.1.8 + Clrwl_1.0.5 + Skyweave_0.3.0.zip");
+    private final List<String> shaders;
     private CompletableFuture<?> pending;
     private RemotePlayer remote;
     private boolean opened, prepared, stopped;
@@ -62,9 +62,22 @@ public final class ClientPoseProbe {
 
     ClientPoseProbe() {
         if (!Files.isRegularFile(root.resolve("rendering-review-fixture.json"))) throw new IllegalStateException("Missing rendering marker");
+        shaders = List.of("off", shaderOutput("complementary-euphoria-skyweave"), shaderOutput("bsl-colorwheel"));
+        report.add("shaderOutputs", new Gson().toJsonTree(shaders));
         report.add("samples", samples); report.addProperty("scope", "Actual local block/item interactions and native local/synthetic-remote avatar poses; generated checker cape; no remote TCP or Sable-control-frame claim");
         NeoForge.EVENT_BUS.addListener(this::tick);
         NeoForge.EVENT_BUS.addListener(this::afterFrame);
+    }
+    private String shaderOutput(String id) {
+        try {
+            var recipe = root.resolve("config/skyweave/shaders/recipes/" + id + ".json");
+            String output = com.google.gson.JsonParser.parseString(Files.readString(recipe)).getAsJsonObject().get("output").getAsString();
+            if (!output.endsWith(".zip") || output.contains("/") || output.contains("\\"))
+                throw new IllegalStateException("Invalid fixture shader output: " + output);
+            return output;
+        } catch (java.io.IOException failure) {
+            throw new IllegalStateException("Missing owned shader recipe: " + id, failure);
+        }
     }
     private void afterFrame(net.neoforged.neoforge.client.event.RenderFrameEvent.Post event) {
         ++frame;

@@ -64,7 +64,7 @@ class FeatureSelectionTest {
     }
     @Test void movesModifierRepairIsIndependentClientOnlyAndPreservesExactAdmissionAndOptOut() {
         var feature = Feature.MOVES_KEY_MODIFIERS;
-        var selected = FeatureSelection.select(only(feature), Map.of("punchy_moves", "1.0.9"), true);
+        var selected = FeatureSelection.select(only(feature), Map.of("punchy_moves", "1.0.9b"), true);
         assertTrue(selected.enabled(feature));
         assertEquals(8, selected.mixins(true).size());
         assertEquals(SettingsCatalog.Category.INTERFACE, SettingsCatalog.group(feature).category);
@@ -186,12 +186,12 @@ class FeatureSelectionTest {
 
     @Test void movesTouchBridgeRequiresOnlyThePinnedClientOwners() {
         var feature = Feature.MOVES_TOUCH_MOTION;
-        var versions = Map.of("punchy_moves", "1.0.9", "touch_n_motion", "1.0.5");
+        var versions = Map.of("punchy_moves", "1.0.9b", "touch_n_motion", "1.0.5");
         var selected = FeatureSelection.select(only(feature), versions, true);
         assertEquals(java.util.Set.of(feature), selected.active());
         assertEquals(List.of("client.MovesTouchMotionApiMixin", "client.TouchMotionCapeInvoker"), selected.mixins(true));
         assertTrue(feature.defaultEnabled);
-        for (var missing : List.of(Map.of("punchy_moves", "1.0.9"), Map.of("touch_n_motion", "1.0.5"), Map.<String,String>of()))
+        for (var missing : List.of(Map.of("punchy_moves", "1.0.9b"), Map.of("touch_n_motion", "1.0.5"), Map.<String,String>of()))
             assertTrue(FeatureSelection.select(only(feature), missing, true).mixins(true).isEmpty());
         var future = Map.of("punchy_moves", "future", "touch_n_motion", "future");
         assertTrue(FeatureSelection.select(only(feature), future, false).mixins(false).isEmpty());

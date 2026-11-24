@@ -149,7 +149,7 @@ For updates, inspect both mods' exact hand guards, deferred flush and callback o
 
 ## Moves and Touch’n Motion
 
-`punchy_moves.touch_n_motion` bridges Moves 1.0.9 to the released Touch’n Motion 1.0.5 client API. Moves resolves an absent `CapeFollow` helper; the released owner is `CapeAndElytra`. Compat redirects that exact lookup to a facade whose methods delegate through native invokers. Native matrix computation, pose retention, cape following, and cleanup remain in Touch’n Motion.
+`punchy_moves.touch_n_motion` bridges Moves 1.0.9b to the released Touch’n Motion 1.0.5 client API. Moves resolves an absent `CapeFollow` helper; the released owner is `CapeAndElytra`. Compat redirects that exact lookup to a facade whose methods delegate through native invokers. Native matrix computation, pose retention, cape following, and cleanup remain in Touch’n Motion.
 
 Moves already calls the released `Posed.keep`. Its subsequent legacy `Drawn.keep` invoker targets another absent class; only that duplicate call is skipped. `applyAll`, native body/contact behavior, authored Moves animation, protected arm states, and equipment copies retain their owners. The pinned caller passes null for its unused fourth cape argument; a different contract is refused rather than silently returning an invented transform.
 

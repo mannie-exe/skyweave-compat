@@ -127,7 +127,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             case COOKERY_MILLSTONE -> Map.of("kaleidoscope_cookery", "1.6.0-neoforge+mc1.21.1");
             case ROPE_CONNECTOR_RANGES -> Map.of("create_aeronautics_throwable_rope_connector", "0.4.3", "simulated", "1.3.3");
             case IPN_TEXT_INPUT -> Map.of("inventoryprofilesnext", "2.2.5", "libipn", "6.6.3");
-            case MOVES_KEY_MODIFIERS -> Map.of("punchy_moves", "1.0.9");
+            case MOVES_KEY_MODIFIERS -> Map.of("punchy_moves", "1.0.9b");
             case EFFORTLESS_KEY_MODIFIERS -> Map.of("effortlessbuilding", "4.2");
             case POWER_GRID_KEY_MODIFIERS -> Map.of("powergrid", "0.6.2");
             case MODEL_ROTATIONS, ITEM_DEFINITIONS -> Map.of("modefite", "1.0.1+1.21.1");
@@ -135,7 +135,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             case VARIANT_SPAWNERS -> Map.of("variantsandventures", "1.0.30");
             case VARIANT_TRIAL_ALIASES -> Map.of("variantsandventures","1.0.30","lithostitched","1.8.1");
             case MURK_WATER -> Map.of("variantsandventures", "1.0.30", "sky_archipelago", "1.4");
-            case MOVES_TOUCH_MOTION -> Map.of("punchy_moves", "1.0.9", "touch_n_motion", "1.0.5");
+            case MOVES_TOUCH_MOTION -> Map.of("punchy_moves", "1.0.9b", "touch_n_motion", "1.0.5");
             case HELD_MATERIALS -> Map.of("iris", "1.8.14-beta.1+mc1.21.1", "punchy", "3.2b");
             case HAND_EFFECTS -> Map.of("iris", "1.8.14-beta.1+mc1.21.1", "hmioutline", "2.4.0+mc1.21.1");
             case BETTER_VILLAGE_CONFIG -> Map.of("bettervillage", "3.3.1", "libraryferret", "4.0.0");

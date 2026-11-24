@@ -1,5 +1,17 @@
 # Verification
 
+## Moves 1.0.9b runtime port
+
+The local Compat `0.44.0-world-runtime-dev.12` product has SHA-256 `3f436fd36e24d2b1361dea124f627dda92f529c4303819f35009c0d02ccbd63c`. It selects the exact Moves 1.0.9b artifact, SHA-256 `972d6e872935c5144b02e7d990a2f13a8f082577f02fc48d3101fe2de80f6850`, and public re:form 0.3.0. Required check/build passes 495 Java cases and 26 tooling cases. Both modifier and Touch’n Motion adaptations retain their native seams; sampled target/API, camera, locomotion, player-engine and animation-library disassemblies match 1.0.9 apart from constant license-notice declarations. That is not a whole-mod equivalence or performance claim.
+
+Actual modifier controls reproduce the native failures with the adaptation disabled and pass modified camera/emote activation, native priority, text focus and repeat handling with it enabled. A separate two-JVM check preserves modified bindings, explicit unassignment and the Wayfinder preference through native saving, resource reload and restart. Input delivery remains fixture instrumentation; these checks do not qualify every OS keyboard path.
+
+The disposable full-pack pose scene passes 39 native cases with shaders off, Complementary/Euphoria/Skyweave 0.4.2, and BSL/Colorwheel/Skyweave 0.3.1. Local and synthetic-remote pose ownership, armor, shield use, Create tool holding, native Carry On pickup/placement, movement, uneven ground, first-person ownership, resource reload and generated cape pose/geometry counters pass with no observed GL errors. Reviewed frames include the generated checker cape and shield/carrying placement. Some initial frames contain native welcome chat. This does not establish remote TCP, Sable moving frames, every combat/swimming state, supported-GPU Photon or a speedup.
+
+The unchanged native pose predicate fails at the first ownership sample when `punchy_moves.touch_n_motion=false`; the client exits normally and the fixture records the expected mismatch. This confirms that the API repair remains necessary on the new target rather than being retired through a version change.
+
+The recipient uses the already-qualified Lootr: Styled 0.2.0-reform-public.1 artifact on the same single public library. The branch's old Styled 0.1 correctly refuses that library at loader startup; its retained failure is not a Moves or renderer defect. Historical controls below retain their original identities and scopes.
+
 ## Public re:form 0.3 adoption
 
 Unpublished Compat `0.43.0-layout-dev.7`, SHA-256 `6cc41e747d4fb1c741975b464cd7fdf9e8fecf89a0e1e34acf679c5d3ef9fcaa`, selects public re:form `0.3.0`, SHA-256 `8a3fcc486b44351962535b4b63b83caee538e086e35529ec6710ed5c6397b7ab`. The stable admission family remains `[0.3.0,0.4)`; the previous development candidates are explicitly refused. A fresh artifact-only Gradle consumer downloads the exact binary from the public GitHub release without a local repository fallback. The actual Compat build runs without a repository override and passes the required 479 Java and 21 tooling cases. Exact minimum dedicated startup and an actual two-JVM Configure workflow pass, including source guards, explicit false, document actions, information, and saved reopening. All 667 owned re:form classes match qualified `dev.10`, and all 1,035 Compat runtime classes match candidate 6; the earlier native geometry and interaction evidence retains its stated scope.
