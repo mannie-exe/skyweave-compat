@@ -18,6 +18,7 @@ import net.neoforged.neoforge.common.NeoForge;
 public final class ClientAdqProbe {
     private final Path root=FMLPaths.GAMEDIR.get();
     private boolean opened,stopped;
+    private boolean confirmedExperimentalCopy;
     private int ticks;
     ClientAdqProbe() {
         if(!Files.isRegularFile(root.resolve("adq-client-fixture.json")))throw new IllegalStateException("Missing disposable ADQ client marker");
@@ -26,6 +27,19 @@ public final class ClientAdqProbe {
     private void tick(ClientTickEvent.Post event) {
         var mc=Minecraft.getInstance();if(stopped || ++ticks%5!=0 || mc.getOverlay()!=null)return;
         try {
+            if(opened && !confirmedExperimentalCopy && mc.screen!=null && mc.getSingleplayerServer()==null) {
+                String label=net.minecraft.network.chat.Component.translatable("selectWorld.backupJoinSkipButton").getString();
+                for(var child:mc.screen.children()) {
+                    if(child instanceof net.minecraft.client.gui.components.Button button && button.active && button.getMessage().getString().equals(label)) {
+                        confirmedExperimentalCopy=true;
+                        Files.writeString(root.resolve("adq-native-reopen-confirmation.json"),"{\"scope\":\"Actual native experimental-world confirmation for this marked disposable copy only\"}");
+                        button.onPress();return;
+                    }
+                }
+            }
+            var state=new JsonObject();state.addProperty("screen",mc.screen==null?null:mc.screen.getClass().getName());
+            state.addProperty("actualIntegratedServer",mc.getSingleplayerServer()!=null);state.addProperty("actualPlayerJoined",mc.player!=null);
+            Files.writeString(root.resolve("adq-client-state.json"),new Gson().toJson(state));
             if(!opened && mc.screen instanceof TitleScreen) {
                 opened=true;mc.options.pauseOnLostFocus=false;
                 String world="adq-native-review";

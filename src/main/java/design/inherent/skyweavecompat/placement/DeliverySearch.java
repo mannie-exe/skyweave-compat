@@ -35,10 +35,12 @@ public final class DeliverySearch {
     private static final long JOB_NANOS = TimeUnit.MINUTES.toNanos(10), REQUEST_NANOS = TimeUnit.SECONDS.toNanos(60);
     private static final int MAX_REQUESTS = 32768;
     private static final int MAX_CACHED_READS_PER_TICK = 64;
+    private static final int MAX_STATUS_ADMISSIONS_PER_TICK = 4;
     private record Binding(Scope scope, boolean locating, Request request) {}
     private static final class State {
         volatile boolean closed;volatile Job active;final AtomicInteger nativeRequests=new AtomicInteger();
         int cachedTick=-1,cachedChecks;
+        int admissionTick=-1,admissions;
         final Set<Dispatch> dispatches=ConcurrentHashMap.newKeySet();
         final ThreadPoolExecutor worker=new ThreadPoolExecutor(1,1,30,TimeUnit.SECONDS,new ArrayBlockingQueue<>(1),task->{
             var thread=new Thread(task,"Skyweave delivery search");thread.setDaemon(true);return thread;
@@ -62,15 +64,7 @@ public final class DeliverySearch {
             if(!job.valid() || System.nanoTime()>=job.deadline){job.cancel("expired or unavailable world");return;}
             var request=job.pending;
             if(request!=null && !request.admitted.isDone()) {
-                try {
-                    if(ready(request)){request.admitted.complete(null);return;}
-                    if(request.create) {
-                        request.ticket=true;
-                        ((StructureSearchCacheAccess)job.level.getChunkSource()).skyweave$searchTickets()
-                                .addTicket(TICKET,request.position,ChunkLevel.byStatus(request.status),job.id);
-                    }
-                    request.admitted.complete(null);
-                }catch(RuntimeException error){job.cancel("status admission failed: "+error);}
+                admit(request);
             }
         });
         NeoForge.EVENT_BUS.addListener((LevelEvent.Unload event)->{
@@ -252,7 +246,7 @@ public final class DeliverySearch {
             if(job.pending!=null)throw new IllegalStateException("Delivery already has an outstanding status request");
             if(job.requests>=MAX_REQUESTS)throw new RejectedExecutionException("Delivery status-request budget exhausted; defer this attempt");
             job.requests++;var value=new Request(job,x,z,status,create);job.pending=value;
-            if(ready(value))value.admitted.complete(null);
+            admit(value);
             return value;
         }),Math.min(job.deadline,System.nanoTime()+REQUEST_NANOS));
         long deadline=request.deadline;
@@ -294,6 +288,24 @@ public final class DeliverySearch {
         var chunk=holder.getChunkIfPresent(request.status);
         if(chunk==null)return false;
         request.cached=chunk;return true;
+    }
+    private static void admit(Request request) {
+        var job=request.job;
+        if(!job.server.isSameThread())throw new IllegalStateException("Delivery admission must run on the server thread");
+        try {
+            job.requireOpen();
+            if(ready(request)){request.admitted.complete(null);return;}
+            int tick=job.server.getTickCount();
+            if(job.state.admissionTick!=tick){job.state.admissionTick=tick;job.state.admissions=0;}
+            if(job.state.admissions>=MAX_STATUS_ADMISSIONS_PER_TICK)return;
+            job.state.admissions++;
+            if(request.create) {
+                request.ticket=true;
+                ((StructureSearchCacheAccess)job.level.getChunkSource()).skyweave$searchTickets()
+                        .addTicket(TICKET,request.position,ChunkLevel.byStatus(request.status),job.id);
+            }
+            request.admitted.complete(null);
+        }catch(RuntimeException error){job.cancel("status admission failed: "+error);}
     }
     public static <T> Supplier<T> registration(Supplier<T> original) {
         var binding=CURRENT.get();if(binding==null || binding.scope.job==null)return original;

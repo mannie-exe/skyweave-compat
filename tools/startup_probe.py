@@ -64,6 +64,7 @@ def main():
     parser.add_argument('--adq-lifetime', action='store_true', help='Hold one fixture-only future proxy, cancel the actual owned job, verify settling admission and native successor')
     parser.add_argument('--adq-rng', type=int, help='Explicit fixture-only native RNG seed for matched comparisons; preserves native algorithm/draws')
     parser.add_argument('--adq-max-ticks', type=int, choices=[3600,7200,12000], default=3600, help='Explicit disposable observation window; product deadlines remain unchanged')
+    parser.add_argument('--adq-admission', action='store_true', help='Engineering5+ only: observe actual status ticket mutations per server tick')
     args = parser.parse_args()
     if args.adq_lifetime and (args.adq_search!='route' or args.adq_fault or 'delivery.structure_search' not in args.enable):
         parser.error('Lifecycle control requires a separate enabled ADQ route fixture')
@@ -284,6 +285,7 @@ def main():
             command[1:1] = ['-Dneighbors.probe.curioBreak=' + args.curio_break, '-Dneighbors.probe.curioBreakSlot=' + args.curio_break_slot]
         if args.adq_search:
             command[1:1] = ['-Dneighbors.probe.adqSearch=true', '-Dneighbors.probe.output=' + str(run / 'adq-search-proof.json')]
+            if args.adq_admission:command.insert(1,'-Dneighbors.probe.adqAdmission=true')
             command.insert(1,'-Dneighbors.probe.adqMaxTicks='+str(args.adq_max_ticks))
             if args.adq_rng is not None:command.insert(1,'-Dneighbors.probe.adqRng='+str(args.adq_rng))
             if args.adq_lifetime:command.insert(1,'-Dneighbors.probe.adqLifetime=true')

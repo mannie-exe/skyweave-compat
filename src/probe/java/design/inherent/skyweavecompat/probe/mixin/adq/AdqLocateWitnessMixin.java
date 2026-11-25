@@ -19,8 +19,12 @@ public abstract class AdqLocateWitnessMixin {
     private static void finished(ServerLevel level,java.util.UUID recipient,Operation<Void> original) {
         original.call(level,recipient);AdqSearchProbe.nativeFinished();
     }
-    @WrapOperation(method="lambda$generateNewQuestAsync$9",at=@At(value="INVOKE",target="Lnet/minecraft/world/level/chunk/ChunkGenerator;findNearestMapStructure(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/core/HolderSet;Lnet/minecraft/core/BlockPos;IZ)Lcom/mojang/datafixers/util/Pair;"),require=2,allow=2)
-    private static Pair<BlockPos,Holder<Structure>> locate(ChunkGenerator generator,ServerLevel level,HolderSet<Structure> targets,BlockPos origin,int radius,boolean skip,Operation<Pair<BlockPos,Holder<Structure>>> original) {
-        return AdqSearchProbe.locate(()->original.call(generator,level,targets,origin,radius,skip));
+    @WrapOperation(method="lambda$generateNewQuestAsync$9",at=@At(value="INVOKE",target="Lnet/minecraft/world/level/chunk/ChunkGenerator;findNearestMapStructure(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/core/HolderSet;Lnet/minecraft/core/BlockPos;IZ)Lcom/mojang/datafixers/util/Pair;",ordinal=0),require=1,allow=1)
+    private static Pair<BlockPos,Holder<Structure>> origin(ChunkGenerator generator,ServerLevel level,HolderSet<Structure> targets,BlockPos origin,int radius,boolean skip,Operation<Pair<BlockPos,Holder<Structure>>> original) {
+        return AdqSearchProbe.locate("origin",origin,radius,skip,targets.size(),()->original.call(generator,level,targets,origin,radius,skip));
+    }
+    @WrapOperation(method="lambda$generateNewQuestAsync$9",at=@At(value="INVOKE",target="Lnet/minecraft/world/level/chunk/ChunkGenerator;findNearestMapStructure(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/core/HolderSet;Lnet/minecraft/core/BlockPos;IZ)Lcom/mojang/datafixers/util/Pair;",ordinal=1),require=1,allow=1)
+    private static Pair<BlockPos,Holder<Structure>> destination(ChunkGenerator generator,ServerLevel level,HolderSet<Structure> targets,BlockPos origin,int radius,boolean skip,Operation<Pair<BlockPos,Holder<Structure>>> original) {
+        return AdqSearchProbe.locate("destination",origin,radius,skip,targets.size(),()->original.call(generator,level,targets,origin,radius,skip));
     }
 }

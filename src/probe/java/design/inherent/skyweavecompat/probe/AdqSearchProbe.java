@@ -20,6 +20,8 @@ public final class AdqSearchProbe {
     public static final ThreadLocal<JsonObject> REQUEST = new ThreadLocal<>();
     private static final JsonObject REPORT = new JsonObject();
     private static final JsonArray REQUESTS = new JsonArray();
+    private static final JsonArray LOCATES = new JsonArray();
+    private static final JsonArray SURFACES = new JsonArray();
     private static volatile MinecraftServer server;
     private static volatile boolean finished;
     private static long requestId;
@@ -30,10 +32,20 @@ public final class AdqSearchProbe {
     private long beganNanos,processCpuAtStart,serverCpuAtStart;
     private Object stoppingState;
     private static volatile boolean nativeFinalizationObserved;
+    private static int admissionTick=-1,admissionsAtTick,maxAdmissions;
+    public static void admission() {
+        if(!server.isSameThread())throw new AssertionError("Actual native ticket mutation left server thread");
+        int tick=server.getTickCount();if(admissionTick!=tick){admissionTick=tick;admissionsAtTick=0;}
+        maxAdmissions=Math.max(maxAdmissions,++admissionsAtTick);
+        synchronized(REPORT){REPORT.addProperty("maxActualStatusTicketAddsPerTick",maxAdmissions);}
+        if(maxAdmissions>4)throw new AssertionError("Actual native status ticket mutations exceeded the declared admission policy");
+    }
     public static void nativeFinished(){nativeFinalizationObserved=true;}
     public static MinecraftServer server(){return server;}
     public AdqSearchProbe() {
         REPORT.add("requests",REQUESTS);
+        REPORT.add("nativeLocates",LOCATES);
+        REPORT.add("nativeSurfaceReads",SURFACES);
         REPORT.addProperty("scope","Actual ADQ locate/chunk/future correlation; optional first-read abort is observer-only, not route success or performance acceptance");
         NeoForge.EVENT_BUS.addListener((ServerStartedEvent event)->server=event.getServer());
         NeoForge.EVENT_BUS.addListener(net.neoforged.bus.api.EventPriority.HIGHEST,(ServerStoppingEvent event)->{
@@ -115,7 +127,40 @@ public final class AdqSearchProbe {
         var previous=LOCATE.get();LOCATE.set(true);
         try{return call.get();}finally{if(previous==null)LOCATE.remove();else LOCATE.set(previous);}
     }
+    public static com.mojang.datafixers.util.Pair<net.minecraft.core.BlockPos,net.minecraft.core.Holder<net.minecraft.world.level.levelgen.structure.Structure>> locate(
+            String phase,net.minecraft.core.BlockPos origin,int radius,boolean skip,int targets,
+            Supplier<com.mojang.datafixers.util.Pair<net.minecraft.core.BlockPos,net.minecraft.core.Holder<net.minecraft.world.level.levelgen.structure.Structure>>> call) {
+        var row=new JsonObject();long began=System.nanoTime();long before;
+        synchronized(REPORT){before=requestId;row.addProperty("phase",phase);row.addProperty("origin",origin.toShortString());
+            row.addProperty("radius",radius);row.addProperty("skipKnownStructures",skip);row.addProperty("targetCount",targets);row.addProperty("requestCountAtStart",before);
+            row.addProperty("beganNanos",began);LOCATES.add(row);save();}
+        try {
+            var result=locate(call);
+            synchronized(REPORT){row.addProperty("returnedStart",result==null?null:result.getFirst().toShortString());
+                if(result!=null)row.addProperty("returnedStructure",result.getSecond().unwrapKey().map(key->key.location().toString()).orElse("unkeyed"));}
+            return result;
+        }catch(RuntimeException error){synchronized(REPORT){row.addProperty("actualFailure",error.toString());}throw error;}
+        finally{synchronized(REPORT){row.addProperty("elapsedNanosObservationOnly",System.nanoTime()-began);row.addProperty("requestCountAtEnd",requestId);save();}}
+    }
     private static long processCpu(){return ((com.sun.management.OperatingSystemMXBean)java.lang.management.ManagementFactory.getOperatingSystemMXBean()).getProcessCpuTime();}
+    public static void surface(ServerLevel level,int x,int z,net.minecraft.core.BlockPos result) {
+        synchronized(REPORT) {
+            if(SURFACES.size()>=128)return;
+            var row=new JsonObject();row.addProperty("x",x);row.addProperty("z",z);row.addProperty("nativeResult",result==null?null:result.toShortString());
+            row.addProperty("serverThread",level.getServer().isSameThread());var columns=new JsonArray();
+            if(level.getServer().isSameThread())for(int dx=-1;dx<=1;dx++)for(int dz=-1;dz<=1;dz++) {
+                int px=x+dx,pz=z+dz;var column=new JsonObject();column.addProperty("x",px);column.addProperty("z",pz);
+                var chunk=level.getChunkSource().getChunkNow(px>>4,pz>>4);column.addProperty("alreadyLoaded",chunk!=null);
+                if(chunk!=null) {
+                    int y=chunk.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,px,pz);
+                    var ground=chunk.getBlockState(new net.minecraft.core.BlockPos(px,y,pz));var above=chunk.getBlockState(new net.minecraft.core.BlockPos(px,y+1,pz));
+                    column.addProperty("groundY",y);column.addProperty("ground",ground.toString());column.addProperty("groundFluidEmpty",ground.getFluidState().isEmpty());column.addProperty("aboveFluidEmpty",above.getFluidState().isEmpty());
+                }
+                columns.add(column);
+            }
+            row.add("loadedColumnsOnly",columns);SURFACES.add(row);save();
+        }
+    }
     private static java.util.Map<?,?> ownedStates() throws ReflectiveOperationException {
         var field=Class.forName("design.inherent.skyweavecompat.placement.DeliverySearch").getDeclaredField("STATES");field.setAccessible(true);return (java.util.Map<?,?>)field.get(null);
     }

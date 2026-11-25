@@ -10,13 +10,14 @@ import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
 public final class AdqSearchProbePlugin implements IMixinConfigPlugin {
     @Override public List<String> getMixins() {
         if(!Boolean.getBoolean("neighbors.probe.adqSearch"))return List.of();
-        var result=new java.util.ArrayList<>(List.of("AdqLocateWitnessMixin","AdqChunkWitnessMixin"));
+        var result=new java.util.ArrayList<>(List.of("AdqLocateWitnessMixin","AdqChunkWitnessMixin","AdqLandingWitnessMixin"));
         if(Boolean.getBoolean("neighbors.probe.adqBridge"))result.add("AdqBridgeWitnessMixin");
         if(System.getProperty("neighbors.probe.adqRng")!=null)result.add("AdqRandomControlMixin");
         switch(System.getProperty("neighbors.probe.adqFault","")) {
             case "search-ticket" -> result.add("AdqSearchTicketFaultMixin");
             case "endpoint-ticket" -> result.add("AdqEndpointTicketFaultMixin");
         }
+        if(Boolean.getBoolean("neighbors.probe.adqAdmission") && !result.contains("AdqSearchTicketFaultMixin"))result.add("AdqSearchTicketFaultMixin");
         return result;
     }
     @Override public void onLoad(String name) {}
