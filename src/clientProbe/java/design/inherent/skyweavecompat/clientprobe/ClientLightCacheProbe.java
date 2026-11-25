@@ -47,7 +47,7 @@ final class ClientLightCacheProbe {
     private volatile net.minecraft.server.MinecraftServer expectedServer;
     private long lastWorldTick=-1;
     private Object retainedInitialLight;
-    private boolean opened, prepared, done, closing;
+    private boolean opened, prepared, done, closing, reconnected;
     private int ticks, phase, settled;
 
     ClientLightCacheProbe() {
@@ -72,12 +72,19 @@ final class ClientLightCacheProbe {
             if (Files.exists(FMLPaths.GAMEDIR.get().resolve("light-cache-cancel.json")))
                 throw new java.util.concurrent.CancellationException("Owned light-cache fixture cancelled");
             if (++ticks > 2400) throw new AssertionError("Light-cache fixture timeout");
-            if (closing) { if (mc.level == null && mc.getSingleplayerServer() == null && mc.screen instanceof TitleScreen) finish(mc, null); return; }
+            if (closing) {
+                if(mc.level==null && mc.getSingleplayerServer()==null && mc.screen instanceof TitleScreen) {
+                    if(Boolean.getBoolean("skyweave_compat.probe.lightCache.reconnect") && !reconnected) {
+                        report.add("firstRetiredGate",gateSnapshot(retainedInitialLight));reconnected=true;closing=false;opened=false;prepared=true;phase=0;settled=0;lastWorldTick=-1;return;
+                    }
+                    finish(mc,null);
+                }return;
+            }
             if (!opened && mc.getOverlay() == null && mc.screen instanceof TitleScreen) {
                 boolean saved=Files.exists(FMLPaths.GAMEDIR.get().resolve("saves/light-cache/level.dat"));
-                if(saved!=REOPEN)throw new AssertionError(REOPEN?"Expected the retained owned world":"Expected a new owned world");
+                if(saved!=(REOPEN || reconnected))throw new AssertionError(REOPEN?"Expected the retained owned world":"Expected a new owned world");
                 opened = true; mc.options.hideGui = true;
-                if(REOPEN){prepared=true;mc.createWorldOpenFlows().openWorld("light-cache",()->mc.setScreen(new TitleScreen()));return;}
+                if(REOPEN || reconnected){prepared=true;mc.createWorldOpenFlows().openWorld("light-cache",()->mc.setScreen(new TitleScreen()));return;}
                 mc.createWorldOpenFlows().createFreshLevel("light-cache",
                         new LevelSettings("Light cache", GameType.CREATIVE, false, Difficulty.PEACEFUL, true, new GameRules(), WorldDataConfiguration.DEFAULT),
                         new WorldOptions(42, false, false), registries -> registries.registryOrThrow(Registries.WORLD_PRESET)
@@ -111,6 +118,7 @@ final class ClientLightCacheProbe {
                         if (x < -34 || x > 2 || z < -68 || z > -40) continue;
                         var state = block.getAsJsonObject("state"); String text = state.get("Name").getAsString();
                         if (state.has("Properties")) text += "[" + String.join(",", state.getAsJsonObject("Properties").entrySet().stream().map(e -> e.getKey()+"="+e.getValue().getAsString()).toList()) + "]";
+                        if(Boolean.getBoolean("skyweave_compat.probe.lightCache.vanillaOnly") && !text.startsWith("minecraft:"))continue;
                         try { level.setBlock(new BlockPos(x,y,z), BlockStateParser.parseForBlock(BuiltInRegistries.BLOCK.asLookup(),text,false).blockState(),3); }
                         catch (com.mojang.brigadier.exceptions.CommandSyntaxException failure) { throw new IllegalStateException(failure); }
                     }
@@ -119,12 +127,17 @@ final class ClientLightCacheProbe {
             }
             if (phase == CASES.length) {
                 if(Boolean.getBoolean("skyweave_compat.probe.lightCache.lifecycle"))report.add("lifecycleControls",InitialLightLifecycleProbe.run(mc));
-                retainedInitialLight=initialLight(mc.level); mc.level.disconnect(); mc.disconnect(new TitleScreen()); mc.setScreen(new TitleScreen()); closing = true; return;
+                retainedInitialLight=initialLight(mc.level);
+                if(Boolean.getBoolean("skyweave_compat.probe.lightCache.packets")) {
+                    var packetReport=new JsonObject();report.add(reconnected?"reconnectedPacketControls":"packetControls",packetReport);
+                    InitialLightPacketProbe.run(mc,packetReport);
+                }
+                mc.level.disconnect(); mc.disconnect(new TitleScreen()); mc.setScreen(new TitleScreen()); closing = true; return;
             }
             if (settled++ == 0) {
                 LightCacheHandoffWitness.phase(phase);
-                var manager = Class.forName("fr0nick.sabledynlights.virtual.VirtualLightManager");
-                manager.getMethod("syncExternalPositions",Object.class,Map.class).invoke(null,virtualOwner,phase==3?Map.of(SOURCE,15):Map.of());
+                if(net.neoforged.fml.ModList.get().isLoaded("sabledynlights")) { var manager = Class.forName("fr0nick.sabledynlights.virtual.VirtualLightManager");
+                manager.getMethod("syncExternalPositions",Object.class,Map.class).invoke(null,virtualOwner,phase==3?Map.of(SOURCE,15):Map.of()); }
                 pending = server(mc, player -> { player.setItemSlot(EquipmentSlot.MAINHAND,phase==1?new ItemStack(Items.TORCH):ItemStack.EMPTY); return new JsonObject(); }); return;
             }
             if (settled < 100) return;
@@ -144,11 +157,12 @@ final class ClientLightCacheProbe {
         row.addProperty("shaderActive",shader);if(shader)throw new AssertionError("Light-cache diagnostic requires shaders off");
         if(CAPTURE){String name="light-cache-"+(REOPEN?"reopen-":"")+CASES[phase]+".png";
             net.minecraft.client.Screenshot.grab(mc.gameDirectory,name,mc.getMainRenderTarget(),ignored->{});row.addProperty("screenshot",name);}
-        var candidates=(java.util.List<?>)Class.forName("fr0nick.sabledynlights.virtual.VirtualLightManager").getMethod("collectActiveLightCandidates",Minecraft.class).invoke(null,mc);
-        row.addProperty("nativeCandidates",candidates.size());
+        if(net.neoforged.fml.ModList.get().isLoaded("sabledynlights")) { var candidates=(java.util.List<?>)Class.forName("fr0nick.sabledynlights.virtual.VirtualLightManager").getMethod("collectActiveLightCandidates",Minecraft.class).invoke(null,mc);
+        row.addProperty("nativeCandidates",candidates.size()); }
         row.addProperty("clientHasLightWork",mc.level.getLightEngine().hasLightWork()); row.addProperty("glError",org.lwjgl.opengl.GL11C.glGetError());
         row.add("initialLightGate",gateSnapshot(initialLight(mc.level)));
         row.add("clientCells",cells(mc.level,true));
+        if(!net.neoforged.fml.ModList.get().isLoaded("sodium"))return row;
         var cacheType=Class.forName("net.caffeinemc.mods.sodium.client.model.light.data.SingleBlockLightDataCache");
         Object cache=cacheType.getConstructor().newInstance();
         try {

@@ -27,6 +27,7 @@
     "LightCacheEmissionMixin",
     "LightCacheApplyMixin",
     "LightCacheHandoffMixin",
-    "LightCacheEngineAccess"
+    "LightCacheEngineAccess",
+    "LightCacheQueueMixin"
   ]
 }

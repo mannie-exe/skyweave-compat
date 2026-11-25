@@ -44,7 +44,11 @@ def main():
     parser.add_argument('--cookery', choices=['original', 'repaired'], help='Exercise the actual optional millstone capability in the owned server; requires explicit Cookery and probe extra JARs')
     parser.add_argument('--connector', choices=['original', 'repaired'], help='Observe actual connector COMMON loading and native range readers; requires explicit connector, Aeronautics, Create, Ponder and probe JARs')
     parser.add_argument('--connector-ceiling', type=int, choices=[40, 255], default=255, help='Expected actual Simulated ceiling in the explicit connector fixture config')
+    parser.add_argument('--curio-break', choices=['original','repaired'], help='Observe native equipment break custody and notification ownership')
+    parser.add_argument('--curio-break-slot', choices=['back','glider'], default='back', help='Native equipment slot; glider requires the authored slot subset')
     args = parser.parse_args()
+    if args.curio_break and (args.scenario != 'standalone' or args.serve or args.cookery or args.connector):
+        parser.error('--curio-break requires a separate non-served standalone fixture')
     if args.cookery and args.scenario != 'standalone':
         parser.error('--cookery requires standalone')
     if args.connector and (args.scenario != 'standalone' or args.cookery or args.serve):
@@ -182,16 +186,16 @@ def main():
                                               'scope': 'metadata only; original library code and other resources unchanged'}
             selected[library.name] = hashlib.sha256(library.read_bytes()).hexdigest()
         if args.scenario in {'all-disabled', 'terrain-disabled', 'unsupported-disabled', 'questlog-disabled', 'macaw-disabled'}:
-            keys = re.findall(r'\("([a-z_]+\.[a-z_]+)"', (ROOT / 'src/main/java/design/inherent/skyweavecompat/Feature.java').read_text())
+            keys = re.findall(r'\("([a-z0-9_]+(?:\.[a-z0-9_]+)+)"', (ROOT / 'src/main/java/design/inherent/skyweavecompat/Feature.java').read_text())
             (run / 'config/skyweave/skyweave_compat-features.properties').write_text(''.join(f'{key}=false\n' for key in keys))
         if args.scenario == 'unsupported-enabled':
             # One known target owns this refusal; unrelated newer adapters stay disabled.
-            keys = re.findall(r'\("([a-z_]+\.[a-z_]+)"', (ROOT / 'src/main/java/design/inherent/skyweavecompat/Feature.java').read_text())
+            keys = re.findall(r'\("([a-z0-9_]+(?:\.[a-z0-9_]+)+)"', (ROOT / 'src/main/java/design/inherent/skyweavecompat/Feature.java').read_text())
             enabled = set(args.enable or ['navigation.wayfinder'])
             (run / 'config/skyweave/skyweave_compat-features.properties').write_text(
                 ''.join(f'{key}={str(key in enabled).lower()}\n' for key in keys))
         if args.enable:
-            keys = set(re.findall(r'\("([a-z_]+\.[a-z_]+)"', (ROOT / 'src/main/java/design/inherent/skyweavecompat/Feature.java').read_text()))
+            keys = set(re.findall(r'\("([a-z0-9_]+(?:\.[a-z0-9_]+)+)"', (ROOT / 'src/main/java/design/inherent/skyweavecompat/Feature.java').read_text()))
             if not set(args.enable) <= keys:
                 parser.error('Unknown fixture feature key')
             feature_file = run / 'config/skyweave/skyweave_compat-features.properties'
@@ -245,6 +249,8 @@ def main():
             + ('difficulty=peaceful\ngamemode=creative\n' if args.serve else ''))
         command = [args.java, '-Xmx'+args.heap, '-XX:+ExitOnOutOfMemoryError', '-Dmixin.debug.export=true', '-Dmixin.debug.verbose=true',
                    '@' + str(launch[0]), 'nogui']
+        if args.curio_break:
+            command[1:1] = ['-Dneighbors.probe.curioBreak=' + args.curio_break, '-Dneighbors.probe.curioBreakSlot=' + args.curio_break_slot]
         if args.cookery:
             command[1:1] = ['-Dneighbors.probe.cookery=' + args.cookery]
             (run / 'cookery-fixture.json').write_text('{}\n')
@@ -262,7 +268,8 @@ def main():
                 while process.poll() is None and time.monotonic() < deadline:
                     if ('Done (' in log_path.read_text(errors='replace')
                             and (not args.cookery or (run / 'cookery-proof.json').is_file())
-                            and (not args.connector or (run / 'connector-proof.json').is_file())):
+                            and (not args.connector or (run / 'connector-proof.json').is_file())
+                            and (not args.curio_break or (run / 'curio-break-proof.json').is_file())):
                         done = True
                         if args.serve:
                             report['replayInputs'].update(stage_replay(args.replay_regions,None,run,args.seed))
@@ -275,7 +282,7 @@ def main():
                                         break
                                     process.stdin.write(line)
                                     process.stdin.flush()
-                        else:
+                        elif process.poll() is None:
                             process.communicate('stop\n', timeout=90)
                         break
                     time.sleep(0.5)
@@ -288,6 +295,11 @@ def main():
                         process.kill()
                         process.wait()
         text = log_path.read_text(errors='replace')
+        if not args.serve and process.returncode == 0 and 'Done (' in text:
+            done = done or ((not args.curio_break or (run / 'curio-break-proof.json').is_file())
+                            and (not args.cookery or (run / 'cookery-proof.json').is_file())
+                            and (not args.connector or (run / 'connector-proof.json').is_file()))
+
         # Exported transformed targets must not reference Compat when no adapter was selected.
         references = []
         for target in (run / '.mixin.out').rglob('*.class'):
@@ -297,6 +309,9 @@ def main():
                       seconds=round(time.monotonic() - started, 2), transformed_targets=references,
                       active_lines=[line for line in text.splitlines() if 'Skyweave: Compatibility Patches active adaptations:' in line],
                       generated_config=sorted(p.name for p in (run / 'config').iterdir()))
+        if args.curio_break:
+            proof = run / 'curio-break-proof.json'
+            report['curioBreak'] = json.loads(proof.read_text()) if proof.is_file() else {'passed':False,'error':'Missing native proof'}
         if args.cookery:
             proof = run / 'cookery-proof.json'
             report['cookery'] = json.loads(proof.read_text()) if proof.is_file() else {'passed': False, 'error': 'Native fixture produced no report'}
@@ -324,7 +339,7 @@ def main():
             expected = ['class/design/inherent/skyweavecompat/mixin/StructureSearchCacheAccess.class',
                         'class/net/minecraft/server/level/ServerChunkCache.class',
                         'class/net/minecraft/world/level/levelgen/PatrolSpawner.class']
-            if args.cookery or args.connector:
+            if args.curio_break or args.cookery or args.connector:
                 # The explicit probe JAR instruments these native classes; ordinary standalone
                 # startup retains its stricter three-target boundary.
                 expected += ['class/' + name + '.class' for name in [
@@ -333,6 +348,8 @@ def main():
                     'net/minecraft/world/level/levelgen/feature/OreFeature',
                     'net/minecraft/world/level/levelgen/structure/PoolElementStructurePiece',
                     'net/minecraft/world/level/chunk/status/ChunkStatusTasks']]
+                if args.curio_break:
+                    expected += ['class/'+name+'.class' for name in ['io/wispforest/accessories/networking/AccessoriesNetworking','top/theillusivec4/curios/mixin/CuriosImplMixinHooks','io/wispforest/accessories/data/EntitySlotLoader','top/theillusivec4/curios/common/data/CuriosEntityManager']]
                 if args.cookery == 'repaired':
                     expected += ['class/com/github/ysbbbbbb/kaleidoscopecookery/inventory/itemhandler/MillstoneInputHandler.class']
                 if args.connector == 'repaired':
@@ -361,6 +378,8 @@ def main():
             report['passed'] = report['passed'] and report['cookery'].get('passed', False)
         if args.connector:
             report['passed'] = report['passed'] and report['connector'].get('passed', False)
+        if args.curio_break:
+            report['passed'] = report['passed'] and report['curioBreak'].get('passed',False)
         (output / f'startup-{args.scenario}.json').write_text(json.dumps(report, indent=2) + '\n')
         print(json.dumps({key: report[key] for key in ['scenario', 'sha256', 'startup', 'exit_code', 'seconds', 'active_lines', 'passed']}, indent=2), flush=True)
         if not report['passed']:
