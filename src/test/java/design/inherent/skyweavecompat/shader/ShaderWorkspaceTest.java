@@ -24,6 +24,26 @@ class ShaderWorkspaceTest {
         Files.writeString(directory.resolve("test.json"), value.toString());
     }
     private ShaderWorkspace.Status run(boolean force) throws Exception { return ShaderWorkspace.assemble(root, Map.of(), force, false).getFirst(); }
+    @Test void recipeDigestCannotAuthorizeAnUnreviewedEuphoriaExecutable() throws Exception {
+        var recipe = setup();
+        Files.createDirectories(root.resolve("mods"));
+        byte[] executable = "unreviewed executable".getBytes();
+        Files.write(root.resolve("mods/engine.jar"), executable);
+        var input = new JsonObject();
+        input.addProperty("path", "mods/engine.jar");
+        input.addProperty("sha256", ShaderArchives.sha256(executable));
+        recipe.getAsJsonObject("inputs").add("engine", input);
+        var step = new JsonObject();
+        step.addProperty("type", ShaderEngine.EUPHORIA_STEP);
+        step.addProperty("input", "engine");
+        step.addProperty("before", ShaderEngine.treeHash(ShaderArchives.read(Files.readAllBytes(root.resolve("shader-inputs/base.zip")))));
+        recipe.getAsJsonArray("steps").add(step);
+        save(recipe);
+        var result = run(false);
+        assertEquals("failed", result.state());
+        assertTrue(result.detail().contains("Unreviewed Euphoria patch engine"));
+        assertFalse(Files.exists(root.resolve("shaderpacks/Result.zip")));
+    }
     @Test void composedRecipesRetainEveryOrderedPreconditionWithinTheExpandedBound() throws Exception {
         var recipe = setup(); var steps = recipe.getAsJsonArray("steps");
         String value = "old";

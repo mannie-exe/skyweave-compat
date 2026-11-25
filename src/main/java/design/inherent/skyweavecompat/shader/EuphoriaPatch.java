@@ -15,9 +15,9 @@ import java.util.zip.ZipInputStream;
 
 /** Calls the exact bundled ShaderPatcher API without starting the Euphoria mod. */
 final class EuphoriaPatch {
-    private static final String PIN = "44f11bebc249f59ec71f72b36bd9bb9014f62d3732030cfa9b9c68f3e7ac6638";
+    private static final String PIN = "59a543081b180d4d5da54a30bdeb9aea39ff9394ff6a93918104f73aeecd9cab";
     private static final String API = "com.euphoriapatches.shadow.com.euphoriapatches.shaderpatcher.";
-    private static final String PATCH_FILE = "/EuphoriaPatches_1.11.1.patch";
+    private static final String PATCH_FILE = "/EuphoriaPatches_1.11.2.patch";
     private static final String COMMON = "shaders/lib/common.glsl";
     private static final Pattern STYLE = Pattern.compile("SHADER_STYLE [14]");
 

@@ -8,9 +8,9 @@ import java.util.*;
 
 /** File-only composition shared by the client and authoring CLI. No Minecraft classes. */
 public final class ShaderEngine {
-    public static final String REVISION = "3";
-    public static final String EUPHORIA_STEP = "euphoria-1.11.1";
-    public static final String EUPHORIA_VERSION = "1.11.1-r5.10-neoforge";
+    public static final String REVISION = "4";
+    public static final String EUPHORIA_STEP = "euphoria-1.11.2";
+    public static final String EUPHORIA_VERSION = "1.11.2-r5.10-neoforge";
     public record Prepared(Path root, ShaderRecipe recipe, Map<String, byte[]> inputs, String key) {}
     private ShaderEngine() {}
 

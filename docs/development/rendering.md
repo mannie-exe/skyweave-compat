@@ -283,10 +283,10 @@ For an enabled Euphoria recipe and the exact supported Euphoria Patcher version,
 
 Schema 1 defines `id`, `version`, `output`, `base`, `inputs`, ordered `steps`, optional `enabled`, exact runtime `requires`, a qualified payload-tree `expected` digest, and optional `settings`. Disabled recipes do not read inputs or constrain runtime versions. Inputs specify an instance-relative path and SHA-256. They may read verified archives from `shader-inputs/` or runtime JARs from `mods/`.
 
-Recipes admit at most 64 ordered steps, 12 inputs, and 16 independently named outputs per workspace. Engine revision 2 includes the expanded step bound; it does not grant arbitrary execution. Supported steps are deliberately bounded:
+Recipes admit at most 64 ordered steps, 12 inputs, and 16 independently named outputs per workspace. Engine revision 4 admits the reviewed Euphoria 1.11.2 engine; the expanded step bound does not grant arbitrary execution. Supported steps are deliberately bounded:
 
 - `overlay`: read an input archive or its named `member`; require the preceding payload-tree `before` digest, then overlay only `shaders/` files.
-- `euphoria-1.11.1`: require `before`, preserve the base directory layout, normalize the style, call the digest-qualified public ShaderPatcher API and restore Unbound style. The patch library validates both TAR identities. Recipes cannot select a Java class or another executable engine.
+- `euphoria-1.11.2`: require `before`, preserve the base directory layout, normalize the style, call the digest-qualified public ShaderPatcher API and restore Unbound style. The patch library validates both TAR identities. Recipes cannot select a Java class or another executable engine.
 - `text`: require a file SHA-256, an exact `find` occurrence `count`, and `replace`. An empty find creates an absent file. Targets are shader sources or the two Skyweave provenance files. Unknown operations and fields stop the recipe.
 
 The recipe owns patch versions and ordered source corrections. SHA-256 checks on Create's input JAR qualify the material assumptions; the shader lab additionally rechecks texture bindings and alpha classification. Changing resource-pack window textures requires material review even when Create's JAR itself is unchanged.
