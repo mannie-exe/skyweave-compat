@@ -56,6 +56,7 @@ public enum Feature {
     LINK_GUI_INTERACTIONS("redstone_link_gui.interactions"),
     LINK_GUI_RELOCATION("redstone_link_gui.relocation"),
     LINK_GUI_SABLE("redstone_link_gui.ship_access"),
+    ACCESSORIES_CURIO_BREAK("accessories_compat_layer.curio_break"),
     ACCESSORIES_CURIOS_BINDINGS("accessories_compat_layer.curios_bindings", false),
     REDSTONE_LOGIC("redstone_additions.logic"),
     LINEAR_BOOTSTRAP("linear_bearing.bootstrap"),

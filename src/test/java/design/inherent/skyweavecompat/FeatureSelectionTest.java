@@ -906,4 +906,23 @@ class FeatureSelectionTest {
         assertThrows(IllegalStateException.class, () -> FeatureSelection.select(only(feature), changed, false));
     }
 
+    @Test void curiosBreakRepairIsIndependentAndOptionalOnBothSides() {
+        var feature = Feature.ACCESSORIES_CURIO_BREAK;
+        var supported = Map.of("curios", "9.6.0+1.21.1", "accessories", "1.1.0-beta.54+1.21.1", "accessories_compat_layer", "0.1.13");
+        assertTrue(new FeatureSettings(Map.of()).enabled(feature));
+        for (boolean client : new boolean[]{false, true}) {
+            assertEquals(java.util.Set.of(feature), FeatureSelection.select(only(feature), supported, client).active());
+            for (String missing : supported.keySet()) {
+                var partial = new java.util.HashMap<>(supported); partial.remove(missing);
+                assertFalse(FeatureSelection.select(only(feature), partial, client).enabled(feature));
+            }
+            for (String changed : supported.keySet()) {
+                var future = new java.util.HashMap<>(supported); future.put(changed, "future");
+                assertThrows(IllegalStateException.class, () -> FeatureSelection.select(only(feature), future, client));
+                assertTrue(FeatureSelection.select(only(), future, client).active().isEmpty());
+            }
+            assertFalse(FeatureSelection.select(only(feature), Map.of(), client).enabled(feature));
+        }
+    }
+
 }

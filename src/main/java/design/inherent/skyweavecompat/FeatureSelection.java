@@ -186,7 +186,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             case LINKAGE_JADE -> Map.of("aeronautics_utility_objects", "0.2.9", "jade", "15.10.6+neoforge");
             case LINK_GUI_INTERACTIONS, LINK_GUI_RELOCATION -> Map.of("createredstonelinkgui", "1.21.1-1.9.2", "create", "6.0.10");
             case LINK_GUI_SABLE -> Map.of("createredstonelinkgui", "1.21.1-1.9.2", "create", "6.0.10", "sable", "2.0.6");
-            case ACCESSORIES_CURIOS_BINDINGS -> Map.of("curios", "9.6.0+1.21.1", "accessories", "1.1.0-beta.54+1.21.1",
+            case ACCESSORIES_CURIO_BREAK, ACCESSORIES_CURIOS_BINDINGS -> Map.of("curios", "9.6.0+1.21.1", "accessories", "1.1.0-beta.54+1.21.1",
                     "accessories_compat_layer", "0.1.13");
             case REDSTONE_LOGIC -> Map.of("create_redstone_additions", "1.0.6", "create", "6.0.10");
             case LINEAR_BOOTSTRAP -> Map.of("linearbearing", "1.3.5");
@@ -306,6 +306,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                 case LINK_GUI_INTERACTIONS -> List.of("redstone.GuiPacketMixin", "redstone.GuiOpenPacketMixin", "redstone.GuiSwapPacketMixin", "redstone.GuiMenuMixin");
                 case LINK_GUI_RELOCATION -> client ? List.of("redstone.GuiRelocationMixin", "client.GuiRelocationScreenMixin") : List.of("redstone.GuiRelocationMixin");
                 case LINK_GUI_SABLE -> List.of();
+                case ACCESSORIES_CURIO_BREAK -> List.of();
                 case ACCESSORIES_CURIOS_BINDINGS -> List.of("accessories.CuriosEarlyBindingsMixin", "accessories.AccessoriesEntityBindingsMixin");
                 case REDSTONE_LOGIC -> List.of("redstone.CrossroadMixin");
                 case LINEAR_BOOTSTRAP -> client ? List.of() : List.of("linear.LinearBootstrapMixin");

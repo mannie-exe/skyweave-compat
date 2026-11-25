@@ -36,6 +36,8 @@ public final class OptionalMixinPlugin implements IMixinConfigPlugin {
 
     @Override public void onLoad(String mixinPackage) {
         org.spongepowered.asm.mixin.Mixins.registerErrorHandlerClass(OptionalMixinErrorHandler.class.getName());
+        if (OptionalIntegrations.enabled(Feature.ACCESSORIES_CURIO_BREAK))
+            design.inherent.skyweavecompat.accessories.CurioBreakAdjuster.register();
         if (OptionalIntegrations.enabled(Feature.ACCESSORIES_CURIOS_BINDINGS))
             design.inherent.skyweavecompat.accessories.CuriosBindingAdjuster.register();
         org.spongepowered.asm.mixin.injection.selectors.TargetSelector.register(

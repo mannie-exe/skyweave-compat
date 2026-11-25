@@ -335,3 +335,7 @@ The startup scene reaches the title in a minimum installation and records option
 `--visual-torch-ui` instead uses the actual category/enum clicks and native Done callbacks, checks persisted held/placed choices after a forced resource reload, then restores and compares the original block/item hashes. It is a separate world scene from `--visual-menu-only`. Wait for category list layout before input; an immediate click after `setScreen` is not a meaningful user control. Keep menu confirmation, saved preferences, selected resource bytes and visible model comparisons as separate observations. The full-pack source must already be installed in its marked disposable stage; extracting a reference export alone does not materialize its options or dependencies.
 
 Connector's development bootstrap needs `--connector-clean /path/to/rename_HASH_output.jar`: the clean Minecraft 1.21.1 NeoForm rename output before loader patching. The adjacent NeoForm provenance file and Minecraft identity are validated, and both digests are recorded. This supplies Connector's existing `connector.clean.path` development input; it is not a production launcher modification. Verify the published distribution through Prism separately.
+
+## Equipped item break
+
+The dedicated CurioBreakProbe retains original failure and repaired back/glider slot controls. The client counterpart observes self and tracked equipment removal and one native Accessories notification. Requalify the exact bridge versions before changing admission.

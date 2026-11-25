@@ -1151,6 +1151,8 @@
   "skyweave_compat.configuration.feature.variantsandventures.lithostitched_trials": "V&V and Lithostitched trial choices",
   "skyweave_compat.settings.summary.variantsandventures.lithostitched_trials": "Normalize the two V&V extension slots without changing their native choices or random sequence, then let V&V add enabled trial variants. Small-melee and other aliases remain native.",
   "skyweave_compat.settings.mod.accessories_compat_layer": "Accessories Compatibility Layer",
+  "skyweave_compat.configuration.feature.accessories_compat_layer.curio_break": "Curios break notifications",
+  "skyweave_compat.settings.summary.accessories_compat_layer.curio_break": "Allow the equipment bridge to replace a Curios break notification without throwing after the item breaks. Durability and item removal remain native.",
   "skyweave_compat.configuration.feature.accessories_compat_layer.curios_bindings": "Curios entity slots",
   "skyweave_compat.settings.summary.accessories_compat_layer.curios_bindings": "Apply Curios entity slots after server tags load",
   "skyweave_compat.settings.information.running": "Running adaptation",
