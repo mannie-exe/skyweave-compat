@@ -269,7 +269,7 @@ public final class SettingsCatalog {
             case BLUEMAP -> Group.BLUEMAP;
             case SURVEYOR_STRUCTURES -> Group.SURVEYOR;
             case NETHER_ACCESS -> Group.TERRAIN;
-            case C2ME_SEARCH -> Group.C2ME;
+            case C2ME_SEARCH, C2ME_CLIENT_LIGHT -> Group.C2ME;
             case HOOFPRINT_ZOOM -> Group.HOOFPRINT;
             case TERRAIN, ORE_PLACEMENT, CARVERS, CAVE_BIOMES, ANCIENT_CITIES, SPAWN,
                     STRUCTURE_LOCATION, STRUCTURE_COMMAND, STRUCTURE_DISTRIBUTION, GROUND_SUPPORT, ALTITUDE_HABITATS, WATER_SPAWNS, CLIMATE, SABLE_CLIMATE -> Group.TERRAIN;

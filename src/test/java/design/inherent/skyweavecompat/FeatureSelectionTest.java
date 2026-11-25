@@ -13,6 +13,25 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class FeatureSelectionTest {
+    @Test void initialClientLightingIsIndependentAndExactlyClientGated() {
+        var feature=Feature.C2ME_CLIENT_LIGHT;
+        assertFalse(feature.defaultEnabled);assertNull(FeatureSelection.prerequisite(feature));
+        assertEquals(SettingsCatalog.Group.C2ME,SettingsCatalog.group(feature));
+        var versions=Map.of("c2me","0.4.0-alpha.0.124+1.21.1","c2me_notickvd","0.4.0-alpha.0.124+1.21.1");
+        assertEquals(List.of("client.InitialLightPacketMixin","client.InitialLightChunkMixin","client.InitialLightEngineMixin","client.InitialLightLevelMixin","client.InitialLightWorldMixin"),
+                FeatureSelection.select(only(feature),versions,true).mixins(true));
+        assertFalse(FeatureSelection.select(only(feature),versions,false).enabled(feature));
+        assertTrue(FeatureSelection.select(only(feature),Map.of(),true).mixins(true).isEmpty());
+        for(String mod:versions.keySet()) {
+            var missing=new HashMap<>(versions);missing.remove(mod);
+            assertTrue(FeatureSelection.select(only(feature),missing,true).mixins(true).isEmpty());
+            var future=new HashMap<>(versions);future.put(mod,"future");
+            assertTrue(FeatureSelection.select(only(),future,true).mixins(true).isEmpty());
+            assertTrue(FeatureSelection.select(only(feature),future,false).mixins(false).isEmpty());
+            assertThrows(IllegalStateException.class,()->FeatureSelection.select(only(feature),future,true));
+        }
+    }
+
     @Test void connectorRangesRemainOptionalAndQualifiedBeforeCommonTargetsResolve() {
         var feature = Feature.ROPE_CONNECTOR_RANGES;
         var versions = Map.of("create_aeronautics_throwable_rope_connector", "0.4.3", "simulated", "1.3.3");
@@ -878,7 +897,7 @@ class FeatureSelectionTest {
         assertThrows(IllegalArgumentException.class, () -> FeatureSettings.read(new StringReader("terrain.preset=true\nterrain.preset=false")));
         var defaults = FeatureSettings.load(directory);
         assertTrue(defaults.enabled(Feature.TERRAIN));
-        for (Feature feature : Feature.values()) assertEquals(feature != Feature.ACCESSORIES_CURIOS_BINDINGS, defaults.enabled(feature), feature.key);
+        for (Feature feature : Feature.values()) assertEquals(feature != Feature.C2ME_CLIENT_LIGHT && feature != Feature.ACCESSORIES_CURIOS_BINDINGS, defaults.enabled(feature), feature.key);
         Files.writeString(directory.resolve(FeatureSettings.FILE), "terrain.preset=false\n");
         assertFalse(FeatureSettings.load(directory).enabled(Feature.TERRAIN));
         assertEquals("terrain.preset=false\n", Files.readString(directory.resolve(FeatureSettings.FILE)));

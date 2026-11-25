@@ -105,6 +105,7 @@ public enum Feature {
     RECHISELED_GLASS("rechiseled.glass_culling"),
     LIGHTING_LIFECYCLE("lighting.lifecycle"),
     SODIUM_LIGHTING("lighting.sodium"),
+    C2ME_CLIENT_LIGHT("c2me.client_light_updates", false),
     FTB_ITEM_FILTERS("ftbquests.item_alternatives"),
     FTB_CREATIVE_RETURN("ftblibrary.creative_inventory_return"),
     QUESTLOG_INTERFACE("questlog.interface"),

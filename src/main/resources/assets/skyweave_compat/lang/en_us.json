@@ -843,6 +843,8 @@
   "skyweave_compat.structures.work": "Clusters: %s; saved regions: %s; stored chunks checked: %s; requests in flight: %s.",
   "skyweave_compat.configuration.feature.c2me.structure_search": "Saved structure discovery",
   "skyweave_compat.settings.summary.c2me.structure_search": "Read saved starts through C2ME’s storage queue.",
+  "skyweave_compat.configuration.feature.c2me.client_light_updates": "Client lighting updates",
+  "skyweave_compat.settings.summary.c2me.client_light_updates": "Keep client lighting consistent while chunks arrive.",
   "skyweave_compat.settings.mod.c2me": "C2ME",
   "skyweave_compat.structures.timing": "Time totals (ms): candidate planning %s; storage batches %s; native requests %s.",
   "skyweave_compat.structures.elapsed": "Search elapsed time: %s ms.",

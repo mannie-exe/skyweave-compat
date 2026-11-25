@@ -19,6 +19,14 @@
     "PoseSkinProbeMixin",
     "PoseCapeProbeMixin",
     "PoseCapeDrawProbeMixin",
-    "FoliageDrawProbeMixin"
+    "FoliageDrawProbeMixin",
+    "LightCacheCheckMixin",
+    "LightCacheSectionAccess",
+    "LightCachePacketMixin",
+    "LightCacheMapAccess",
+    "LightCacheEmissionMixin",
+    "LightCacheApplyMixin",
+    "LightCacheHandoffMixin",
+    "LightCacheEngineAccess"
   ]
 }

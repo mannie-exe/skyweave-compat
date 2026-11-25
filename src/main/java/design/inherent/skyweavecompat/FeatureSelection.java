@@ -114,6 +114,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
 
     public static boolean clientOnly(Feature feature) {
         return switch (feature) {
+            case C2ME_CLIENT_LIGHT -> true;
             case WAYFINDER_DH, MAIN_MENU_IDENTITY, IPN_TEXT_INPUT, MOVES_KEY_MODIFIERS, EFFORTLESS_KEY_MODIFIERS, POWER_GRID_KEY_MODIFIERS, CREATE_COPYCAT_BACKFACES, COPYCATS_BACKFACES, MOVES_TOUCH_MOTION, HAND_EFFECTS, HELD_MATERIALS, MODEL_ROTATIONS, ITEM_DEFINITIONS, CONSTRUCT_COVERAGE -> true;
             case HOOFPRINT_ZOOM, ISLAND_CLOUDS, ISLAND_VOID, ISLAND_SHADER_ENVIRONMENT, CONFECTIONERY_BACKFACES, BUBBLE_GUM_BACKFACES, ORNATE_GRATE_BACKFACES, INDUSTRIAL_GRATING_BACKFACES, MACAW_GLASS, CONSTRUCT_DISTANCE, CONSTRUCT_OCCLUSION, SHADER_PATCHES, TEXT_DISPLAY_LIGHTING, NAMETAG_LIGHTING, TEXT_DISPLAY_SHADOW, NAMETAG_SHADOW, CREATE_BACKFACES, FUSION_BACKFACES, CREATE_WINDOWS, RECHISELED_GLASS, AUDIO_TIMELINE, LINEAR_PONDER, COLORWHEEL_SAMPLERS, COLORWHEEL_MATERIALS, LIGHTING_LIFECYCLE, SODIUM_LIGHTING, DH_HANDOFF, FRAMEBUFFER, MATERIAL_IDS, MODEL_DATA, SINGLE_BLOCK_PASSES,
                     FTB_CREATIVE_RETURN, QUESTLOG_INTERFACE, QUESTLOG_NOTIFICATIONS -> true;
@@ -143,6 +144,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             case WAYFINDER_DH -> Map.of("distanthorizons", "3.3.3");
             case FTB_ITEM_FILTERS -> Map.of("ftbquests", "2101.1.38");
             case C2ME_SEARCH -> Map.of("c2me_rewrites_chunkio", "0.4.0-alpha.0.124+1.21.1");
+            case C2ME_CLIENT_LIGHT -> Map.of("c2me", "0.4.0-alpha.0.124+1.21.1", "c2me_notickvd", "0.4.0-alpha.0.124+1.21.1");
             case NETHER_ACCESS -> Map.of();
             case HOOFPRINT_ZOOM -> Map.of("hoofprint", "1.3.0_1.21", "surveyor", "1.2.4_1.21", "connector", "2.0.0-beta.17+1.21.1");
             case FTB_CREATIVE_RETURN -> Map.of("ftblibrary", "2101.1.39");
@@ -334,6 +336,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                         "client.LightEngineOwnerAccessor", "client.VirtualEmissionSideMixin",
                         "client.DynamicLightSideMixin", "client.ScopedLightQueryMixin", "client.ServerLightViewMixin");
                 case SODIUM_LIGHTING -> List.of("client.SodiumLightingMixin");
+                case C2ME_CLIENT_LIGHT -> List.of("client.InitialLightPacketMixin", "client.InitialLightChunkMixin", "client.InitialLightEngineMixin", "client.InitialLightLevelMixin", "client.InitialLightWorldMixin");
                 case MODEL_DATA -> List.of("client.SingleBlockModelDataMixin");
                 case SINGLE_BLOCK_PASSES -> List.of("client.SingleBlockPassMixin");
                 case MACAW_LANTERN -> enabled(Feature.MACAW_LANTERN_SABLE)

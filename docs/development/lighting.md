@@ -14,6 +14,16 @@ Sodium render views need not be the client level. Passing the actual view preser
 
 ## World and source ownership
 
+### Initial chunk-light ordering
+
+The experimental `c2me.client_light_updates` client feature extends the fixed-section control to native chunk identities. It defaults off and requires the selected C2ME/No Tick View Distance version; it has no terrain, SDL, Lamb or Sodium prerequisite. General native and lifecycle qualification is still pending. The successful fixed-section control below does not qualify this implementation.
+
+`InitialClientLight` binds a native chunk-with-light handler to its actual client level, connection listener and decoded chunk object. A lexical scope covers decoding only; the native queued callback carries its own identity explicitly. Only checks for a chunk with pending initial light are retained and deduplicated. Both native block and sky engines commit before those same position checks return to the ordinary engine queue. Block states, packet bytes and source emission are unchanged. The reported work count still describes only the native pass that ran. There is no whole-chunk scan, synchronous relighting loop or extra light source.
+
+The client engine owns pending chunk states and the finite ready queue. Empty states detach after commit; chunk unload, world replacement and disconnect release their retained checks. Failed native callbacks retain their original exception. Unknown or replaced chunk identities cannot replay old checks, while same-world native callbacks keep their original owner. A stale level/connection callback refuses before publication. Unexpected off-thread native callback paths keep their original body and retire owned deferral on the client thread; they are not qualified as an additional supported dispatcher. Saved-world data and server lighting remain independent.
+
+### Moving-source lifecycle
+
 `lighting.lifecycle` is independent of Sodium and Sable. It needs SDL, Lamb and Create. SDL's unload and logout callbacks clear virtual positions without removing its tracked Create contraptions. `onTick` can then tick those owners in another client level and register their sources again. The unadapted native scene retained the Overworld bearing source throughout its Nether visit.
 
 `CreateLightSourcesAccessor` and `LightingLifecycleMixin` copy SDL's active contraption list and call its existing `onContraptionEntityLeave` for each owner before client-level unload/logout clearing. That removes active and pending entries and unregisters/marks their sources through SDL's holder. The operation is idempotent; server-level unloads do not trigger it. It also calls SDL's own Sable holder `clear` and resets that handler's cached level and scan timestamp through `SableLightStateAccessor`. Those classes belong to SDL and require no Sable API to clear, so this does not add a Sable dependency. It releases SDL's level reference even when the player remains at the title screen. There is no new source registry or per-tick sweep.
