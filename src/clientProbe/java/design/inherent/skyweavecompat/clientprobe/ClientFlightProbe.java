@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 public final class ClientFlightProbe {
     private int ticks;
     public ClientFlightProbe() {
+        if (Boolean.getBoolean("skyweave_compat.probe.maintenanceStartup")) { new ClientMaintenanceStartupProbe(); return; }
         if (Boolean.getBoolean("skyweave_compat.probe.grassrise")) { new ClientGrassriseProbe(); return; }
         if (Boolean.getBoolean("skyweave_compat.probe.lightCache")) { new ClientLightCacheProbe(); return; }
         if (Boolean.getBoolean("skyweave_compat.probe.ipn")) { new ClientIpnProbe(); return; }

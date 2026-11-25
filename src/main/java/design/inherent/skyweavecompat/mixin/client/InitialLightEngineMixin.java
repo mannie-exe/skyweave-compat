@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 package design.inherent.skyweavecompat.mixin.client;
 
-import com.llamalad7.mixinextras.injector.ModifyReturnValue;
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
 import design.inherent.skyweavecompat.lighting.InitialClientLight;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -30,12 +31,16 @@ public abstract class InitialLightEngineMixin implements InitialClientLight.Engi
     private boolean skyweave$check(LightEngine<?,?> engine,BlockPos position) {
         return skyweave$initialLight==null || !skyweave$initialLight.defer(position);
     }
-    @ModifyReturnValue(method="hasLightWork",at=@At("RETURN"),require=1,allow=1)
-    private boolean skyweave$ready(boolean nativeWork) {
+    // Other light adapters can introduce early returns. Wrap the completed native
+    // operation once, rather than depending on its transformed return count.
+    @WrapMethod(method="hasLightWork()Z")
+    private boolean skyweave$ready(Operation<Boolean> original) {
+        boolean nativeWork=original.call();
         return nativeWork || skyweave$initialLight!=null && skyweave$initialLight.hasReady();
     }
-    @ModifyReturnValue(method="runLightUpdates",at=@At("RETURN"),require=1,allow=1)
-    private int skyweave$committed(int nativeWork) {
+    @WrapMethod(method="runLightUpdates()I")
+    private int skyweave$committed(Operation<Integer> original) {
+        int nativeWork=original.call();
         if(skyweave$initialLight!=null)skyweave$initialLight.committed();return nativeWork;
     }
 }
