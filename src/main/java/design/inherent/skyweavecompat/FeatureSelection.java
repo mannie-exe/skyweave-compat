@@ -116,7 +116,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
         return switch (feature) {
             case C2ME_CLIENT_LIGHT -> true;
             case WAYFINDER_DH, MAIN_MENU_IDENTITY, IPN_TEXT_INPUT, MOVES_KEY_MODIFIERS, EFFORTLESS_KEY_MODIFIERS, POWER_GRID_KEY_MODIFIERS, CREATE_COPYCAT_BACKFACES, COPYCATS_BACKFACES, MOVES_TOUCH_MOTION, HAND_EFFECTS, HELD_MATERIALS, MODEL_ROTATIONS, ITEM_DEFINITIONS, CONSTRUCT_COVERAGE -> true;
-            case HOOFPRINT_ZOOM, ISLAND_CLOUDS, ISLAND_VOID, ISLAND_SHADER_ENVIRONMENT, CONFECTIONERY_BACKFACES, BUBBLE_GUM_BACKFACES, ORNATE_GRATE_BACKFACES, INDUSTRIAL_GRATING_BACKFACES, MACAW_GLASS, CONSTRUCT_DISTANCE, CONSTRUCT_OCCLUSION, SHADER_PATCHES, TEXT_DISPLAY_LIGHTING, NAMETAG_LIGHTING, TEXT_DISPLAY_SHADOW, NAMETAG_SHADOW, CREATE_BACKFACES, FUSION_BACKFACES, CREATE_WINDOWS, RECHISELED_GLASS, AUDIO_TIMELINE, LINEAR_PONDER, COLORWHEEL_SAMPLERS, COLORWHEEL_MATERIALS, LIGHTING_LIFECYCLE, SODIUM_LIGHTING, DH_HANDOFF, FRAMEBUFFER, MATERIAL_IDS, MODEL_DATA, SINGLE_BLOCK_PASSES,
+            case GRASSRISE_SHADERS, HOOFPRINT_ZOOM, ISLAND_CLOUDS, ISLAND_VOID, ISLAND_SHADER_ENVIRONMENT, CONFECTIONERY_BACKFACES, BUBBLE_GUM_BACKFACES, ORNATE_GRATE_BACKFACES, INDUSTRIAL_GRATING_BACKFACES, MACAW_GLASS, CONSTRUCT_DISTANCE, CONSTRUCT_OCCLUSION, SHADER_PATCHES, TEXT_DISPLAY_LIGHTING, NAMETAG_LIGHTING, TEXT_DISPLAY_SHADOW, NAMETAG_SHADOW, CREATE_BACKFACES, FUSION_BACKFACES, CREATE_WINDOWS, RECHISELED_GLASS, AUDIO_TIMELINE, LINEAR_PONDER, COLORWHEEL_SAMPLERS, COLORWHEEL_MATERIALS, LIGHTING_LIFECYCLE, SODIUM_LIGHTING, DH_HANDOFF, FRAMEBUFFER, MATERIAL_IDS, MODEL_DATA, SINGLE_BLOCK_PASSES,
                     FTB_CREATIVE_RETURN, QUESTLOG_INTERFACE, QUESTLOG_NOTIFICATIONS -> true;
             default -> false;
         };
@@ -206,6 +206,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             case COLORWHEEL_SAMPLERS -> Map.of("colorwheel", "1.3.2+mc1.21.1", "iris", "1.8.14-beta.1+mc1.21.1", "flywheel", "1.0.6");
             case COLORWHEEL_MATERIALS -> Map.of("colorwheel", "1.3.2+mc1.21.1");
             case LIGHTING_LIFECYCLE -> Map.of("sabledynlights", "2.0.1", "lambdynlights", "4.8.11+1.21.1", "create", "6.0.10");
+            case GRASSRISE_SHADERS -> Map.of("grassrise_better_lighting", "2.0.0", "iris", "1.8.14-beta.1+mc1.21.1", "sodium", "0.8.13+mc1.21.1");
             case SODIUM_LIGHTING -> Map.of("sabledynlights", "2.0.1", "lambdynlights", "4.8.11+1.21.1",
                     "sodium", "0.8.13+mc1.21.1", "create", "6.0.10");
             case MODEL_DATA -> Map.of("sable", "2.0.6");
@@ -335,6 +336,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                 case LIGHTING_LIFECYCLE -> List.of("client.CreateLightSourcesAccessor", "client.SableLightStateAccessor", "client.LightingLifecycleMixin",
                         "client.LightEngineOwnerAccessor", "client.VirtualEmissionSideMixin",
                         "client.DynamicLightSideMixin", "client.ScopedLightQueryMixin", "client.ServerLightViewMixin");
+                case GRASSRISE_SHADERS -> List.of("client.GrassriseAdapterMixin", "client.GrassriseGateMixin", "client.GrassriseGateAccess", "client.GrassriseIrisMixin");
                 case SODIUM_LIGHTING -> List.of("client.SodiumLightingMixin");
                 case C2ME_CLIENT_LIGHT -> List.of("client.InitialLightPacketMixin", "client.InitialLightChunkMixin", "client.InitialLightEngineMixin", "client.InitialLightLevelMixin", "client.InitialLightWorldMixin");
                 case MODEL_DATA -> List.of("client.SingleBlockModelDataMixin");

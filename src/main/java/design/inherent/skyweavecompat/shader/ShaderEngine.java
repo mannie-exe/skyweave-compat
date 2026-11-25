@@ -39,7 +39,6 @@ public final class ShaderEngine {
             if (!dependency.getValue().getAsString().equals(environment.get(dependency.getKey())))
                 throw new IOException("Recipe requires " + dependency.getKey() + " " + dependency.getValue().getAsString());
         var inputs = new TreeMap<String, byte[]>();
-        var identity = new StringBuilder(REVISION).append('\n').append(recipe.canonical());
         for (var input : new TreeMap<>(recipe.json().getAsJsonObject("inputs").asMap()).entrySet()) {
             var definition = input.getValue().getAsJsonObject();
             ShaderRecipe.keys(definition, "path", "sha256");
@@ -49,9 +48,19 @@ public final class ShaderEngine {
             byte[] bytes = bounded(safe(root, name), ShaderArchives.TOTAL_LIMIT);
             String digest = ShaderArchives.sha256(bytes);
             if (!digest.equals(expected)) throw new IOException("Input digest mismatch: " + input.getKey());
-            inputs.put(input.getKey(), bytes); identity.append('\n').append(input.getKey()).append(':').append(digest);
+            inputs.put(input.getKey(), bytes);
         }
-        return new Prepared(root, recipe, Map.copyOf(inputs), ShaderArchives.sha256(identity.toString().getBytes(StandardCharsets.UTF_8)));
+        return new Prepared(root, recipe, Map.copyOf(inputs), recipeKey(recipe));
+    }
+    /** Current recipe identity without rerunning preparation or requiring retired build inputs. */
+    static String recipeKey(ShaderRecipe recipe) throws IOException {
+        var identity = new StringBuilder(REVISION).append('\n').append(recipe.canonical());
+        for (var input : new TreeMap<>(recipe.json().getAsJsonObject("inputs").asMap()).entrySet()) {
+            String digest = ShaderRecipe.string(input.getValue().getAsJsonObject(), "sha256");
+            if (!digest.matches("[0-9a-f]{64}")) throw new IOException("Invalid input digest: " + input.getKey());
+            identity.append('\n').append(input.getKey()).append(':').append(digest);
+        }
+        return ShaderArchives.sha256(identity.toString().getBytes(StandardCharsets.UTF_8));
     }
     public static byte[] build(Prepared prepared) throws IOException {
         var recipe = prepared.recipe();

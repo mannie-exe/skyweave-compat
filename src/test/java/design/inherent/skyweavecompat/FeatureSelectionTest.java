@@ -13,6 +13,22 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class FeatureSelectionTest {
+    @Test void grassriseRecipesAreExactOptionalAndClientOnly() {
+        var feature=Feature.GRASSRISE_SHADERS;
+        var versions=Map.of("grassrise_better_lighting","2.0.0","iris","1.8.14-beta.1+mc1.21.1","sodium","0.8.13+mc1.21.1");
+        assertTrue(FeatureSelection.select(only(feature),versions,true).enabled(feature));
+        assertEquals(SettingsCatalog.Group.GRASSRISE,SettingsCatalog.group(feature));
+        assertTrue(FeatureSelection.select(only(feature),versions,false).mixins(false).isEmpty());
+        for(var mod:versions.keySet()) {
+            var partial=new HashMap<>(versions);partial.remove(mod);
+            assertTrue(FeatureSelection.select(only(feature),partial,true).mixins(true).isEmpty());
+            var changed=new HashMap<>(versions);changed.put(mod,"future");
+            assertThrows(IllegalStateException.class,()->FeatureSelection.select(only(feature),changed,true));
+            assertTrue(FeatureSelection.select(only(),changed,true).mixins(true).isEmpty());
+            assertTrue(FeatureSelection.select(only(feature),changed,false).mixins(false).isEmpty());
+        }
+    }
+
     @Test void initialClientLightingIsIndependentAndExactlyClientGated() {
         var feature=Feature.C2ME_CLIENT_LIGHT;
         assertFalse(feature.defaultEnabled);assertNull(FeatureSelection.prerequisite(feature));

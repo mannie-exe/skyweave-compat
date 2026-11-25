@@ -126,6 +126,8 @@ dependencies {
     irisSource('maven.modrinth:iris:KduFYu4t') { transitive = false }
     compileOnly('maven.modrinth:ssrd:Zdhm9p2k') { transitive = false }
     testRuntimeOnly('maven.modrinth:ssrd:Zdhm9p2k') { transitive = false }
+    compileOnly('maven.modrinth:grassrise-mod:dCoBnf1L') { transitive = false }
+    testImplementation('maven.modrinth:grassrise-mod:dCoBnf1L') { transitive = false }
     compileOnly('maven.modrinth:iris:KduFYu4t') { transitive = false }
     testImplementation('maven.modrinth:iris:KduFYu4t') { transitive = false }
     testRuntimeOnly 'io.github.llamalad7:mixinextras-neoforge:0.5.5'
@@ -220,6 +222,10 @@ tasks.register('verifyUpstream') {
             def actual = java.security.MessageDigest.getInstance('SHA-256').digest(artifact.bytes).encodeHex().toString()
             if (actual != expected) throw new GradleException("Unexpected ${name}: ${actual}")
         }
+
+        def grassrise = configurations.compileClasspath.resolvedConfiguration.resolvedArtifacts.find { it.moduleVersion.id.group == 'maven.modrinth' && it.name == 'grassrise-mod' }?.file
+        if (grassrise == null || java.security.MessageDigest.getInstance('SHA-256').digest(grassrise.bytes).encodeHex().toString() != '469aeeb0d368b1a37e5c5b02af206bfced496722b64e1c350a4aca8367d15351')
+            throw new GradleException('Unexpected Grassrise compile-only dependency')
 
         ['create-aeronautics-throwable-rope-connector': '2c926061b2ace48446ea65193f44a56a5326f48da218c0e1fc5bc2d8182528c8',
          'kaleidoscope-cookery': 'e93784a3f17e546ebfa7c449572933bf67c6b694c01cb26b83ad120c40452b33',

@@ -18,7 +18,7 @@ public final class SettingsCatalog {
         FTB_QUESTS(Category.INTERFACE, "ftbquests"),
         FTB_LIBRARY(Category.INVENTORY, "ftblibrary"), JOURNAL(Category.INTERFACE, "questlog"), AUDIO_CLIENT(Category.AUDIO, "analog_audio"),
         DH_CLIENT(Category.MAPS, "distant_horizons"), SABLE_CLIENT(Category.RENDERING, "sable"),
-        VEIL(Category.RENDERING, "veil"), IRIS(Category.RENDERING, "iris"),
+        GRASSRISE(Category.RENDERING, "grassrise"), VEIL(Category.RENDERING, "veil"), IRIS(Category.RENDERING, "iris"),
         PLAYER_ANIMATION(Category.RENDERING, "punchy_moves"), MODEFITE(Category.RENDERING, "modefite"),
         SSRD(Category.MAPS, "ssrd"), COLORWHEEL(Category.RENDERING, "colorwheel"), LIGHTS(Category.RENDERING, "lighting"),
         CREATE_CLIENT(Category.RENDERING, "create"), FUSION(Category.RENDERING, "fusion"),
@@ -253,6 +253,7 @@ public final class SettingsCatalog {
             case FRAMEBUFFER -> Group.VEIL;
             case SHADER_PATCHES, HAND_EFFECTS, HELD_MATERIALS, TEXT_DISPLAY_LIGHTING, NAMETAG_LIGHTING, TEXT_DISPLAY_SHADOW, NAMETAG_SHADOW -> Group.IRIS;
             case COLORWHEEL_SAMPLERS, COLORWHEEL_MATERIALS -> Group.COLORWHEEL;
+            case GRASSRISE_SHADERS -> Group.GRASSRISE;
             case LIGHTING_LIFECYCLE, SODIUM_LIGHTING -> Group.LIGHTS;
             case LINEAR_PONDER -> Group.LINEAR_CLIENT;
             case LINKAGE_INTERACTIONS, LINKAGE_JOINT_BODIES, LINKAGE_JADE -> Group.LINKAGE;

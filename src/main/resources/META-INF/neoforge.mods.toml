@@ -313,3 +313,10 @@ type = "optional"
 versionRange = "[0,)"
 ordering = "NONE"
 side = "BOTH"
+
+[[dependencies.skyweave_compat]]
+modId="grassrise_better_lighting"
+type="optional"
+versionRange="[0,)"
+ordering="AFTER"
+side="CLIENT"

@@ -24,6 +24,13 @@ class ShaderWorkspaceTest {
         Files.writeString(directory.resolve("test.json"), value.toString());
     }
     private ShaderWorkspace.Status run(boolean force) throws Exception { return ShaderWorkspace.assemble(root, Map.of(), force, false).getFirst(); }
+    @Test void currentRecipeIdentityMatchesPreparedInputsAndChangesWithRecipe() throws Exception {
+        var value=setup();var recipe=ShaderRecipe.parse(value.toString());
+        assertEquals(ShaderEngine.prepare(root,recipe,Map.of()).key(),ShaderEngine.recipeKey(recipe));
+        String original=ShaderEngine.recipeKey(recipe);
+        value.addProperty("version","changed");
+        assertNotEquals(original,ShaderEngine.recipeKey(ShaderRecipe.parse(value.toString())));
+    }
     @Test void recipeDigestCannotAuthorizeAnUnreviewedEuphoriaExecutable() throws Exception {
         var recipe = setup();
         Files.createDirectories(root.resolve("mods"));
