@@ -62,10 +62,13 @@ def main():
     parser.add_argument('--adq-world', type=Path, help='Read-only marked disposable ADQ world snapshot to reopen')
     parser.add_argument('--adq-capture-world', action='store_true', help='Retain this disposable ADQ world after normal shutdown for native reopen checks')
     parser.add_argument('--adq-lifetime', action='store_true', help='Hold one fixture-only future proxy, cancel the actual owned job, verify settling admission and native successor')
+    parser.add_argument('--adq-expiry', action='store_true', help='With --adq-lifetime, move only the actual fixture job deadline into the past and observe normal tick expiry')
     parser.add_argument('--adq-rng', type=int, help='Explicit fixture-only native RNG seed for matched comparisons; preserves native algorithm/draws')
     parser.add_argument('--adq-max-ticks', type=int, choices=[3600,7200,12000], default=3600, help='Explicit disposable observation window; product deadlines remain unchanged')
     parser.add_argument('--adq-admission', action='store_true', help='Engineering5+ only: observe actual status ticket mutations per server tick')
     args = parser.parse_args()
+    if args.adq_expiry and not args.adq_lifetime:
+        parser.error('Expiry control requires the separate enabled lifecycle fixture')
     if args.adq_lifetime and (args.adq_search!='route' or args.adq_fault or 'delivery.structure_search' not in args.enable):
         parser.error('Lifecycle control requires a separate enabled ADQ route fixture')
     if (args.adq_world or args.adq_capture_world) and (args.adq_search!='route' or args.adq_fault):
@@ -133,13 +136,8 @@ def main():
                     relative = source.relative_to(source_root)
                     copy_owned(source, run / 'config' / relative, run)
                     report['fixtureConfig'][relative.as_posix()] = hashlib.sha256(source.read_bytes()).hexdigest()
-        # Full-pack startup includes its established external prerequisite: Zfastnoise's
-        # biome redirect conflicts with Sky Archipelago even when Compat is absent.
-        # Keep Compat's own switches controlled below rather than importing them here.
-        if args.scenario in {'full', 'all-disabled'}:
-            prerequisite = server / 'config/zfastnoise.mixin.properties'
-            if prerequisite.is_file():
-                shutil.copy2(prerequisite, run / 'config' / prerequisite.name)
+        # Historical diagnostics supplied biome overrides explicitly. Current cohorts
+        # must not inherit an old installed workaround outside --fixture-config.
         shutil.copy2(server / 'eula.txt', run / 'eula.txt')
         if not args.without_compat:
             shutil.copy2(mod, run / 'mods' / mod.name)
@@ -289,6 +287,7 @@ def main():
             command.insert(1,'-Dneighbors.probe.adqMaxTicks='+str(args.adq_max_ticks))
             if args.adq_rng is not None:command.insert(1,'-Dneighbors.probe.adqRng='+str(args.adq_rng))
             if args.adq_lifetime:command.insert(1,'-Dneighbors.probe.adqLifetime=true')
+            if args.adq_expiry:command.insert(1,'-Dneighbors.probe.adqExpiry=true')
             if 'delivery.structure_search' in args.enable:
                 command.insert(1, '-Dneighbors.probe.adqBridge=true')
             if args.adq_search == 'first-read':

@@ -12,6 +12,7 @@ import net.minecraft.server.level.ServerLevel;
 public final class AdqLifetimeProbe {
     private static final JsonObject REPORT=new JsonObject();
     private static CompletableFuture<?> original,held;
+    private static Object expiredJob;
     private static int phase,ticks;
     private AdqLifetimeProbe(){}
     public static boolean enabled(){return Boolean.getBoolean("neighbors.probe.adqLifetime");}
@@ -36,10 +37,21 @@ public final class AdqLifetimeProbe {
         boolean generating=(boolean)type.getMethod("isGenerating").invoke(null);
         if(phase==0) {
             if(active==null)throw new AssertionError("Lifecycle control lacks an actual active native search");
-            var method=active.getClass().getDeclaredMethod("cancel",String.class);method.setAccessible(true);method.invoke(active,"Disposable native lifecycle cancellation control");
+            if(Boolean.getBoolean("neighbors.probe.adqExpiry")) {
+                // Change only fixture time input; production Pre tick must perform cancellation.
+                var deadline=active.getClass().getDeclaredField("deadline");deadline.setAccessible(true);
+                deadline.setLong(active,System.nanoTime()-1);expiredJob=active;
+                REPORT.addProperty("actualJobDeadlineMovedIntoPast",true);
+            }else {
+                var method=active.getClass().getDeclaredMethod("cancel",String.class);method.setAccessible(true);method.invoke(active,"Disposable native lifecycle cancellation control");
+            }
             REPORT.addProperty("reservationsAtCancel",reservations);phase=1;
         }else if(phase==1 && active==null && !generating && worker.getActiveCount()==0) {
             if(reservations!=1 || held.isDone() || original.isCancelled())throw new AssertionError("Retired native request lost custody");
+            if(expiredJob!=null) {
+                if(!String.valueOf(field(expiredJob,"outcome")).contains("expired"))throw new AssertionError("Native tick did not expire the actual job");
+                REPORT.addProperty("actualTickExpiryObserved",true);expiredJob=null;
+            }
             type.getMethod("generateNewQuestAsync",ServerLevel.class).invoke(null,server.overworld());
             REPORT.addProperty("newAttemptWhileHeld",true);phase=2;ticks=0;
         }else if(phase==2 && ++ticks>=5 && !generating && worker.getActiveCount()==0 && original.isDone()) {
