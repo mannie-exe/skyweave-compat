@@ -41,6 +41,8 @@ final class ClientLightCacheProbe {
     private static final boolean CAPTURE=Boolean.getBoolean("skyweave_compat.probe.lightCache.capture");
     private final JsonObject report = new JsonObject();
     private final JsonArray samples = new JsonArray();
+    private final JsonArray screens = new JsonArray();
+    private String lastScreen;
     private final Object virtualOwner = new Object();
     private CompletableFuture<JsonObject> pending;
     private volatile Runnable pendingServerAction;
@@ -54,6 +56,7 @@ final class ClientLightCacheProbe {
         if (!Files.isRegularFile(FMLPaths.GAMEDIR.get().resolve("light-cache-fixture.json")))
             throw new IllegalStateException("Missing owned light-cache fixture marker");
         report.add("samples", samples);
+        report.add("screens", screens);
         report.addProperty("scope", "Actual isolated native client storage/getter/cache/AO diagnostics; not actual rendered mesh, a repaired pipeline, moving-frame, fullpack or performance acceptance");
         report.addProperty("sectionDataRead", "storedBlock is native getDataLayerData (queued first); visibleBlock/updatingBlock/queuedBlock read the separate native maps directly; -1 means absent");
         report.addProperty("observePause",OBSERVE_PAUSE);
@@ -69,9 +72,27 @@ final class ClientLightCacheProbe {
         if (done) return;
         var mc = Minecraft.getInstance();
         try {
+            String screen=mc.screen==null?"none":mc.screen.getClass().getName()+":"+mc.screen.getTitle().getString();
+            if(screens.size()<32 && !screen.equals(lastScreen)) {
+                lastScreen=screen;var state=new JsonObject();state.addProperty("screen",screen);
+                state.addProperty("ticks",ticks);state.addProperty("worldOpen",mc.level!=null);
+                state.addProperty("playerPresent",mc.player!=null);state.addProperty("reconnected",reconnected);screens.add(state);
+                Files.writeString(FMLPaths.GAMEDIR.get().resolve("light-cache-screen-state.json"),screens.toString());
+            }
             if (Files.exists(FMLPaths.GAMEDIR.get().resolve("light-cache-cancel.json")))
                 throw new java.util.concurrent.CancellationException("Owned light-cache fixture cancelled");
             if (++ticks > 2400) throw new AssertionError("Light-cache fixture timeout");
+            if(opened && (REOPEN || reconnected) && mc.screen instanceof net.minecraft.client.gui.screens.BackupConfirmScreen
+                    && Boolean.getBoolean("skyweave_compat.probe.lightCache.confirmReopen")) {
+                if(!Files.isRegularFile(FMLPaths.GAMEDIR.get().resolve("saves/light-cache/level.dat")))
+                    throw new AssertionError("Expected the saved owned light-cache world");
+                for(var child:mc.screen.children())if(child instanceof net.minecraft.client.gui.components.Button button
+                        && button.getMessage().getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents text
+                        && text.getKey().equals("selectWorld.backupJoinSkipButton")) {
+                    report.addProperty("nativeReopenConfirmed",true);button.onPress();return;
+                }
+                throw new AssertionError("Native saved-world proceed button unavailable");
+            }
             if (closing) {
                 if(mc.level==null && mc.getSingleplayerServer()==null && mc.screen instanceof TitleScreen) {
                     if(Boolean.getBoolean("skyweave_compat.probe.lightCache.reconnect") && !reconnected) {
