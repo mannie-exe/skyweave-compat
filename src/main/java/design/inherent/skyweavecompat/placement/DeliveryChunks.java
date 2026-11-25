@@ -9,6 +9,7 @@ import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import java.util.*;
 import java.util.concurrent.*;
+import java.lang.ref.WeakReference;
 
 /** Hold two bounded endpoint neighborhoods until ADQ registers or rejects its route. */
 public final class DeliveryChunks {
@@ -27,15 +28,21 @@ public final class DeliveryChunks {
 
     public static CompletableFuture<ChunkResult<ChunkAccess>> request(ServerChunkCache cache, int x, int z) {
         var level = (ServerLevel)cache.getLevel(); var server = level.getServer();
-        return server.submit(() -> {
-            var lease = ACTIVE.computeIfAbsent(level, Lease::new);
+        var owner=DeliverySearch.token();
+        var request=server.submit(() -> {
+            DeliverySearch.requireToken(owner);
+            var lease = ACTIVE.computeIfAbsent(level, key->new Lease(key,owner));
+            if(lease.owner!=owner)throw new IllegalStateException("Delivery endpoint lease belongs to another generation");
             try { lease.acquire(x, z); return lease; }
             catch (Throwable failure) { lease.close(); throw failure; }
-        }).thenCompose(lease -> CompletableFuture.supplyAsync(() -> {
+        }).thenCompose(lease -> releaseFailed(CompletableFuture.supplyAsync(() -> DeliverySearch.withToken(owner,()->{
             var futures = new ArrayList<CompletableFuture<ChunkResult<ChunkAccess>>>();
             // Nine chunks cover the native 3x3-block predicate and the eight-block fallback.
-            for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++)
-                futures.add(cache.getChunkFuture(x + dx, z + dz, ChunkStatus.FULL, true));
+            for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) {
+                DeliverySearch.requireToken(owner);
+                int cx=x+dx,cz=z+dz;
+                futures.add(DeliverySearch.nativeRequest(owner,()->cache.getChunkFuture(cx,cz,ChunkStatus.FULL,true)));
+            }
             return CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).thenApply(unused -> {
                 for (var future : futures) {
                     var result = future.join();
@@ -43,14 +50,24 @@ public final class DeliveryChunks {
                 }
                 return futures.get(4).join();
             });
-        }).thenCompose(future -> future).orTimeout(60, TimeUnit.SECONDS).whenComplete((result, failure) -> {
-            if (failure != null) server.execute(lease::close);
-        }));
+        })).thenCompose(future -> future).orTimeout(60, TimeUnit.SECONDS),lease));
+        return DeliverySearch.endpoint(request);
     }
 
     public static void finish(ServerLevel level) {
         var lease = ACTIVE.get(level);
-        if (lease != null) lease.close();
+        if (lease != null && (lease.owner==null || lease.owner==DeliverySearch.token())) lease.close();
+    }
+
+    static void finishSearch(ServerLevel level,Object owner) {
+        var lease=ACTIVE.get(level);if(lease!=null && lease.owner==owner)lease.close();
+    }
+
+    private static <T> CompletableFuture<T> releaseFailed(CompletableFuture<T> request,Lease lease) {
+        var weak=new WeakReference<>(lease);var server=lease.level.getServer();
+        return request.whenComplete((result,failure)->{
+            var retained=weak.get();if(failure!=null && retained!=null && server.isRunning())server.execute(retained::close);
+        });
     }
 
     public static void stop(MinecraftServer server) {
@@ -61,9 +78,10 @@ public final class DeliveryChunks {
     private static final class Lease {
         private final ServerLevel level;
         private final UUID id = UUID.randomUUID();
+        private final Object owner;
         private final Set<ChunkPos> chunks = new HashSet<>();
         private boolean closed;
-        private Lease(ServerLevel level) { this.level = level; }
+        private Lease(ServerLevel level,Object owner) { this.level = level; this.owner=owner; }
 
         private void acquire(int x, int z) {
             if (closed) throw new IllegalStateException("Delivery chunk lease already closed");

@@ -48,6 +48,7 @@ public enum Feature {
     PRESSURE("sable.island_pressure"),
     DELIVERY_DISTANCE("delivery.horizontal_distance"),
     DELIVERY_CHUNKS("delivery.chunk_loading"),
+    DELIVERY_STRUCTURE_SEARCH("delivery.structure_search", false),
     DELIVERY_LANDING("delivery.village_landing"),
     ANALOG_AUDIO("analog_audio.movement_registration"),
     SABLE_GRAVES("yigd.construct_recovery"),

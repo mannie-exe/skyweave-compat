@@ -269,7 +269,7 @@ public final class SettingsCatalog {
             case SABLE_GRAVES -> Group.GRAVES;
             case ACCESSORIES_CURIO_BREAK, ACCESSORIES_CURIOS_BINDINGS -> Group.ACCESSORIES;
             case ANALOG_AUDIO -> Group.AUDIO;
-            case DELIVERY_DISTANCE, DELIVERY_CHUNKS, DELIVERY_LANDING -> Group.DELIVERY;
+            case DELIVERY_DISTANCE, DELIVERY_CHUNKS, DELIVERY_STRUCTURE_SEARCH, DELIVERY_LANDING -> Group.DELIVERY;
             case QUESTLOG_REWARD_VALIDATION -> Group.QUESTLOG_SERVER;
             case DH_SHUTDOWN, DH_CACHE -> Group.DH;
             case BLUEMAP -> Group.BLUEMAP;

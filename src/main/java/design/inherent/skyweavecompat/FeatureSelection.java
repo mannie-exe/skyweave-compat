@@ -94,6 +94,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
 
     public static Feature prerequisite(Feature feature) {
         return switch (feature) {
+            case DELIVERY_STRUCTURE_SEARCH -> Feature.DELIVERY_CHUNKS;
             case WAYFINDER_DH -> Feature.WAYFINDER;
             case MURK_WATER -> Feature.TERRAIN;
             case GROUND_SUPPORT, LITHOSTITCHED_STRUCTURES, YUNG_STRUCTURES -> Feature.STRUCTURE_DISTRIBUTION;
@@ -181,7 +182,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                     STRUCTURE_LOCATION, STRUCTURE_COMMAND, STRUCTURE_DISTRIBUTION, GROUND_SUPPORT, ALTITUDE_HABITATS, WATER_SPAWNS, CLIMATE, ISLAND_CLOUDS, ISLAND_VOID -> Map.of("sky_archipelago", "1.4");
             case VILLAGE_CLEARANCE, VILLAGE_PLACEMENT -> Map.of("sky_archipelago", "1.4", "skyvillages", "1.0.6", "architectury", "13.0.12");
             case PRESSURE -> Map.of("sable", "2.0.6");
-            case DELIVERY_DISTANCE, DELIVERY_CHUNKS -> Map.of("aeronautics_delivery_quests", "1.1.1");
+            case DELIVERY_DISTANCE, DELIVERY_CHUNKS, DELIVERY_STRUCTURE_SEARCH -> Map.of("aeronautics_delivery_quests", "1.1.1");
             case DELIVERY_LANDING -> Map.of("aeronautics_delivery_quests", "1.1.1", "skyvillages", "1.0.6", "architectury", "13.0.12");
             case SABLE_GRAVES -> Map.of("sable", "2.0.6", "yigd", "2.0.13");
             case AUDIO_TIMELINE -> Map.of("analogaudio", "0.1.5-hotfix.1", "analoglib", "0.1.0");
@@ -302,6 +303,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                 case PRESSURE -> List.of("DimensionPhysicsMixin");
                 case DELIVERY_DISTANCE -> List.of("DeliveryDistanceMixin");
                 case DELIVERY_CHUNKS -> List.of("DeliveryChunksMixin");
+                case DELIVERY_STRUCTURE_SEARCH -> List.of("DeliverySearchMixin", "DeliverySearchCacheMixin", "DeliverySearchAccess", "DeliverySearchConfigAccess");
                 case DELIVERY_LANDING -> List.of("DeliveryLandingMixin");
                 case SABLE_GRAVES -> List.of("recovery.GraveRecoveryMixin", "recovery.GraveBlockRecoveryMixin",
                         "recovery.GraveCompassRecoveryMixin", "recovery.CompassTrackingMixin", "recovery.GraveRespawnRecoveryMixin");

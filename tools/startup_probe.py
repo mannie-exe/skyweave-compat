@@ -24,7 +24,7 @@ def adq_ready(run):
     if not proof.is_file():
         return False
     try:
-        return json.loads(proof.read_text()).get('nativeInvocationReturned', False)
+        return json.loads(proof.read_text()).get('terminal', False)
     except json.JSONDecodeError:
         return False
 
@@ -267,8 +267,12 @@ def main():
             command[1:1] = ['-Dneighbors.probe.curioBreak=' + args.curio_break, '-Dneighbors.probe.curioBreakSlot=' + args.curio_break_slot]
         if args.adq_search:
             command[1:1] = ['-Dneighbors.probe.adqSearch=true', '-Dneighbors.probe.output=' + str(run / 'adq-search-proof.json')]
+            if 'delivery.structure_search' in args.enable:
+                command.insert(1, '-Dneighbors.probe.adqBridge=true')
             if args.adq_search == 'first-read':
                 command.insert(1, '-Dneighbors.probe.adqFirstRead=true')
+            else:
+                command.insert(1, '-Dneighbors.probe.adqRoute=true')
         if args.cookery:
             command[1:1] = ['-Dneighbors.probe.cookery=' + args.cookery]
             (run / 'cookery-fixture.json').write_text('{}\n')
@@ -410,6 +414,8 @@ def main():
             report['passed'] = report['passed'] and report['curioBreak'].get('passed',False)
         if args.adq_search:
             report['passed'] = report['passed'] and report['adqSearch'].get('observed',False) and report['adqSearch'].get('nativeInvocationReturned',False)
+            if args.adq_search == 'route':
+                report['passed'] = report['passed'] and report['adqSearch'].get('routeRegistered',False)
         (output / f'startup-{args.scenario}.json').write_text(json.dumps(report, indent=2) + '\n')
         print(json.dumps({key: report[key] for key in ['scenario', 'sha256', 'startup', 'exit_code', 'seconds', 'active_lines', 'passed']}, indent=2), flush=True)
         if not report['passed']:

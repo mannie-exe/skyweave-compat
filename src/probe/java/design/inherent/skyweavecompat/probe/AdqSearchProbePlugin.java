@@ -9,8 +9,10 @@ import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
 
 public final class AdqSearchProbePlugin implements IMixinConfigPlugin {
     @Override public List<String> getMixins() {
-        return Boolean.getBoolean("neighbors.probe.adqSearch")
-                ? List.of("AdqLocateWitnessMixin", "AdqChunkWitnessMixin") : List.of();
+        if(!Boolean.getBoolean("neighbors.probe.adqSearch"))return List.of();
+        return Boolean.getBoolean("neighbors.probe.adqBridge")
+                ? List.of("AdqLocateWitnessMixin","AdqChunkWitnessMixin","AdqBridgeWitnessMixin")
+                : List.of("AdqLocateWitnessMixin","AdqChunkWitnessMixin");
     }
     @Override public void onLoad(String name) {}
     @Override public String getRefMapperConfig() { return null; }

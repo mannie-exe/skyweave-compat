@@ -12,7 +12,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
-/** Read-only request/future correlation in a marked disposable world. Never part of the product. */
+/** Native route and request observations in a marked disposable world. Never part of the product. */
 public final class AdqSearchProbe {
     public static final ThreadLocal<Boolean> LOCATE = new ThreadLocal<>();
     public static final ThreadLocal<JsonObject> REQUEST = new ThreadLocal<>();
@@ -22,6 +22,8 @@ public final class AdqSearchProbe {
     private static volatile boolean finished;
     private static long requestId;
     private int ticks, postFinish;
+    private final boolean route=Boolean.getBoolean("neighbors.probe.adqRoute");
+    private long previousTick,maxInterTickNanos;
     public AdqSearchProbe() {
         REPORT.add("requests",REQUESTS);
         REPORT.addProperty("scope","Actual ADQ locate/chunk/future correlation; optional first-read abort is observer-only, not route success or performance acceptance");
@@ -31,7 +33,13 @@ public final class AdqSearchProbe {
     private void tick(ServerTickEvent.Post event) {
         if(event.getServer()!=server)return;
         ticks++;
+        long now=System.nanoTime();if(previousTick!=0)maxInterTickNanos=Math.max(maxInterTickNanos,now-previousTick);previousTick=now;
         if(ticks==2) {
+            if(route) {
+                try{Class.forName("com.ladderstar.adq.QuestGenerator").getMethod("generateNewQuestAsync",ServerLevel.class).invoke(null,server.overworld());
+                    synchronized(REPORT){REPORT.addProperty("publicEntryReturned",true);}}
+                catch(Throwable failure){synchronized(REPORT){REPORT.addProperty("invocationError",failure.toString());}finished=true;}
+            } else {
             CompletableFuture.runAsync(()->{
                 try {
                     var type=Class.forName("com.ladderstar.adq.QuestGenerator");
@@ -40,10 +48,26 @@ public final class AdqSearchProbe {
                 }catch(Throwable failure){synchronized(REPORT){REPORT.addProperty("invocationError",failure.toString());}}
                 finally{finished=true;}
             });
+            }
         }
-        synchronized(REPORT){REPORT.addProperty("serverTicks",ticks);}
-        if(finished && ++postFinish>=5 || ticks>=1200) {
-            synchronized(REPORT){REPORT.addProperty("nativeInvocationReturned",finished);REPORT.addProperty("observed",REQUESTS.size()>0);save();}
+        synchronized(REPORT){REPORT.addProperty("serverTicks",ticks);REPORT.addProperty("maxInterTickNanosObservationOnly",maxInterTickNanos);}
+        if(route && ticks>=2) {
+            try {
+                var type=Class.forName("com.ladderstar.adq.QuestGenerator");var field=type.getDeclaredField("availableQuests");field.setAccessible(true);
+                var quests=(List<?>)field.get(null);boolean generating=(Boolean)type.getMethod("isGenerating").invoke(null);
+                synchronized(REPORT){REPORT.addProperty("nativeQuestCount",quests.size());REPORT.addProperty("nativeGenerating",generating);}
+                if(!quests.isEmpty() && !generating) {
+                    synchronized(REPORT){var rows=new JsonArray();for(Object quest:quests) {
+                        var row=new JsonObject();for(String name:new String[]{"getQuestId","getStartingPos","getEndingPos","getSchematicName","getWeightClass","getActualWeight","getDistance","getCargoEntityId"})
+                            row.addProperty(name,String.valueOf(quest.getClass().getMethod(name).invoke(quest)));rows.add(row);
+                    }REPORT.add("nativeQuests",rows);REPORT.addProperty("routeRegistered",true);}
+                    finished=true;
+                }
+            }catch(Throwable failure){synchronized(REPORT){REPORT.addProperty("routeObservationError",failure.toString());}finished=true;}
+        }
+        if(finished && ++postFinish>=5 || ticks>=(route?3600:1200)) {
+            synchronized(REPORT){REPORT.addProperty("nativeInvocationReturned",route?REPORT.has("publicEntryReturned"):finished);REPORT.addProperty("observed",REQUESTS.size()>0);
+                REPORT.addProperty("terminal",true);REPORT.addProperty("observedRequests",requestId);inspectOwned();save();}
             server.halt(false);
         }
     }
@@ -53,10 +77,17 @@ public final class AdqSearchProbe {
     }
     public static JsonObject begin(int x,int z,String status,boolean create) {
         if(!Boolean.TRUE.equals(LOCATE.get()))return null;
+        return beginActual(x,z,status,create,"ServerChunkCache.getChunk");
+    }
+    public static JsonObject beginBridge(int x,int z,String status,boolean create) {
+        return beginActual(x,z,status,create,"DeliverySearch.chunk");
+    }
+    private static JsonObject beginActual(int x,int z,String status,boolean create,String ingress) {
         synchronized(REPORT) {
-            if(REQUESTS.size()>=128)throw new IllegalStateException("Disposable ADQ request observation bound reached");
             var row=new JsonObject();row.addProperty("id",++requestId);row.addProperty("x",x);row.addProperty("z",z);row.addProperty("status",status);row.addProperty("create",create);
-            row.addProperty("ingressThread",Thread.currentThread().getName());row.addProperty("ingressNanos",System.nanoTime());REQUESTS.add(row);return row;
+            row.addProperty("ingress",ingress);
+            row.addProperty("ingressThread",Thread.currentThread().getName());row.addProperty("ingressNanos",System.nanoTime());
+            if(REQUESTS.size()<128)REQUESTS.add(row);return row;
         }
     }
     public static <T> Supplier<T> carry(Supplier<T> supplied,JsonObject request) {
@@ -66,8 +97,9 @@ public final class AdqSearchProbe {
         var row=REQUEST.get();if(row==null)return;
         synchronized(REPORT) {
             row.addProperty(name+"Identity",System.identityHashCode(future));row.addProperty(name+"Thread",Thread.currentThread().getName());row.addProperty(name+"InitiallyDone",future.isDone());
+            row.add(name+"ObservedServerTicksAtRegistration",REPORT.get("serverTicks"));
         }
-        future.whenComplete((value,failure)->{synchronized(REPORT){row.addProperty(name+"CompletionNanos",System.nanoTime());row.addProperty(name+"Failed",failure!=null);}});
+        future.whenComplete((value,failure)->{synchronized(REPORT){row.addProperty(name+"CompletionNanos",System.nanoTime());row.addProperty(name+"Failed",failure!=null);row.add(name+"ObservedServerTicksAtCompletion",REPORT.get("serverTicks"));}});
     }
     public static void waitBoundary(boolean returned) {
         var row=REQUEST.get();if(row==null)return;
@@ -79,8 +111,21 @@ public final class AdqSearchProbe {
     }
     public static void end(JsonObject row) {
         if(row==null)return;
-        synchronized(REPORT){row.addProperty("returnedNanos",System.nanoTime());save();}
+        synchronized(REPORT){row.addProperty("returnedNanos",System.nanoTime());row.add("observedServerTicksAtReturn",REPORT.get("serverTicks"));if(!Boolean.getBoolean("neighbors.probe.adqRoute") || requestId%16==0)save();}
         if(Boolean.getBoolean("neighbors.probe.adqFirstRead"))throw new IllegalStateException("Disposable observer stopped after one actual ADQ chunk read");
+    }
+    private static void inspectOwned() {
+        if(!Boolean.getBoolean("neighbors.probe.adqBridge"))return;
+        try {
+            var type=Class.forName("design.inherent.skyweavecompat.placement.DeliverySearch");var field=type.getDeclaredField("STATES");field.setAccessible(true);
+            var state=((java.util.Map<?,?>)field.get(null)).get(server);var row=new JsonObject();
+            field=state.getClass().getDeclaredField("active");field.setAccessible(true);row.addProperty("ownedJobs",field.get(state)==null?0:1);
+            field=state.getClass().getDeclaredField("nativeRequests");field.setAccessible(true);row.addProperty("nativeReservations",((java.util.concurrent.atomic.AtomicInteger)field.get(state)).get());
+            try{field=state.getClass().getDeclaredField("worker");field.setAccessible(true);var worker=(ThreadPoolExecutor)field.get(state);row.addProperty("activeRootTasks",worker.getActiveCount());row.addProperty("queuedRootTasks",worker.getQueue().size());}
+            catch(NoSuchFieldException historical){row.addProperty("workerScope","Historical dev1 used native common pool");}
+            type=Class.forName("design.inherent.skyweavecompat.placement.DeliveryChunks");field=type.getDeclaredField("ACTIVE");field.setAccessible(true);
+            row.addProperty("endpointLeases",((java.util.Map<?,?>)field.get(null)).size());REPORT.add("ownedState",row);
+        }catch(Throwable failure){REPORT.addProperty("ownedStateError",failure.toString());}
     }
     private static void save() {
         try{Files.writeString(Path.of(System.getProperty("neighbors.probe.output")),new GsonBuilder().setPrettyPrinting().create().toJson(REPORT));}

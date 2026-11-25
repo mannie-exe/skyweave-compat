@@ -61,5 +61,7 @@ public final class SkyweaveCompat {
         }
         if (selection.enabled(Feature.DELIVERY_CHUNKS))
             NeoForge.EVENT_BUS.addListener((ServerStoppingEvent event) -> DeliveryChunks.stop(event.getServer()));
+        if (selection.enabled(Feature.DELIVERY_STRUCTURE_SEARCH))
+            design.inherent.skyweavecompat.placement.DeliverySearch.register();
     }
 }

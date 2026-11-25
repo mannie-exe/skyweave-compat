@@ -935,13 +935,26 @@ class FeatureSelectionTest {
         }
     }
 
+    @Test void deliverySearchUsesItsExactOptionalProviderAndEndpointCustody() {
+        var enabled=only(Feature.TERRAIN,Feature.DELIVERY_CHUNKS,Feature.DELIVERY_STRUCTURE_SEARCH);
+        var selected=FeatureSelection.select(enabled,SUPPORTED,false);
+        assertTrue(selected.enabled(Feature.DELIVERY_STRUCTURE_SEARCH));
+        assertTrue(selected.mixins(false).containsAll(List.of("DeliverySearchMixin","DeliverySearchCacheMixin","DeliverySearchAccess","DeliverySearchConfigAccess")));
+        assertFalse(FeatureSelection.select(only(Feature.TERRAIN,Feature.DELIVERY_STRUCTURE_SEARCH),SUPPORTED,false).enabled(Feature.DELIVERY_STRUCTURE_SEARCH));
+        var absent=new HashMap<>(SUPPORTED);absent.remove("aeronautics_delivery_quests");
+        assertFalse(FeatureSelection.select(enabled,absent,false).enabled(Feature.DELIVERY_STRUCTURE_SEARCH));
+        var future=new HashMap<>(SUPPORTED);future.put("aeronautics_delivery_quests","future");
+        assertTrue(FeatureSelection.select(only(),future,false).active().isEmpty());
+        assertThrows(IllegalStateException.class,()->FeatureSelection.select(enabled,future,false));
+    }
+
     @Test void settingsRejectMistakesAndKeepOperatorValues(@TempDir Path directory) throws Exception {
         assertThrows(IllegalArgumentException.class, () -> FeatureSettings.read(new StringReader("terrain.preset=maybe")));
         assertThrows(IllegalArgumentException.class, () -> FeatureSettings.read(new StringReader("terrain.presett=false")));
         assertThrows(IllegalArgumentException.class, () -> FeatureSettings.read(new StringReader("terrain.preset=true\nterrain.preset=false")));
         var defaults = FeatureSettings.load(directory);
         assertTrue(defaults.enabled(Feature.TERRAIN));
-        for (Feature feature : Feature.values()) assertEquals(feature != Feature.ACCESSORIES_CURIOS_BINDINGS, defaults.enabled(feature), feature.key);
+        for (Feature feature : Feature.values()) assertEquals(feature != Feature.ACCESSORIES_CURIOS_BINDINGS && feature != Feature.DELIVERY_STRUCTURE_SEARCH, defaults.enabled(feature), feature.key);
         Files.writeString(directory.resolve(FeatureSettings.FILE), "terrain.preset=false\n");
         assertFalse(FeatureSettings.load(directory).enabled(Feature.TERRAIN));
         assertEquals("terrain.preset=false\n", Files.readString(directory.resolve(FeatureSettings.FILE)));

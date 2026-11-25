@@ -27,7 +27,7 @@ public abstract class DeliveryChunksMixin {
                 : original.call(cache, x, z, status, create);
     }
 
-    @Inject(method = "registerGeneratedQuest", at = @At("HEAD"), require = 1)
+    @Inject(method = "registerGeneratedQuest", at = @At("RETURN"), require = 1)
     private static void skyweave$releaseSuccessfulRoute(CallbackInfo callback, @Local(argsOnly = true) ServerLevel level) {
         DeliveryChunks.finish(level);
     }

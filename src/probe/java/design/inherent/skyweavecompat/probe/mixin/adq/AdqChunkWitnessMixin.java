@@ -14,7 +14,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Coerce;
 
-@Mixin(ServerChunkCache.class)
+@Mixin(value=ServerChunkCache.class,priority=500)
 public abstract class AdqChunkWitnessMixin {
     @WrapMethod(method="getChunk")
     private ChunkAccess read(int x,int z,ChunkStatus status,boolean create,Operation<ChunkAccess> original) {
@@ -31,6 +31,12 @@ public abstract class AdqChunkWitnessMixin {
         var row=AdqSearchProbe.REQUEST.get();
         var future=original.call(row==null?supplied:AdqSearchProbe.carry(supplied,row),executor);
         AdqSearchProbe.future("serverTask",future);return future;
+    }
+    @WrapOperation(method="getChunkFuture",at=@At(value="INVOKE",target="Ljava/util/concurrent/CompletableFuture;supplyAsync(Ljava/util/function/Supplier;Ljava/util/concurrent/Executor;)Ljava/util/concurrent/CompletableFuture;"),require=1,allow=1)
+    private CompletableFuture<?> registration(Supplier<?> supplied,Executor executor,Operation<CompletableFuture<?>> original) {
+        var row=AdqSearchProbe.REQUEST.get();
+        var future=original.call(row==null?supplied:AdqSearchProbe.carry(supplied,row),executor);
+        AdqSearchProbe.future("registrationTask",future);return future;
     }
     @ModifyReturnValue(method="getChunkFutureMainThread",at=@At("RETURN"))
     private CompletableFuture<ChunkResult<ChunkAccess>> future(CompletableFuture<ChunkResult<ChunkAccess>> original) {
