@@ -81,3 +81,7 @@ Against SDL 2.0.1, source revision `4af5fc44b83d7a0e79b9c8e6d719b216d3649a36`:
 - Create source owners survive a dimension change and re-register in the new level. The unadapted Overworld bearing remains in the source set during the Nether visit; the repaired scene has no such source and correctly registers it on return. Include SDL's missing Sable-holder/cache disposal in the cleanup review, separately from claims about ghost illumination or total world-memory reclamation.
 
 Use the retained dependency manifest, native reports and focused fixture for a report or PR. No report was submitted automatically. The wall/ghost/hang issue links above describe different symptoms; do not close them from these checks alone.
+
+## Opaque Sodium samples
+
+Preserve Sodium's full-opaque, nonemissive zero-light sentinel before SDL dynamic-light lookup. Raising that sentinel changes the native AO fallback. Nonopaque and emissive samples retain the existing adapter. This scoped repair does not resolve every dark-corner or initial client-light artifact.
