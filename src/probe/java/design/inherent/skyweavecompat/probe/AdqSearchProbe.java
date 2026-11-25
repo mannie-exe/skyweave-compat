@@ -33,6 +33,29 @@ public final class AdqSearchProbe {
     private Object stoppingState;
     private static volatile boolean nativeFinalizationObserved;
     private static int admissionTick=-1,admissionsAtTick,maxAdmissions;
+    private static net.minecraft.server.level.ServerPlayer lifecycleActor;
+    private static com.mojang.authlib.GameProfile lifecycleProfile;
+    public static void submitLifecycleActor() throws Exception {
+        var previous=lifecycleActor;
+        if(lifecycleProfile==null)lifecycleProfile=new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(),"DeliveryLifecycle");
+        var cookie=new net.minecraft.server.network.CommonListenerCookie(lifecycleProfile,0,
+                net.minecraft.server.level.ClientInformation.createDefault(),false,
+                net.neoforged.neoforge.network.connection.ConnectionType.NEOFORGE);
+        lifecycleActor=ProbePlayers.login(server,cookie);
+        if(previous!=null) {
+            if(previous==lifecycleActor || previous.connection==lifecycleActor.connection
+                    || !previous.getUUID().equals(lifecycleActor.getUUID()))throw new AssertionError("Actual same-player reconnect did not replace its connection");
+            REPORT.addProperty("samePlayerNewConnection",true);
+        }
+        Class.forName("com.ladderstar.adq.QuestGenerator").getMethod("generateNewQuestAsync",ServerLevel.class,java.util.UUID.class)
+                .invoke(null,server.overworld(),lifecycleActor.getUUID());
+    }
+    public static void logoutLifecycleActor() {
+        if(lifecycleActor==null || server.getPlayerList().getPlayer(lifecycleActor.getUUID())!=lifecycleActor)
+            throw new AssertionError("No actual requesting player to log out");
+        server.getPlayerList().remove(lifecycleActor);
+        REPORT.addProperty("requestingPlayerRemovedThroughNativeList",true);
+    }
     public static void admission() {
         if(!server.isSameThread())throw new AssertionError("Actual native ticket mutation left server thread");
         int tick=server.getTickCount();if(admissionTick!=tick){admissionTick=tick;admissionsAtTick=0;}
@@ -68,7 +91,8 @@ public final class AdqSearchProbe {
                 try{var type=Class.forName("com.ladderstar.adq.QuestGenerator");
                     initialQuestCount=((List<?>)type.getMethod("getAvailableQuests").invoke(null)).size();
                     REPORT.addProperty("initialQuestCount",initialQuestCount);inspectPersistence("initial");
-                    type.getMethod("generateNewQuestAsync",ServerLevel.class).invoke(null,server.overworld());
+                    if(Boolean.getBoolean("neighbors.probe.adqLogout"))submitLifecycleActor();
+                    else type.getMethod("generateNewQuestAsync",ServerLevel.class).invoke(null,server.overworld());
                     synchronized(REPORT){REPORT.addProperty("publicEntryReturned",true);}}
                 catch(Throwable failure){synchronized(REPORT){REPORT.addProperty("invocationError",failure.toString());}finished=true;}
             } else {

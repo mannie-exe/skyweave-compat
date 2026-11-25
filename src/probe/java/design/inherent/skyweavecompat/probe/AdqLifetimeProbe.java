@@ -37,7 +37,10 @@ public final class AdqLifetimeProbe {
         boolean generating=(boolean)type.getMethod("isGenerating").invoke(null);
         if(phase==0) {
             if(active==null)throw new AssertionError("Lifecycle control lacks an actual active native search");
-            if(Boolean.getBoolean("neighbors.probe.adqExpiry")) {
+            if(Boolean.getBoolean("neighbors.probe.adqLogout")) {
+                AdqSearchProbe.logoutLifecycleActor();
+                REPORT.addProperty("actualRequestingPlayerLogout",true);
+            }else if(Boolean.getBoolean("neighbors.probe.adqExpiry")) {
                 // Change only fixture time input; production Pre tick must perform cancellation.
                 var deadline=active.getClass().getDeclaredField("deadline");deadline.setAccessible(true);
                 deadline.setLong(active,System.nanoTime()-1);expiredJob=active;
@@ -61,7 +64,8 @@ public final class AdqLifetimeProbe {
         }else if(phase==3 && reservations==0) {
             if(original.isCancelled())throw new AssertionError("Native future was cancelled by adapter");
             REPORT.addProperty("nativeFutureUncancelled",true);REPORT.addProperty("lateResultSettled",true);
-            type.getMethod("generateNewQuestAsync",ServerLevel.class).invoke(null,server.overworld());
+            if(Boolean.getBoolean("neighbors.probe.adqLogout"))AdqSearchProbe.submitLifecycleActor();
+            else type.getMethod("generateNewQuestAsync",ServerLevel.class).invoke(null,server.overworld());
             REPORT.addProperty("successorSubmitted",true);REPORT.addProperty("passed",true);phase=4;
         }
     }

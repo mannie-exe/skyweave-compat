@@ -27,6 +27,7 @@ final class StructureLocatorProbe {
     private static JsonObject selectorRuns;
     private static boolean focusPending;
     private static int queryRadius;
+    private static int cancellationCycles;
     private static final List<design.inherent.skyweavecompat.terrain.structure.StructureRegionCursor> inventories = new ArrayList<>();
 
     static void prepare(MinecraftServer server) throws Exception {
@@ -44,7 +45,7 @@ final class StructureLocatorProbe {
         if (System.getProperty("neighbors.probe.searchFixture", "").equals("policy")) { LocatorPolicyProbe.start(server,destination); return; }
         output = destination; ticks = 0; phase = 0; phaseTick = 0; maxGap = 0; planning = null;
         started = lastTick = runStarted = System.nanoTime(); firstResult = -1; streamedVerification=false; resultWhilePlanning=false; messages.clear();
-        selector=0;selectorRuns=new JsonObject();selectedId=null;inventories.clear();
+        selector=0;cancellationCycles=0;selectorRuns=new JsonObject();selectedId=null;inventories.clear();
         focusPending=System.getProperty("neighbors.probe.searchFixture", "").equals("selectors");
         queryRadius=Integer.getInteger("neighbors.probe.searchRadius",12800);
         var spawn = server.overworld().getSharedSpawnPos();
@@ -276,12 +277,16 @@ final class StructureLocatorProbe {
                 command(server, "cancel");
                 if (!has("cancelled")) throw new AssertionError("Cancellation missing");
                 assertNoSearchTickets(server);
-                for (int retry = 0; retry < 3; retry++) {
-                    command(server, "search 131072 family=villages");
-                    command(server, "cancel");
-                    assertNoSearchTickets(server);
-                }
-                messages.clear(); command(server, "search 1 family=villages"); phase = 3; phaseTick = ticks;
+                phase = 5;
+            } else if (phase == 5 && retired(server)) {
+                messages.clear(); command(server, "search 131072 family=villages");
+                if (!has("started")) throw new AssertionError("Retired locator did not admit cancellation-cycle query");
+                command(server, "cancel"); assertNoSearchTickets(server);
+                if (++cancellationCycles == 3) phase = 6;
+            } else if (phase == 6 && retired(server)) {
+                messages.clear(); command(server, "search 1 family=villages");
+                if (!has("started")) throw new AssertionError("Retired locator did not admit final empty-domain query");
+                phase = 3; phaseTick = ticks;
             } else if (phase == 3 && (has("complete") || has("partial")) && ticks - phaseTick >= 20) {
                 var completion = messages.stream().filter(m -> Set.of("complete","partial").contains(key(m))).findFirst().orElseThrow();
                 command(server, "page");

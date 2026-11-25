@@ -40,6 +40,7 @@ def main():
     parser.add_argument('--extra-mod', type=Path, action='append', default=[], help='Additional explicit read-only artifacts for a bounded startup boundary')
     parser.add_argument('--reform-metadata-version', choices=['0.2.0', '0.3.0', '0.3.99', '0.4.0-rc.1'],
                         help='Standalone fixture only: alter the copied library metadata, preserving its bytecode; this tests admission, not a future binary')
+    parser.add_argument('--adq-future-only', action='store_true', help='Unsupported-version scenarios only: advertise only a synthetic future ADQ; supply real terrain/library inputs explicitly')
     parser.add_argument('--output', type=Path, help='New owned evidence directory; preserve other probe reports')
     parser.add_argument('--fixture-config', type=Path, help='Explicit read-only config tree for this disposable fixture')
     parser.add_argument('--capture-config', action='store_true', help='Retain bounded generated fixture configs with the evidence')
@@ -63,12 +64,17 @@ def main():
     parser.add_argument('--adq-capture-world', action='store_true', help='Retain this disposable ADQ world after normal shutdown for native reopen checks')
     parser.add_argument('--adq-lifetime', action='store_true', help='Hold one fixture-only future proxy, cancel the actual owned job, verify settling admission and native successor')
     parser.add_argument('--adq-expiry', action='store_true', help='With --adq-lifetime, move only the actual fixture job deadline into the past and observe normal tick expiry')
+    parser.add_argument('--adq-logout', action='store_true', help='With --adq-lifetime, cancel through actual requesting-player logout and reconnect the same player before a useful successor')
     parser.add_argument('--adq-rng', type=int, help='Explicit fixture-only native RNG seed for matched comparisons; preserves native algorithm/draws')
     parser.add_argument('--adq-max-ticks', type=int, choices=[3600,7200,12000], default=3600, help='Explicit disposable observation window; product deadlines remain unchanged')
     parser.add_argument('--adq-admission', action='store_true', help='Engineering5+ only: observe actual status ticket mutations per server tick')
     args = parser.parse_args()
+    if args.adq_future_only and not args.scenario.startswith('unsupported-'):
+        parser.error('--adq-future-only requires an unsupported-version scenario')
     if args.adq_expiry and not args.adq_lifetime:
         parser.error('Expiry control requires the separate enabled lifecycle fixture')
+    if args.adq_logout and (not args.adq_lifetime or args.adq_expiry):
+        parser.error('--adq-logout requires --adq-lifetime without --adq-expiry')
     if args.adq_lifetime and (args.adq_search!='route' or args.adq_fault or 'delivery.structure_search' not in args.enable):
         parser.error('Lifecycle control requires a separate enabled ADQ route fixture')
     if (args.adq_world or args.adq_capture_world) and (args.adq_search!='route' or args.adq_fault):
@@ -145,8 +151,9 @@ def main():
             # Our own metadata-only fixture advertises future targets without providing their classes.
             # Disabled adapters must neither reject their versions nor resolve their APIs.
             metadata = 'modLoader="lowcodefml"\nloaderVersion="[1,)"\nlicense="Apache-2.0"\n'
-            for target in ['bettervillage', 'libraryferret', 'sky_archipelago', 'skyvillages', 'architectury', 'sable', 'aeronautics_delivery_quests',
-                           'distanthorizons', 'bluemap', 'surveyor', 'lithostitched', 'yungsapi', 'betterdeserttemples', 'betterjungletemples', 'bettermineshafts', 'betterwitchhuts', 'betteroceanmonuments', 'analogaudio', 'analoglib', 'yigd', 'create', 'veil', 'iris', 'sodium', 'aeronautics', 'questlog', 'sabledynlights', 'lambdynlights', 'colorwheel', 'flywheel', 'linearbearing', 'linearbearingsfix', 'simulated', 'aeronautics_utility_objects', 'fusion', 'rechiseled', 'mcwbridges', 'ssrd', 'variantsandventures', 'kaleidoscope_cookery', 'create_aeronautics_throwable_rope_connector']:
+            future_targets = ['aeronautics_delivery_quests'] if args.adq_future_only else ['bettervillage', 'libraryferret', 'sky_archipelago', 'skyvillages', 'architectury', 'sable', 'aeronautics_delivery_quests',
+                           'distanthorizons', 'bluemap', 'surveyor', 'lithostitched', 'yungsapi', 'betterdeserttemples', 'betterjungletemples', 'bettermineshafts', 'betterwitchhuts', 'betteroceanmonuments', 'analogaudio', 'analoglib', 'yigd', 'create', 'veil', 'iris', 'sodium', 'aeronautics', 'questlog', 'sabledynlights', 'lambdynlights', 'colorwheel', 'flywheel', 'linearbearing', 'linearbearingsfix', 'simulated', 'aeronautics_utility_objects', 'fusion', 'rechiseled', 'mcwbridges', 'ssrd', 'variantsandventures', 'kaleidoscope_cookery', 'create_aeronautics_throwable_rope_connector']
+            for target in future_targets:
                 metadata += f'[[mods]]\nmodId="{target}"\nversion="999.0.0"\ndisplayName="Fixture {target}"\n'
             with zipfile.ZipFile(run / 'mods/future-targets-fixture.jar', 'w') as fixture:
                 fixture.writestr('META-INF/neoforge.mods.toml', metadata)
@@ -222,6 +229,7 @@ def main():
             # One known target owns this refusal; unrelated newer adapters stay disabled.
             keys = re.findall(r'\("([a-z0-9_]+(?:\.[a-z0-9_]+)+)"', (ROOT / 'src/main/java/design/inherent/skyweavecompat/Feature.java').read_text())
             enabled = set(args.enable or ['navigation.wayfinder'])
+            if args.adq_future_only: enabled.add('terrain.preset') # Real prerequisite; future ADQ remains the refusal owner.
             (run / 'config/skyweave/skyweave_compat-features.properties').write_text(
                 ''.join(f'{key}={str(key in enabled).lower()}\n' for key in keys))
         if args.enable:
@@ -288,6 +296,7 @@ def main():
             if args.adq_rng is not None:command.insert(1,'-Dneighbors.probe.adqRng='+str(args.adq_rng))
             if args.adq_lifetime:command.insert(1,'-Dneighbors.probe.adqLifetime=true')
             if args.adq_expiry:command.insert(1,'-Dneighbors.probe.adqExpiry=true')
+            if args.adq_logout:command.insert(1,'-Dneighbors.probe.adqLogout=true')
             if 'delivery.structure_search' in args.enable:
                 command.insert(1, '-Dneighbors.probe.adqBridge=true')
             if args.adq_search == 'first-read':
