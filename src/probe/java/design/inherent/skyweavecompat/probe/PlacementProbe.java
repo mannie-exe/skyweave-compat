@@ -342,6 +342,10 @@ public final class PlacementProbe {
                 settleTicks = 40;
                 return;
             }
+            if (!System.getProperty("neighbors.probe.snowClimate", "").isEmpty()) {
+                SnowClimateProbe.run(server, Path.of(System.getProperty("neighbors.probe.output")));
+                return;
+            }
             if (Boolean.getBoolean("neighbors.probe.surfaceClimate")) {
                 SurfaceClimateProbe.run(server, Path.of(System.getProperty("neighbors.probe.output")));
                 return;

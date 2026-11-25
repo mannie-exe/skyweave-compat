@@ -10,6 +10,8 @@ public final class ClientDistanceMixinPlugin implements IMixinConfigPlugin {
     public void onLoad(String name) {}
     public String getRefMapperConfig() { return null; }
     public boolean shouldApplyMixin(String target, String mixin) {
+        if (mixin.endsWith(".BowDurationWitnessMixin")) return Boolean.getBoolean("skyweave_compat.probe.bowHandoff")
+                && net.neoforged.fml.loading.LoadingModList.get().getModFileById("modefite") != null;
         if (mixin.substring(mixin.lastIndexOf('.')+1).startsWith("LightCache")) return Boolean.getBoolean("skyweave_compat.probe.lightCache");
         if (mixin.endsWith(".MouseTweaksWitnessMixin")) return Boolean.getBoolean("skyweave_compat.probe.ipn")
                 && net.neoforged.fml.loading.LoadingModList.get().getModFileById("mousetweaks") != null;

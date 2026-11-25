@@ -13,6 +13,34 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class FeatureSelectionTest {
+    @Test void snowConsumersRequireTheirActualProviderAndClimate() {
+        for (var feature : List.of(Feature.SNOW_REAL_MAGIC_CLIMATE, Feature.SNOW_UNDER_TREES_CLIMATE)) {
+            var mods = new HashMap<String,String>(FeatureSelection.dependencies(feature)); mods.put("sky_archipelago", "1.4");
+            var settings = only(Feature.TERRAIN, Feature.CLIMATE, feature);
+            assertTrue(FeatureSelection.select(settings, mods, false).enabled(feature));
+            assertFalse(FeatureSelection.select(only(feature), mods, false).enabled(feature));
+            String provider = FeatureSelection.dependencies(feature).keySet().iterator().next();
+            mods.put(provider, "future");
+            assertThrows(IllegalStateException.class, () -> FeatureSelection.select(settings, mods, false));
+            assertFalse(FeatureSelection.select(only(Feature.TERRAIN, Feature.CLIMATE), mods, false).enabled(feature));
+            mods.remove(provider);
+            assertFalse(FeatureSelection.select(settings, mods, false).enabled(feature));
+        }
+    }
+    @Test void bowHandoffIsExactlyOptionalAndClientScoped() {
+        var feature = Feature.BOW_MODEL_HANDOFF;
+        var mods = new HashMap<String,String>(FeatureSelection.dependencies(feature));
+        assertTrue(FeatureSelection.select(only(feature), mods, true).enabled(feature));
+        assertTrue(FeatureSelection.select(only(feature), mods, false).mixins(false).isEmpty());
+        for (var provider : List.of("punchy", "modefite")) {
+            var changed = new HashMap<>(mods); changed.put(provider, "future");
+            assertThrows(IllegalStateException.class, () -> FeatureSelection.select(only(feature), changed, true));
+            assertTrue(FeatureSelection.select(only(), changed, true).mixins(true).isEmpty());
+            changed.remove(provider);
+            assertTrue(FeatureSelection.select(only(feature), changed, true).mixins(true).isEmpty());
+        }
+    }
+
     @Test void grassriseRecipesAreExactOptionalAndClientOnly() {
         var feature=Feature.GRASSRISE_SHADERS;
         var versions=Map.of("grassrise_better_lighting","2.0.0","iris","1.8.14-beta.1+mc1.21.1","sodium","0.8.13+mc1.21.1");

@@ -78,6 +78,7 @@ parser.add_argument('--clearance-cost', action='store_true', help='With --benchm
 parser.add_argument('--clearance-oracle', action='store_true', help='With --clearance-cost, compare presence against full native exterior columns outside timed intervals')
 parser.add_argument('--clearance-jfr', action='store_true', help='With --clearance-cost, capture diagnostic JFR; omit for comparison timings')
 mode.add_argument('--generation', choices=['current', 'adapted', 'vanilla'], help='Generate and count bounded interior chunk samples')
+mode.add_argument('--snow-climate', choices=['original', 'repaired'], help='Compare actual SRM/Snow Under Trees predicates and writes in an owned island fixture')
 mode.add_argument('--surface-climate', action='store_true', help='Inspect contiguous surface biomes and native snow placement')
 mode.add_argument('--habitats', action='store_true', help='Exercise native island habitat predicates in controlled physical fixtures')
 mode.add_argument('--floe-layers', action='store_true', help='Exercise the actual cached-node floe spawner on two physical water layers')
@@ -150,6 +151,7 @@ parser.add_argument('--seed', type=int, default=1)
 parser.add_argument('--search-fixture', choices=['mixed', 'cap', 'time', 'lifecycle', 'selectors', 'policy'], help='With --structure-search, test mixed placements, candidate/time exhaustion, native caller/world lifecycle, family/ID/tag selectors, or active policy publication')
 parser.add_argument('--terrain-seed', type=int, help='Survey this exact seed instead of the five-seed terrain comparison')
 parser.add_argument('--maximum-gap', type=int, default=128)
+parser.add_argument('--snow-world', choices=['owned','vanilla','skyarch','mixed'], default='owned', help='With --snow-climate, qualify actual foreign-generator/type admission')
 parser.add_argument('--disable-climate-adapter', action='store_true', help='Disable only the climate adaptation in the disposable fixture')
 parser.add_argument('--disable-carver-adapter', action='store_true',
                     help='Disable the relative-carving adaptation in the disposable startup configuration')
@@ -258,7 +260,7 @@ if args.oceans and not args.ocean_config:
     parser.error('--oceans requires --ocean-config')
 if args.minimal and args.generation != 'adapted' and not any((args.city_recipe, args.wayfinder, args.access, args.perimeter, args.hydrology, args.variation, args.structure_search, args.locator, args.settings_policy, args.lookup, args.coverage, args.structures, args.surface_structures, args.overlap, args.interiors, args.veins, args.water, args.materials, args.oceans, args.habitats, args.floe_layers, args.biomes, args.surface_climate, args.terrain, args.benchmark, args.village_support, args.natural_inputs, args.ground_village)):
     parser.error('--minimal requires a terrain, coverage, structure, interior, vein, water or material check')
-if args.reopen and not (args.village_composition or args.benchmark or args.fractured_hollow or args.variation or args.city_recipe or args.quests or args.access or args.ocean_fringes or args.structure_search or args.hydrology or args.lookup or args.generation or args.natural or args.structures or args.surface_structures or args.water or args.oceans or args.village_support or args.natural_inputs or args.ground_village):
+if args.reopen and not (args.snow_climate or args.village_composition or args.benchmark or args.fractured_hollow or args.variation or args.city_recipe or args.quests or args.access or args.ocean_fringes or args.structure_search or args.hydrology or args.lookup or args.generation or args.natural or args.structures or args.surface_structures or args.water or args.oceans or args.village_support or args.natural_inputs or args.ground_village):
     parser.error('--reopen requires a benchmark, generation, natural villages, structures, water or ocean fringes')
 if args.natural_profile != 'current' and not args.natural:
     parser.error('--natural-profile requires --natural')
@@ -363,6 +365,7 @@ if args.water: name = f'water-{args.seed}-{args.fluid_ticks}'
 if args.materials: name = f'materials-{args.seed}'
 if args.ecology: name = f'ecology-{args.seed}'
 if args.oceans: name = f'oceans-{args.seed}-{args.fluid_ticks}'
+if args.snow_climate: name = f'snow-climate-{args.snow_climate}-{args.seed}'
 if args.surface_climate: name = f'surface-climate-{args.seed}'
 if args.chunk_futures: name = f'chunk-futures-{args.seed}'
 if args.dh_pregen: name = f'dh-pregen-{args.seed}'
@@ -566,6 +569,8 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
                 feature_settings[key.strip()] = value.strip()
     if args.disable_cave_biomes:
         feature_settings['terrain.cave_biomes'] = 'false'
+    if args.snow_climate == 'original':
+        feature_settings.update({'snow_real_magic.island_climate':'false', 'snow_under_trees.island_climate':'false'})
     if args.disable_climate_adapter:
         feature_settings['terrain.climate'] = 'false'
     if args.disable_sable_climate:
@@ -612,7 +617,7 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
     # Reuse the owner's existing EULA acceptance; never create acceptance implicitly.
     shutil.copy2(server / 'eula.txt', run / 'eula.txt')
     preset = {'current': 'sky_archipelago:sky_islands', 'adapted': 'skyweave_compat:islands_v1', 'vanilla': 'minecraft:normal'}.get(args.generation, ('skyweave_compat:islands_v1' if args.natural_profile == 'adapted' else 'sky_archipelago:sky_islands') if args.natural else 'minecraft:flat')
-    if args.access or args.perimeter or args.hydrology or args.variation or args.structure_search or args.locator or args.lookup or args.structures or args.surface_structures or args.coverage or args.benchmark or args.habitats or args.floe_layers or args.sable_climate or args.biomes or args.surface_climate or args.mechanics or args.islands or args.chunk_futures or args.dh_pregen: preset = 'skyweave_compat:islands_v1'
+    if args.access or args.perimeter or args.hydrology or args.variation or args.structure_search or args.locator or args.lookup or args.structures or args.surface_structures or args.coverage or args.benchmark or args.habitats or args.floe_layers or args.sable_climate or args.biomes or args.snow_climate or args.surface_climate or args.mechanics or args.islands or args.chunk_futures or args.dh_pregen: preset = 'skyweave_compat:islands_v1'
     if args.city_recipe or args.overlap or args.interiors or args.veins or args.water or args.materials or args.ecology or args.oceans or args.village_pools or args.village_support or args.natural_inputs or args.ground_village or args.yung: preset = 'skyweave_compat:islands_v1'
     (run / 'server.properties').write_text('\n'.join([
         'server-ip=127.0.0.1', 'server-port=0', 'online-mode=false',
@@ -620,6 +625,16 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
         f'generate-structures={str(args.lookup or args.natural or args.structure_search or args.chunk_futures or args.structures or args.surface_structures or args.dh_pregen or args.benchmark or args.natural_inputs or args.ground_village).lower()}', 'view-distance=2',
         'max-tick-time=0', '',
     ]))
+    if args.snow_climate and args.snow_world != 'owned':
+        preset = {'vanilla':'minecraft:flat','skyarch':'sky_archipelago:sky_islands','mixed':'skyweave_probe:mixed'}[args.snow_world]
+        properties=run/'server.properties'
+        properties.write_text(re.sub(r'(?m)^level-type=.*$', 'level-type='+preset, properties.read_text()))
+        if args.snow_world == 'mixed':
+            definitions=json.loads((ROOT/'src/main/resources/packs/terrain/data/skyweave_compat/worldgen/world_preset/islands_v1.json').read_text())
+            definitions['dimensions']['minecraft:overworld']['generator']={'type':'minecraft:flat','settings':{'biome':'minecraft:birch_forest','lakes':False,'features':False,'layers':[{'height':1,'block':'minecraft:bedrock'},{'height':2,'block':'minecraft:dirt'},{'height':1,'block':'minecraft:grass_block'}]}}
+            snow_fixture=run/'probe-world/datapacks/snow-foreign'
+            for relative,value in {'pack.mcmeta':{'pack':{'pack_format':48,'description':'Owned mixed-generator snow control'}},'data/skyweave_probe/worldgen/world_preset/mixed.json':definitions}.items():
+                target=snow_fixture/relative;target.parent.mkdir(parents=True,exist_ok=True);target.write_text(json.dumps(value)+'\n')
     if args.wayfinder_high:
         fixture_pack = run / 'probe-world/datapacks/wayfinder-heights'
         dimension = json.loads((ROOT / 'src/main/resources/packs/terrain/data/skyweave_compat/dimension_type/islands_v1.json').read_text())
@@ -734,6 +749,8 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
                f'-Dneighbors.probe.clearanceCost={str(args.clearance_cost).lower()}',
                f'-Dneighbors.probe.clearanceJfr={str(args.clearance_jfr).lower()}',
                f'-Dneighbors.probe.clearanceOracle={str(args.clearance_oracle).lower()}',
+               f'-Dneighbors.probe.snowWorld={args.snow_world}',
+               f'-Dneighbors.probe.snowClimate={args.snow_climate or ""}',
                f'-Dneighbors.probe.surfaceClimate={str(args.surface_climate).lower()}',
                f'-Dneighbors.probe.habitats={str(args.habitats).lower()}',
                f'-Dneighbors.probe.floeLayers={str(args.floe_layers).lower()}',
@@ -983,6 +1000,8 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
                              'savedFull':row['stages']['minecraft:full']} for row in data['witnesses']]
                 if args.variation:
                     return [(row['position'],row['savedBlockDigest']) for row in data['samples']]
+                if args.snow_climate:
+                    return data['rows']
                 if args.city_recipe:
                     return data['assemblies']
                 if args.ground_village:
@@ -1032,7 +1051,7 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
                 return [(sample['x'], sample['z'], {key: value for key, value in sample['blocks'].items()
                         if key.endswith('_ore')}) for sample in data['samples']]
             match_key = ('reopenCompositionMatch' if args.village_composition else 'reopenBenchmarkMatch' if args.benchmark else 'reopenFracturedCavitiesMatch' if args.fractured_hollow else 'reopenQuestClaimsMatch' if args.quests else 'reopenSpawnMatches' if args.access else 'reopenFringeMaterialsMatch' if args.ocean_fringes else 'reopenSavedStartsMatch' if args.structure_search else 'reopenHydrologyMatch' if args.hydrology else 'reopenLookupMatch' if args.lookup else
-                         'reopenGroundVillageMatch' if args.ground_village else 'reopenNaturalInputsMatch' if args.natural_inputs else 'reopenVillageSupportMatch' if args.village_support else 'reopenWaterOwnershipMatch' if args.water or args.oceans else
+                         'reopenSnowRowsMatch' if args.snow_climate else 'reopenGroundVillageMatch' if args.ground_village else 'reopenNaturalInputsMatch' if args.natural_inputs else 'reopenVillageSupportMatch' if args.village_support else 'reopenWaterOwnershipMatch' if args.water or args.oceans else
                          'reopenStructuresMatch' if args.structures or args.surface_structures else
                          'reopenVariationMatches' if args.variation else 'reopenVillagesMatch' if args.natural else 'reopenCityAssemblyMatch' if args.city_recipe else 'reopenOreCountsMatch')
             if args.search_planning and 'planning' in first:
@@ -1168,6 +1187,9 @@ if args.islands:
     raise SystemExit(0)
 if args.benchmark:
     print('Native bounded benchmark:', report)
+    raise SystemExit(0)
+if args.snow_climate:
+    print('Native snow climate:', report)
     raise SystemExit(0)
 if args.surface_climate:
     print('Surface climate survey:', report)

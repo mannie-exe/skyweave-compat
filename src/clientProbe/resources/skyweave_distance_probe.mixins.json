@@ -28,6 +28,7 @@
     "LightCacheApplyMixin",
     "LightCacheHandoffMixin",
     "LightCacheEngineAccess",
-    "LightCacheQueueMixin"
+    "LightCacheQueueMixin",
+    "BowDurationWitnessMixin"
   ]
 }

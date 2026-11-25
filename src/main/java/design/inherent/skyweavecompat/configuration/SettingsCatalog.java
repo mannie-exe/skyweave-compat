@@ -19,6 +19,7 @@ public final class SettingsCatalog {
         FTB_LIBRARY(Category.INVENTORY, "ftblibrary"), JOURNAL(Category.INTERFACE, "questlog"), AUDIO_CLIENT(Category.AUDIO, "analog_audio"),
         DH_CLIENT(Category.MAPS, "distant_horizons"), SABLE_CLIENT(Category.RENDERING, "sable"),
         GRASSRISE(Category.RENDERING, "grassrise"), VEIL(Category.RENDERING, "veil"), IRIS(Category.RENDERING, "iris"),
+        PUNCHY(Category.RENDERING, "punchy"),
         PLAYER_ANIMATION(Category.RENDERING, "punchy_moves"), MODEFITE(Category.RENDERING, "modefite"),
         SSRD(Category.MAPS, "ssrd"), COLORWHEEL(Category.RENDERING, "colorwheel"), LIGHTS(Category.RENDERING, "lighting"),
         CREATE_CLIENT(Category.RENDERING, "create"), FUSION(Category.RENDERING, "fusion"),
@@ -35,6 +36,7 @@ public final class SettingsCatalog {
         DELIVERY(Category.SHIPS, "delivery"), QUESTLOG_SERVER(Category.INTERFACE, "questlog"),
         HOOFPRINT(Category.MAPS, "hoofprint"), DH(Category.MAPS, "distant_horizons"), BLUEMAP(Category.MAPS, "bluemap"), SURVEYOR(Category.MAPS, "surveyor"),
         BETTER_VILLAGE(Category.WORLD, "bettervillage"), C2ME(Category.WORLD, "c2me"), TERRAIN(Category.WORLD, "sky_archipelago"), LITHOSTITCHED(Category.WORLD, "lithostitched"), YUNG(Category.WORLD, "yungsapi"), YUNG_MINESHAFTS(Category.WORLD, "bettermineshafts"), YUNG_WITCH_HUTS(Category.WORLD, "betterwitchhuts"), WATERSHEDS(Category.WORLD, "dynamic_waters"), ISLAND_SKY(Category.RENDERING, "sky_archipelago"), VILLAGES(Category.WORLD, "sky_villages"),
+        SNOW_REAL_MAGIC(Category.WORLD, "snow_real_magic"), SNOW_UNDER_TREES(Category.WORLD, "snow_under_trees"),
         PRESSURE(Category.SHIPS, "sable"), WATER_SHIPS(Category.SHIPS, "dynamic_waters");
         public final Category category;
         public final String label;
@@ -227,6 +229,9 @@ public final class SettingsCatalog {
             case EFFORTLESS_KEY_MODIFIERS -> Group.EFFORTLESS_INPUT;
             case POWER_GRID_KEY_MODIFIERS -> Group.POWER_GRID_INPUT;
             case MODEL_ROTATIONS, ITEM_DEFINITIONS -> Group.MODEFITE;
+            case BOW_MODEL_HANDOFF -> Group.PUNCHY;
+            case SNOW_REAL_MAGIC_CLIMATE -> Group.SNOW_REAL_MAGIC;
+            case SNOW_UNDER_TREES_CLIMATE -> Group.SNOW_UNDER_TREES;
             case PATROL_CHANCE, VARIANT_SPAWNERS, VARIANT_TRIAL_ALIASES, MURK_WATER -> Group.ENCOUNTERS;
             case MOVES_TOUCH_MOTION -> Group.PLAYER_ANIMATION;
             case BETTER_VILLAGE_CONFIG -> Group.BETTER_VILLAGE;

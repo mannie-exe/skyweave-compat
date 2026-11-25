@@ -103,7 +103,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                     DELIVERY_CHUNKS, DELIVERY_LANDING -> Feature.TERRAIN;
             case COLORWHEEL_MATERIALS -> Feature.MATERIAL_IDS;
             case DYNAMIC_WATERS_SABLE -> Feature.DYNAMIC_WATERS;
-            case SABLE_CLIMATE -> Feature.CLIMATE;
+            case SABLE_CLIMATE, SNOW_REAL_MAGIC_CLIMATE, SNOW_UNDER_TREES_CLIMATE -> Feature.CLIMATE;
             case LINEAR_PONDER, LINEAR_JADE -> Feature.LINEAR_CARRIAGE;
             case LINKAGE_JADE -> Feature.LINKAGE_INTERACTIONS;
             case LINK_GUI_SABLE -> Feature.LINK_GUI_INTERACTIONS;
@@ -114,7 +114,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
 
     public static boolean clientOnly(Feature feature) {
         return switch (feature) {
-            case C2ME_CLIENT_LIGHT -> true;
+            case C2ME_CLIENT_LIGHT, BOW_MODEL_HANDOFF -> true;
             case WAYFINDER_DH, MAIN_MENU_IDENTITY, IPN_TEXT_INPUT, MOVES_KEY_MODIFIERS, EFFORTLESS_KEY_MODIFIERS, POWER_GRID_KEY_MODIFIERS, CREATE_COPYCAT_BACKFACES, COPYCATS_BACKFACES, MOVES_TOUCH_MOTION, HAND_EFFECTS, HELD_MATERIALS, MODEL_ROTATIONS, ITEM_DEFINITIONS, CONSTRUCT_COVERAGE -> true;
             case GRASSRISE_SHADERS, HOOFPRINT_ZOOM, ISLAND_CLOUDS, ISLAND_VOID, ISLAND_SHADER_ENVIRONMENT, CONFECTIONERY_BACKFACES, BUBBLE_GUM_BACKFACES, ORNATE_GRATE_BACKFACES, INDUSTRIAL_GRATING_BACKFACES, MACAW_GLASS, CONSTRUCT_DISTANCE, CONSTRUCT_OCCLUSION, SHADER_PATCHES, TEXT_DISPLAY_LIGHTING, NAMETAG_LIGHTING, TEXT_DISPLAY_SHADOW, NAMETAG_SHADOW, CREATE_BACKFACES, FUSION_BACKFACES, CREATE_WINDOWS, RECHISELED_GLASS, AUDIO_TIMELINE, LINEAR_PONDER, COLORWHEEL_SAMPLERS, COLORWHEEL_MATERIALS, LIGHTING_LIFECYCLE, SODIUM_LIGHTING, DH_HANDOFF, FRAMEBUFFER, MATERIAL_IDS, MODEL_DATA, SINGLE_BLOCK_PASSES,
                     FTB_CREATIVE_RETURN, QUESTLOG_INTERFACE, QUESTLOG_NOTIFICATIONS -> true;
@@ -131,6 +131,9 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             case MOVES_KEY_MODIFIERS -> Map.of("punchy_moves", "1.0.9b");
             case EFFORTLESS_KEY_MODIFIERS -> Map.of("effortlessbuilding", "4.2");
             case POWER_GRID_KEY_MODIFIERS -> Map.of("powergrid", "0.6.2");
+            case SNOW_REAL_MAGIC_CLIMATE -> Map.of("snowrealmagic", "12.2.7+neoforge");
+            case SNOW_UNDER_TREES_CLIMATE -> Map.of("snowundertrees", "1.7");
+            case BOW_MODEL_HANDOFF -> Map.of("punchy", "3.2b", "modefite", "1.0.1+1.21.1");
             case MODEL_ROTATIONS, ITEM_DEFINITIONS -> Map.of("modefite", "1.0.1+1.21.1");
             case PATROL_CHANCE -> Map.of();
             case VARIANT_SPAWNERS -> Map.of("variantsandventures", "1.0.30");
@@ -287,7 +290,10 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                         "water.WaterGeneratorMixin", "water.WaterFieldMixin", "water.WaterEnvelopeMixin",
                         "water.WaterBiomeMixin", "water.WaterFlowMixin", "water.WaterOceanFlowMixin", "water.WaterProjectionMixin", "water.WaterStoreMixin", "water.WaterColumnQueryMixin", "water.WaterCutOwnershipMixin", "water.WaterRepairMixin");
                 case DYNAMIC_WATERS_SABLE -> List.of("water.WaterSableMixin");
+                case BOW_MODEL_HANDOFF -> List.of("client.bow.BowModelContextMixin", "client.bow.BowUseDurationMixin", "client.bow.PunchyBowRenderContextMixin");
                 case SABLE_CLIMATE -> List.of("SableClimateMixin");
+                case SNOW_REAL_MAGIC_CLIMATE -> List.of("snow.SnowExtraClimateMixin", "snow.SnowRuntimeClimateMixin");
+                case SNOW_UNDER_TREES_CLIMATE -> List.of("snow.TreeSnowClimateMixin");
                 case ISLAND_SHADER_ENVIRONMENT -> List.of("client.IslandShaderEnvironmentMixin", "client.ShaderClimateMixin");
                 case ISLAND_CLOUDS -> List.of();
                 case ISLAND_VOID -> List.of("client.IslandVoidFogMixin", "client.IslandVoidSkyMixin");

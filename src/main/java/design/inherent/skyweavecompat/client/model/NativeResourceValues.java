@@ -99,6 +99,9 @@ final class NativeResourceValues implements ResourceDefinitions.Values<ResourceC
         var metadata = stub(definition, RangeDispatchDefinition.Definition.class);
         var id = ResourceLocation.parse(property);
         // The resource program applies scale once, after the unscaled property value.
+        if (property.equals("minecraft:use_duration"))
+            return input -> BowModelContext.query(input.stack(), input.entity(), input.display(),
+                    () -> RangePropertyRegistry.resolve(id, input.stack(), input.entity(), metadata));
         return input -> RangePropertyRegistry.resolve(id, input.stack(), input.entity(), metadata);
     }
 
