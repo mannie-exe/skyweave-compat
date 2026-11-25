@@ -41,6 +41,12 @@ final class ClientGrassriseProbe {
                 {"Photon v1.4 + Skyweave 0.3.1.zip","photon"}}) {
                 var row=new JsonObject();row.addProperty("name",selection[0]);families.add(row);
                 Iris.getIrisConfig().setShaderPackName(selection[0]);Iris.getIrisConfig().setShadersEnabled(true);Iris.getIrisConfig().save();Iris.reload();
+                if(Boolean.getBoolean("skyweave_compat.probe.grassrise.disabled")) {
+                    require(GrassriseRecipes.family(selection[0])==null && RuntimeGate.prepareForShaderLoad()==null
+                        && !RuntimeGate.shouldMarkGrassriseGeometry(),"Explicit false must retain native unsupported fallback");
+                    row.addProperty("disabledNativeFallback",true);
+                    Iris.getIrisConfig().setShadersEnabled(false);Iris.getIrisConfig().save();Iris.reload();continue;
+                }
                 require(selection[1].equals(GrassriseRecipes.family(selection[0])),"Verify actual archive/recipe/receipt identity");
                 var adapter=RuntimeGate.prepareForShaderLoad();require(adapter!=null && selection[1].equals(adapter.familyId()),"Native adapter classification");
                 require(!RuntimeGate.shouldMarkGrassriseGeometry(),"No marker before successful source transform");
