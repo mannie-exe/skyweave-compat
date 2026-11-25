@@ -12,6 +12,7 @@ public final class AdqSearchProbePlugin implements IMixinConfigPlugin {
         if(!Boolean.getBoolean("neighbors.probe.adqSearch"))return List.of();
         var result=new java.util.ArrayList<>(List.of("AdqLocateWitnessMixin","AdqChunkWitnessMixin"));
         if(Boolean.getBoolean("neighbors.probe.adqBridge"))result.add("AdqBridgeWitnessMixin");
+        if(System.getProperty("neighbors.probe.adqRng")!=null)result.add("AdqRandomControlMixin");
         switch(System.getProperty("neighbors.probe.adqFault","")) {
             case "search-ticket" -> result.add("AdqSearchTicketFaultMixin");
             case "endpoint-ticket" -> result.add("AdqEndpointTicketFaultMixin");

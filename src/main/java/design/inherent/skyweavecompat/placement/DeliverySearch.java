@@ -227,6 +227,7 @@ public final class DeliverySearch {
         final CompletableFuture<ChunkResult<ChunkAccess>> delivered=new CompletableFuture<>();
         final long deadline;
         boolean ticket;
+        volatile boolean completed;
         volatile ChunkAccess cached;
         Request(Job job,int x,int z,ChunkStatus status,boolean create){this.job=job;position=new ChunkPos(x,z);this.status=status;this.create=create;deadline=Math.min(job.deadline,System.nanoTime()+REQUEST_NANOS);}
         void fail(Throwable error){admitted.completeExceptionally(error);delivered.completeExceptionally(error);}
@@ -247,6 +248,7 @@ public final class DeliverySearch {
         var request=await(job.server.submit(()->{
             job.requireOpen();
             if(scope.closed)throw new CancellationException("Delivery producer already returned");
+            if(job.pending!=null && job.pending.completed)release(job.pending);
             if(job.pending!=null)throw new IllegalStateException("Delivery already has an outstanding status request");
             if(job.requests>=MAX_REQUESTS)throw new RejectedExecutionException("Delivery status-request budget exhausted; defer this attempt");
             job.requests++;var value=new Request(job,x,z,status,create);job.pending=value;
@@ -254,9 +256,10 @@ public final class DeliverySearch {
             return value;
         }),Math.min(job.deadline,System.nanoTime()+REQUEST_NANOS));
         long deadline=request.deadline;
+        boolean completed=false;
         try {
             await(request.admitted,deadline);job.requireOpen();
-            if(request.cached!=null)return request.cached;
+            if(request.cached!=null){completed=true;return request.cached;}
             // This method's worker branch schedules registration without managedBlocking the server.
             var nativeFuture=bound(scope,false,request,()->nativeRequest(job,()->cache.getChunkFuture(x,z,status,create)));
             var weak=new WeakReference<>(request);
@@ -269,9 +272,15 @@ public final class DeliverySearch {
             var result=await(request.delivered,deadline);job.requireOpen();
             var chunk=result.orElse(null);
             if(chunk==null && create)throw new IllegalStateException("Delivery chunk request failed: "+result.getError());
+            completed=true;
             return chunk;
         } catch(RuntimeException error) {job.requestCancellation(error.toString());throw error;}
-        finally {execute(job,()->release(request));}
+        finally {
+            // Keep at most the last successful status ticket until the next read or job retirement.
+            // This preserves native holder readiness across consecutive cached locator reads.
+            if(completed && job.valid())request.completed=true;
+            else execute(job,()->release(request));
+        }
     }
     private static boolean ready(Request request) {
         var job=request.job;

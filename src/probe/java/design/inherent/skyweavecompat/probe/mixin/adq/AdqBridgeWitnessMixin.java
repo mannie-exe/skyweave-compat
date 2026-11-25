@@ -21,7 +21,11 @@ public abstract class AdqBridgeWitnessMixin {
         row.addProperty("actualOwnedIntercept",DeliverySearch.intercept(cache));
         if(!DeliverySearch.intercept(cache) || DeliverySearch.token()==null)throw new AssertionError("Bridge observer lacks the actual owned locator");
         AdqSearchProbe.REQUEST.set(row);
-        try{return original.call(cache,x,z,status,create);}
+        try {
+            var result=original.call(cache,x,z,status,create);row.addProperty("returnedChunkPresent",result!=null);
+            if(result!=null){row.addProperty("returnedChunkPosition",result.getPos().toLong());row.addProperty("returnedChunkStatus",result.getPersistedStatus().toString());}
+            return result;
+        }catch(RuntimeException error){row.addProperty("actualReadFailure",error.toString());throw error;}
         finally{AdqSearchProbe.REQUEST.remove();AdqSearchProbe.end(row);}
     }
 }

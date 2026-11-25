@@ -10,6 +10,8 @@ The job policies are 32,768 status requests, ten minutes overall, and sixty seco
 
 Search tickets and endpoint tickets have separate owners. Record ownership before calling a native ticket mutation, so an exception after insertion can still release the ticket. Never remove unrelated tickets. Endpoint neighborhoods remain held until native registration returns or the attempt fails. World unload, requesting-player logout, server shutdown, failure, and expiry retire the corresponding job; late continuations must not publish into a replacement job or reset its generating flag. The adapter closes its worker on server shutdown.
 
+Keep at most the last successful structure-status ticket until the next native read or job retirement. Inspect the native holder before admitting the next request; do not retain an independent chunk-result cache. This avoids immediately discarding native readiness between consecutive reads while keeping ticket and request ownership bounded.
+
 ## Qualification boundary
 
 The current engineering candidate passes native public village-route generation, actual quest-file persistence and saved-world reopening, ticket insertion fault controls, and a delayed-result cancellation/successor control. The latter holds a fixture-only proxy, leaves the original native future untouched, and checks admission while retired work is still settling. A minimum current C2ME/NoTick cohort also creates and saves a real quest. These checks do not establish complete pack delivery gameplay, ordinary full-pack performance, or default-on readiness.

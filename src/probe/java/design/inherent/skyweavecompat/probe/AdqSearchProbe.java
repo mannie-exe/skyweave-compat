@@ -10,6 +10,8 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
+import net.neoforged.neoforge.event.server.ServerStoppingEvent;
+import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 /** Native route and request observations in a marked disposable world. Never part of the product. */
@@ -25,11 +27,22 @@ public final class AdqSearchProbe {
     private int initialQuestCount;
     private final boolean route=Boolean.getBoolean("neighbors.probe.adqRoute");
     private long previousTick,maxInterTickNanos;
+    private long beganNanos,processCpuAtStart,serverCpuAtStart;
+    private Object stoppingState;
+    private static volatile boolean nativeFinalizationObserved;
+    public static void nativeFinished(){nativeFinalizationObserved=true;}
     public static MinecraftServer server(){return server;}
     public AdqSearchProbe() {
         REPORT.add("requests",REQUESTS);
         REPORT.addProperty("scope","Actual ADQ locate/chunk/future correlation; optional first-read abort is observer-only, not route success or performance acceptance");
         NeoForge.EVENT_BUS.addListener((ServerStartedEvent event)->server=event.getServer());
+        NeoForge.EVENT_BUS.addListener(net.neoforged.bus.api.EventPriority.HIGHEST,(ServerStoppingEvent event)->{
+            if(event.getServer()!=server || !Boolean.getBoolean("neighbors.probe.adqBridge"))return;
+            try{stoppingState=ownedStates().get(server);}catch(Exception error){throw new IllegalStateException(error);}
+        });
+        NeoForge.EVENT_BUS.addListener(net.neoforged.bus.api.EventPriority.LOWEST,(ServerStoppedEvent event)->{
+            if(event.getServer()==server && Boolean.getBoolean("neighbors.probe.adqBridge"))inspectShutdown();
+        });
         NeoForge.EVENT_BUS.addListener(this::tick);
     }
     private void tick(ServerTickEvent.Post event) {
@@ -37,6 +50,8 @@ public final class AdqSearchProbe {
         ticks++;
         long now=System.nanoTime();if(previousTick!=0)maxInterTickNanos=Math.max(maxInterTickNanos,now-previousTick);previousTick=now;
         if(ticks==2) {
+            beganNanos=System.nanoTime();processCpuAtStart=processCpu();serverCpuAtStart=java.lang.management.ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime();
+            if(System.getProperty("neighbors.probe.adqRng")!=null)REPORT.addProperty("fixtureInputRngSeed",Long.parseLong(System.getProperty("neighbors.probe.adqRng")));
             if(route) {
                 try{var type=Class.forName("com.ladderstar.adq.QuestGenerator");
                     initialQuestCount=((List<?>)type.getMethod("getAvailableQuests").invoke(null)).size();
@@ -77,16 +92,21 @@ public final class AdqSearchProbe {
                 }
                 if(requestId>0 && !generating && !finished && !AdqLifetimeProbe.enabled()) {
                     synchronized(REPORT){inspectOwned();var owned=REPORT.getAsJsonObject("ownedState");
-                        if(owned!=null && owned.get("ownedJobs").getAsInt()==0 && owned.get("activeRootTasks").getAsInt()==0 && owned.get("queuedRootTasks").getAsInt()==0 && owned.get("nativeReservations").getAsInt()==0) {
+                        boolean inactive=!Boolean.getBoolean("neighbors.probe.adqBridge") && nativeFinalizationObserved;
+                        if(inactive || owned!=null && owned.get("ownedJobs").getAsInt()==0 && owned.get("activeRootTasks").getAsInt()==0 && owned.get("queuedRootTasks").getAsInt()==0 && owned.get("nativeReservations").getAsInt()==0) {
                             REPORT.addProperty("nativeCompletedWithoutNewRoute",true);finished=true;
                         }
                     }
                 }
             }catch(Throwable failure){synchronized(REPORT){REPORT.addProperty("routeObservationError",failure.toString());}finished=true;}
         }
-        if(finished && ++postFinish>=5 || ticks>=(route?3600:1200)) {
+        if(finished && ++postFinish>=5 || ticks>=(route?Integer.getInteger("neighbors.probe.adqMaxTicks",3600):1200)) {
             synchronized(REPORT){REPORT.addProperty("nativeInvocationReturned",route?REPORT.has("publicEntryReturned"):finished);REPORT.addProperty("observed",REQUESTS.size()>0);
                 REPORT.addProperty("terminal",true);REPORT.addProperty("observedRequests",requestId);inspectOwned();
+                REPORT.addProperty("nativeFinalizationObserved",nativeFinalizationObserved);
+                REPORT.addProperty("routeWallNanosObservationOnly",System.nanoTime()-beganNanos);
+                REPORT.addProperty("processCpuNanosObservationOnly",processCpu()-processCpuAtStart);
+                REPORT.addProperty("serverCpuNanosObservationOnly",java.lang.management.ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime()-serverCpuAtStart);
                 if(AdqTicketFaultProbe.fired()){REPORT.add("faultControl",AdqTicketFaultProbe.observe());AdqTicketFaultProbe.releaseForeign();}save();}
             server.halt(false);
         }
@@ -94,6 +114,26 @@ public final class AdqSearchProbe {
     public static <T> T locate(Supplier<T> call) {
         var previous=LOCATE.get();LOCATE.set(true);
         try{return call.get();}finally{if(previous==null)LOCATE.remove();else LOCATE.set(previous);}
+    }
+    private static long processCpu(){return ((com.sun.management.OperatingSystemMXBean)java.lang.management.ManagementFactory.getOperatingSystemMXBean()).getProcessCpuTime();}
+    private static java.util.Map<?,?> ownedStates() throws ReflectiveOperationException {
+        var field=Class.forName("design.inherent.skyweavecompat.placement.DeliverySearch").getDeclaredField("STATES");field.setAccessible(true);return (java.util.Map<?,?>)field.get(null);
+    }
+    private void inspectShutdown() {
+        var report=new JsonObject();
+        try {
+            report.addProperty("actualServerStopped",true);report.addProperty("serverStateRemoved",!ownedStates().containsKey(server));
+            if(stoppingState!=null) {
+                var field=stoppingState.getClass().getDeclaredField("worker");field.setAccessible(true);var worker=(ThreadPoolExecutor)field.get(stoppingState);
+                report.addProperty("workerShutdown",worker.isShutdown());report.addProperty("workerTerminated",worker.isTerminated());report.addProperty("activeTasks",worker.getActiveCount());report.addProperty("queuedTasks",worker.getQueue().size());
+                field=stoppingState.getClass().getDeclaredField("active");field.setAccessible(true);report.addProperty("activeJobRemoved",field.get(stoppingState)==null);
+                field=stoppingState.getClass().getDeclaredField("nativeRequests");field.setAccessible(true);report.addProperty("remainingNativeReservations",((java.util.concurrent.atomic.AtomicInteger)field.get(stoppingState)).get());
+            }
+            report.addProperty("liveNamedWorkers",Thread.getAllStackTraces().keySet().stream().filter(t->t.isAlive() && t.getName().equals("Skyweave delivery search")).count());
+        }catch(Exception error){report.addProperty("error",error.toString());}
+        try{Files.writeString(Path.of(System.getProperty("neighbors.probe.output")+".shutdown.json"),new GsonBuilder().setPrettyPrinting().create().toJson(report));}
+        catch(java.io.IOException error){throw new java.io.UncheckedIOException(error);}
+        stoppingState=null;
     }
     private static void inspectPersistence(String phase) throws Exception {
         var field=Class.forName("com.ladderstar.adq.QuestGenerator").getDeclaredField("questFilePath");field.setAccessible(true);

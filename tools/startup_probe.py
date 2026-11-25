@@ -62,6 +62,8 @@ def main():
     parser.add_argument('--adq-world', type=Path, help='Read-only marked disposable ADQ world snapshot to reopen')
     parser.add_argument('--adq-capture-world', action='store_true', help='Retain this disposable ADQ world after normal shutdown for native reopen checks')
     parser.add_argument('--adq-lifetime', action='store_true', help='Hold one fixture-only future proxy, cancel the actual owned job, verify settling admission and native successor')
+    parser.add_argument('--adq-rng', type=int, help='Explicit fixture-only native RNG seed for matched comparisons; preserves native algorithm/draws')
+    parser.add_argument('--adq-max-ticks', type=int, choices=[3600,7200,12000], default=3600, help='Explicit disposable observation window; product deadlines remain unchanged')
     args = parser.parse_args()
     if args.adq_lifetime and (args.adq_search!='route' or args.adq_fault or 'delivery.structure_search' not in args.enable):
         parser.error('Lifecycle control requires a separate enabled ADQ route fixture')
@@ -282,6 +284,8 @@ def main():
             command[1:1] = ['-Dneighbors.probe.curioBreak=' + args.curio_break, '-Dneighbors.probe.curioBreakSlot=' + args.curio_break_slot]
         if args.adq_search:
             command[1:1] = ['-Dneighbors.probe.adqSearch=true', '-Dneighbors.probe.output=' + str(run / 'adq-search-proof.json')]
+            command.insert(1,'-Dneighbors.probe.adqMaxTicks='+str(args.adq_max_ticks))
+            if args.adq_rng is not None:command.insert(1,'-Dneighbors.probe.adqRng='+str(args.adq_rng))
             if args.adq_lifetime:command.insert(1,'-Dneighbors.probe.adqLifetime=true')
             if 'delivery.structure_search' in args.enable:
                 command.insert(1, '-Dneighbors.probe.adqBridge=true')
@@ -307,7 +311,7 @@ def main():
                 (output / 'native-process.json').write_text(json.dumps({'pid':process.pid,'runtime':str(run),
                     'scope':'Owned disposable ADQ native fixture; wrapper exit alone does not prove JVM termination'},indent=2)+'\n')
             try:
-                deadline = time.monotonic() + 240
+                deadline = time.monotonic() + (max(240,args.adq_max_ticks/20+120) if args.adq_search else 240)
                 while process.poll() is None and time.monotonic() < deadline:
                     if ('Done (' in log_path.read_text(errors='replace')
                             and (not args.cookery or (run / 'cookery-proof.json').is_file())
@@ -372,6 +376,8 @@ def main():
             fault=run/'adq-search-proof.json.fault.json'
             if fault.is_file():
                 shutil.copy2(fault,output/'adq-ticket-fault.json')
+            shutdown=run/'adq-search-proof.json.shutdown.json'
+            if shutdown.is_file():shutil.copy2(shutdown,output/'adq-shutdown.json')
         if args.cookery:
             proof = run / 'cookery-proof.json'
             report['cookery'] = json.loads(proof.read_text()) if proof.is_file() else {'passed': False, 'error': 'Native fixture produced no report'}
