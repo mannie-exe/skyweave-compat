@@ -5,6 +5,7 @@ import com.mojang.logging.LogUtils;
 import design.inherent.skyweavecompat.mixin.DeliverySearchAccess;
 import design.inherent.skyweavecompat.mixin.DeliverySearchConfigAccess;
 import design.inherent.skyweavecompat.mixin.StructureSearchCacheAccess;
+import design.inherent.skyweavecompat.mixin.StructureSearchChunksAccess;
 import java.lang.ref.WeakReference;
 import java.util.*;
 import java.util.concurrent.*;
@@ -33,9 +34,11 @@ public final class DeliverySearch {
     // Admission policies, not native producer maxima. No search radius or route-distance substitution.
     private static final long JOB_NANOS = TimeUnit.MINUTES.toNanos(10), REQUEST_NANOS = TimeUnit.SECONDS.toNanos(60);
     private static final int MAX_REQUESTS = 32768;
+    private static final int MAX_CACHED_READS_PER_TICK = 64;
     private record Binding(Scope scope, boolean locating, Request request) {}
     private static final class State {
         volatile boolean closed;volatile Job active;final AtomicInteger nativeRequests=new AtomicInteger();
+        int cachedTick=-1,cachedChecks;
         final Set<Dispatch> dispatches=ConcurrentHashMap.newKeySet();
         final ThreadPoolExecutor worker=new ThreadPoolExecutor(1,1,30,TimeUnit.SECONDS,new ArrayBlockingQueue<>(1),task->{
             var thread=new Thread(task,"Skyweave delivery search");thread.setDaemon(true);return thread;
@@ -59,12 +62,15 @@ public final class DeliverySearch {
             if(!job.valid() || System.nanoTime()>=job.deadline){job.cancel("expired or unavailable world");return;}
             var request=job.pending;
             if(request!=null && !request.admitted.isDone()) {
-                if(request.create) {
-                    ((StructureSearchCacheAccess)job.level.getChunkSource()).skyweave$searchTickets()
-                            .addTicket(TICKET,request.position,ChunkLevel.byStatus(request.status),job.id);
-                    request.ticket=true;
-                }
-                request.admitted.complete(null);
+                try {
+                    if(ready(request)){request.admitted.complete(null);return;}
+                    if(request.create) {
+                        request.ticket=true;
+                        ((StructureSearchCacheAccess)job.level.getChunkSource()).skyweave$searchTickets()
+                                .addTicket(TICKET,request.position,ChunkLevel.byStatus(request.status),job.id);
+                    }
+                    request.admitted.complete(null);
+                }catch(RuntimeException error){job.cancel("status admission failed: "+error);}
             }
         });
         NeoForge.EVENT_BUS.addListener((LevelEvent.Unload event)->{
@@ -221,6 +227,7 @@ public final class DeliverySearch {
         final CompletableFuture<ChunkResult<ChunkAccess>> delivered=new CompletableFuture<>();
         final long deadline;
         boolean ticket;
+        volatile ChunkAccess cached;
         Request(Job job,int x,int z,ChunkStatus status,boolean create){this.job=job;position=new ChunkPos(x,z);this.status=status;this.create=create;deadline=Math.min(job.deadline,System.nanoTime()+REQUEST_NANOS);}
         void fail(Throwable error){admitted.completeExceptionally(error);delivered.completeExceptionally(error);}
     }
@@ -242,11 +249,14 @@ public final class DeliverySearch {
             if(scope.closed)throw new CancellationException("Delivery producer already returned");
             if(job.pending!=null)throw new IllegalStateException("Delivery already has an outstanding status request");
             if(job.requests>=MAX_REQUESTS)throw new RejectedExecutionException("Delivery status-request budget exhausted; defer this attempt");
-            job.requests++;var value=new Request(job,x,z,status,create);job.pending=value;return value;
+            job.requests++;var value=new Request(job,x,z,status,create);job.pending=value;
+            if(ready(value))value.admitted.complete(null);
+            return value;
         }),Math.min(job.deadline,System.nanoTime()+REQUEST_NANOS));
         long deadline=request.deadline;
         try {
             await(request.admitted,deadline);job.requireOpen();
+            if(request.cached!=null)return request.cached;
             // This method's worker branch schedules registration without managedBlocking the server.
             var nativeFuture=bound(scope,false,request,()->nativeRequest(job,()->cache.getChunkFuture(x,z,status,create)));
             var weak=new WeakReference<>(request);
@@ -262,6 +272,19 @@ public final class DeliverySearch {
             return chunk;
         } catch(RuntimeException error) {job.requestCancellation(error.toString());throw error;}
         finally {execute(job,()->release(request));}
+    }
+    private static boolean ready(Request request) {
+        var job=request.job;
+        if(!job.server.isSameThread())throw new IllegalStateException("Delivery cache inspection must run on the server thread");
+        int tick=job.server.getTickCount();
+        if(job.state.cachedTick!=tick){job.state.cachedTick=tick;job.state.cachedChecks=0;}
+        if(job.state.cachedChecks>=MAX_CACHED_READS_PER_TICK)return false;
+        job.state.cachedChecks++;
+        var holder=((StructureSearchChunksAccess)job.level.getChunkSource().chunkMap).skyweave$searchUpdatingChunks().get(request.position.toLong());
+        if(holder==null)return false;
+        var chunk=holder.getChunkIfPresent(request.status);
+        if(chunk==null)return false;
+        request.cached=chunk;return true;
     }
     public static <T> Supplier<T> registration(Supplier<T> original) {
         var binding=CURRENT.get();if(binding==null || binding.scope.job==null)return original;

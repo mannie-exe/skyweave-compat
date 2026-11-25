@@ -58,7 +58,19 @@ def main():
     parser.add_argument('--curio-break', choices=['original','repaired'], help='Observe native equipment break custody and notification ownership')
     parser.add_argument('--curio-break-slot', choices=['back','glider'], default='back', help='Native equipment slot; glider requires the authored slot subset')
     parser.add_argument('--adq-search', choices=['first-read','route'], help='Observe actual ADQ locate futures in a disposable island server; first-read aborts after one native chunk read')
+    parser.add_argument('--adq-fault', choices=['search-ticket','endpoint-ticket'], help='Inject one after-mutation native ticket failure; separate explicit negative control')
+    parser.add_argument('--adq-world', type=Path, help='Read-only marked disposable ADQ world snapshot to reopen')
+    parser.add_argument('--adq-capture-world', action='store_true', help='Retain this disposable ADQ world after normal shutdown for native reopen checks')
+    parser.add_argument('--adq-lifetime', action='store_true', help='Hold one fixture-only future proxy, cancel the actual owned job, verify settling admission and native successor')
     args = parser.parse_args()
+    if args.adq_lifetime and (args.adq_search!='route' or args.adq_fault or 'delivery.structure_search' not in args.enable):
+        parser.error('Lifecycle control requires a separate enabled ADQ route fixture')
+    if (args.adq_world or args.adq_capture_world) and (args.adq_search!='route' or args.adq_fault):
+        parser.error('ADQ world capture/reopen requires a non-fault route fixture')
+    if args.adq_world and not (args.adq_world/'skyweave-adq-fixture.json').is_file():
+        parser.error('ADQ reopen requires the explicit disposable fixture marker')
+    if args.adq_fault and (args.adq_search!='route' or 'delivery.structure_search' not in args.enable):
+        parser.error('--adq-fault requires an explicitly enabled ADQ route fixture')
     if args.adq_search and (args.scenario not in {'terrain','full'} or args.serve or args.cookery or args.connector or args.curio_break):
         parser.error('--adq-search requires a separate terrain/full island fixture')
     if args.curio_break and (args.scenario != 'standalone' or args.serve or args.cookery or args.connector):
@@ -105,6 +117,9 @@ def main():
         (run / 'mods').mkdir()
         (run / 'config').mkdir()
         (run / 'config/skyweave').mkdir()
+        if args.adq_world:
+            shutil.copytree(args.adq_world,run/'probe-world')
+            report['adqWorldInput']={'path':str(args.adq_world),'questSha256':hashlib.sha256((args.adq_world/'adq_quests.json').read_bytes()).hexdigest()}
         if args.fixture_config:
             source_root = args.fixture_config.expanduser().resolve()
             if not source_root.is_dir():
@@ -267,12 +282,15 @@ def main():
             command[1:1] = ['-Dneighbors.probe.curioBreak=' + args.curio_break, '-Dneighbors.probe.curioBreakSlot=' + args.curio_break_slot]
         if args.adq_search:
             command[1:1] = ['-Dneighbors.probe.adqSearch=true', '-Dneighbors.probe.output=' + str(run / 'adq-search-proof.json')]
+            if args.adq_lifetime:command.insert(1,'-Dneighbors.probe.adqLifetime=true')
             if 'delivery.structure_search' in args.enable:
                 command.insert(1, '-Dneighbors.probe.adqBridge=true')
             if args.adq_search == 'first-read':
                 command.insert(1, '-Dneighbors.probe.adqFirstRead=true')
             else:
                 command.insert(1, '-Dneighbors.probe.adqRoute=true')
+            if args.adq_fault:
+                command.insert(1, '-Dneighbors.probe.adqFault='+args.adq_fault)
         if args.cookery:
             command[1:1] = ['-Dneighbors.probe.cookery=' + args.cookery]
             (run / 'cookery-fixture.json').write_text('{}\n')
@@ -321,6 +339,13 @@ def main():
                         process.kill()
                         process.wait()
         text = log_path.read_text(errors='replace')
+        if args.adq_search:
+            (output/'process-retirement.json').write_text(json.dumps({'pid':process.pid,'exitCode':process.returncode,'pollTerminal':process.poll() is not None},indent=2))
+            quest=run/'probe-world/adq_quests.json'
+            if quest.is_file():shutil.copy2(quest,output/'adq_quests.json')
+            if args.adq_capture_world and process.returncode==0 and adq_ready(run):
+                world=output/'adq-world';shutil.copytree(run/'probe-world',world)
+                (world/'skyweave-adq-fixture.json').write_text(json.dumps({'scope':'Disposable ADQ native qualification world; no personal source','seed':args.seed,'artifactSha256':report['sha256']}))
         if not args.serve and process.returncode == 0 and 'Done (' in text:
             done = done or ((not args.curio_break or (run / 'curio-break-proof.json').is_file())
                             and (not args.cookery or (run / 'cookery-proof.json').is_file())
@@ -344,6 +369,9 @@ def main():
             report['adqSearch'] = json.loads(proof.read_text()) if proof.is_file() else {'observed':False,'error':'Missing actual ADQ observation'}
             if proof.is_file():
                 shutil.copy2(proof, output / 'adq-search-proof.json')
+            fault=run/'adq-search-proof.json.fault.json'
+            if fault.is_file():
+                shutil.copy2(fault,output/'adq-ticket-fault.json')
         if args.cookery:
             proof = run / 'cookery-proof.json'
             report['cookery'] = json.loads(proof.read_text()) if proof.is_file() else {'passed': False, 'error': 'Native fixture produced no report'}
@@ -415,7 +443,13 @@ def main():
         if args.adq_search:
             report['passed'] = report['passed'] and report['adqSearch'].get('observed',False) and report['adqSearch'].get('nativeInvocationReturned',False)
             if args.adq_search == 'route':
-                report['passed'] = report['passed'] and report['adqSearch'].get('routeRegistered',False)
+                report['passed'] = report['passed'] and (report['adqSearch'].get('faultControl',{}).get('passed',False) if args.adq_fault else report['adqSearch'].get('routeRegistered',False))
+                if not args.adq_fault:
+                    proof=report['adqSearch'];stored=proof.get('finalPersistence',{})
+                    report['passed']=report['passed'] and stored.get('storedQuestCount',-1)==proof.get('nativeQuestCount',-2)
+                    if args.adq_world:
+                        report['passed']=report['passed'] and proof.get('initialPersistence',{}).get('sha256')==report['adqWorldInput']['questSha256'] and proof.get('initialQuestCount',0)>0
+                    if args.adq_lifetime:report['passed']=report['passed'] and proof.get('lifecycleControl',{}).get('passed',False)
         (output / f'startup-{args.scenario}.json').write_text(json.dumps(report, indent=2) + '\n')
         print(json.dumps({key: report[key] for key in ['scenario', 'sha256', 'startup', 'exit_code', 'seconds', 'active_lines', 'passed']}, indent=2), flush=True)
         if not report['passed']:

@@ -4,6 +4,8 @@
 
 [Encounter adaptations](encounters.md) owns the Minecraft patrol RNG slice, V&V per-emission loop, exact optional pin, loaded biome/water queries and their update controls. Static trial-template repairs remain pack-owned.
 
+[Delivery generation](delivery.md) owns ADQ's experimental structure-search dispatch, native status admission, request and ticket custody, lifecycle, and qualification limits. Keep distance, endpoint loading, and landing adapters separately selectable.
+
 Requalify Punchy’s [held materials](rendering.md#held-bottle-materials) and Moves’ [Touch’n Motion bridge](rendering.md#moves-and-touchn-motion) through their owning fixtures. Each adapter has its own dependency gate and native consumer.
 
 [Input ownership](input.md) owns the IPN text-input repair, primary/alternative keybind identity, native focus and slot geometry, release cleanup, and optional EMI search API. It changes no inventory defaults or server policy.

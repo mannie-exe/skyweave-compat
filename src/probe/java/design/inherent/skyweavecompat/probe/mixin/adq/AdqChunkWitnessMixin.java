@@ -5,6 +5,7 @@ import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.*;
 import design.inherent.skyweavecompat.probe.AdqSearchProbe;
+import design.inherent.skyweavecompat.probe.AdqLifetimeProbe;
 import java.util.concurrent.*;
 import java.util.function.Supplier;
 import net.minecraft.server.level.*;
@@ -40,7 +41,7 @@ public abstract class AdqChunkWitnessMixin {
     }
     @ModifyReturnValue(method="getChunkFutureMainThread",at=@At("RETURN"))
     private CompletableFuture<ChunkResult<ChunkAccess>> future(CompletableFuture<ChunkResult<ChunkAccess>> original) {
-        AdqSearchProbe.future("nativeStatus",original);return original;
+        AdqSearchProbe.future("nativeStatus",original);return AdqLifetimeProbe.gate(original);
     }
     @WrapOperation(method="getChunk",at=@At(value="INVOKE",target="Lnet/minecraft/server/level/ServerChunkCache$MainThreadExecutor;managedBlock(Ljava/util/function/BooleanSupplier;)V"),require=1,allow=1)
     private void waiting(@Coerce Object executor,java.util.function.BooleanSupplier complete,Operation<Void> original) {

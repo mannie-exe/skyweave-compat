@@ -10,9 +10,13 @@ import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
 public final class AdqSearchProbePlugin implements IMixinConfigPlugin {
     @Override public List<String> getMixins() {
         if(!Boolean.getBoolean("neighbors.probe.adqSearch"))return List.of();
-        return Boolean.getBoolean("neighbors.probe.adqBridge")
-                ? List.of("AdqLocateWitnessMixin","AdqChunkWitnessMixin","AdqBridgeWitnessMixin")
-                : List.of("AdqLocateWitnessMixin","AdqChunkWitnessMixin");
+        var result=new java.util.ArrayList<>(List.of("AdqLocateWitnessMixin","AdqChunkWitnessMixin"));
+        if(Boolean.getBoolean("neighbors.probe.adqBridge"))result.add("AdqBridgeWitnessMixin");
+        switch(System.getProperty("neighbors.probe.adqFault","")) {
+            case "search-ticket" -> result.add("AdqSearchTicketFaultMixin");
+            case "endpoint-ticket" -> result.add("AdqEndpointTicketFaultMixin");
+        }
+        return result;
     }
     @Override public void onLoad(String name) {}
     @Override public String getRefMapperConfig() { return null; }

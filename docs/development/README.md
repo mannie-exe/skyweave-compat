@@ -32,6 +32,7 @@ Original project work uses Apache-2.0. Preserve the LGPL-3.0-only rendering head
 | Island geometry, geological frames, structures, and saved identity | [Island generation](terrain.md)                   |
 | Shapes, ocean admission, and metadata discovery                    | [Terrain variation](terrain-variation.md)         |
 | Targeting, search, teleport validation, and connection lifetimes   | [Wayfinder](wayfinder.md)                         |
+| ADQ structure discovery, endpoint custody, and retirement          | [Delivery generation](delivery.md)                |
 | DH lifecycle, cache, and optional data boundaries                  | [DH integration](lod.md)                          |
 | BlueMap's optional terrain view                                    | [BlueMap](bluemap.md)                             |
 | Client renderers, shaders, and item/model handoffs                 | [Rendering](rendering.md)                         |

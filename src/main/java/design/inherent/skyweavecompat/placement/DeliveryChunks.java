@@ -89,8 +89,8 @@ public final class DeliveryChunks {
                 var pos = new ChunkPos(x + dx, z + dz);
                 if (chunks.contains(pos)) continue;
                 if (chunks.size() >= 18) throw new IllegalStateException("Delivery endpoint chunk bound exceeded");
-                level.getChunkSource().addRegionTicket(TICKET, pos, 0, id);
                 chunks.add(pos);
+                level.getChunkSource().addRegionTicket(TICKET, pos, 0, id);
             }
         }
 
