@@ -106,7 +106,7 @@ public enum Feature {
     LIGHTING_LIFECYCLE("lighting.lifecycle"),
     SODIUM_LIGHTING("lighting.sodium"),
     GRASSRISE_SHADERS("grassrise.shader_recipes"),
-    C2ME_CLIENT_LIGHT("c2me.client_light_updates", false),
+    C2ME_CLIENT_LIGHT("c2me.client_light_updates"),
     FTB_ITEM_FILTERS("ftbquests.item_alternatives"),
     FTB_CREATIVE_RETURN("ftblibrary.creative_inventory_return"),
     QUESTLOG_INTERFACE("questlog.interface"),

@@ -31,7 +31,7 @@ class FeatureSelectionTest {
 
     @Test void initialClientLightingIsIndependentAndExactlyClientGated() {
         var feature=Feature.C2ME_CLIENT_LIGHT;
-        assertFalse(feature.defaultEnabled);assertNull(FeatureSelection.prerequisite(feature));
+        assertTrue(feature.defaultEnabled);assertNull(FeatureSelection.prerequisite(feature));
         assertEquals(SettingsCatalog.Group.C2ME,SettingsCatalog.group(feature));
         var versions=Map.of("c2me","0.4.0-alpha.0.124+1.21.1","c2me_notickvd","0.4.0-alpha.0.124+1.21.1");
         assertEquals(List.of("client.InitialLightPacketMixin","client.InitialLightChunkMixin","client.InitialLightEngineMixin","client.InitialLightLevelMixin","client.InitialLightWorldMixin"),
@@ -913,7 +913,7 @@ class FeatureSelectionTest {
         assertThrows(IllegalArgumentException.class, () -> FeatureSettings.read(new StringReader("terrain.preset=true\nterrain.preset=false")));
         var defaults = FeatureSettings.load(directory);
         assertTrue(defaults.enabled(Feature.TERRAIN));
-        for (Feature feature : Feature.values()) assertEquals(feature != Feature.C2ME_CLIENT_LIGHT && feature != Feature.ACCESSORIES_CURIOS_BINDINGS, defaults.enabled(feature), feature.key);
+        for (Feature feature : Feature.values()) assertEquals(feature != Feature.ACCESSORIES_CURIOS_BINDINGS, defaults.enabled(feature), feature.key);
         Files.writeString(directory.resolve(FeatureSettings.FILE), "terrain.preset=false\n");
         assertFalse(FeatureSettings.load(directory).enabled(Feature.TERRAIN));
         assertEquals("terrain.preset=false\n", Files.readString(directory.resolve(FeatureSettings.FILE)));

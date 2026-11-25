@@ -2,8 +2,6 @@
 package design.inherent.skyweavecompat.mixin.client;
 
 import design.inherent.skyweavecompat.shader.GrassriseRecipes;
-import dev.grassrise.betterlighting.shader.RuntimeGate;
-import dev.grassrise.betterlighting.shader.ShaderPackAdapter;
 import net.irisshaders.iris.Iris;
 import net.neoforged.fml.loading.FMLPaths;
 import org.spongepowered.asm.mixin.Mixin;

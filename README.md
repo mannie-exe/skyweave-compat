@@ -66,6 +66,8 @@ The rendering adapters have background checks and native macOS shader, Ponder, b
 
 [Playback synchronization](docs/development/audio.md) and [construct grave recovery](docs/development/recovery.md) are separate adaptations. They preserve upstream media and inventory ownership; neither requires island generation. Recovery keeps its metadata in YiGD's saved grave records.
 
+The optional Curios/Accessories break-notification repair lets the equipment layer complete its native replacement callback when an equipped item breaks. Item durability, removal, and notification ownership remain native. This is independent of the opt-in slot-binding bridge and does not change glider flight or item-use policy.
+
 See [redstone editing and gate behavior](docs/development/redstone.md) for relocation limits, analog signal changes and pack-owned resource fixes.
 
 Shader recipes can assemble qualified shaders on the client before Iris loads them. The [rendering guide](docs/development/rendering.md#shader-assembly) covers inputs, ownership, caching and supported patch operations. No recipes are installed by this mod itself.
