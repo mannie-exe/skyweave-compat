@@ -109,7 +109,7 @@ final class SettingsPolicyProbe {
                 "{\"operatorsOnly\":false}").thenCompose(ignored -> {
             if (!terrain) return CompletableFuture.completedFuture(null);
             return policy(source, "search", root.resolve(SearchSettings.FILE), StructureLocator::readPolicy,
-                    new SearchSettings(128, 5, 1, 1), "{}");
+                    new SearchSettings(1,1), "{}");
         }).thenCompose(ignored -> {
             int after = server.overworld().getChunkSource().getLoadedChunksCount();
             check(chunks == after, "Policy operations changed the loaded-chunk count from " + chunks + " to " + after);

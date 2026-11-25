@@ -27,6 +27,7 @@ final class StructureLocatorProbe {
     private static JsonObject selectorRuns;
     private static boolean focusPending;
     private static int queryRadius;
+    private static final List<design.inherent.skyweavecompat.terrain.structure.StructureRegionCursor> inventories = new ArrayList<>();
 
     static void prepare(MinecraftServer server) throws Exception {
         if (System.getProperty("neighbors.probe.searchFixture", "").equals("mixed")) {
@@ -39,10 +40,11 @@ final class StructureLocatorProbe {
     }
 
     static void start(MinecraftServer server, Path destination) throws Exception {
+        if (System.getProperty("neighbors.probe.searchFixture", "").equals("shutdown")) { LocatorShutdownProbe.start(server,destination); return; }
         if (System.getProperty("neighbors.probe.searchFixture", "").equals("policy")) { LocatorPolicyProbe.start(server,destination); return; }
         output = destination; ticks = 0; phase = 0; phaseTick = 0; maxGap = 0; planning = null;
         started = lastTick = runStarted = System.nanoTime(); firstResult = -1; streamedVerification=false; resultWhilePlanning=false; messages.clear();
-        selector=0;selectorRuns=new JsonObject();selectedId=null;
+        selector=0;selectorRuns=new JsonObject();selectedId=null;inventories.clear();
         focusPending=System.getProperty("neighbors.probe.searchFixture", "").equals("selectors");
         queryRadius=Integer.getInteger("neighbors.probe.searchRadius",12800);
         var spawn = server.overworld().getSharedSpawnPos();
@@ -65,21 +67,16 @@ final class StructureLocatorProbe {
         if(System.getProperty("neighbors.probe.searchFixture", "").equals("selectors")
                 && !Set.of("family=villages","family=desert_temples","family=jungle_temples").contains(familyQuery))
             throw new IllegalArgumentException("Selector fixture requires a village or temple family");
-        if(System.getProperty("neighbors.probe.searchFixture", "").equals("time")
-                && design.inherent.skyweavecompat.terrain.structure.StructureLocator.readPolicy(source).value().timeLimitSeconds()>10)
-            throw new IllegalArgumentException("Time-exhaustion fixture requires a5–10second policy");
         report.addProperty("complete",false);report.addProperty("fixturePhase","admitting first request");
         writeSnapshot();
         long before=System.nanoTime();command(server, query);long after=System.nanoTime();active = true;
         if (!has("started")) throw new AssertionError("Search did not accept its target: " + messages);
         var job=acceptedJob(server);
         var limits=(design.inherent.skyweavecompat.terrain.structure.SearchSettings)field(job,"limits");
-        long deadline=(Long)field(job,"deadline");
-        long allowance=java.util.concurrent.TimeUnit.SECONDS.toNanos(limits.timeLimitSeconds());
-        if(deadline<before+allowance || deadline>after+allowance)
-            throw new AssertionError("Accepted request deadline does not use its operational settings");
         report.add("acceptedSearchSettings",new Gson().toJsonTree(limits));
-        report.addProperty("actualRequestDeadlineUsesSettings",true);
+        if(java.util.Arrays.stream(job.getClass().getDeclaredFields()).anyMatch(f->f.getName().equals("deadline")))
+            throw new AssertionError("Manual structure search still declares a stopping deadline");
+        report.addProperty("noWholeSearchDeadline",true);
         nextSnapshot=after;
     }
     private static void writeSnapshot() throws java.io.IOException {
@@ -101,11 +98,17 @@ final class StructureLocatorProbe {
         throw new AssertionError("Cannot inspect the accepted native locator request");
     }
     static void tick(MinecraftServer server) {
+        LocatorShutdownProbe.tick(server);
         LocatorPolicyProbe.tick(server);
         if (!active) return;
         try {
             long now = System.nanoTime(); maxGap = Math.max(maxGap, now - lastTick); lastTick = now; ticks++;
             ProbePlayers.drainChat(player, messages);
+            var observedJob = acceptedJob(server);
+            var scan = field(observedJob, "regionScan");
+            if (scan instanceof design.inherent.skyweavecompat.terrain.structure.RegionScanAdapter adapter
+                    && adapter.resource() instanceof design.inherent.skyweavecompat.terrain.structure.StructureRegionCursor inventory
+                    && !inventories.contains(inventory)) inventories.add(inventory);
             if (!has("result") && (has("report.notice") || has("report.notice_one"))) command(server, "page");
             if(now>=nextSnapshot) {
                 nextSnapshot=now+java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
@@ -142,9 +145,9 @@ final class StructureLocatorProbe {
             }
             if(focusPending && has("result")) { focusOnNativeResult(server,now);return; }
             long queries=System.getProperty("neighbors.probe.searchFixture", "").equals("selectors")?7:2;
-            long fixtureSeconds=60+queries*(design.inherent.skyweavecompat.terrain.structure.StructureLocator.readPolicy(source).value().timeLimitSeconds()+30L);
+            long fixtureSeconds=60+queries*(600L+30L);
             if (now - started > java.util.concurrent.TimeUnit.SECONDS.toNanos(fixtureSeconds))
-                throw new AssertionError("Search fixture exceeded its policy-derived bounded duration");
+                throw new AssertionError("Owned observation window expired; this is not a product search deadline");
             if (has("failed")) throw new AssertionError("Search failed: " + messages);
             if(phase==2) {
                 command(server,"details");
@@ -162,6 +165,7 @@ final class StructureLocatorProbe {
             }
             if (firstResult < 0 && has("result")) firstResult = now - runStarted;
             if (phase <= 1 && (has("complete") || has("partial"))) {
+                if (!retired(server)) return;
                 var terminal = messages.stream().filter(m -> Set.of("complete", "partial").contains(key(m))).findFirst().orElseThrow();
                 var values = ((TranslatableContents)terminal.getContents()).getArgs();
                 var run = new JsonObject(); run.addProperty("outcome", key(terminal));
@@ -183,6 +187,18 @@ final class StructureLocatorProbe {
                     for (var result : pageResults()) results.add(result);
                 }
                 run.add("results", results);
+                var membership = new JsonObject();
+                for (String name : List.of("scheduled", "seen")) {
+                    var ledger = field(observedJob, name);
+                    if (!(boolean)field(ledger, "closed") || !((Collection<?>)field(ledger, "buffer")).isEmpty()
+                            || !((Set<?>)field(ledger, "opened")).isEmpty() || !((Set<?>)field(ledger, "owned")).isEmpty())
+                        throw new AssertionError("Search membership has not actually retired: " + name);
+                    var directory = (Path)field(ledger, "directory");
+                    if (directory != null && Files.exists(directory)) throw new AssertionError("Temporary search index survived retirement");
+                    membership.addProperty(name + "Admitted", (long)field(ledger, "size"));
+                    membership.addProperty(name + "Spilled", directory != null);
+                }
+                run.add("retiredMembership", membership);
                 if (System.getProperty("neighbors.probe.searchFixture", "").equals("mixed")) {
                     if (!has("unsupported_entries") || !key(terminal).equals("partial")
                             || results.asList().stream().noneMatch(value -> value.getAsString().contains("skyweave_probe:air_marker"))
@@ -190,15 +206,25 @@ final class StructureLocatorProbe {
                         throw new AssertionError("Mixed query omitted managed/foreign starts or failed to qualify unsupported placement");
                     run.addProperty("mixedContractsVerified", true);
                 }
-                if (System.getProperty("neighbors.probe.searchFixture", "").equals("cap")) {
-                    if (!key(terminal).equals("partial") || !has("limit_coverage") || ((Number)values[0]).intValue() > 16)
-                        throw new AssertionError("Candidate cap did not preserve bounded incomplete coverage");
-                    run.addProperty("candidateCapVerified", true);
-                }
-                if(System.getProperty("neighbors.probe.searchFixture", "").equals("time")) {
-                    if(!key(terminal).equals("partial") || !has("limit_time"))
-                        throw new AssertionError("Time exhaustion did not preserve explicit partial coverage");
-                    run.addProperty("timeLimitVerified",true);
+                if (System.getProperty("neighbors.probe.searchFixture", "").equals("resumable")) {
+                    if (!key(terminal).equals("complete") || has("limit_time"))
+                        throw new AssertionError("Resumable search did not complete its supported domain");
+                    if (phase == 0) {
+                        if (Boolean.getBoolean("neighbors.probe.savedStartsOnly")) {
+                            savedStartControl();
+                            run.addProperty("savedStartSurvivesNativeNewStartRefusal", true);
+                        } else if (((Number)values[0]).longValue() <= 16)
+                            throw new AssertionError("Cold traversal did not cross the retired candidate cutoff");
+                        else run.addProperty("completeBeyondRetiredCandidateAndTimeLimits", true);
+                    } else {
+                        // Completed native plans can reject impossible variants before repeating generation.
+                        // Assert the resulting actual starts, not an equal number of discarded candidates.
+                        var cold = report.getAsJsonObject("cold");
+                        if (!cold.getAsJsonArray("results").equals(results)
+                                || cold.get("matches").getAsLong() != ((Number)values[1]).longValue())
+                            throw new AssertionError("Warm native planning changed the verified result set");
+                        run.addProperty("warmNativeResultsEqualCold", true);
+                    }
                 }
                 command(server, "page");
                 if (((Number)values[1]).intValue() > 0 && pageResults().isEmpty())
@@ -229,8 +255,12 @@ final class StructureLocatorProbe {
                     report.addProperty("leasesReleased",true);report.addProperty("permissionDenied",true);
                     report.addProperty("complete",true);finish(server,null);return;
                 }
-                if (phase == 1 && Set.of("cap","time").contains(System.getProperty("neighbors.probe.searchFixture", ""))) {
+                if (phase == 1 && System.getProperty("neighbors.probe.searchFixture", "").equals("resumable")) {
                     assertNoSearchTickets(server); report.addProperty("leasesReleased", true);
+                    if (inventories.isEmpty()) throw new AssertionError("No actual native region cursor was observed");
+                    for (var inventory : inventories) if (!(boolean)field(inventory, "closed"))
+                        throw new AssertionError("Native inventory cursor retained its directory handle");
+                    report.addProperty("nativeInventoryCursorsClosed", inventories.size());
                     report.addProperty("complete", true); finish(server, null); return;
                 }
                 if (terminal.getString().contains("skyweave_compat.structures.")) throw new AssertionError("Missing readable fallback");
@@ -346,6 +376,15 @@ final class StructureLocatorProbe {
         catch (java.io.IOException error) { throw new java.io.UncheckedIOException(error); }
         server.halt(false);
     }
+    static boolean retired(MinecraftServer server) throws Exception {
+        var states = design.inherent.skyweavecompat.terrain.structure.StructureLocator.class.getDeclaredField("servers");
+        states.setAccessible(true);
+        var state = ((Map<?,?>)states.get(null)).get(server);
+        return ((java.util.concurrent.atomic.AtomicInteger)field(state,"retiring")).get() == 0
+                && ((design.inherent.reform.operation.WorkBudget)field(state,"work")).inUse() == 0
+                && (int)field(state,"metadataPending") == 0
+                && ((java.util.concurrent.ThreadPoolExecutor)field(state,"worker")).getActiveCount() == 0;
+    }
     static void assertNoSearchTickets(MinecraftServer server) throws Exception {
         assertNoTickets(server, Set.of("skyweave_structure_search"));
     }
@@ -354,7 +393,13 @@ final class StructureLocatorProbe {
     }
     private static void command(MinecraftServer server, String command) throws Exception { command(server, command, source); }
     private static void command(MinecraftServer server, String command, CommandSourceStack origin) throws Exception {
-        server.getCommands().getDispatcher().execute("skyweavecompat structures " + command, origin);
+        int admitted = server.getCommands().getDispatcher().execute("skyweavecompat structures " + command, origin);
+        if (admitted == 1 && command.startsWith("search ") && System.getProperty("neighbors.probe.searchFixture", "").equals("resumable")) {
+            var accepted = acceptedJob(server);
+            var age = accepted.getClass().getDeclaredField("began"); age.setAccessible(true);
+            age.setLong(accepted, System.nanoTime() - java.util.concurrent.TimeUnit.MINUTES.toNanos(11));
+            report.addProperty("fixtureAgeBeyondFormerDeadline", true);
+        }
         ProbePlayers.drainChat(player, messages);
     }
     private static boolean has(String value) { return messages.stream().anyMatch(message -> key(message).equals(value)); }

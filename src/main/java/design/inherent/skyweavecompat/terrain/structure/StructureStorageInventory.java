@@ -9,6 +9,14 @@ import java.util.regex.Pattern;
 
 /** Must run on the storage owner's serial queue, alongside native header/cache/pending-write access. */
 public final class StructureStorageInventory {
+    public static StructureRegionCursor cursor(RegionFileStorage storage, Iterable<ChunkPos> pending,
+            int minX, int minZ, int maxX, int maxZ) throws java.io.IOException {
+        var access = (StructureRegionStorageAccess)(Object)storage;
+        var cached = new HashSet<ChunkPos>();
+        for (var p : pending) cached.add(new ChunkPos(p.getRegionX(), p.getRegionZ()));
+        for (long key : access.skyweave$regionCache().keySet()) cached.add(new ChunkPos(key));
+        return new StructureRegionCursor(access.skyweave$regionFolder(), cached, minX, minZ, maxX, maxZ);
+    }
     private static final Pattern skyweave$regionName = Pattern.compile("r\\.(-?\\d+)\\.(-?\\d+)\\.mca");
     public static StructureSearchStorage.Regions regions(RegionFileStorage storage, Iterable<ChunkPos> pending,
             int minX, int minZ, int maxX, int maxZ, int limit) throws java.io.IOException {

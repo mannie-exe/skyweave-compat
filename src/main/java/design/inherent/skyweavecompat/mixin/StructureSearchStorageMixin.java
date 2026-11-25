@@ -3,6 +3,7 @@ package design.inherent.skyweavecompat.mixin;
 import com.mojang.datafixers.util.Either;
 import design.inherent.skyweavecompat.terrain.structure.StructureSearchStorage;
 import design.inherent.skyweavecompat.terrain.structure.StructureStorageInventory;
+import design.inherent.skyweavecompat.terrain.structure.RegionScanAdapter;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.storage.IOWorker;
 import net.minecraft.world.level.chunk.storage.RegionFileStorage;
@@ -32,6 +33,18 @@ public abstract class StructureSearchStorageMixin implements StructureSearchStor
         return submitTask(() -> {
             try { return Either.left(StructureStorageInventory.chunks(storage, pendingWrites.keySet(), region)); }
             catch (Exception failure) { return Either.right(failure); }
+        });
+    }
+    @Override public CompletableFuture<RegionScan> skyweave$scanRegions(int minX, int minZ, int maxX, int maxZ) {
+        return submitTask(() -> {
+            try {
+                if (storage == null) return Either.left(RegionScanAdapter.unavailable());
+                var cursor = StructureStorageInventory.cursor(storage, pendingWrites.keySet(), minX, minZ, maxX, maxZ);
+                return Either.left(new RegionScanAdapter(() -> submitTask(() -> {
+                    try { return Either.left(cursor.next()); }
+                    catch (Exception error) { return Either.right(error); }
+                }), cursor));
+            } catch (Exception error) { return Either.right(error); }
         });
     }
 }

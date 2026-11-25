@@ -228,6 +228,13 @@ public final class StructureDistribution {
                 java.util.Comparator.comparingInt(StructureSelection.Site::chunkX).thenComparingInt(StructureSelection.Site::chunkZ));
     }
 
+    /** Manual structure traversal has no cumulative owner-cell allocation or completion cutoff. */
+    public StructureOwnerCursor searchCursor(int x, int z, int radius, long padding) {
+        var profile = ((design.inherent.skyweavecompat.terrain.ProfiledTerrain)(Object)field).skyweave$profile();
+        int halo = Math.toIntExact(profile.lookupCells() + Math.ceilDiv(padding, profile.spacing()));
+        return new StructureOwnerCursor(x, z, radius, profile.spacing(), halo);
+    }
+
     public VillageFitSettings villageFitting() { return policy.villageFitting(); }
 
     /** Both an owned destination and its selected host lie inside the same bounded cluster. */

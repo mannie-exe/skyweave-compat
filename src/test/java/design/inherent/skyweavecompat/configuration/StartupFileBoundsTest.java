@@ -15,7 +15,7 @@ class StartupFileBoundsTest {
 
     @Test void oversizedValidStartupJsonIsRefusedWithoutRewritingTheFile() throws Exception {
         var path=directory.resolve(SearchSettings.FILE);
-        var policy=new SearchSettings(123,600,1,2);
+        var policy=new SearchSettings(1,2);
         Files.writeString(path,new Gson().toJson(policy));
         assertEquals(policy,SearchSettings.load(directory));
         var oversized=" ".repeat(ConfigFile.LIMIT)+new Gson().toJson(SearchSettings.DEFAULT);

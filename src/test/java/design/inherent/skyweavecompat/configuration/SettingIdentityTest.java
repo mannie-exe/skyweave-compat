@@ -14,9 +14,9 @@ class SettingIdentityTest {
         var after = new SettingsCatalog.FileEntry("different-file.json", before.id(), SettingsCatalog.Group.NAVIGATION,
                 "different_label", before.owners(), before.section());
         assertEquals(new SettingsCatalog.File(before).id(), new SettingsCatalog.File(after).id());
-        assertEquals(before.field("timeLimitSeconds"), after.field("timeLimitSeconds"));
-        assertEquals(before.field("timeLimitSeconds").anchor(), after.field("timeLimitSeconds").anchor());
-        assertNotEquals(before.field("timeLimitSeconds"), before.field("candidateLimit"));
+        assertEquals(before.field("tickBudgetMillis"), after.field("tickBudgetMillis"));
+        assertEquals(before.field("tickBudgetMillis").anchor(), after.field("tickBudgetMillis").anchor());
+        assertNotEquals(before.field("tickBudgetMillis"), before.field("concurrentChunks"));
         assertNotEquals(before.field("enabled"), SettingsCatalog.file("skyweave_compat-shapes.json").field("enabled"));
     }
     @Test void admittedDocumentsAreUniqueAndReverseLookupDoesNotAcceptPaths() {
@@ -55,10 +55,10 @@ class SettingIdentityTest {
             assertTrue(a.contains(ReformDocuments.path(field.key())));
             assertTrue(b.contains(ReformDocuments.path(field.key())));
         }
-        var changed = a.change(ReformDocuments.path("timeLimitSeconds"),
-                ignored -> new design.inherent.reform.edit.DraftNode.Scalar("300"));
-        assertEquals("300", ((design.inherent.reform.edit.DraftNode.Scalar) changed.at(ReformDocuments.path("timeLimitSeconds"))).raw());
-        assertEquals("600", ((design.inherent.reform.edit.DraftNode.Scalar) b.at(ReformDocuments.path("timeLimitSeconds"))).raw());
+        var changed = a.change(ReformDocuments.path("tickBudgetMillis"),
+                ignored -> new design.inherent.reform.edit.DraftNode.Scalar("3"));
+        assertEquals("3", ((design.inherent.reform.edit.DraftNode.Scalar) changed.at(ReformDocuments.path("tickBudgetMillis"))).raw());
+        assertEquals("5", ((design.inherent.reform.edit.DraftNode.Scalar) b.at(ReformDocuments.path("tickBudgetMillis"))).raw());
         assertEquals(definition.defaults(), Files.readString(path));
     }
     @Test void everyRegisteredOwnedJsonDefinitionUsesAnAdmittedDocumentWithoutFieldCollisions() {

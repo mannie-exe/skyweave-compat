@@ -98,7 +98,7 @@ final class LocatorLifecycleProbe {
                 runningBoth(server); cancelBothAsPlayer(server);
                 step = 6;
             } else if (step == 6) {
-                if (!reportStatus(server, "islands", "cancelled")) return;
+                if (!reportStatus(server, "islands", "cancelled") || !StructureLocatorProbe.retired(server)) return;
                 expect(server,"islands","search 1","started",caller);
                 expect(server,"structures","search 1 family=villages","started",caller);step=2;
             } else if (step == 2) {
@@ -112,7 +112,7 @@ final class LocatorLifecycleProbe {
                 report.addProperty("completedResultsAccessibleAfterRespawn",true);
                 beginBoth(server,caller);server.getPlayerList().remove(player);step=3;
             } else if (step == 3) {
-                if (consoleCommand(server, "islands", "search 131072") == 0) return;
+                if (!StructureLocatorProbe.retired(server) || consoleCommand(server, "islands", "search 131072") == 0) return;
                 if (consoleCommand(server, "structures", "search 131072 family=villages") == 0)
                     throw new AssertionError("Disconnected structure owner retained admission");
                 cancelBoth(server);
@@ -124,7 +124,7 @@ final class LocatorLifecycleProbe {
                 expect(server, "islands", "status", "report.unavailable", caller);
                 step = 8;
             } else if (step == 8) {
-                if (nativeCommand(server, "islands", "search 131072", caller) == 0) return;
+                if (!StructureLocatorProbe.retired(server) || nativeCommand(server, "islands", "search 131072", caller) == 0) return;
                 expect(server, "structures", "search 131072 family=villages", "started", caller);
                 step = 4;
             } else if (step == 4) {
@@ -133,7 +133,7 @@ final class LocatorLifecycleProbe {
                         || player.serverLevel() == server.overworld()) throw new AssertionError("Native dimension travel failed");
                 step = 5;
             } else if (step == 5 && background.isDone()) {
-                if (consoleCommand(server, "islands", "search 131072") == 0) return;
+                if (!StructureLocatorProbe.retired(server) || consoleCommand(server, "islands", "search 131072") == 0) return;
                 if (consoleCommand(server, "structures", "search 131072 family=villages") == 0)
                     throw new AssertionError("Structure owner retained admission in a new dimension");
                 background.join(); releaseBackground(server); report.addProperty("concurrentFullChunkCompleted", true);

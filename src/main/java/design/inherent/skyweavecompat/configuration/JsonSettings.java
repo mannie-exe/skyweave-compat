@@ -56,7 +56,8 @@ public final class JsonSettings {
                     design.inherent.skyweavecompat.terrain.city.CityConfiguration::parse),
             owned(design.inherent.skyweavecompat.terrain.structure.SearchSettings.FILE, "structure_search",
                     design.inherent.skyweavecompat.terrain.structure.SearchSettings.DEFAULT,
-                    design.inherent.skyweavecompat.terrain.structure.SearchSettings::parse),
+                    design.inherent.skyweavecompat.terrain.structure.SearchSettings::parse,
+                    design.inherent.skyweavecompat.terrain.structure.SearchSettings::normalize),
             owned(BlueMapSettings.FILE, "bluemap", BlueMapSettings.DEFAULT, BlueMapSettings::parse)));
     public static final List<Definition> FILES = java.util.Collections.unmodifiableList(DEFINITIONS);
 

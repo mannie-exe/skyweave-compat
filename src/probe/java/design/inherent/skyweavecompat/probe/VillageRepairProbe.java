@@ -437,7 +437,7 @@ final class VillageRepairProbe {
         var placements=(List<?>)placementGetter.invoke(selected.getFirst());
         var jobConstructor=jobType.getDeclaredConstructor(net.minecraft.commands.CommandSourceStack.class,int.class,List.class,SearchSettings.class);jobConstructor.setAccessible(true);
         var candidateConstructor=candidateType.getDeclaredConstructor(ChunkPos.class,long.class);candidateConstructor.setAccessible(true);
-        var limits=new SearchSettings(65536,30,2,5);
+        var limits=new SearchSettings(2,5);
         var inspect=locator.getDeclaredMethod("inspect",jobType,candidateType,net.minecraft.world.level.chunk.ChunkAccess.class,boolean.class);inspect.setAccessible(true);
         var seen=jobType.getDeclaredField("seen");seen.setAccessible(true);
         var matches=jobType.getDeclaredField("matches");matches.setAccessible(true);

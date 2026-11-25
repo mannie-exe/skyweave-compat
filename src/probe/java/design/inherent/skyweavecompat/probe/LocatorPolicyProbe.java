@@ -39,7 +39,7 @@ final class LocatorPolicyProbe {
     private static Path output;
     private static boolean active;
     private static int stage, ticks, changed;
-    private static long began, deadline, taskCount;
+    private static long began, requestBegan, taskCount;
     private static SearchSettings captured;
     private static CompletableFuture<? extends CommitReceipt<?>> applying;
     private static Path settingsFile;
@@ -55,7 +55,7 @@ final class LocatorPolicyProbe {
         state=((Map<?,?>)states.get(null)).get(server);
         check(state!=null,"No actual locator context");
         captured=StructureLocator.readPolicy(source).value();
-        check(captured.equals(new SearchSettings(16,5,2,1)), "Authored startup policy was not selected");
+        check(captured.equals(new SearchSettings(16,2,1)), "Authored startup policy was not selected");
         // Do not block the server thread or alter the product's chunk API. Holding this existing
         // admission worker lets actual tickets/futures remain observable for several server ticks.
         worker().execute(() -> {
@@ -75,16 +75,19 @@ final class LocatorPolicyProbe {
             if (stage==0 && entered.get()) {
                 long before=System.nanoTime(); command("search 12800 family=portals"); long after=System.nanoTime();
                 check(has("started"),"Actual locator query was not admitted");
-                job=field(state,"job"); deadline=(long)field(job,"deadline");
+                job=field(state,"job"); requestBegan=(long)field(job,"began");
                 check(field(job,"limits")==captured,"New request did not capture its actual policy object");
-                check(deadline>=before+TimeUnit.SECONDS.toNanos(5) && deadline<=after+TimeUnit.SECONDS.toNanos(5),"Deadline is not captured from admission");
+                check(requestBegan>=before && requestBegan<=after,"Elapsed-time observation is not captured from admission");
+                var age=job.getClass().getDeclaredField("began"); age.setAccessible(true);
+                requestBegan=System.nanoTime()-TimeUnit.MINUTES.toNanos(11); age.setLong(job,requestBegan);
+                report.addProperty("fixtureAgeBeyondFormerDeadline",true);
                 stage=1;
             } else if (stage==1 && nativePending()==2) {
                 check(((Set<?>)field(job,"leases")).size()==2 && ((WorkBudget.Group)field(job,"work")).pending()==2,
                         "Held admission lacks two actual ticket/future reservations");
                 var document = ServerSettings.admittedDocument(server, DocumentId.parse("skyweave_compat:search")).orElseThrow();
                 settingsFile = ConfigLocations.file(FMLPaths.CONFIGDIR.get(), SearchSettings.FILE);
-                savedPolicy = new GsonBuilder().setPrettyPrinting().create().toJson(new SearchSettings(32,600,1,2)) + "\n";
+                savedPolicy = new GsonBuilder().setPrettyPrinting().create().toJson(new SearchSettings(32,1,2)) + "\n";
                 Files.writeString(settingsFile, savedPolicy);
                 applying = document.reloadFromSaved(source, 2).toCompletableFuture();
                 stage=5;
@@ -94,33 +97,42 @@ final class LocatorPolicyProbe {
                 check(receipt.persistence()==CommitReceipt.Persistence.NOT_ATTEMPTED && receipt.application()==CommitReceipt.Application.APPLIED,
                         "Shared policy receipt did not confirm apply-only: "+receipt);
                 check(Files.readString(settingsFile).equals(savedPolicy),"Apply-only rewrote externally saved bytes");
-                check(StructureLocator.readPolicy(source).value().equals(new SearchSettings(32,600,1,2)),
+                check(StructureLocator.readPolicy(source).value().equals(new SearchSettings(32,1,2)),
                         "Shared apply did not update actual locator policy");
-                check(field(job,"limits")==captured && (long)field(job,"deadline")==deadline,"Publication rewrote admitted limits/deadline");
+                check(field(job,"limits")==captured && (long)field(job,"began")==requestBegan,"Publication rewrote admitted scheduling snapshot or start time");
                 taskCount=worker().getTaskCount(); changed=ticks; stage=2;
                 report.addProperty("sharedApplyOnlyUpdatesRealPolicy",true);
                 report.addProperty("sharedSavedBytesUnchanged",true);
             } else if (stage==2 && ticks-changed>=3) {
                 check(nativePending()==2 && worker().getTaskCount()==taskCount,"Lowered cap admitted new work or erased old accounting");
-                check(((Set<?>)field(job,"leases")).size()==2 && (long)field(job,"deadline")==deadline,"Held work lost leases or extended its deadline");
+                check(((Set<?>)field(job,"leases")).size()==2 && (long)field(job,"began")==requestBegan,"Held work lost leases or reset its elapsed-time observation");
                 report.addProperty("lowerCapPreservesPendingAndBlocksAdmission",true);
-                gate.countDown(); stage=3;
-            } else if (stage==3 && !(boolean)field(job,"running") && nativePending()==0 && (int)field(state,"metadataPending")==0) {
+                check((boolean)field(job,"running"),"Elapsed time stopped the actual held request");
+                report.addProperty("requestRemainsActiveBeyondFormerDeadline",true);
+                command("cancel"); gate.countDown(); stage=3;
+            } else if (stage==3 && !(boolean)field(job,"running") && nativePending()==0 && (int)field(state,"metadataPending")==0
+                    && ((java.util.concurrent.atomic.AtomicInteger)field(state,"retiring")).get()==0
+                    && ((WorkBudget)field(state,"work")).inUse()==0
+                    && ((ThreadPoolExecutor)field(state,"worker")).getActiveCount()==0) {
                 check(!has("failed"),"Native search failed: "+messages);
-                check((long)field(job,"deadline")==deadline && field(job,"limits")==captured,"Old request adopted the later600second policy");
+                check((long)field(job,"began")==requestBegan && field(job,"limits")==captured,"Old request adopted a later scheduling snapshot");
                 ProbeTickets.assertAbsent(server,Set.of("skyweave_structure_search"));
                 report.addProperty("nativeCallbacksDrainAfterRelease",true);
-                report.addProperty("capturedDeadlineAndLimitsPreserved",true);
+                report.addProperty("capturedSchedulingAndStartPreserved",true);
                 report.addProperty("firstOutcome",((SearchReport<?>)field(job,"report")).status().outcome().name());
-                report.addProperty("firstRequestExpiredAtOriginalDeadline",has("limit_time") && System.nanoTime()>=deadline);
+                check(has("cancelled") && !has("limit_time"),"Explicit cancellation was replaced by elapsed-time expiry");
+                report.addProperty("explicitCancellationDrainsActualReservations",true);
                 messages.clear(); long before=System.nanoTime(); command("search 1 family=portals"); long after=System.nanoTime();
                 check(has("started"),"Next request did not admit after drainage");
                 var next=field(state,"job"); var current=StructureLocator.readPolicy(source).value();
-                check(field(next,"limits")==current && current.timeLimitSeconds()==600 && current.concurrentChunks()==1,"New request did not use published limits");
-                long nextDeadline=(long)field(next,"deadline");
-                check(nextDeadline>=before+TimeUnit.SECONDS.toNanos(600) && nextDeadline<=after+TimeUnit.SECONDS.toNanos(600),"Next deadline did not use new policy");
+                check(field(next,"limits")==current && current.membershipBatchSize()==32 && current.concurrentChunks()==1,"New request did not use published limits");
+                long nextBegan=(long)field(next,"began");
+                check(nextBegan>=before && nextBegan<=after,"Next request did not capture its own start time");
                 command("cancel"); stage=4;
-            } else if (stage==4 && nativePending()==0 && (int)field(state,"metadataPending")==0) {
+            } else if (stage==4 && nativePending()==0 && (int)field(state,"metadataPending")==0
+                    && ((java.util.concurrent.atomic.AtomicInteger)field(state,"retiring")).get()==0
+                    && ((WorkBudget)field(state,"work")).inUse()==0
+                    && ((ThreadPoolExecutor)field(state,"worker")).getActiveCount()==0) {
                 ProbeTickets.assertAbsent(server,Set.of("skyweave_structure_search"));
                 report.addProperty("nextRequestUsesNewPolicyAndCancels",true);
                 report.addProperty("ticks",ticks); report.addProperty("complete",true);
@@ -133,7 +145,7 @@ final class LocatorPolicyProbe {
         }
     }
     private static ThreadPoolExecutor worker() throws Exception { return (ThreadPoolExecutor)field(state,"requests"); }
-    private static int nativePending() throws Exception { return ((WorkBudget)field(state,"work")).inUse(); }
+    private static int nativePending() throws Exception { return ((java.util.concurrent.atomic.AtomicInteger)field(state,"nativePending")).get(); }
     private static Object field(Object owner, String name) throws Exception {
         var field=owner.getClass().getDeclaredField(name); field.setAccessible(true); return field.get(owner);
     }

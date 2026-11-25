@@ -41,6 +41,10 @@ import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import java.util.*;
 import java.util.concurrent.*;
+import java.nio.ByteBuffer;
+import java.nio.file.Path;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 
 /** Resumable discovery of actual native starts; never calls synchronous locate or waits on a server tick. */
 public final class StructureLocator {
@@ -68,17 +72,25 @@ public final class StructureLocator {
                 new ArrayBlockingQueue<>(2),task -> {
                     var thread=new Thread(task,"Skyweave structure admission");thread.setDaemon(true);return thread;
                 });
+        // Disk membership must not run on a tick, nor queue behind a producer awaiting delivery.
+        final ThreadPoolExecutor membership = new ThreadPoolExecutor(1, 1, 30, TimeUnit.SECONDS,
+                new ArrayBlockingQueue<>(4), task -> {
+                    var thread = new Thread(task, "Skyweave structure membership"); thread.setDaemon(true); return thread;
+                });
         Job job;
         int metadataPending;
+        final java.util.concurrent.atomic.AtomicInteger retiring = new java.util.concurrent.atomic.AtomicInteger();
+        final java.util.concurrent.atomic.AtomicInteger nativePending = new java.util.concurrent.atomic.AtomicInteger();
     }
     private record Target(Holder<Structure> structure, List<RandomSpreadStructurePlacement> placements) {}
     private record Selection(List<Target> targets, int unplaced, int unsupported) {}
     private record Grid(int spacing, int separation, RandomSpreadType spread, int salt, int customIdentity) {}
     private record Candidate(ChunkPos position, long distance) {}
     private record Enumeration(boolean limited) {}
-    private enum Reservation { NEW, DUPLICATE, LIMIT }
+    private enum Reservation { NEW, DUPLICATE }
     private record Ownership(StructureDistribution distribution, StructureFamily family) {}
     private record Match(String id, net.minecraft.core.BlockPos position, long distance) {}
+    private record Found(byte[] identity, Match match) {}
     private static final Comparator<Match> ORDER = Comparator.comparingLong(Match::distance).thenComparing(Match::id)
             .thenComparingLong(match -> match.position().asLong());
     private static final class Job {
@@ -97,7 +109,8 @@ public final class StructureLocator {
         long sourceShift;
         Set<String> unboundedTargets = Set.of();
         final Set<ChunkPos> leases = new HashSet<>();
-        final Set<String> seen = new HashSet<>();
+        long matched;
+        final Map<String, Integer> targetOrdinals = new HashMap<>();
         final Map<net.minecraft.world.level.levelgen.structure.StructureStart, String> identities = new LinkedHashMap<>(128, .75f, true) {
             @Override protected boolean removeEldestEntry(Map.Entry<net.minecraft.world.level.levelgen.structure.StructureStart, String> entry) {
                 return size() > 256;
@@ -105,23 +118,24 @@ public final class StructureLocator {
         };
         final ArrayList<Match> matches = new ArrayList<>();
         final long began = System.nanoTime();
-        final long deadline;
         volatile boolean running = true;
         final ArrayBlockingQueue<Candidate> incoming = new ArrayBlockingQueue<>(64);
         final ArrayDeque<ChunkHolder> loaded = new ArrayDeque<>();
         volatile boolean boundsReady, enumerationDone;
         Future<?> enumerationTask;
         boolean boundsReported;
-        int verified, rejected, savedChunks, savedRegions;
-        volatile int clusters;
+        long verified, rejected, savedChunks, savedRegions;
+        volatile long clusters;
         volatile long enumerationNanos;
         long metadataNanos, nativeNanos;
         long ended;
         boolean savedDone, savedBusy;
-        List<ChunkPos> regions;
-        int nextRegion;
+        volatile StructureSearchStorage.RegionScan regionScan;
+        final ArrayDeque<ChunkPos> regions = new ArrayDeque<>();
+        boolean regionsComplete;
         final ArrayDeque<ChunkPos> stored = new ArrayDeque<>();
-        final Set<ChunkPos> scheduled = ConcurrentHashMap.newKeySet();
+        final SearchLedger scheduled;
+        final SearchLedger seen;
         final ArrayDeque<Candidate> ready = new ArrayDeque<>();
         volatile boolean limited;
         Job(CommandSourceStack source, int radius, List<Target> targets, SearchSettings limits,
@@ -133,12 +147,15 @@ public final class StructureLocator {
             this.work = work;
             publication = new SearchCommands.Job<>(recipient, report, work, StructureLocator::result, () -> cancel.accept(this));
             targetIds = targets.stream().map(t -> t.structure().getRegisteredName()).collect(java.util.stream.Collectors.toUnmodifiableSet());
+            for (var name : targetIds.stream().sorted().toList()) targetOrdinals.put(name, targetOrdinals.size());
             placements = targets.stream().flatMap(t -> t.placements().stream()).distinct().toList();
             locateOffset = Math.max(8, placements.stream().map(p -> p.getLocatePos(new ChunkPos(0, 0)))
                     .mapToLong(p -> Math.max(Math.abs((long)p.getX()), Math.abs((long)p.getZ()))).max().orElse(8));
             x = net.minecraft.util.Mth.floor(recipient.origin().x); z = net.minecraft.util.Mth.floor(recipient.origin().z);
             this.limits = limits;
-            deadline = began + TimeUnit.SECONDS.toNanos(limits.timeLimitSeconds());
+            var temporary = Path.of(System.getProperty("java.io.tmpdir"));
+            scheduled = new SearchLedger(8, limits.membershipBatchSize(), temporary);
+            seen = new SearchLedger(36, limits.membershipBatchSize(), temporary);
         }
     }
     public static void register() {
@@ -152,14 +169,20 @@ public final class StructureLocator {
         NeoForge.EVENT_BUS.addListener((LevelEvent.Unload event) -> {
             if (!(event.getLevel() instanceof ServerLevel level)) return;
             var state = servers.get(level.getServer());
-            if (state != null && state.job != null && state.job.level == level) locator.stop(state.job, "cancelled", false);
+            if (state != null && state.job != null && state.job.level == level) {
+                locator.stop(state.job, "cancelled", false);
+                state.job = null;
+            }
         });
         NeoForge.EVENT_BUS.addListener((ServerStoppedEvent event) -> {
-            var state = servers.remove(event.getServer());
+            var state = servers.get(event.getServer());
             if (state != null) {
                 if (state.job != null) locator.stop(state.job,"cancelled",false);
                 state.policy.close();
-                state.worker.shutdownNow();state.requests.shutdownNow();
+                state.worker.shutdownNow();
+                for (var queued : state.requests.shutdownNow()) ((ChunkAdmission<?>)queued).discard();
+                state.membership.shutdown();
+                servers.remove(event.getServer());
             }
         });
     }
@@ -239,6 +262,8 @@ public final class StructureLocator {
             var state = servers.get(source.getServer());
             if (state == null) return fail(source,"unsupported");
             if (state.job != null && state.job.running) return fail(source, "busy");
+            if (state.retiring.get() != 0 || state.work.inUse() != 0 || state.metadataPending != 0
+                    || state.worker.getActiveCount() != 0) return fail(source, "settling");
             var selection = targets(source, selector);
             var limits = state.policy.current();
             var job = new Job(source, radius, selection.targets(), limits, state.work.group(limits.concurrentChunks()),
@@ -255,14 +280,10 @@ public final class StructureLocator {
             // Loaded proto/full chunks may contain unsaved starts anywhere, including old placements.
             var chunks = (StructureSearchChunksAccess)source.getLevel().getChunkSource().chunkMap;
             var holders = new HashSet<ChunkHolder>();
-            int visits = 0, limit = job.limits.candidateLimit();
-            loadedSnapshot:
             for (var sourceHolders : List.of(chunks.skyweave$searchChunks(),
                     chunks.skyweave$searchUpdatingChunks().values(), chunks.skyweave$searchUnloadingChunks().values())) {
                 for (var holder : sourceHolders) {
-                    if (++visits > 3 * limit) { job.limited = true; break loadedSnapshot; }
                     if (holders.contains(holder)) continue;
-                    if (holders.size() == limit) { job.limited = true; break loadedSnapshot; }
                     holders.add(holder); job.loaded.addLast(holder);
                 }
             }
@@ -285,7 +306,7 @@ public final class StructureLocator {
         catch (IllegalArgumentException failure) { source.sendFailure(text("invalid", failure.getMessage())); return 0; }
     }
     private static Enumeration enumerate(Job job) {
-        var bounds = new StructureSearchBounds(job.level, () -> job.running && System.nanoTime() < job.deadline);
+        var bounds = new StructureSearchBounds(job.level, () -> job.running);
         var unbounded = new TreeSet<String>();
         var settings = job.level.getChunkSource().getGenerator()
                 instanceof org.sathrek.sky_archipelago.worldgen.generator.core.SkyIslandChunkGenerator sky
@@ -338,9 +359,9 @@ public final class StructureLocator {
         long seed = job.level.getSeed(); boolean limited = !unbounded.isEmpty();
         var distributions = owned.keySet().stream().map(Ownership::distribution).distinct().toList();
         for (var distribution : distributions) {
-            var cells = distribution.searchOwners(job.x, job.z, job.radius, locateOffset(job) + 16);
+            var cells = distribution.searchCursor(job.x, job.z, job.radius, locateOffset(job) + 16);
             while (!cells.complete()) {
-                if (!job.running || System.nanoTime() >= job.deadline) return new Enumeration(true);
+                if (!job.running) return new Enumeration(true);
                 var cell = cells.next(); job.clusters++;
                 var owner = new StructureSelection.Owner(cell.x(), cell.z());
                 for (var entry : owned.entrySet()) {
@@ -358,9 +379,9 @@ public final class StructureLocator {
             }
         }
         for (var placement : villages) {
-            var cells = placement.searchOwners(job.x, job.z, job.radius, locateOffset(job) + 16);
+            var cells = placement.searchCursor(job.x, job.z, job.radius, locateOffset(job) + 16);
             while (!cells.complete()) {
-                if (!job.running || System.nanoTime() >= job.deadline) return new Enumeration(true);
+                if (!job.running) return new Enumeration(true);
                 var cell = cells.next(); job.clusters++;
                 for (var site : placement.searchSites(cell.x(), cell.z(), job.x, job.z, job.radius, locateOffset(job) + 16)) {
                     var pos = new ChunkPos(site.chunkX(), site.chunkZ());
@@ -380,9 +401,10 @@ public final class StructureLocator {
                 if (ring > reach) continue;
                 any = true;
                 int cx = Math.floorDiv(Math.floorDiv(job.x, 16), spacing), cz = Math.floorDiv(Math.floorDiv(job.z, 16), spacing);
-                for (int dx = -ring; dx <= ring; dx++) for (int dz = -ring; dz <= ring; dz++) {
-                    if (Math.max(Math.abs(dx), Math.abs(dz)) != ring) continue;
-                    if (!job.running || System.nanoTime() >= job.deadline) return new Enumeration(true);
+                // Preserve the original perimeter order without scanning each ring's interior again.
+                for (int dx = -ring; dx <= ring; dx++) for (int dz = -ring; dz <= ring;
+                        dz += Math.abs(dx) == ring ? 1 : 2 * ring) {
+                    if (!job.running) return new Enumeration(true);
                     var placement = grid.getValue().getFirst();
                     var pos = placement.getPotentialStructureChunk(seed, (cx + dx) * spacing, (cz + dz) * spacing);
                     if (!StructureSearchBounds.withinWorld(pos.x, pos.z)) continue;
@@ -396,16 +418,14 @@ public final class StructureLocator {
         return new Enumeration(limited);
     }
     private static Reservation reserve(Job job,ChunkPos position) {
-        synchronized(job.scheduled) {
-            if(job.scheduled.contains(position))return Reservation.DUPLICATE;
-            if(job.scheduled.size()>=job.limits.candidateLimit()){job.limited=true;return Reservation.LIMIT;}
-            job.scheduled.add(position);return Reservation.NEW;
-        }
+        if (!job.running) return Reservation.DUPLICATE;
+        try { return job.scheduled.add(ByteBuffer.allocate(8).putLong(position.toLong()).array()) ? Reservation.NEW : Reservation.DUPLICATE; }
+        catch (IOException error) { throw new UncheckedIOException(error); }
     }
     private static boolean publish(Job job,Candidate candidate) {
         var reservation=reserve(job,candidate.position());
         if(reservation!=Reservation.NEW)return reservation==Reservation.DUPLICATE;
-        while(job.running && System.nanoTime()<job.deadline)try {
+        while(job.running)try {
             if(job.incoming.offer(candidate,50,TimeUnit.MILLISECONDS)) {
                 if(!job.running){job.incoming.remove(candidate);return false;}
                 return true;
@@ -432,12 +452,16 @@ public final class StructureLocator {
         var state = servers.get(event.getServer()); var job = state == null ? null : state.job;
         if (job == null || !job.running) return;
         if (job.recipient.current().isEmpty()) { stop(job, "cancelled", false); return; }
-        if (System.nanoTime() >= job.deadline) { stop(job, "partial", true); return; }
         long until = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(job.limits.tickBudgetMillis());
         try {
-            while(!job.loaded.isEmpty() && System.nanoTime()<until) {
+            while(!job.loaded.isEmpty() && System.nanoTime()<until
+                    && state.work.inUse() < Math.min(job.limits.concurrentChunks(), state.policy.current().concurrentChunks())) {
                 var chunk=job.loaded.removeFirst().getLatestChunk();
-                if(chunk!=null)inspect(job,candidate(job,chunk.getPos(),List.of()),chunk);
+                if(chunk!=null) {
+                    var reservation = job.work.tryReserve(state.policy.current().concurrentChunks()).orElseThrow();
+                    try { inspect(state, job, chunk, reservation::close); }
+                    catch (RuntimeException error) { reservation.close(); throw error; }
+                }
             }
             if(job.boundsReady && !job.boundsReported) {
                 job.boundsReported=true;
@@ -470,17 +494,18 @@ public final class StructureLocator {
         long began = System.nanoTime();
         try {
             CompletableFuture<?> task;
-            if (job.regions == null) {
+            if (job.regionScan == null) {
                 long reach = job.radius + locateOffset(job) + 16;
                 int minX = Math.toIntExact(Math.floorDiv(Math.max(-30000000L, job.x - reach), 16));
                 int minZ = Math.toIntExact(Math.floorDiv(Math.max(-30000000L, job.z - reach), 16));
                 int maxX = Math.toIntExact(Math.floorDiv(Math.min(29999999L, job.x + reach), 16));
                 int maxZ = Math.toIntExact(Math.floorDiv(Math.min(29999999L, job.z + reach), 16));
-                task = storage.skyweave$regions(minX, minZ, maxX, maxZ, job.limits.candidateLimit()).thenAccept(regions ->
-                        job.level.getServer().execute(() -> {
-                            if (!job.running) return;
-                            job.regions=regions.positions();if(regions.limited())job.limited=true;
-                        }));
+                task = storage.skyweave$scanRegions(minX, minZ, maxX, maxZ).thenAccept(scan -> {
+                    // Transfer cursor ownership before queuing a callback that a stopping server may never run.
+                    boolean keep;
+                    synchronized (job) { keep = job.running; if (keep) job.regionScan = scan; }
+                    if (!keep) try { scan.close(); } catch (IOException error) { throw new UncheckedIOException(error); }
+                });
             } else if (!job.stored.isEmpty()) {
                 var batch = new ArrayList<ChunkPos>();
                 while (!job.stored.isEmpty() && batch.size() < 32) batch.add(job.stored.removeFirst());
@@ -490,23 +515,31 @@ public final class StructureLocator {
                     return scanner.scanChunk(pos, fields).thenApply(unused ->
                             SavedStructureStarts.possible((CompoundTag)fields.getResult(), job.targetIds) ? pos : null);
                 }).toList();
-                task = CompletableFuture.allOf(scans.toArray(CompletableFuture[]::new)).thenRun(() ->
-                        job.level.getServer().execute(() -> {
-                            if (!job.running) return;
-                            job.savedChunks += batch.size();
+                task = CompletableFuture.allOf(scans.toArray(CompletableFuture[]::new))
+                        .thenApplyAsync(unused -> {
+                            var admitted = new ArrayList<ChunkPos>();
                             for (var scan : scans) {
                                 var pos = scan.getNow(null);
-                                if(pos!=null && reserve(job,pos)==Reservation.NEW)
-                                    job.ready.addLast(candidate(job,pos,List.of()));
+                                if (pos != null && reserve(job, pos) == Reservation.NEW) admitted.add(pos);
                             }
+                            return admitted;
+                        }, state.membership).thenAccept(admitted -> job.level.getServer().execute(() -> {
+                            if (!job.running) return;
+                            job.savedChunks += batch.size();
+                            for (var pos : admitted) job.ready.addLast(candidate(job, pos, List.of()));
                         }));
-            } else if (job.nextRegion < job.regions.size()) {
-                var region = job.regions.get(job.nextRegion++);
+            } else if (!job.regions.isEmpty()) {
+                var region = job.regions.removeFirst();
                 task = storage.skyweave$storedChunks(region).thenAccept(positions -> job.level.getServer().execute(() -> {
                     if (!job.running) return;
                     job.savedRegions++;
-                    for (var pos : positions) if (StructureSearchBounds.withinWorld(pos.x, pos.z)
-                            && inRange(job, pos) && !job.scheduled.contains(pos)) job.stored.addLast(pos);
+                    for (var pos : positions) if (StructureSearchBounds.withinWorld(pos.x, pos.z) && inRange(job, pos)) job.stored.addLast(pos);
+                }));
+            } else if (!job.regionsComplete) {
+                task = job.regionScan.next().thenAccept(page -> job.level.getServer().execute(() -> {
+                    if (!job.running) return;
+                    job.regions.addAll(page.positions()); job.regionsComplete = page.complete();
+                    if (page.limited()) job.limited = true;
                 }));
             } else {
                 job.savedDone = true; job.savedBusy = false; state.metadataPending--; return;
@@ -526,28 +559,35 @@ public final class StructureLocator {
         var reservation = job.work.tryReserve(state.policy.current().concurrentChunks()).orElseThrow();
         long began = System.nanoTime();
         var cache = job.level.getChunkSource(); var pos = candidate.position();
+        state.nativePending.incrementAndGet();
         try {
-            tickets(job).addTicket(TICKET, pos, TICKET_LEVEL, job.id); job.leases.add(pos);
+            job.leases.add(pos);
             reservation.attachTicket(() -> release(job, pos));
+            tickets(job).addTicket(TICKET, pos, TICKET_LEVEL, job.id);
             // This exact API's server-thread branch managedBlocks. The worker branch marshals registration safely.
-            CompletableFuture.supplyAsync(() -> job.running
+            var admission = new ChunkAdmission<>(() -> job.running
                     ? cache.getChunkFuture(pos.x, pos.z, ChunkStatus.STRUCTURE_STARTS, true)
-                    : CompletableFuture.<ChunkResult<ChunkAccess>>completedFuture(null), state.requests)
-                    .thenCompose(future -> future).whenComplete((chunk, failure) -> job.level.getServer().execute(() -> {
-                reservation.close();
-                if (!job.running || state.job != job) return;
+                    : CompletableFuture.<ChunkResult<ChunkAccess>>completedFuture(null));
+            admission.result.whenComplete((chunk, failure) -> {
+                state.nativePending.decrementAndGet();
+                job.level.getServer().execute(() -> {
+                if (!job.running || state.job != job) { reservation.close(); return; }
                 job.nativeNanos += System.nanoTime() - began;
-                if (failure != null) { failed(job, failure); return; }
-                if (chunk == null) { job.rejected++; return; }
-                if (!chunk.isSuccess()) { failed(job, new IllegalStateException(chunk.getError())); return; }
-                try { inspect(job, candidate, chunk.orElse(null)); job.verified++; }
-                catch (RuntimeException error) { failed(job, error); }
-            }));
-        } catch (RuntimeException failure) {
+                if (failure != null) { reservation.close(); failed(job, failure); return; }
+                if (chunk == null) { reservation.close(); job.rejected++; return; }
+                if (!chunk.isSuccess()) { reservation.close(); failed(job, new IllegalStateException(chunk.getError())); return; }
+                try { inspect(state, job, chunk.orElse(null), () -> { job.verified++; reservation.close(); }); }
+                catch (RuntimeException error) { reservation.close(); failed(job, error); }
+                });
+            });
+            state.requests.execute(admission);
+        } catch (RuntimeException | Error failure) {
+            state.nativePending.decrementAndGet();
             reservation.close(); throw failure;
         }
     }
-    private static void inspect(Job job, Candidate candidate, ChunkAccess chunk) {
+    private void inspect(State state, Job job, ChunkAccess chunk, Runnable finished) {
+        var found = new ArrayList<Found>();
         for (var target : job.targets) {
             var start = chunk.getStartForStructure(target.structure().value());
             if (start == null || !start.isValid()) continue;
@@ -563,13 +603,30 @@ public final class StructureLocator {
             String key = job.identities.computeIfAbsent(start, value -> PhysicalStructureIdentity.of(
                     target.structure().unwrapKey().orElseThrow().location(), value,
                     serialization));
-            if (job.seen.contains(key)) continue;
-            if (job.seen.size() == job.limits.candidateLimit()) { job.limited = true; return; }
-            job.seen.add(key);
             var match = new Match(target.structure().getRegisteredName(), position, distance);
-            job.matches.add(match);
-            job.matches.sort(ORDER); if (job.matches.size() > 64) job.matches.removeLast();
+            var digest = HexFormat.of().parseHex(key.substring(key.lastIndexOf('/') + 1));
+            var identity = ByteBuffer.allocate(36).putInt(job.targetOrdinals.get(match.id())).put(digest).array();
+            found.add(new Found(identity, match));
         }
+        if (found.isEmpty()) { finished.run(); return; }
+        CompletableFuture.supplyAsync(() -> {
+            var admitted = new ArrayList<Match>();
+            if (!job.running) return admitted;
+            try {
+                for (var value : found) if (job.running && job.seen.add(value.identity())) admitted.add(value.match());
+                return admitted;
+            } catch (IOException error) { throw new UncheckedIOException(error); }
+        }, state.membership).whenComplete((admitted, failure) -> job.level.getServer().execute(() -> {
+            try {
+                if (!job.running || state.job != job) return;
+                if (failure != null) { failed(job, failure); return; }
+                job.matched += admitted.size();
+                for (var match : admitted) {
+                    job.matches.add(match); job.matches.sort(ORDER);
+                    if (job.matches.size() > 64) job.matches.removeLast();
+                }
+            } finally { finished.run(); }
+        }));
     }
     private static long distance(Job job, net.minecraft.core.BlockPos position) {
         long dx = position.getX() - (long)job.x, dz = position.getZ() - (long)job.z; return dx * dx + dz * dz;
@@ -588,9 +645,20 @@ public final class StructureLocator {
         if (!job.running) return;
         observe(job, outcome.equals("complete"));
         job.ended = System.nanoTime();
-        job.running=false;job.ready.clear();job.incoming.clear();job.loaded.clear();job.stored.clear();
+        StructureSearchStorage.RegionScan scan;
+        synchronized (job) { job.running = false; scan = job.regionScan; job.regionScan = null; }
+        job.ready.clear();job.incoming.clear();job.loaded.clear();job.stored.clear();job.regions.clear();job.identities.clear();
         if(job.enumerationTask!=null)job.enumerationTask.cancel(false);
         var state=servers.get(job.level.getServer());if(state!=null)state.worker.purge();
+        if (state != null) {
+            state.retiring.incrementAndGet();
+            state.membership.execute(() -> {
+                try (var chunks = job.scheduled; var identities = job.seen; var inventory = scan) {
+                    // All retirement IO stays off the server thread, including a producer merge in flight.
+                } catch (IOException error) { com.mojang.logging.LogUtils.getLogger().error("Cannot retire structure search {}", job.id, error); }
+                finally { state.retiring.decrementAndGet(); }
+            });
+        }
         job.work.stop();
         job.work.releaseTickets();
         var terminal = switch (outcome) {
@@ -602,17 +670,17 @@ public final class StructureLocator {
         if (terminal == SearchReport.Outcome.CANCELLED) job.report.requestCancellation(job.id);
         String reason = switch (terminal) {
             case COMPLETE -> "";
-            case PARTIAL -> text(job.ended >= job.deadline ? "limit_time" : "limit_coverage").getString();
+            case PARTIAL -> text("limit_coverage").getString();
             case FAILED -> failure.substring(0, Math.min(512, failure.length()));
-            case CANCELLED -> text("cancelled", job.verified + job.rejected, job.seen.size()).getString();
+            case CANCELLED -> text("cancelled", job.verified + job.rejected, job.matched).getString();
             default -> throw new IllegalStateException("Structure search must finish with a terminal outcome");
         };
         job.report.finish(terminal, reason);
         if (notify) {
             var page = job.report.capture(1).orElseThrow().cursor();
-            reply(job, () -> text(outcome, job.verified + job.rejected, job.seen.size()).copy().append(" ")
+            reply(job, () -> text(outcome, job.verified + job.rejected, job.matched).copy().append(" ")
                     .append(action("results_action", "page at " + page.job() + " " + page.revision() + " 1")));
-            if(outcome.equals("partial"))reply(job,() -> text(System.nanoTime()>=job.deadline?"limit_time":"limit_coverage"));
+            if(outcome.equals("partial"))reply(job,() -> text("limit_coverage"));
             reporting.notifyMatches(job.publication, job.level.getServer().getTickCount());
         }
     }
@@ -622,10 +690,10 @@ public final class StructureLocator {
         job.recipient.current().ifPresent(source -> source.sendFailure(text("failed", failure.toString())));
     }
     private static void observe(Job job, boolean finished) {
-        int enumerated = job.scheduled.size();
+        long enumerated = job.scheduled.size();
         job.report.observe(new SearchReport.Progress(enumerated, job.verified, job.rejected,
                         finished ? OptionalLong.of(enumerated) : OptionalLong.empty()),
-                job.seen.size(), job.matches);
+                job.matched, job.matches);
     }
     private static void reply(Job job,java.util.function.Supplier<Component> message) {
         job.recipient.current().ifPresent(source -> source.sendSuccess(message, false));
@@ -644,12 +712,14 @@ public final class StructureLocator {
                 (job.running ? System.nanoTime() : job.ended) - job.began)), false);
         var state=servers.get(source.getServer());
         source.sendSuccess(() -> text("pipeline",job.loaded.size(),job.incoming.size()+job.ready.size(),job.work.pending(),
-                state.work.inUse()),false);
+                state.nativePending.get()),false);
+        source.sendSuccess(() -> text("metadata_pipeline",state.metadataPending,job.regions.size(),job.stored.size()),false);
         return 1;
     }
     private static Component progress(Job job) {
-        return text("progress_stream",text(!job.boundsReady?"phase_planning":!job.enumerationDone?"phase_searching":"phase_verifying"),
-                job.verified+job.rejected,job.scheduled.size(),job.seen.size());
+        return text("progress_stream",text(!job.boundsReady?"phase_planning":!job.enumerationDone?"phase_searching"
+                        : !job.savedDone && job.work.pending()==0 ? "phase_saved" : "phase_verifying"),
+                job.verified+job.rejected,job.scheduled.size(),job.matched);
     }
     private static Component result(Match match) {
         var p = match.position();

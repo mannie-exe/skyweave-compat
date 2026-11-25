@@ -57,6 +57,12 @@ public final class ArchipelagoVillagePlacement extends RandomSpreadStructurePlac
                 Comparator.comparingInt(VillagePlan.Site::chunkX).thenComparingInt(VillagePlan.Site::chunkZ));
     }
 
+    public design.inherent.skyweavecompat.terrain.structure.StructureOwnerCursor searchCursor(int x, int z, int radius, long padding) {
+        var profile = ((ProfiledTerrain)(Object)field).skyweave$profile();
+        int halo = Math.toIntExact(profile.lookupCells() + Math.ceilDiv(policy.maximumGap() + 128L + padding, profile.spacing()));
+        return new design.inherent.skyweavecompat.terrain.structure.StructureOwnerCursor(x, z, radius, profile.spacing(), halo);
+    }
+
     public List<VillagePlan.Site> searchSites(int cellX, int cellZ, int x, int z, int radius, long padding) {
         var anchor = ((VillageAnchors)(Object)field).skyweave$anchorInCell(cellX, cellZ, settings);
         if (anchor == null) return List.of();

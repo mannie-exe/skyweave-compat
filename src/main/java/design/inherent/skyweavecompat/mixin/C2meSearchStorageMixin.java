@@ -2,6 +2,7 @@ package design.inherent.skyweavecompat.mixin;
 
 import design.inherent.skyweavecompat.terrain.structure.StructureSearchStorage;
 import design.inherent.skyweavecompat.terrain.structure.StructureStorageInventory;
+import design.inherent.skyweavecompat.terrain.structure.RegionScanAdapter;
 import it.unimi.dsi.fastutil.longs.Long2ReferenceLinkedOpenHashMap;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.storage.RegionFileStorage;
@@ -35,6 +36,17 @@ public abstract class C2meSearchStorageMixin implements StructureSearchStorage {
         return CompletableFuture.supplyAsync(() -> {
             try { return StructureStorageInventory.chunks(storage, skyweave$pending(), region); }
             catch (java.io.IOException failure) { throw new UncheckedIOException(failure); }
+        }, executor);
+    }
+    @Override public CompletableFuture<RegionScan> skyweave$scanRegions(int minX, int minZ, int maxX, int maxZ) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                var cursor = StructureStorageInventory.cursor(storage, skyweave$pending(), minX, minZ, maxX, maxZ);
+                return new RegionScanAdapter(() -> CompletableFuture.supplyAsync(() -> {
+                    try { return cursor.next(); }
+                    catch (java.io.IOException error) { throw new UncheckedIOException(error); }
+                }, executor), cursor);
+            } catch (java.io.IOException error) { throw new UncheckedIOException(error); }
         }, executor);
     }
 }

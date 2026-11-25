@@ -8,16 +8,15 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class SettingsPolicyTest {
-    @Test void effectiveChangesDoNotRewriteAnAdmittedJobsSnapshotOrDeadline() {
+    @Test void effectiveChangesDoNotRewriteAnAdmittedJobsSchedulingSnapshot() {
         var policy = new SettingsPolicy<>(SearchSettings.DEFAULT, () -> {});
         var admitted = policy.read(() -> true);
-        long deadline = 1234L + admitted.value().timeLimitSeconds() * 1000L;
-        var changed = new SearchSettings(120, 5, 1, 1);
+        var changed = new SearchSettings(1,1);
         var prepared = policy.prepare(admitted.revision(), changed, () -> true);
         assertEquals(SearchSettings.DEFAULT, policy.current());
         var applied = prepared.apply(() -> true);
         assertEquals(changed, applied.value()); assertNotSame(admitted.revision(), applied.revision());
-        assertEquals(65536, admitted.value().candidateLimit()); assertEquals(601234L, deadline);
+        assertEquals(2, admitted.value().concurrentChunks()); assertEquals(5, admitted.value().tickBudgetMillis());
         assertThrows(IllegalStateException.class, () -> prepared.apply(() -> true));
         assertThrows(IllegalStateException.class, () -> policy.prepare(admitted.revision(), changed, () -> true));
         var identical = policy.prepare(applied.revision(), changed, () -> true).apply(() -> true);
@@ -27,7 +26,7 @@ class SettingsPolicyTest {
         var allowed = new AtomicBoolean(true);
         var policy = new SettingsPolicy<>(SearchSettings.DEFAULT, () -> {});
         var read = policy.read(allowed::get);
-        var prepared = policy.prepare(read.revision(), new SearchSettings(100,5,1,2), allowed::get);
+        var prepared = policy.prepare(read.revision(), new SearchSettings(1,2), allowed::get);
         allowed.set(false);
         assertThrows(SecurityException.class, () -> policy.read(allowed::get));
         assertThrows(SecurityException.class, () -> policy.prepare(read.revision(), SearchSettings.DEFAULT, allowed::get));
@@ -41,7 +40,7 @@ class SettingsPolicyTest {
         var first = new SettingsPolicy<>(SearchSettings.DEFAULT, () -> {});
         var second = new SettingsPolicy<>(SearchSettings.DEFAULT, () -> {});
         var read = first.read(() -> true);
-        var prepared = first.prepare(read.revision(),new SearchSettings(256,30,1,2),() -> true);
+        var prepared = first.prepare(read.revision(),new SearchSettings(1,2),() -> true);
         assertThrows(IllegalStateException.class, () -> second.prepare(read.revision(),SearchSettings.DEFAULT,() -> true));
         first.close();
         assertThrows(IllegalStateException.class, () -> first.read(() -> true));
@@ -54,16 +53,16 @@ class SettingsPolicyTest {
             if (Thread.currentThread() != owner) throw new IllegalStateException("Wrong thread");
         });
         var read = policy.read(() -> true);
-        var older = policy.prepare(read.revision(),new SearchSettings(128,5,1,1),() -> true);
+        var older = policy.prepare(read.revision(),new SearchSettings(1,1),() -> true);
         var failures = new java.util.concurrent.atomic.AtomicInteger();
         var thread = new Thread(() -> {
             assertThrows(IllegalStateException.class, () -> policy.current()); failures.incrementAndGet();
             assertThrows(IllegalStateException.class, () -> older.apply(() -> true)); failures.incrementAndGet();
         });
         thread.start(); thread.join(); assertEquals(2,failures.get());
-        policy.prepare(read.revision(),new SearchSettings(512,10,2,2),() -> true).apply(() -> true);
+        policy.prepare(read.revision(),new SearchSettings(2,2),() -> true).apply(() -> true);
         assertThrows(IllegalStateException.class, () -> older.apply(() -> true));
-        assertEquals(512,policy.current().candidateLimit());
+        assertEquals(2,policy.current().tickBudgetMillis());
     }
     @Test void policyValuesRemainImmutableAfterTheAuthoringListChanges() {
         var blocked = new java.util.ArrayList<>(List.of("minecraft:water"));

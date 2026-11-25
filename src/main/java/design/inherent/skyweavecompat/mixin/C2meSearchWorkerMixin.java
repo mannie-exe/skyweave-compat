@@ -19,4 +19,7 @@ public abstract class C2meSearchWorkerMixin implements StructureSearchStorage {
     @Override public CompletableFuture<List<ChunkPos>> skyweave$storedChunks(ChunkPos region) {
         return ((StructureSearchStorage)(Object)backend).skyweave$storedChunks(region);
     }
+    @Override public CompletableFuture<RegionScan> skyweave$scanRegions(int minX, int minZ, int maxX, int maxZ) {
+        return ((StructureSearchStorage)(Object)backend).skyweave$scanRegions(minX, minZ, maxX, maxZ);
+    }
 }

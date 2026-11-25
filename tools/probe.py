@@ -20,6 +20,7 @@ from fixture_files import copy_owned, stage_configs
 ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--mod', type=Path, help='Exact Skyweave: Compatibility Patches JAR for an isolated comparison; defaults to the local build')
+parser.add_argument('--probe-mod', type=Path, help='Exact read-only fixture observer JAR; independent of the frozen product candidate')
 parser.add_argument('--reform', type=Path, help='Exact re:form library JAR required by a migrated Compat artifact')
 parser.add_argument('--resource-patches', type=Path, help='Exact candidate Resource Patches JAR for the isolated full-profile fixture')
 parser.add_argument('--placement-followup-controls', action='store_true', help='With --village-pools, qualify native soil and rigid decoration-support controls')
@@ -148,7 +149,7 @@ parser.add_argument('--reverse-structure-order', action='store_true', help='Visi
 parser.add_argument('--far-structure-fixture', action='store_true', help='Use structure destinations at least 4096 blocks from spawn for fresh-order checks')
 parser.add_argument('--empty-village-start', action='store_true', help='In a fixed-plains fixture, make village layouts fail with an empty start pool')
 parser.add_argument('--seed', type=int, default=1)
-parser.add_argument('--search-fixture', choices=['mixed', 'cap', 'time', 'lifecycle', 'selectors', 'policy'], help='With --structure-search, test mixed placements, candidate/time exhaustion, native caller/world lifecycle, family/ID/tag selectors, or active policy publication')
+parser.add_argument('--search-fixture', choices=['mixed', 'resumable', 'lifecycle', 'selectors', 'policy', 'shutdown'], help='With --structure-search, test mixed placements, resumable full coverage, native caller/world lifecycle, family/ID/tag selectors, active policy publication, or queued-admission shutdown')
 parser.add_argument('--terrain-seed', type=int, help='Survey this exact seed instead of the five-seed terrain comparison')
 parser.add_argument('--maximum-gap', type=int, default=128)
 parser.add_argument('--snow-world', choices=['owned','vanilla','skyarch','mixed'], default='owned', help='With --snow-climate, qualify actual foreign-generator/type admission')
@@ -170,9 +171,8 @@ if args.configuration_delegation and not (args.configuration_writers and args.re
 if args.configuration_release and not args.configuration_writers: parser.error('--configuration-release requires --configuration-writers')
 if args.search_fixture and not args.structure_search: parser.error('--search-fixture requires --structure-search')
 if args.search_config and not args.structure_search: parser.error('--search-config requires --structure-search')
-if args.search_config and args.search_fixture == 'cap': parser.error('--search-fixture cap owns its explicit limit; omit --search-config')
+if args.search_config and args.search_fixture == 'resumable': parser.error('--search-fixture resumable owns its legacy-input control; omit --search-config')
 if args.search_fixture == 'selectors' and args.search_planning: parser.error('--search-fixture selectors and --search-planning are independent checks')
-if args.search_fixture == 'time' and not args.search_config: parser.error('--search-fixture time requires an explicit short --search-config')
 if args.require_fractured_overlap and not args.overlap: parser.error('--require-fractured-overlap requires --overlap')
 if args.quests and args.minimal: parser.error('--quests requires the installed FTB runtime')
 if args.placement_followup_controls and not args.village_pools:
@@ -305,7 +305,7 @@ version = next(line.split('=', 1)[1] for line in (ROOT / 'gradle.properties').re
 mod = ROOT / f'build/libs/skyweave-compat-{version}-mc1.21.1-neoforge.jar'
 if args.mod:
     mod = args.mod.expanduser().resolve()
-fixture = ROOT / 'build/probe/skyweave-compat-probe.jar'
+fixture = args.probe_mod.expanduser().resolve() if args.probe_mod else ROOT / 'build/probe/skyweave-compat-probe.jar'
 output = args.output_dir.expanduser().resolve() if args.output_dir else ROOT / 'build/verification'
 output.mkdir(parents=True, exist_ok=True)
 name = f'islands-{args.seed}' if args.islands else f'mechanics-{args.seed}' if args.mechanics else f'biomes-{args.seed}' if args.biomes else f'generation-{args.generation}-{args.seed}' if args.generation else 'terrain' if args.terrain else f'natural-{args.natural_profile}-{args.seed}' if args.natural else 'placement'
@@ -534,9 +534,9 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
                 fixture_wayfinder.write_text(json.dumps(policy, indent=2) + '\n')
     if args.wayfinder_public:
         shutil.copy2(ROOT / 'src/probe/resources/wayfinder-public.json', run / 'config/skyweave/skyweave_compat-wayfinder.json')
-    if args.search_fixture == 'cap':
+    if args.search_fixture == 'resumable':
         (run / 'config/skyweave/skyweave_compat-search.json').write_text(json.dumps({
-            'candidateLimit': 16, 'timeLimitSeconds': 120, 'concurrentChunks': 2, 'tickBudgetMillis': 5}))
+            'candidateLimit': 16, 'timeLimitSeconds': 5, 'concurrentChunks': 2, 'tickBudgetMillis': 5}))
     if args.search_fixture == 'policy':
         (run / 'config/skyweave/skyweave_compat-search.json').write_text(json.dumps({
             'candidateLimit': 16, 'timeLimitSeconds': 5, 'concurrentChunks': 2, 'tickBudgetMillis': 1}))
@@ -876,9 +876,9 @@ with tempfile.TemporaryDirectory(prefix='skyweave-compat-') as directory:
         timeout = 90 if args.dh_stop_after else 600
         if args.structure_search:
             limits_path = run / 'config/skyweave/skyweave_compat-search.json'
-            seconds = json.loads(limits_path.read_text())['timeLimitSeconds'] if limits_path.exists() else 600
+            seconds = 600 # Owned observation allowance, never a product stopping policy.
             queries = 7 if args.search_fixture == 'selectors' else 2
-            # Allow every native request its actual policy, plus bounded boot/cleanup time.
+            # Bound only this disposable observation, with separate boot/cleanup time.
             timeout = 180 + queries * (seconds + 30)
         with log_path.open('w') as log:
             completed = subprocess.run(command, cwd=run, stdout=log, stderr=subprocess.STDOUT, check=False, timeout=timeout)
@@ -1231,7 +1231,10 @@ if args.access:
     print('Native access/spawn policy:', report, 'enabled:', data['policyEnabled'])
     raise SystemExit(0)
 if args.structure_search:
-    print('Native structure command:', report, 'seconds:', data['elapsedSeconds'])
+    if args.search_fixture == 'shutdown':
+        print('Native structure shutdown:', report)
+    else:
+        print('Native structure command:', report, 'seconds:', data['elapsedSeconds'])
     raise SystemExit(0)
 if args.locator:
     print('Native metadata command:', report, 'seconds:', data['elapsedSeconds'])
