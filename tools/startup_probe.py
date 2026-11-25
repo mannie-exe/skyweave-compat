@@ -18,6 +18,17 @@ from fixture_files import copy_owned, stage_configs, stage_replay
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def adq_ready(run):
+    """An intermediate request trace is not the terminal native observation."""
+    proof = run / 'adq-search-proof.json'
+    if not proof.is_file():
+        return False
+    try:
+        return json.loads(proof.read_text()).get('nativeInvocationReturned', False)
+    except json.JSONDecodeError:
+        return False
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--server', type=Path, required=True, help='Read-only installed game directory')
@@ -46,7 +57,10 @@ def main():
     parser.add_argument('--connector-ceiling', type=int, choices=[40, 255], default=255, help='Expected actual Simulated ceiling in the explicit connector fixture config')
     parser.add_argument('--curio-break', choices=['original','repaired'], help='Observe native equipment break custody and notification ownership')
     parser.add_argument('--curio-break-slot', choices=['back','glider'], default='back', help='Native equipment slot; glider requires the authored slot subset')
+    parser.add_argument('--adq-search', choices=['first-read','route'], help='Observe actual ADQ locate futures in a disposable island server; first-read aborts after one native chunk read')
     args = parser.parse_args()
+    if args.adq_search and (args.scenario not in {'terrain','full'} or args.serve or args.cookery or args.connector or args.curio_break):
+        parser.error('--adq-search requires a separate terrain/full island fixture')
     if args.curio_break and (args.scenario != 'standalone' or args.serve or args.cookery or args.connector):
         parser.error('--curio-break requires a separate non-served standalone fixture')
     if args.cookery and args.scenario != 'standalone':
@@ -67,7 +81,7 @@ def main():
     if args.configuration_pack and (not args.serve or args.scenario!='full'):parser.error('--configuration-pack requires full --serve')
     if args.without_compat and (not args.serve or args.scenario != 'standalone'):
         parser.error('--without-compat requires --serve --scenario standalone')
-    if args.islands and (not args.serve or args.scenario not in {'terrain','full'}):
+    if args.islands and ((not args.serve and not args.adq_search) or args.scenario not in {'terrain','full'}):
         parser.error('--islands requires --serve with terrain or full')
     if not -(2**63)<=args.seed<2**63:parser.error('--seed must fit a signed Java long')
     if (args.replay_regions or args.replay_dh) and not(args.serve and args.islands):
@@ -244,13 +258,17 @@ def main():
         port = 0
         (run / 'server.properties').write_text(
             f'server-ip=127.0.0.1\nserver-port={port}\nonline-mode=false\nlevel-name=probe-world\n'
-            f'level-type={preset}\ngenerate-structures=false\nview-distance=2\nsimulation-distance=2\nmax-tick-time=0\n'
+            f'level-type={preset}\ngenerate-structures={str(bool(args.adq_search)).lower()}\nview-distance=2\nsimulation-distance=2\nmax-tick-time=0\n'
             + (f'level-seed={args.seed}\n' if args.islands else '')
             + ('difficulty=peaceful\ngamemode=creative\n' if args.serve else ''))
         command = [args.java, '-Xmx'+args.heap, '-XX:+ExitOnOutOfMemoryError', '-Dmixin.debug.export=true', '-Dmixin.debug.verbose=true',
                    '@' + str(launch[0]), 'nogui']
         if args.curio_break:
             command[1:1] = ['-Dneighbors.probe.curioBreak=' + args.curio_break, '-Dneighbors.probe.curioBreakSlot=' + args.curio_break_slot]
+        if args.adq_search:
+            command[1:1] = ['-Dneighbors.probe.adqSearch=true', '-Dneighbors.probe.output=' + str(run / 'adq-search-proof.json')]
+            if args.adq_search == 'first-read':
+                command.insert(1, '-Dneighbors.probe.adqFirstRead=true')
         if args.cookery:
             command[1:1] = ['-Dneighbors.probe.cookery=' + args.cookery]
             (run / 'cookery-fixture.json').write_text('{}\n')
@@ -263,13 +281,17 @@ def main():
         done = False
         with log_path.open('w') as log:
             process = subprocess.Popen(command, cwd=run, stdin=subprocess.PIPE, stdout=log, stderr=subprocess.STDOUT, text=True)
+            if args.adq_search:
+                (output / 'native-process.json').write_text(json.dumps({'pid':process.pid,'runtime':str(run),
+                    'scope':'Owned disposable ADQ native fixture; wrapper exit alone does not prove JVM termination'},indent=2)+'\n')
             try:
                 deadline = time.monotonic() + 240
                 while process.poll() is None and time.monotonic() < deadline:
                     if ('Done (' in log_path.read_text(errors='replace')
                             and (not args.cookery or (run / 'cookery-proof.json').is_file())
                             and (not args.connector or (run / 'connector-proof.json').is_file())
-                            and (not args.curio_break or (run / 'curio-break-proof.json').is_file())):
+                            and (not args.curio_break or (run / 'curio-break-proof.json').is_file())
+                            and (not args.adq_search or adq_ready(run))):
                         done = True
                         if args.serve:
                             report['replayInputs'].update(stage_replay(args.replay_regions,None,run,args.seed))
@@ -298,7 +320,8 @@ def main():
         if not args.serve and process.returncode == 0 and 'Done (' in text:
             done = done or ((not args.curio_break or (run / 'curio-break-proof.json').is_file())
                             and (not args.cookery or (run / 'cookery-proof.json').is_file())
-                            and (not args.connector or (run / 'connector-proof.json').is_file()))
+                            and (not args.connector or (run / 'connector-proof.json').is_file())
+                            and (not args.adq_search or adq_ready(run)))
 
         # Exported transformed targets must not reference Compat when no adapter was selected.
         references = []
@@ -312,6 +335,11 @@ def main():
         if args.curio_break:
             proof = run / 'curio-break-proof.json'
             report['curioBreak'] = json.loads(proof.read_text()) if proof.is_file() else {'passed':False,'error':'Missing native proof'}
+        if args.adq_search:
+            proof = run / 'adq-search-proof.json'
+            report['adqSearch'] = json.loads(proof.read_text()) if proof.is_file() else {'observed':False,'error':'Missing actual ADQ observation'}
+            if proof.is_file():
+                shutil.copy2(proof, output / 'adq-search-proof.json')
         if args.cookery:
             proof = run / 'cookery-proof.json'
             report['cookery'] = json.loads(proof.read_text()) if proof.is_file() else {'passed': False, 'error': 'Native fixture produced no report'}
@@ -380,6 +408,8 @@ def main():
             report['passed'] = report['passed'] and report['connector'].get('passed', False)
         if args.curio_break:
             report['passed'] = report['passed'] and report['curioBreak'].get('passed',False)
+        if args.adq_search:
+            report['passed'] = report['passed'] and report['adqSearch'].get('observed',False) and report['adqSearch'].get('nativeInvocationReturned',False)
         (output / f'startup-{args.scenario}.json').write_text(json.dumps(report, indent=2) + '\n')
         print(json.dumps({key: report[key] for key in ['scenario', 'sha256', 'startup', 'exit_code', 'seconds', 'active_lines', 'passed']}, indent=2), flush=True)
         if not report['passed']:
