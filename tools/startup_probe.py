@@ -60,6 +60,7 @@ def main():
     parser.add_argument('--curio-break-slot', choices=['back','glider'], default='back', help='Native equipment slot; glider requires the authored slot subset')
     parser.add_argument('--adq-search', choices=['first-read','route'], help='Observe actual ADQ locate futures in a disposable island server; first-read aborts after one native chunk read')
     parser.add_argument('--adq-cargo', action='store_true', help='Qualify native board, cargo and payment on one real saved disposable offer; requires --adq-world')
+    parser.add_argument('--adq-owned-observer', action='store_true', help='Observe the owned delivery bridge without writing its feature switch; supports actual default-selection controls')
     parser.add_argument('--adq-trace', choices=['full','phases'], default='full', help='Private observer only: retain native phases/output while omitting per-request instrumentation for overhead controls')
     parser.add_argument('--adq-fault', choices=['search-ticket','endpoint-ticket'], help='Inject one after-mutation native ticket failure; separate explicit negative control')
     parser.add_argument('--adq-world', type=Path, help='Read-only marked disposable ADQ world snapshot to reopen')
@@ -311,7 +312,7 @@ def main():
             if args.adq_expiry:command.insert(1,'-Dneighbors.probe.adqExpiry=true')
             if args.adq_logout:command.insert(1,'-Dneighbors.probe.adqLogout=true')
             if args.adq_stop:command.insert(1,'-Dneighbors.probe.adqStop=true')
-            if 'delivery.structure_search' in args.enable:
+            if args.adq_owned_observer or 'delivery.structure_search' in args.enable:
                 command.insert(1, '-Dneighbors.probe.adqBridge=true')
             if args.adq_search == 'first-read':
                 command.insert(1, '-Dneighbors.probe.adqFirstRead=true')
