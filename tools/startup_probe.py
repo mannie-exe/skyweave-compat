@@ -59,25 +59,35 @@ def main():
     parser.add_argument('--curio-break', choices=['original','repaired'], help='Observe native equipment break custody and notification ownership')
     parser.add_argument('--curio-break-slot', choices=['back','glider'], default='back', help='Native equipment slot; glider requires the authored slot subset')
     parser.add_argument('--adq-search', choices=['first-read','route'], help='Observe actual ADQ locate futures in a disposable island server; first-read aborts after one native chunk read')
+    parser.add_argument('--adq-cargo', action='store_true', help='Qualify native board, cargo and payment on one real saved disposable offer; requires --adq-world')
+    parser.add_argument('--adq-trace', choices=['full','phases'], default='full', help='Private observer only: retain native phases/output while omitting per-request instrumentation for overhead controls')
     parser.add_argument('--adq-fault', choices=['search-ticket','endpoint-ticket'], help='Inject one after-mutation native ticket failure; separate explicit negative control')
     parser.add_argument('--adq-world', type=Path, help='Read-only marked disposable ADQ world snapshot to reopen')
     parser.add_argument('--adq-capture-world', action='store_true', help='Retain this disposable ADQ world after normal shutdown for native reopen checks')
     parser.add_argument('--adq-lifetime', action='store_true', help='Hold one fixture-only future proxy, cancel the actual owned job, verify settling admission and native successor')
     parser.add_argument('--adq-expiry', action='store_true', help='With --adq-lifetime, move only the actual fixture job deadline into the past and observe normal tick expiry')
     parser.add_argument('--adq-logout', action='store_true', help='With --adq-lifetime, cancel through actual requesting-player logout and reconnect the same player before a useful successor')
+    parser.add_argument('--adq-stop', action='store_true', help='With --adq-lifetime, stop the actual server during an outstanding native request; separate cancellation control, not route success')
     parser.add_argument('--adq-rng', type=int, help='Explicit fixture-only native RNG seed for matched comparisons; preserves native algorithm/draws')
     parser.add_argument('--adq-max-ticks', type=int, choices=[3600,7200,12000], default=3600, help='Explicit disposable observation window; product deadlines remain unchanged')
     parser.add_argument('--adq-admission', action='store_true', help='Engineering5+ only: observe actual status ticket mutations per server tick')
     args = parser.parse_args()
+    if args.adq_cargo and (not args.adq_world or args.adq_search or args.adq_capture_world or args.serve
+                          or args.cookery or args.connector or args.curio_break or args.scenario not in {'terrain','full'}):
+        parser.error('--adq-cargo requires a separate terrain/full saved ADQ world, without other fixture modes')
+    if args.adq_trace == 'phases' and (args.adq_search!='route' or args.adq_lifetime or args.adq_fault or args.adq_admission):
+        parser.error('Phase-only tracing requires a plain route without lifecycle/fault/admission instrumentation')
     if args.adq_future_only and not args.scenario.startswith('unsupported-'):
         parser.error('--adq-future-only requires an unsupported-version scenario')
     if args.adq_expiry and not args.adq_lifetime:
         parser.error('Expiry control requires the separate enabled lifecycle fixture')
     if args.adq_logout and (not args.adq_lifetime or args.adq_expiry):
         parser.error('--adq-logout requires --adq-lifetime without --adq-expiry')
+    if args.adq_stop and (not args.adq_lifetime or args.adq_expiry or args.adq_logout):
+        parser.error('--adq-stop requires --adq-lifetime without expiry/logout controls')
     if args.adq_lifetime and (args.adq_search!='route' or args.adq_fault or 'delivery.structure_search' not in args.enable):
         parser.error('Lifecycle control requires a separate enabled ADQ route fixture')
-    if (args.adq_world or args.adq_capture_world) and (args.adq_search!='route' or args.adq_fault):
+    if (args.adq_world or args.adq_capture_world) and (not (args.adq_search=='route' or args.adq_cargo) or args.adq_fault):
         parser.error('ADQ world capture/reopen requires a non-fault route fixture')
     if args.adq_world and not (args.adq_world/'skyweave-adq-fixture.json').is_file():
         parser.error('ADQ reopen requires the explicit disposable fixture marker')
@@ -105,7 +115,7 @@ def main():
     if args.configuration_pack and (not args.serve or args.scenario!='full'):parser.error('--configuration-pack requires full --serve')
     if args.without_compat and (not args.serve or args.scenario != 'standalone'):
         parser.error('--without-compat requires --serve --scenario standalone')
-    if args.islands and ((not args.serve and not args.adq_search) or args.scenario not in {'terrain','full'}):
+    if args.islands and ((not args.serve and not args.adq_search and not args.adq_cargo) or args.scenario not in {'terrain','full'}):
         parser.error('--islands requires --serve with terrain or full')
     if not -(2**63)<=args.seed<2**63:parser.error('--seed must fit a signed Java long')
     if (args.replay_regions or args.replay_dh) and not(args.serve and args.islands):
@@ -282,21 +292,25 @@ def main():
         port = 0
         (run / 'server.properties').write_text(
             f'server-ip=127.0.0.1\nserver-port={port}\nonline-mode=false\nlevel-name=probe-world\n'
-            f'level-type={preset}\ngenerate-structures={str(bool(args.adq_search)).lower()}\nview-distance=2\nsimulation-distance=2\nmax-tick-time=0\n'
+            f'level-type={preset}\ngenerate-structures={str(bool(args.adq_search or args.adq_cargo)).lower()}\nview-distance=2\nsimulation-distance=2\nmax-tick-time=0\n'
             + (f'level-seed={args.seed}\n' if args.islands else '')
             + ('difficulty=peaceful\ngamemode=creative\n' if args.serve else ''))
         command = [args.java, '-Xmx'+args.heap, '-XX:+ExitOnOutOfMemoryError', '-Dmixin.debug.export=true', '-Dmixin.debug.verbose=true',
                    '@' + str(launch[0]), 'nogui']
         if args.curio_break:
             command[1:1] = ['-Dneighbors.probe.curioBreak=' + args.curio_break, '-Dneighbors.probe.curioBreakSlot=' + args.curio_break_slot]
+        if args.adq_cargo:
+            command[1:1] = ['-Dneighbors.probe.adqCargo=true', '-Dneighbors.probe.cargoOutput=' + str(run / 'adq-cargo-proof.json')]
         if args.adq_search:
             command[1:1] = ['-Dneighbors.probe.adqSearch=true', '-Dneighbors.probe.output=' + str(run / 'adq-search-proof.json')]
+            command.insert(1,'-Dneighbors.probe.adqRequestTrace='+str(args.adq_trace=='full').lower())
             if args.adq_admission:command.insert(1,'-Dneighbors.probe.adqAdmission=true')
             command.insert(1,'-Dneighbors.probe.adqMaxTicks='+str(args.adq_max_ticks))
             if args.adq_rng is not None:command.insert(1,'-Dneighbors.probe.adqRng='+str(args.adq_rng))
             if args.adq_lifetime:command.insert(1,'-Dneighbors.probe.adqLifetime=true')
             if args.adq_expiry:command.insert(1,'-Dneighbors.probe.adqExpiry=true')
             if args.adq_logout:command.insert(1,'-Dneighbors.probe.adqLogout=true')
+            if args.adq_stop:command.insert(1,'-Dneighbors.probe.adqStop=true')
             if 'delivery.structure_search' in args.enable:
                 command.insert(1, '-Dneighbors.probe.adqBridge=true')
             if args.adq_search == 'first-read':
@@ -317,7 +331,7 @@ def main():
         done = False
         with log_path.open('w') as log:
             process = subprocess.Popen(command, cwd=run, stdin=subprocess.PIPE, stdout=log, stderr=subprocess.STDOUT, text=True)
-            if args.adq_search:
+            if args.adq_search or args.adq_cargo:
                 (output / 'native-process.json').write_text(json.dumps({'pid':process.pid,'runtime':str(run),
                     'scope':'Owned disposable ADQ native fixture; wrapper exit alone does not prove JVM termination'},indent=2)+'\n')
             try:
@@ -327,6 +341,7 @@ def main():
                             and (not args.cookery or (run / 'cookery-proof.json').is_file())
                             and (not args.connector or (run / 'connector-proof.json').is_file())
                             and (not args.curio_break or (run / 'curio-break-proof.json').is_file())
+                            and (not args.adq_cargo or (run / 'adq-cargo-proof.json').is_file())
                             and (not args.adq_search or adq_ready(run))):
                         done = True
                         if args.serve:
@@ -353,7 +368,7 @@ def main():
                         process.kill()
                         process.wait()
         text = log_path.read_text(errors='replace')
-        if args.adq_search:
+        if args.adq_search or args.adq_cargo:
             (output/'process-retirement.json').write_text(json.dumps({'pid':process.pid,'exitCode':process.returncode,'pollTerminal':process.poll() is not None},indent=2))
             quest=run/'probe-world/adq_quests.json'
             if quest.is_file():shutil.copy2(quest,output/'adq_quests.json')
@@ -364,6 +379,7 @@ def main():
             done = done or ((not args.curio_break or (run / 'curio-break-proof.json').is_file())
                             and (not args.cookery or (run / 'cookery-proof.json').is_file())
                             and (not args.connector or (run / 'connector-proof.json').is_file())
+                            and (not args.adq_cargo or (run / 'adq-cargo-proof.json').is_file())
                             and (not args.adq_search or adq_ready(run)))
 
         # Exported transformed targets must not reference Compat when no adapter was selected.
@@ -378,6 +394,10 @@ def main():
         if args.curio_break:
             proof = run / 'curio-break-proof.json'
             report['curioBreak'] = json.loads(proof.read_text()) if proof.is_file() else {'passed':False,'error':'Missing native proof'}
+        if args.adq_cargo:
+            proof = run / 'adq-cargo-proof.json'
+            report['adqCargo'] = json.loads(proof.read_text()) if proof.is_file() else {'complete':False,'error':'Missing native cargo proof'}
+            if proof.is_file():shutil.copy2(proof,output/'adq-cargo-proof.json')
         if args.adq_search:
             proof = run / 'adq-search-proof.json'
             report['adqSearch'] = json.loads(proof.read_text()) if proof.is_file() else {'observed':False,'error':'Missing actual ADQ observation'}
@@ -456,11 +476,13 @@ def main():
             report['passed'] = report['passed'] and report['connector'].get('passed', False)
         if args.curio_break:
             report['passed'] = report['passed'] and report['curioBreak'].get('passed',False)
+        if args.adq_cargo:
+            report['passed'] = report['passed'] and report['adqCargo'].get('complete',False)
         if args.adq_search:
             report['passed'] = report['passed'] and report['adqSearch'].get('observed',False) and report['adqSearch'].get('nativeInvocationReturned',False)
             if args.adq_search == 'route':
-                report['passed'] = report['passed'] and (report['adqSearch'].get('faultControl',{}).get('passed',False) if args.adq_fault else report['adqSearch'].get('routeRegistered',False))
-                if not args.adq_fault:
+                report['passed'] = report['passed'] and (report['adqSearch'].get('lifecycleControl',{}).get('passed',False) if args.adq_stop else report['adqSearch'].get('faultControl',{}).get('passed',False) if args.adq_fault else report['adqSearch'].get('routeRegistered',False))
+                if not args.adq_fault and not args.adq_stop:
                     proof=report['adqSearch'];stored=proof.get('finalPersistence',{})
                     report['passed']=report['passed'] and stored.get('storedQuestCount',-1)==proof.get('nativeQuestCount',-2)
                     if args.adq_world:

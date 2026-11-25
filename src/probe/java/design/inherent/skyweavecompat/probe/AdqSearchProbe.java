@@ -64,8 +64,15 @@ public final class AdqSearchProbe {
         if(maxAdmissions>4)throw new AssertionError("Actual native status ticket mutations exceeded the declared admission policy");
     }
     public static void nativeFinished(){nativeFinalizationObserved=true;}
+    public static void producerEntry(ServerLevel level) {
+        synchronized(REPORT) {
+            REPORT.addProperty("nativeProducerThread",Thread.currentThread().getName());
+            REPORT.addProperty("nativeGenerator",level.getChunkSource().getGenerator().getClass().getName());
+        }
+    }
     public static MinecraftServer server(){return server;}
     public AdqSearchProbe() {
+        REPORT.addProperty("requestTracing",Boolean.parseBoolean(System.getProperty("neighbors.probe.adqRequestTrace","true")));
         REPORT.add("requests",REQUESTS);
         REPORT.add("nativeLocates",LOCATES);
         REPORT.add("nativeSurfaceReads",SURFACES);
@@ -76,7 +83,16 @@ public final class AdqSearchProbe {
             try{stoppingState=ownedStates().get(server);}catch(Exception error){throw new IllegalStateException(error);}
         });
         NeoForge.EVENT_BUS.addListener(net.neoforged.bus.api.EventPriority.LOWEST,(ServerStoppedEvent event)->{
-            if(event.getServer()==server && Boolean.getBoolean("neighbors.probe.adqBridge"))inspectShutdown();
+            if(event.getServer()!=server || !Boolean.getBoolean("neighbors.probe.adqBridge"))return;
+            if(Boolean.getBoolean("neighbors.probe.adqStop")) {
+                try { AdqLifetimeProbe.stopped(stoppingState); }
+                catch(Throwable failure){REPORT.addProperty("stopObservationError",failure.toString());}
+                REPORT.add("lifecycleControl",AdqLifetimeProbe.report());REPORT.addProperty("terminal",true);
+                REPORT.addProperty("observed",requestId>0);REPORT.addProperty("observedRequests",requestId);
+                REPORT.addProperty("nativeInvocationReturned",REPORT.has("publicEntryReturned") && REPORT.get("publicEntryReturned").getAsBoolean());
+                save();
+            }
+            inspectShutdown();
         });
         NeoForge.EVENT_BUS.addListener(this::tick);
     }
@@ -89,6 +105,9 @@ public final class AdqSearchProbe {
             if(System.getProperty("neighbors.probe.adqRng")!=null)REPORT.addProperty("fixtureInputRngSeed",Long.parseLong(System.getProperty("neighbors.probe.adqRng")));
             if(route) {
                 try{var type=Class.forName("com.ladderstar.adq.QuestGenerator");
+                    var modeField=Class.forName("com.ladderstar.adq.ADQConfig").getField("QUEST_LOCATION_MODE");
+                    var mode=(java.util.function.Supplier<?>)modeField.get(null);
+                    REPORT.addProperty("nativeLocationMode",String.valueOf(mode.get()));
                     initialQuestCount=((List<?>)type.getMethod("getAvailableQuests").invoke(null)).size();
                     REPORT.addProperty("initialQuestCount",initialQuestCount);inspectPersistence("initial");
                     if(Boolean.getBoolean("neighbors.probe.adqLogout"))submitLifecycleActor();
@@ -137,7 +156,11 @@ public final class AdqSearchProbe {
             }catch(Throwable failure){synchronized(REPORT){REPORT.addProperty("routeObservationError",failure.toString());}finished=true;}
         }
         if(finished && ++postFinish>=5 || ticks>=(route?Integer.getInteger("neighbors.probe.adqMaxTicks",3600):1200)) {
-            synchronized(REPORT){REPORT.addProperty("nativeInvocationReturned",route?REPORT.has("publicEntryReturned"):finished);REPORT.addProperty("observed",REQUESTS.size()>0);
+            synchronized(REPORT){REPORT.addProperty("nativeInvocationReturned",route?REPORT.has("publicEntryReturned"):finished);REPORT.addProperty("observed",REQUESTS.size()>0
+                        || route && REPORT.has("nativeLocationMode") && REPORT.get("nativeLocationMode").getAsString().equals("RANDOM")
+                        && nativeFinalizationObserved && SURFACES.size()>0
+                        || !Boolean.parseBoolean(System.getProperty("neighbors.probe.adqRequestTrace","true"))
+                        && nativeFinalizationObserved && REPORT.has("routeRegistered") && REPORT.get("routeRegistered").getAsBoolean());
                 REPORT.addProperty("terminal",true);REPORT.addProperty("observedRequests",requestId);inspectOwned();
                 REPORT.addProperty("nativeFinalizationObserved",nativeFinalizationObserved);
                 REPORT.addProperty("routeWallNanosObservationOnly",System.nanoTime()-beganNanos);

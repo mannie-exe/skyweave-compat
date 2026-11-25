@@ -11,10 +11,15 @@ import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.levelgen.structure.Structure;
 import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Coerce;
 
 @Pseudo
 @Mixin(targets="com.ladderstar.adq.QuestGenerator",remap=false)
 public abstract class AdqLocateWitnessMixin {
+    @WrapMethod(method="lambda$generateNewQuestAsync$9")
+    private static void producer(ServerLevel level,java.util.UUID recipient,boolean custom,@Coerce Object template,java.util.List<?> templates,Operation<Void> original) {
+        AdqSearchProbe.producerEntry(level);original.call(level,recipient,custom,template,templates);
+    }
     @WrapMethod(method="finishGeneration")
     private static void finished(ServerLevel level,java.util.UUID recipient,Operation<Void> original) {
         original.call(level,recipient);AdqSearchProbe.nativeFinished();

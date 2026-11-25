@@ -935,7 +935,11 @@ class FeatureSelectionTest {
         }
     }
 
-    @Test void deliverySearchUsesItsExactOptionalProviderAndEndpointCustody() {
+    @Test void deliverySearchUsesItsExactOptionalProviderAndEndpointCustody() throws Exception {
+        var defaults=FeatureSettings.read(new StringReader(""));
+        assertTrue(FeatureSelection.select(defaults,SUPPORTED,false).enabled(Feature.DELIVERY_STRUCTURE_SEARCH));
+        var optedOut=FeatureSettings.read(new StringReader("delivery.structure_search=false\n"));
+        assertFalse(FeatureSelection.select(optedOut,SUPPORTED,false).enabled(Feature.DELIVERY_STRUCTURE_SEARCH));
         var enabled=only(Feature.TERRAIN,Feature.DELIVERY_CHUNKS,Feature.DELIVERY_STRUCTURE_SEARCH);
         var selected=FeatureSelection.select(enabled,SUPPORTED,false);
         assertTrue(selected.enabled(Feature.DELIVERY_STRUCTURE_SEARCH));
@@ -954,7 +958,7 @@ class FeatureSelectionTest {
         assertThrows(IllegalArgumentException.class, () -> FeatureSettings.read(new StringReader("terrain.preset=true\nterrain.preset=false")));
         var defaults = FeatureSettings.load(directory);
         assertTrue(defaults.enabled(Feature.TERRAIN));
-        for (Feature feature : Feature.values()) assertEquals(feature != Feature.ACCESSORIES_CURIOS_BINDINGS && feature != Feature.DELIVERY_STRUCTURE_SEARCH, defaults.enabled(feature), feature.key);
+        for (Feature feature : Feature.values()) assertEquals(feature != Feature.ACCESSORIES_CURIOS_BINDINGS, defaults.enabled(feature), feature.key);
         Files.writeString(directory.resolve(FeatureSettings.FILE), "terrain.preset=false\n");
         assertFalse(FeatureSettings.load(directory).enabled(Feature.TERRAIN));
         assertEquals("terrain.preset=false\n", Files.readString(directory.resolve(FeatureSettings.FILE)));

@@ -37,7 +37,10 @@ public final class AdqLifetimeProbe {
         boolean generating=(boolean)type.getMethod("isGenerating").invoke(null);
         if(phase==0) {
             if(active==null)throw new AssertionError("Lifecycle control lacks an actual active native search");
-            if(Boolean.getBoolean("neighbors.probe.adqLogout")) {
+            if(Boolean.getBoolean("neighbors.probe.adqStop")) {
+                REPORT.addProperty("activeNativeReservationsBeforeStop",reservations);
+                REPORT.addProperty("normalStopRequestedWhileActive",true);phase=5;server.halt(false);return;
+            }else if(Boolean.getBoolean("neighbors.probe.adqLogout")) {
                 AdqSearchProbe.logoutLifecycleActor();
                 REPORT.addProperty("actualRequestingPlayerLogout",true);
             }else if(Boolean.getBoolean("neighbors.probe.adqExpiry")) {
@@ -71,5 +74,17 @@ public final class AdqLifetimeProbe {
     }
     @SuppressWarnings({"rawtypes","unchecked"})
     private static void release(){original.whenComplete((value,error)->{if(error!=null)held.completeExceptionally(error);else ((CompletableFuture)held).complete(value);});}
+    public static void stopped(Object state) throws Exception {
+        if(!Boolean.getBoolean("neighbors.probe.adqStop"))return;
+        if(phase!=5 || original==null || !original.isDone() || original.isCancelled())
+            throw new AssertionError("Normal stop did not settle the actual uncancelled engine request");
+        release();
+        if(((AtomicInteger)field(state,"nativeRequests")).get()!=0 || field(state,"active")!=null
+                || !((java.util.Set<?>)field(state,"dispatches")).isEmpty()
+                || (boolean)Class.forName("com.ladderstar.adq.QuestGenerator").getMethod("isGenerating").invoke(null))
+            throw new AssertionError("Active stop retained owned requests, dispatches, job or generating flag");
+        REPORT.addProperty("actualEngineSettledBeforeStopped",true);REPORT.addProperty("nativeFutureUncancelled",true);
+        REPORT.addProperty("lateResultReleasedAfterStop",true);REPORT.addProperty("passed",true);phase=6;
+    }
     public static JsonObject report(){return REPORT.deepCopy();}
 }
