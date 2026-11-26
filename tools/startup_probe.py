@@ -499,6 +499,8 @@ def main():
                 expected += ['class/com/seibel/distanthorizons/core/api/internal/chunkUpdating/ChunkUpdateQueueManager.class']
             if args.dh_workers:
                 expected += ['class/com/seibel/distanthorizons/core/util/threading/PriorityTaskPicker$Executor.class']
+            if args.dh_worker_repair:
+                expected += ['class/com/seibel/distanthorizons/core/util/threading/PriorityTaskPicker.class']
             if args.curio_break or args.cookery or args.connector or args.dh_data:
                 # The explicit probe JAR instruments these native classes; ordinary standalone
                 # startup retains its stricter three-target boundary.

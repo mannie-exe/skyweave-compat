@@ -74,8 +74,72 @@ public final class DhWorkerStateProbe {
         result.add("executors", rows); result.addProperty("retainedExecutorListeners", registered);
         result.addProperty("retainedNativeQueueEntries", queued); result.addProperty("scheduledPickerCallbackPending", pendingCallback);
         result.addProperty("retired", retired && !pendingCallback);
-        result.add("nativeLifecycleControls", lifecycleControls(listenerList));
+        var controls = lifecycleControls(listenerList);
+        var paused = pausedPickerControl(); result.add("pausedPickerControl", paused);
+        controls.addProperty("pausedPickerRetired", paused.get("passed").getAsBoolean());
+        controls.addProperty("passed", controls.get("passed").getAsBoolean() && paused.get("passed").getAsBoolean());
+        var interrupted = interruptedCloseControl(); result.add("interruptedCloseControl", interrupted);
+        controls.addProperty("interruptedClosePreserved", interrupted.get("passed").getAsBoolean());
+        controls.addProperty("passed", controls.get("passed").getAsBoolean() && interrupted.get("passed").getAsBoolean());
+        result.add("nativeLifecycleControls", controls);
         result.addProperty("scope", "Actual six native executors captured at ServerStarted and inspected after native ServerStopped; identity-based listener membership and own picker callback; observer releases references after snapshot, no forced queue cleanup or heap/GC claim");
+        return result;
+    }
+
+    private static JsonObject interruptedCloseControl() {
+        var result = new JsonObject(); var picker = new PriorityTaskPicker();
+        var executor = picker.createExecutor("Skyweave disposable interrupted close");
+        var started = new java.util.concurrent.CountDownLatch(1); var release = new java.util.concurrent.CompletableFuture<String>();
+        var completion = executor.submit(() -> { started.countDown(); return release.join(); });
+        var originalCause = new java.util.concurrent.atomic.AtomicBoolean(); var unexpected = new AtomicReference<Throwable>();
+        var closer = new Thread(() -> {
+            Thread.currentThread().interrupt();
+            try { picker.shutdownNow(); }
+            catch (RuntimeException error) {
+                if (error.getCause() instanceof InterruptedException) originalCause.set(true);
+                else unexpected.set(error);
+            } finally { Thread.interrupted(); }
+        }, "Skyweave disposable interrupted DH closer");
+        try {
+            if (!started.await(2, java.util.concurrent.TimeUnit.SECONDS)) throw new AssertionError("Native interruption control did not start");
+            closer.start(); closer.join(2000);
+            if (closer.isAlive() || unexpected.get() != null) throw new AssertionError("Native interrupted close did not return", unexpected.get());
+            release.complete("running result after interrupted close");
+            result.addProperty("originalInterruptedCausePreserved", originalCause.get());
+            result.addProperty("runningResultPreserved", completion.get(2, java.util.concurrent.TimeUnit.SECONDS).equals("running result after interrupted close"));
+            result.addProperty("nativeTerminationCompleted", executor.awaitTermination(2, java.util.concurrent.TimeUnit.SECONDS));
+        } catch (Exception error) { throw new AssertionError("Native interrupted-close control failed", error); }
+        finally { release.complete("running result after interrupted close"); picker.shutdownNow(); }
+        boolean passed = true; for (var entry : result.entrySet()) passed &= entry.getValue().getAsBoolean();
+        result.addProperty("passed", passed); return result;
+    }
+
+    private static JsonObject pausedPickerControl() throws ReflectiveOperationException {
+        var result = new JsonObject(); var picker = new PriorityTaskPicker();
+        var checks = new java.util.concurrent.atomic.AtomicInteger(); var executions = new java.util.concurrent.atomic.AtomicInteger();
+        var executor = picker.createExecutor("Skyweave disposable paused control", 5, () -> { checks.incrementAndGet(); return false; });
+        executor.execute(executions::incrementAndGet);
+        result.addProperty("pendingBeforeClose", executor.getQueueSize());
+        picker.shutdownNow(); int checksAtClose = checks.get();
+        try { Thread.sleep(1200); }
+        catch (InterruptedException error) { Thread.currentThread().interrupt(); throw new AssertionError(error); }
+        var field = PriorityTaskPicker.class.getDeclaredField("scheduledFutureRef"); field.setAccessible(true);
+        Object value = ((AtomicReference<?>)field.get(picker)).get();
+        boolean retry = value instanceof ScheduledFuture<?> future && !future.isDone();
+        result.addProperty("pendingAfterClose", executor.getQueueSize());
+        result.addProperty("pausedChecksAfterClose", checks.get() - checksAtClose);
+        result.addProperty("scheduledCallbackPending", retry); result.addProperty("taskExecutions", executions.get());
+        // Closing one picker must not shut down DH's process-wide retry scheduler or another picker.
+        var peer = new PriorityTaskPicker(); var allowed = new java.util.concurrent.atomic.AtomicBoolean();
+        var peerExecutor = peer.createExecutor("Skyweave disposable peer control", 5, allowed::get);
+        var peerResult = peerExecutor.submit(() -> "independent native result"); allowed.set(true);
+        boolean peerCompleted;
+        try { peerCompleted = peerResult.get(3, java.util.concurrent.TimeUnit.SECONDS).equals("independent native result"); }
+        catch (Exception error) { throw new AssertionError("Independent native picker stopped progressing", error); }
+        finally { peer.shutdownNow(); }
+        result.addProperty("independentPickerProgress", peerCompleted);
+        result.addProperty("passed", result.get("pendingBeforeClose").getAsInt() == 1 && executor.getQueueSize() == 0
+                && checks.get() == checksAtClose && !retry && executions.get() == 0 && peerCompleted);
         return result;
     }
 

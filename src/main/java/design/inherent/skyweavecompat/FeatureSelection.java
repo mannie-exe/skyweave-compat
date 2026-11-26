@@ -326,7 +326,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                 case LINEAR_GYRO -> List.of("linear.GyroSensorMixin");
                 case DH_CLIENT_COMPLETION -> List.of("dh.ClientCompletionWaitMixin");
                 case DH_RENDER_RESOURCES -> List.of("dh.RenderBufferWorkerMixin", "dh.RenderBufferSetupMixin", "dh.RenderBufferPoolMixin");
-                case DH_EXECUTOR_LIFECYCLE -> List.of("dh.ExecutorLifecycleMixin");
+                case DH_EXECUTOR_LIFECYCLE -> List.of("dh.ExecutorLifecycleMixin", "dh.TaskPickerLifecycleMixin");
                 case DH_UPDATE_QUEUE -> List.of("dh.UpdateQueueProgressMixin");
                 case DH_HANDOFF -> List.of("dh.ClientWrapperHandoffMixin");
                 case DH_SHUTDOWN -> List.of("dh.ChunkUnloadBudgetMixin");

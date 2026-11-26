@@ -101,7 +101,7 @@ class FeatureSelectionTest {
     @Test void dhExecutorLifecycleRemainsIndependentlyOptionalOnBothSides() {
         var feature = Feature.DH_EXECUTOR_LIFECYCLE;
         for (boolean client : List.of(false, true)) {
-            assertEquals(List.of("dh.ExecutorLifecycleMixin"), FeatureSelection.select(only(feature), Map.of("distanthorizons", "3.3.3"), client).mixins(client));
+            assertEquals(List.of("dh.ExecutorLifecycleMixin", "dh.TaskPickerLifecycleMixin"), FeatureSelection.select(only(feature), Map.of("distanthorizons", "3.3.3"), client).mixins(client));
             assertTrue(FeatureSelection.select(only(feature), Map.of(), client).mixins(client).isEmpty());
             assertTrue(FeatureSelection.select(only(), Map.of("distanthorizons", "future"), client).mixins(client).isEmpty());
             assertThrows(IllegalStateException.class, () -> FeatureSelection.select(only(feature), Map.of("distanthorizons", "future"), client));
