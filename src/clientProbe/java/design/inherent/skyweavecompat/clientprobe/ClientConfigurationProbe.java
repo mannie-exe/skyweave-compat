@@ -528,9 +528,11 @@ final class ClientConfigurationProbe {
             var buttons = ((java.util.List<?>) controls.invoke(row)).stream()
                     .filter(net.minecraft.client.gui.components.Button.class::isInstance)
                     .map(net.minecraft.client.gui.components.Button.class::cast).toList();
-            var button = command.has("again") && command.get("again").getAsBoolean()
-                    ? buttons.stream().filter(value -> value.getMessage().getString().equals("Run again…")).findFirst().orElseThrow()
-                    : buttons.getFirst();
+            var action = group.actions().stream().filter(value -> value.id().equals(id)).findFirst().orElseThrow();
+            // The shared row keeps the declared run action beside a separate result inspector.
+            // Focus the actual run control for both initial execution and an explicit retry.
+            var button = buttons.stream().filter(value -> value.getMessage().getString().equals(action.title().getString()))
+                    .findFirst().orElseThrow(() -> new IllegalStateException("The declared native run action is not mounted"));
             if (!focus(mc.screen, button)) throw new IllegalStateException("Operation button is not in the native focus tree");
             return;
         }
