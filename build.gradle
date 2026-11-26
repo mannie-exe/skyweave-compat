@@ -507,3 +507,19 @@ tasks.register('shaderBuild', JavaExec) {
     if (providers.gradleProperty('shaderCheck').isPresent()) args '--check'
     if (providers.gradleProperty('shaderRebuild').isPresent()) args '--rebuild'
 }
+
+// Actual pinned DH queue/worker; controlled platform/chunk inputs, no Minecraft world.
+tasks.register('dhUpdateQueueProbe', JavaExec) {
+    dependsOn 'testClasses'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'design.inherent.skyweavecompat.dh.DhUpdateQueueProbe'
+    maxHeapSize = '512m'
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+    if (providers.gradleProperty('dhControl').isPresent()) {
+        if (providers.gradleProperty('dhExpectWait').isPresent()) args 'expect-wait'
+    } else args 'patched', 'expect-wait'
+    if (providers.gradleProperty('dhClient').isPresent()) args 'client'
+    if (providers.gradleProperty('dhOverdue').isPresent()) args 'overdue'
+}
+
+tasks.named('check') { dependsOn 'dhUpdateQueueProbe' }

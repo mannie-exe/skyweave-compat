@@ -68,6 +68,8 @@ public enum Feature {
     LINEAR_GYRO("linear_bearing.gyro_sensor"),
     LINEAR_PONDER("linear_bearing.ponder"),
     LINEAR_JADE("linear_bearing.jade"),
+    DH_CLIENT_COMPLETION("distant_horizons.client_completion", false),
+    DH_UPDATE_QUEUE("distant_horizons.update_queue", false),
     DH_HANDOFF("distant_horizons.client_handoff"),
     DH_SHUTDOWN("distant_horizons.shutdown"),
     DH_CACHE("distant_horizons.world_cache"),

@@ -31,6 +31,7 @@ public final class PatchTest {
         Mixins.addConfiguration("iris-outline-original-test.mixins.json");
         Mixins.addConfiguration("rendering-test.mixins.json");
         Mixins.addConfiguration("coverage-test.mixins.json");
+        Mixins.addConfiguration("dh-completion-test.mixins.json");
         byte[] original;
         try (var in = service.getResourceAsStream(TARGET.replace('.', '/') + ".class")) {
             original = in.readAllBytes();
@@ -48,6 +49,8 @@ public final class PatchTest {
         assertEquals(2, calls(method(node, "veilIrisFix$restore"), "_glBindFramebuffer"));
         assertFalse(method(node, "veilIrisFix$clear").tryCatchBlocks.isEmpty(), "restoration must run on clear failure");
         FramebufferProbe.verify(transformed);
+        var completion = transformed(service, transformer, "com.seibel.distanthorizons.core.util.threading.PriorityTaskPicker");
+        assertEquals(1, calls(method(completion, "shutdownNow"), "skyweave$await"));
         var display = transformed(service, transformer, "net.minecraft.client.renderer.entity.DisplayRenderer$TextDisplayRenderer");
         assertEquals(1, display.methods.stream().filter(m -> m.name.equals("renderInner"))
                 .mapToLong(m -> calls(m, "skyweave$skipTextDisplayShadow")).sum(), "inject the concrete overload once, not its bridge");

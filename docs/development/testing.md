@@ -347,3 +347,9 @@ Connector's development bootstrap needs `--connector-clean /path/to/rename_HASH_
 ## Equipped item break
 
 The dedicated CurioBreakProbe retains original failure and repaired back/glider slot controls. The client counterpart observes self and tracked equipment removal and one native Accessories notification. Requalify the exact bridge versions before changing admission.
+
+## Native DH progress checks
+
+`./gradlew --no-daemon --max-workers=2 dhUpdateQueueProbe` transforms the pinned DH manager and exercises its actual worker with controlled wrapper/chunk inputs. `-PdhClient` additionally checks native client center updates. `-PdhControl` retains the original worker; `-PdhExpectWait` requires the intentional retry-loop red predicate. These are scoped queue/debounce/termination controls, not a world-output or throughput benchmark.
+
+The standalone `startup_probe.py` DH fixture accepts `--dh-queue original` or `--dh-queue repaired` with explicit DH, re:form, and probe JARs. Add `--dh-data` for actual naturally loaded flat-spawn data and material comparison. `--dh-data-capture` retains the successfully closed native store; use `--dh-data-store <capture>/dh-data-store` in a separate process for native repository/DTO readback. The copied store is never a live provider. Markers and digests bind its donor source separately from the fresh comparison world; incomplete WAL snapshots refuse. This fixture does not qualify client uploads or renderer shutdown.

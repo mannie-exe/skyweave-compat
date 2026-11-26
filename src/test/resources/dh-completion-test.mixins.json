@@ -1,0 +1,1 @@
+{"required":true,"package":"design.inherent.skyweavecompat.mixin","compatibilityLevel":"JAVA_21","client":["dh.ClientCompletionWaitMixin"],"injectors":{"defaultRequire":1}}

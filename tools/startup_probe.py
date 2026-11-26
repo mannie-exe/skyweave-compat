@@ -56,6 +56,10 @@ def main():
     parser.add_argument('--cookery', choices=['original', 'repaired'], help='Exercise the actual optional millstone capability in the owned server; requires explicit Cookery and probe extra JARs')
     parser.add_argument('--connector', choices=['original', 'repaired'], help='Observe actual connector COMMON loading and native range readers; requires explicit connector, Aeronautics, Create, Ponder and probe JARs')
     parser.add_argument('--connector-ceiling', type=int, choices=[40, 255], default=255, help='Expected actual Simulated ceiling in the explicit connector fixture config')
+    parser.add_argument('--dh-data-capture', action='store_true', help='Retain the closed native overworld DH store after a successful data fixture')
+    parser.add_argument('--dh-data-store', type=Path, help='Read a marked closed native store through the actual repo/DTO codec; copied into the disposable fixture')
+    parser.add_argument('--dh-data', action='store_true', help='With --dh-queue, read actual nonempty native server LOD data and compare it to the naturally loaded spawn material')
+    parser.add_argument('--dh-queue', choices=['original', 'repaired'], help='Qualify exact optional DH worker startup and dedicated-server client exclusion; requires explicit DH artifact')
     parser.add_argument('--curio-break', choices=['original','repaired'], help='Observe native equipment break custody and notification ownership')
     parser.add_argument('--curio-break-slot', choices=['back','glider'], default='back', help='Native equipment slot; glider requires the authored slot subset')
     parser.add_argument('--adq-search', choices=['first-read','route'], help='Observe actual ADQ locate futures in a disposable island server; first-read aborts after one native chunk read')
@@ -73,6 +77,12 @@ def main():
     parser.add_argument('--adq-max-ticks', type=int, choices=[3600,7200,12000], default=3600, help='Explicit disposable observation window; product deadlines remain unchanged')
     parser.add_argument('--adq-admission', action='store_true', help='Engineering5+ only: observe actual status ticket mutations per server tick')
     args = parser.parse_args()
+    if (args.dh_data_capture or args.dh_data_store) and not args.dh_data:
+        parser.error('--dh-data-capture/store requires --dh-data')
+    if args.dh_data_capture and args.dh_data_store:
+        parser.error('Capture and independent closed-store readback are separate native fixtures')
+    if args.dh_data and not args.dh_queue:
+        parser.error('--dh-data requires a separate --dh-queue native fixture')
     if args.adq_cargo and (not args.adq_world or args.adq_search or args.adq_capture_world or args.serve
                           or args.cookery or args.connector or args.curio_break or args.scenario not in {'terrain','full'}):
         parser.error('--adq-cargo requires a separate terrain/full saved ADQ world, without other fixture modes')
@@ -96,6 +106,8 @@ def main():
         parser.error('--adq-fault requires an explicitly enabled ADQ route fixture')
     if args.adq_search and (args.scenario not in {'terrain','full'} or args.serve or args.cookery or args.connector or args.curio_break):
         parser.error('--adq-search requires a separate terrain/full island fixture')
+    if args.dh_queue and (args.scenario != 'standalone' or args.cookery or args.connector or args.curio_break or args.adq_search or args.adq_cargo or args.serve):
+        parser.error('--dh-queue requires a separate non-served standalone fixture')
     if args.curio_break and (args.scenario != 'standalone' or args.serve or args.cookery or args.connector):
         parser.error('--curio-break requires a separate non-served standalone fixture')
     if args.cookery and args.scenario != 'standalone':
@@ -140,6 +152,16 @@ def main():
         (run / 'mods').mkdir()
         (run / 'config').mkdir()
         (run / 'config/skyweave').mkdir()
+        if args.dh_data_store:
+            source = args.dh_data_store.expanduser().resolve()
+            marker = json.loads((source / 'dh-saved-data.json').read_text())
+            if marker.get('owner') != 'skyweave-dh-native-data' or not marker.get('closed'):
+                parser.error('DH readback requires its closed native store marker')
+            if hashlib.sha256((source / 'DistantHorizons.sqlite').read_bytes()).hexdigest() != marker['sha256']:
+                parser.error('DH saved-store input digest changed')
+            (run / 'dh-readback').mkdir()
+            copy_owned(source / 'DistantHorizons.sqlite', run / 'dh-readback/DistantHorizons.sqlite', run)
+            report['dhStoreInput'] = marker
         if args.adq_world:
             shutil.copytree(args.adq_world,run/'probe-world')
             report['adqWorldInput']={'path':str(args.adq_world),'questSha256':hashlib.sha256((args.adq_world/'adq_quests.json').read_bytes()).hexdigest()}
@@ -208,6 +230,15 @@ def main():
                 parser.error('Extra startup artifacts must be existing JARs with unique filenames')
             copy_owned(source, destination, run)
             selected[source.name] = hashlib.sha256(source.read_bytes()).hexdigest()
+        if args.dh_queue:
+            feature_path = run / 'config/skyweave/skyweave_compat-features.properties'
+            # Retain ordinary minimum controls; explicitly select both new keys to test physical-side exclusion.
+            overrides = {'distant_horizons.update_queue': args.dh_queue == 'repaired',
+                         'distant_horizons.client_completion': True}
+            feature_path.write_text(''.join(f'{key}={str(value).lower()}\n' for key,value in overrides.items()))
+            if not args.dh_data:
+                (run / 'config/DistantHorizons.toml').write_text('[common.worldGenerator]\ngeneratorPlan="DISABLED"\n')
+            report['dhQueueControl'] = args.dh_queue
         if args.reform_metadata_version:
             libraries = []
             for path in (run / 'mods').glob('*.jar'):
@@ -300,6 +331,9 @@ def main():
                    '@' + str(launch[0]), 'nogui']
         if args.curio_break:
             command[1:1] = ['-Dneighbors.probe.curioBreak=' + args.curio_break, '-Dneighbors.probe.curioBreakSlot=' + args.curio_break_slot]
+        if args.dh_data:
+            command[1:1] = ['-Dneighbors.probe.dhData=true', '-Dneighbors.probe.output=' + str(run / 'dh-data-proof.json')]
+            if args.dh_data_store: command.insert(1, '-Dneighbors.probe.dhDataStore=' + str(run / 'dh-readback'))
         if args.adq_cargo:
             command[1:1] = ['-Dneighbors.probe.adqCargo=true', '-Dneighbors.probe.cargoOutput=' + str(run / 'adq-cargo-proof.json')]
         if args.adq_search:
@@ -327,12 +361,13 @@ def main():
             command[1:1] = ['-Dneighbors.probe.connector=' + args.connector]
             (run / 'connector-fixture.json').write_text(json.dumps({'ceiling': args.connector_ceiling}) + '\n')
         report['command'] = command
+        (run / 'owned-startup-fixture.json').write_text(json.dumps({'owner':'startup_probe.py','scenario':args.scenario,'output':str(output),'artifactSha256':report['sha256']}) + '\n')
         log_path = output / f'startup-{args.scenario}.log'
         started = time.monotonic()
         done = False
         with log_path.open('w') as log:
             process = subprocess.Popen(command, cwd=run, stdin=subprocess.PIPE, stdout=log, stderr=subprocess.STDOUT, text=True)
-            if args.adq_search or args.adq_cargo:
+            if args.adq_search or args.adq_cargo or args.dh_data:
                 (output / 'native-process.json').write_text(json.dumps({'pid':process.pid,'runtime':str(run),
                     'scope':'Owned disposable ADQ native fixture; wrapper exit alone does not prove JVM termination'},indent=2)+'\n')
             try:
@@ -342,6 +377,7 @@ def main():
                             and (not args.cookery or (run / 'cookery-proof.json').is_file())
                             and (not args.connector or (run / 'connector-proof.json').is_file())
                             and (not args.curio_break or (run / 'curio-break-proof.json').is_file())
+                            and (not args.dh_data or (run / 'dh-data-proof.json').is_file())
                             and (not args.adq_cargo or (run / 'adq-cargo-proof.json').is_file())
                             and (not args.adq_search or adq_ready(run))):
                         done = True
@@ -369,7 +405,7 @@ def main():
                         process.kill()
                         process.wait()
         text = log_path.read_text(errors='replace')
-        if args.adq_search or args.adq_cargo:
+        if args.adq_search or args.adq_cargo or args.dh_data:
             (output/'process-retirement.json').write_text(json.dumps({'pid':process.pid,'exitCode':process.returncode,'pollTerminal':process.poll() is not None},indent=2))
             quest=run/'probe-world/adq_quests.json'
             if quest.is_file():shutil.copy2(quest,output/'adq_quests.json')
@@ -380,6 +416,7 @@ def main():
             done = done or ((not args.curio_break or (run / 'curio-break-proof.json').is_file())
                             and (not args.cookery or (run / 'cookery-proof.json').is_file())
                             and (not args.connector or (run / 'connector-proof.json').is_file())
+                            and (not args.dh_data or (run / 'dh-data-proof.json').is_file())
                             and (not args.adq_cargo or (run / 'adq-cargo-proof.json').is_file())
                             and (not args.adq_search or adq_ready(run)))
 
@@ -395,6 +432,20 @@ def main():
         if args.curio_break:
             proof = run / 'curio-break-proof.json'
             report['curioBreak'] = json.loads(proof.read_text()) if proof.is_file() else {'passed':False,'error':'Missing native proof'}
+        if args.dh_data:
+            report['dhData'] = json.loads((run / 'dh-data-proof.json').read_text()) if (run / 'dh-data-proof.json').is_file() else {'complete':False}
+            if args.dh_data_capture and process.returncode == 0 and report['dhData'].get('complete') and report['dhData'].get('actualServerStopped'):
+                source = run / 'probe-world/data/DistantHorizons.sqlite'
+                if (source.with_name(source.name + '-wal')).exists() and source.with_name(source.name + '-wal').stat().st_size:
+                    raise ValueError('Closed native DH store retains a nonempty WAL; no incomplete snapshot admitted')
+                store = output / 'dh-data-store'; store.mkdir()
+                copy_owned(source, store / source.name, output)
+                (store / 'dh-saved-data.json').write_text(json.dumps({'owner':'skyweave-dh-native-data', 'closed':True,
+                    'sha256':hashlib.sha256(source.read_bytes()).hexdigest(), 'product':report['sha256'],
+                    'nativeSection':report['dhData']['nativeSection'], 'decodedColumn':report['dhData']['decodedColumn'],
+                    'sourceWorldSeed':report['dhData']['comparisonWorldSeed']}, indent=2) + '\n')
+
+            if (run / 'dh-data-proof.json').is_file(): copy_owned(run / 'dh-data-proof.json', output / 'dh-data-proof.json', output)
         if args.adq_cargo:
             proof = run / 'adq-cargo-proof.json'
             report['adqCargo'] = json.loads(proof.read_text()) if proof.is_file() else {'complete':False,'error':'Missing native cargo proof'}
@@ -436,7 +487,9 @@ def main():
             expected = ['class/design/inherent/skyweavecompat/mixin/StructureSearchCacheAccess.class',
                         'class/net/minecraft/server/level/ServerChunkCache.class',
                         'class/net/minecraft/world/level/levelgen/PatrolSpawner.class']
-            if args.curio_break or args.cookery or args.connector:
+            if args.dh_queue == 'repaired':
+                expected += ['class/com/seibel/distanthorizons/core/api/internal/chunkUpdating/ChunkUpdateQueueManager.class']
+            if args.curio_break or args.cookery or args.connector or args.dh_data:
                 # The explicit probe JAR instruments these native classes; ordinary standalone
                 # startup retains its stricter three-target boundary.
                 expected += ['class/' + name + '.class' for name in [
@@ -477,6 +530,8 @@ def main():
             report['passed'] = report['passed'] and report['connector'].get('passed', False)
         if args.curio_break:
             report['passed'] = report['passed'] and report['curioBreak'].get('passed',False)
+        if args.dh_data:
+            report['passed'] = report['passed'] and report['dhData'].get('complete',False)
         if args.adq_cargo:
             report['passed'] = report['passed'] and report['adqCargo'].get('complete',False)
         if args.adq_search:

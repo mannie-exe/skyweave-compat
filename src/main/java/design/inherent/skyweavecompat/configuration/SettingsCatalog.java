@@ -252,7 +252,7 @@ public final class SettingsCatalog {
             case RECHISELED_GLASS -> Group.RECHISELED;
             case QUESTLOG_INTERFACE, QUESTLOG_NOTIFICATIONS -> Group.JOURNAL;
             case AUDIO_TIMELINE -> Group.AUDIO_CLIENT;
-            case DH_HANDOFF -> Group.DH_CLIENT;
+            case DH_CLIENT_COMPLETION, DH_HANDOFF -> Group.DH_CLIENT;
             case CONSTRUCT_DISTANCE, CONSTRUCT_OCCLUSION, CONSTRUCT_COVERAGE -> Group.SSRD;
             case MODEL_DATA, MATERIAL_IDS, SINGLE_BLOCK_PASSES -> Group.SABLE_CLIENT;
             case FRAMEBUFFER -> Group.VEIL;
@@ -271,7 +271,7 @@ public final class SettingsCatalog {
             case ANALOG_AUDIO -> Group.AUDIO;
             case DELIVERY_DISTANCE, DELIVERY_CHUNKS, DELIVERY_STRUCTURE_SEARCH, DELIVERY_LANDING -> Group.DELIVERY;
             case QUESTLOG_REWARD_VALIDATION -> Group.QUESTLOG_SERVER;
-            case DH_SHUTDOWN, DH_CACHE -> Group.DH;
+            case DH_UPDATE_QUEUE, DH_SHUTDOWN, DH_CACHE -> Group.DH;
             case BLUEMAP -> Group.BLUEMAP;
             case SURVEYOR_STRUCTURES -> Group.SURVEYOR;
             case NETHER_ACCESS -> Group.TERRAIN;
