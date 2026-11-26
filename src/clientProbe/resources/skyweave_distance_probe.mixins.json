@@ -29,6 +29,9 @@
     "LightCacheHandoffMixin",
     "LightCacheEngineAccess",
     "LightCacheQueueMixin",
-    "BowDurationWitnessMixin"
+    "BowDurationWitnessMixin",
+    "DhLifecycleUploadWitnessMixin",
+    "DhLifecycleCloseWitnessMixin",
+    "DhLifecycleTaskWitnessMixin"
   ]
 }

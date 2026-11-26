@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 public final class ClientFlightProbe {
     private int ticks;
     public ClientFlightProbe() {
+        if (Boolean.getBoolean("skyweave_compat.probe.dhLifecycle")) { new ClientDhLifecycleProbe(); return; }
         if (Boolean.getBoolean("skyweave_compat.probe.adq")) { new ClientAdqProbe(); return; }
         if (Boolean.getBoolean("skyweave_compat.probe.bowHandoff")) { new ClientBowHandoffProbe(); return; }
         if (Boolean.getBoolean("skyweave_compat.probe.maintenanceStartup")) { new ClientMaintenanceStartupProbe(); return; }

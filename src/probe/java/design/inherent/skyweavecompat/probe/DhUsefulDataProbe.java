@@ -132,8 +132,70 @@ final class DhUsefulDataProbe {
         if (solids == 0) return false;
         int actualTop = level.getHeight(Heightmap.Types.WORLD_SURFACE, spawn.getX(), spawn.getZ());
         if (top != actualTop) throw new AssertionError("Decoded native LOD top differs from the actual loaded source");
+        if (!inspectChunk(source)) return false;
         report.add("decodedColumn", rows); report.addProperty("matchedSolidCells", solids);
         report.addProperty("actualSourceTop", actualTop); report.addProperty("sourceDataClosedAfterRead", true);
+        return true;
+    }
+
+    /** Check the entire already-loaded spawn chunk; never request another gameplay chunk. */
+    private boolean inspectChunk(FullDataSourceV2 source) {
+        var level = server.overworld(); var spawn = level.getSharedSpawnPos();
+        int startX = Math.floorDiv(spawn.getX(), 16) * 16, startZ = Math.floorDiv(spawn.getZ(), 16) * 16;
+        var image = new JsonArray(); int cells = 0, hiddenMaterialDifferences = 0;
+        for (int x = startX; x < startX + 16; x++) for (int z = startZ; z < startZ + 16; z++) {
+            var column = source.getApiDataPointColumn(Math.floorMod(x, 64), Math.floorMod(z, 64));
+            if (column.isEmpty()) return false;
+            var decoded = new java.util.HashMap<Integer, Object>(); var states = new JsonArray();
+            for (var point : column) {
+                // Native AIR includes a padding run ending one cell above the build ceiling.
+                // Only solid intervals are expanded; every in-world AIR cell is checked below.
+                if (point.blockStateWrapper.isAir()) continue;
+                int bottom = level.getMinBuildHeight() + point.bottomYBlockPos;
+                int top = level.getMinBuildHeight() + point.topYBlockPos;
+                if (bottom < level.getMinBuildHeight() || top > level.getMaxBuildHeight() || bottom >= top)
+                    throw new AssertionError("Native decoded chunk interval x=" + x + " z=" + z + " bottom=" + bottom
+                            + " top=" + top + " block=" + point.blockStateWrapper.getSerialString()
+                            + " air=" + point.blockStateWrapper.isAir());
+                for (int y = bottom; y < top; y++) {
+                    if (decoded.put(y, point.blockStateWrapper.getWrappedMcObject()) != null)
+                        throw new AssertionError("Native decoded chunk has overlapping solid intervals");
+                }
+            }
+            for (int y = level.getMinBuildHeight(); y < level.getMaxBuildHeight(); y++) {
+                var actual = level.getBlockState(new BlockPos(x, y, z)); var material = decoded.get(y);
+                if (actual.isAir() ? material != null : material == null)
+                    throw new AssertionError("Native decoded chunk differs at " + x + "," + y + "," + z
+                            + " actual=" + actual + " decoded=" + material);
+                if (!actual.isAir() && !actual.equals(material)) {
+                    // The pinned original updateFromDataSource calls FullDataOcclusionCuller
+                    // under VISUALLY_EQUAL. Certify only fully enclosed opaque native cells;
+                    // this is not permission for changed occupancy or exposed material.
+                    if (com.seibel.distanthorizons.core.config.Config.Common.LodBuilding.worldCompression.get()
+                            != com.seibel.distanthorizons.api.enums.config.EDhApiWorldCompressionMode.VISUALLY_EQUAL
+                            || !actual.canOcclude())
+                        throw new AssertionError("Native LOD changed an unadmitted material at " + x + "," + y + "," + z);
+                    var at = new BlockPos(x, y, z);
+                    for (var direction : net.minecraft.core.Direction.values()) {
+                        var neighbor = at.relative(direction);
+                        if (level.getChunkSource().getChunkNow(neighbor.getX() >> 4, neighbor.getZ() >> 4) == null
+                                || !level.getBlockState(neighbor).canOcclude())
+                            throw new AssertionError("Native LOD changed an exposed or unverified material at " + at);
+                    }
+                    hiddenMaterialDifferences++;
+                }
+                states.add(material == null ? "AIR" : material.toString()); if (!actual.isAir()) cells++;
+            }
+            image.add(states);
+        }
+        try {
+            report.addProperty("decodedChunkImageSha256", java.util.HexFormat.of().formatHex(
+                    java.security.MessageDigest.getInstance("SHA-256").digest(image.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8))));
+        } catch (java.security.NoSuchAlgorithmException impossible) { throw new AssertionError(impossible); }
+        report.addProperty("matchedChunkColumns", 256); report.addProperty("matchedChunkSolidCells", cells);
+        report.addProperty("matchedChunkAllCells", 256 * level.getHeight());
+        report.addProperty("nativeHiddenMaterialDifferences", hiddenMaterialDifferences);
+        report.addProperty("chunkComparison", "Exact occupancy and exposed native material; fully enclosed opaque material substitutions admitted only under native VISUALLY_EQUAL occlusion, without neighbor loads");
         return true;
     }
 
