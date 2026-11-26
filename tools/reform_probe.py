@@ -164,7 +164,8 @@ class Client:
         elif query in {action['id'] for action in catalog['actions']}:
             self.act('reform-reveal-operation', id=query, again='Run again…' in actions)
             focused = [widget for widget in self.state()['widgets'] if widget.get('focused')]
-            if len(focused) != 1 or focused[0]['label'] not in ('Start…', 'View operation', 'Run again…'):
+            declared_title = next(action['title'] for action in catalog['actions'] if action['id'] == query)
+            if len(focused) != 1 or focused[0]['label'] not in (declared_title, 'Start…', 'View operation', 'Run again…'):
                 raise RuntimeError('The contributed operation did not focus its native action')
             label = focused[0]['label']
             matching = [widget for widget in self.state()['widgets'] if widget['label'] == label]
