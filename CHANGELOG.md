@@ -76,6 +76,8 @@ Generated from Git history. Player-facing release summaries are in [release note
 
 - **release:** Record public resolution and final package carry ([990549a](https://github.com/mannie-exe/skyweave-compat/commit/990549ad47de84319791b24f9a4ad141647316be))
 
+- **release:** Distinguish hosted climate bridge variant ([4eb24ff](https://github.com/mannie-exe/skyweave-compat/commit/4eb24ffa73469c04883de73cd9e834c43159f021))
+
 ### Build and verification
 
 - **dh:** Verify native data and upload lifecycles ([0fd799a](https://github.com/mannie-exe/skyweave-compat/commit/0fd799a09f8dc2acb65c82aef0a7cd86a033ff9f))
