@@ -1012,7 +1012,7 @@ class FeatureSelectionTest {
         assertThrows(IllegalArgumentException.class, () -> FeatureSettings.read(new StringReader("terrain.preset=true\nterrain.preset=false")));
         var defaults = FeatureSettings.load(directory);
         assertTrue(defaults.enabled(Feature.TERRAIN));
-        for (Feature feature : Feature.values()) assertEquals(feature != Feature.ACCESSORIES_CURIOS_BINDINGS && feature != Feature.DH_RENDER_RESOURCES && feature != Feature.DH_CLIENT_COMPLETION && feature != Feature.DH_UPDATE_QUEUE && feature != Feature.DH_EXECUTOR_LIFECYCLE && feature != Feature.DH_NETWORK_REQUESTS, defaults.enabled(feature), feature.key);
+        for (Feature feature : Feature.values()) assertEquals(feature != Feature.ACCESSORIES_CURIOS_BINDINGS, defaults.enabled(feature), feature.key);
         Files.writeString(directory.resolve(FeatureSettings.FILE), "terrain.preset=false\n");
         assertFalse(FeatureSettings.load(directory).enabled(Feature.TERRAIN));
         assertEquals("terrain.preset=false\n", Files.readString(directory.resolve(FeatureSettings.FILE)));
