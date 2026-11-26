@@ -65,6 +65,7 @@ public final class ClientDhLifecycleProbe {
     private final Integer tcpPort = Integer.getInteger("skyweave_compat.probe.dhTcpPort");
     private final ClientDhDimensionJourney dimensionJourney = Boolean.getBoolean("skyweave_compat.probe.dhDimensions")
             ? new ClientDhDimensionJourney() : null;
+    private final ClientDhFieldProbe field = Boolean.getBoolean("skyweave_compat.probe.dhField") ? new ClientDhFieldProbe() : null;
     private WeakReference<ClientLevel> observedSourceLevel;
     private String currentNativeLevelId;
     private CompletableFuture<FullDataSourceV2> pending;
@@ -125,7 +126,10 @@ public final class ClientDhLifecycleProbe {
                         probe.gpu.uploaded(epoch, container.vboTransparentWrappers);
                     }
                     long vertices = vertices(container.vboOpaqueWrappers) + vertices(container.vboTransparentWrappers);
-                    if (vertices > 0) { stats.completed.incrementAndGet(); stats.vertices.addAndGet(vertices); levelUseful.incrementAndGet(); }
+                    if (vertices > 0) {
+                        stats.completed.incrementAndGet(); stats.vertices.addAndGet(vertices); levelUseful.incrementAndGet();
+                        if (probe.field!=null) probe.field.uploaded(epoch,container.pos);
+                    }
                 }
             } catch (Throwable failureInObserver) { probe.observerFailure = failureInObserver.toString(); }
             finally { stats.pending.decrementAndGet(); }
@@ -329,6 +333,7 @@ public final class ClientDhLifecycleProbe {
                     report.addProperty("sourceColumnVerifiedAfterReload", true);
                     report.addProperty("newUsefulUploadsAfterReload", stats.completed.get() - uploadsBeforeReload);
                 }
+                if (field!=null && !field.ready(mc,epoch,report)) { save(); return; }
                 int queued = queuedRenderTasks();
                 if (Boolean.getBoolean("skyweave_compat.probe.dhIdleClose")) {
                     idleCloseTicks=queued==0 && stats.pending.get()==0 ? idleCloseTicks+1 : 0;
@@ -485,6 +490,7 @@ public final class ClientDhLifecycleProbe {
 
     private void finish(Minecraft mc) {
         finished = true;
+        if (field!=null) field.retire();
         if (pending != null) { pending.whenComplete((source,failure)->{if(source!=null)source.close();}); pending=null; }
         pendingSample = null; pendingLevel = null;
         save();
