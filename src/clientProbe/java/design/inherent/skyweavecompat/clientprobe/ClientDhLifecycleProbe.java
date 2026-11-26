@@ -41,11 +41,13 @@ import net.neoforged.neoforge.common.NeoForge;
 public final class ClientDhLifecycleProbe {
     private static volatile ClientDhLifecycleProbe active;
     private static final ThreadLocal<ArrayDeque<Long>> CLOSES = ThreadLocal.withInitial(ArrayDeque::new);
+    private static final ThreadLocal<Integer> WORLD_CLOSE_DEPTH = ThreadLocal.withInitial(() -> 0);
     private final Path root = FMLPaths.GAMEDIR.get();
     private final JsonObject report = new JsonObject();
     private final ConcurrentHashMap<Integer, Uploads> uploads = new ConcurrentHashMap<>();
     private final ConcurrentLinkedQueue<JsonObject> nativeCloses = new ConcurrentLinkedQueue<>();
     private final AtomicInteger servicesDuringClose = new AtomicInteger();
+    private final AtomicInteger servicesDuringWorldClose = new AtomicInteger();
     private record LevelEpoch(WeakReference<IDhClientLevel> level, int epoch) {}
     private final CopyOnWriteArrayList<LevelEpoch> enrolledLevels = new CopyOnWriteArrayList<>();
     private final AtomicInteger lateNativeEntries = new AtomicInteger();
@@ -197,7 +199,10 @@ public final class ClientDhLifecycleProbe {
     public static void serviced() {
         var probe = active;
         if (probe != null && !CLOSES.get().isEmpty()) probe.servicesDuringClose.incrementAndGet();
+        if (probe != null && WORLD_CLOSE_DEPTH.get() > 0) probe.servicesDuringWorldClose.incrementAndGet();
     }
+    public static void worldClosing() { WORLD_CLOSE_DEPTH.set(WORLD_CLOSE_DEPTH.get()+1); }
+    public static void worldClosed() { int depth=WORLD_CLOSE_DEPTH.get()-1; if(depth==0) WORLD_CLOSE_DEPTH.remove(); else WORLD_CLOSE_DEPTH.set(depth); }
     public static Object networkClosing(com.seibel.distanthorizons.core.multiplayer.client.AbstractFullDataNetworkRequestQueue queue, CompletableFuture<Void> prior, boolean interrupt) {
         var probe = active; return probe == null ? null : probe.network.closing(queue, prior, interrupt);
     }
@@ -456,6 +461,7 @@ public final class ClientDhLifecycleProbe {
         report.addProperty("screen", mc.screen == null ? "none" : mc.screen.getClass().getName());
         report.addProperty("overlay", mc.getOverlay() == null ? "none" : mc.getOverlay().getClass().getName());
         report.addProperty("servicesInsideNativeClose",servicesDuringClose.get());
+        report.addProperty("servicesInsideNativeWorldClose",servicesDuringWorldClose.get());
         if (gpu != null) report.add("nativeGpuResources", gpu.snapshot());
         if (cpu != null) report.add("nativeCpuResources", cpu.snapshot());
         if (workers != null) try { report.add("nativeWorkers", workers.snapshot()); }
