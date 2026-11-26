@@ -324,7 +324,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                 case LINEAR_CARRIAGE -> List.of("linear.DockingBrakeAccessor", "linear.LinearMovingMixin", "linear.LinearCasingMixin", "linear.LinearAssemblyMixin", "linear.LinearCasingBlockMixin");
                 case LINEAR_TRANSMISSION -> List.of("linear.TransmissionMixin", "linear.MagneticPortMixin");
                 case LINEAR_GYRO -> List.of("linear.GyroSensorMixin");
-                case DH_CLIENT_COMPLETION -> List.of("dh.ClientCompletionWaitMixin");
+                case DH_CLIENT_COMPLETION -> List.of("dh.ClientCompletionWaitMixin", "dh.ClientWorldCompletionMixin");
                 case DH_RENDER_RESOURCES -> List.of("dh.RenderBufferWorkerMixin", "dh.RenderBufferSetupMixin", "dh.RenderBufferPoolMixin");
                 case DH_NETWORK_REQUESTS -> List.of("dh.NetworkRequestLifecycleMixin");
                 case DH_EXECUTOR_LIFECYCLE -> List.of("dh.ExecutorLifecycleMixin", "dh.TaskPickerLifecycleMixin");

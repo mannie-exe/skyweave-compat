@@ -1,10 +1,14 @@
 package design.inherent.skyweavecompat.dh;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 
-/** Complete an original bounded wait while servicing its admitted owner dependency. */
+/** Service admitted owner dependencies while preserving native completion waits. */
 public final class CompletionAwait {
     private static final long SLICE_NANOS = TimeUnit.MILLISECONDS.toNanos(5);
     private CompletionAwait() {}
@@ -12,6 +16,24 @@ public final class CompletionAwait {
     @FunctionalInterface
     public interface NativeAwait {
         boolean await(long amount, TimeUnit unit) throws InterruptedException;
+    }
+
+    /** Preserve native join's result and uninterruptible fallback; service only its owner dependency. */
+    public static <T> T join(CompletableFuture<T> future, BooleanSupplier ownerReady,
+            Runnable serviceOwner, Supplier<T> original) {
+        while (!future.isDone()) {
+            if (Thread.currentThread().isInterrupted() || !ownerReady.getAsBoolean()) return original.get();
+            serviceOwner.run();
+            if (future.isDone()) break;
+            try { future.get(SLICE_NANOS, TimeUnit.NANOSECONDS); }
+            catch (TimeoutException ignored) { }
+            catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt(); return original.get();
+            } catch (ExecutionException | java.util.concurrent.CancellationException terminal) {
+                break; // The original join owns exception wrapping and cancellation semantics.
+            }
+        }
+        return original.get();
     }
 
     public static boolean await(ExecutorService executor, long amount, TimeUnit unit,

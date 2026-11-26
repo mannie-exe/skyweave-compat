@@ -78,7 +78,7 @@ class FeatureSelectionTest {
 
     @Test void dhClientCompletionCannotResolveOnDedicatedServerOrWhenAbsentDisabled() {
         var feature = Feature.DH_CLIENT_COMPLETION;
-        assertEquals(List.of("dh.ClientCompletionWaitMixin"), FeatureSelection.select(only(feature), Map.of("distanthorizons", "3.3.3"), true).mixins(true));
+        assertEquals(List.of("dh.ClientCompletionWaitMixin", "dh.ClientWorldCompletionMixin"), FeatureSelection.select(only(feature), Map.of("distanthorizons", "3.3.3"), true).mixins(true));
         assertTrue(FeatureSelection.select(only(feature), Map.of(), true).mixins(true).isEmpty());
         assertTrue(FeatureSelection.select(only(feature), Map.of("distanthorizons", "future"), false).mixins(false).isEmpty());
         assertTrue(FeatureSelection.select(only(), Map.of("distanthorizons", "future"), true).mixins(true).isEmpty());

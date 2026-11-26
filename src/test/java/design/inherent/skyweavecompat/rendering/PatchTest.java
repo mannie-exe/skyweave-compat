@@ -52,6 +52,8 @@ public final class PatchTest {
         FramebufferProbe.verify(transformed);
         var completion = transformed(service, transformer, "com.seibel.distanthorizons.core.util.threading.PriorityTaskPicker");
         assertEquals(1, calls(method(completion, "shutdownNow"), "skyweave$await"));
+        var clientWorld = transformed(service, transformer, "com.seibel.distanthorizons.core.world.DhClientWorld");
+        assertEquals(1, calls(method(clientWorld, "close"), "skyweave$join"), "wrap the original level-close join once");
         var display = transformed(service, transformer, "net.minecraft.client.renderer.entity.DisplayRenderer$TextDisplayRenderer");
         assertEquals(1, display.methods.stream().filter(m -> m.name.equals("renderInner"))
                 .mapToLong(m -> calls(m, "skyweave$skipTextDisplayShadow")).sum(), "inject the concrete overload once, not its bridge");
