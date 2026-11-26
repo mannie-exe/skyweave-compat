@@ -97,6 +97,16 @@ def verify(client, output):
 
 def verify_numeric(client, output):
     result = {}
+    def save_staged():
+        labels = ('Save staged values', 'Save settings')
+        def admitted():
+            choices = [widget['label'] for widget in client.state().get('widgets', [])
+                       if widget['active'] and widget['label'] in labels]
+            return choices[0] if len(choices) == 1 else None
+        label = client.until(admitted, 'The actual local-file save action did not activate')
+        assert not any(widget['active'] and widget['label'] == 'Save and apply'
+                       for widget in client.state()['widgets'])
+        client.click(label)
     client.wait_active('Local files')
     client.click('Local files')
     for document, name in (('generation', 'activation'), ('climate', 'bottomDepth')):
@@ -145,13 +155,14 @@ def verify_numeric(client, output):
     result['ticksView'] = unit_next('milliseconds')
     assert result['ticksView']['text'] == '30', result
     saved = client.root / 'config/skyweave/skyweave_compat-wayfinder.json'
-    client.wait_active('Save staged values')
-    client.click('Save staged values')
+    save_staged()
     client.until(lambda: saved.is_file() and json.loads(saved.read_text())['cooldownTicks'] == 30, 'Actual staged owner did not save30ticks')
     def saved_receipt():
         value = client.ready_editor()
         return value if value.get('attemptTerminal') and value.get('persistence') == 'SAVED' and not value['busy'] and not value['dirty'] else None
     result['unitSaveReceipt'] = client.until(saved_receipt, 'Staged save did not complete')
+    result['unitCommitReceipt'] = client.proof('reform-receipt', 'reform-receipt.json')
+    assert result['unitCommitReceipt']['application'] == 'STAGED', result
     result['savedUnits'] = json.loads(saved.read_text())
     client.act('world', slot=1)
     client.until(lambda: client.state().get('playerReady') and client.state().get('integrated'), 'Saved-policy fixture did not join')
@@ -181,9 +192,11 @@ def verify_numeric(client, output):
     client.act('open'); client.wait_active('Local files'); client.click('Local files'); route(client, 'wayfinder')
     before = field(client, 'cooldownTicks')['text']
     result['stagedZero'] = edit(client, 'cooldownTicks', before, '0')
-    client.wait_active('Save staged values'); client.click('Save staged values')
+    save_staged()
     client.until(lambda: json.loads(saved.read_text())['cooldownTicks'] == 0, 'Actual staged owner did not save0ticks')
     result['zeroSaveReceipt'] = client.until(saved_receipt, 'Second staged save did not complete')
+    result['zeroCommitReceipt'] = client.proof('reform-receipt', 'reform-receipt.json')
+    assert result['zeroCommitReceipt']['application'] == 'STAGED', result
     result['runningPolicyUnchanged'] = policy(30)
     result['capture'] = capture(client, output, 'reform-zero-caption.png')
     result['widgets'] = [widget for widget in client.act('snapshot')['widgets'] if widget.get('reachable')]
