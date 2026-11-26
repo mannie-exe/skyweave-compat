@@ -266,6 +266,7 @@ public final class ClientDhLifecycleProbe {
                 ((Button)button.get()).onPress(); save(); return;
             }
             if (phase == 0 && mc.screen instanceof TitleScreen) {
+                if (!backgroundGate(0)) { save();return; }
                 mc.options.pauseOnLostFocus = false;
                 Config.Client.Advanced.Graphics.Quality.lodChunkRenderDistanceRadius.set(32);
                 Config.Common.MultiThreading.numberOfThreads.set(4);
@@ -288,14 +289,7 @@ public final class ClientDhLifecycleProbe {
                     report.addProperty("sourceReadState", "waiting for delivered physical client chunks");
                     save(); return;
                 }
-                if (Boolean.getBoolean("skyweave_compat.probe.dhBackgroundGate") && epoch==2) {
-                    report.addProperty("nativeBackgroundGateReadyEpoch",epoch);
-                    var gate=root.resolve("dh-background-continue.txt");
-                    if (!Files.isRegularFile(gate)) { save();return; }
-                    if (!Files.readString(gate).equals("continue epoch2\n"))
-                        throw new AssertionError("Unexpected background fixture handshake");
-                    report.addProperty("nativeBackgroundGateReleased",true);
-                }
+                if (!backgroundGate(epoch)) { save();return; }
                 if (gpu != null) gpu.world(epoch, mc.level, SharedApi.getAbstractDhWorld());
                 if (observedSourceLevel==null || observedSourceLevel.get()!=mc.level) {
                     // A pending native read still owns its result; retire only this observation.
@@ -511,6 +505,20 @@ public final class ClientDhLifecycleProbe {
                 return;
             }
         }
+    }
+
+    private boolean backgroundGate(int currentEpoch) throws java.io.IOException {
+        if (!Boolean.getBoolean("skyweave_compat.probe.dhBackgroundGate")) return true;
+        int selected=Integer.getInteger("skyweave_compat.probe.dhBackgroundGateEpoch",2);
+        if (selected!=0 && selected!=2) throw new AssertionError("Unsupported native background fixture gate");
+        if (currentEpoch!=selected) return true;
+        report.addProperty("nativeBackgroundGateReadyEpoch",currentEpoch);
+        var gate=root.resolve("dh-background-continue.txt");
+        if (!Files.isRegularFile(gate)) return false;
+        if (!Files.readString(gate).equals("continue epoch"+currentEpoch+"\n"))
+            throw new AssertionError("Unexpected background fixture handshake");
+        report.addProperty("nativeBackgroundGateReleased",true);
+        return true;
     }
 
     private void finish(Minecraft mc) {
