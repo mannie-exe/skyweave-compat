@@ -1,5 +1,11 @@
 # Verification
 
+## Published 0.43.3
+
+[GitHub 0.43.3](https://github.com/mannie-exe/skyweave-compat/releases/tag/v0.43.3) publishes source commit `c06f9916db6ad25935152dc0aba3270ca75f5f68` with installable JAR SHA-256 `d997bdb755695963681e6a52e91d7401eed39b2d65a884524d3d7af87196ad9f`. Tag and main CI pass on Linux, Windows, and Intel macOS. Each platform runs 510 Java cases with zero failures or errors; Windows skips the POSIX temporary-file-creation permission control. All three binary and source JARs match byte for byte. The five public assets, both checksum manifests, and source ZIP contents match their tagged inputs.
+
+The CI binary differs from the cached local preparation build below only in `IslandClimate.ReferencePosition`: 21 compiler-generated bridge methods delegate directly to the corresponding `BlockPos` methods. ASM inspection verifies unchanged class state and constructor, synthetic/bridge flags, matching arguments, and no added computation or mutation. The other 1,081 runtime classes match. Both minimum and configured 141-mod dedicated startup pass with the actual downloaded public binary and normal exits. This does not turn the historical C1+C2 gameplay receipts into new public-artifact gameplay runs; their unchanged source and reviewed compiler delta remain explicit.
+
 ## 0.43.3 release identity
 
 The 0.43.3 preparation build passes `./gradlew --no-daemon --max-workers=2 check build probeJar clientProbeJar`: 510 Java tests with no failures, errors, or skips, 23 tooling cases, and required package/upstream/resource checks. All 1,082 runtime classes are byte-identical to the qualified C1+C2 candidate below; only release identity and notices differ in the installable JAR. Documentation and repository metadata corrections introduce no new runtime implementation. The packaged binary retains Apache-2.0, LGPL-3.0-only, and MIT notices and excludes probe classes, nested upstream JARs, and unfinished DH work.
