@@ -352,9 +352,18 @@ def run(java, artifacts, output, long_labels=False, layouts=False):
                         draft = client.until(lambda: value if (value := editor(client)) and value['dirty'] else None,
                                              'The actual startup draft did not change')
                         assert draft['draft']['navigation.wayfinder'] is False and features.read_bytes() == previous
+                        before_home = client.proof('reform-catalog-proof', 'reform-catalog-proof.json')
+                        opened_before = {owner['route'] for owner in before_home['owners'] if owner['opened']}
+                        expected_opened = {'skyweave_compat:features'}
+                        if layouts:
+                            expected_opened.update('skyweave_compat:' + name for name in ('generation', 'interiors', 'shapes'))
+                        assert opened_before == expected_opened, (opened_before, expected_opened)
                         client.act('reform-home')
                         home = client.proof('reform-catalog-proof', 'reform-catalog-proof.json')
-                        assert home['homeSelected'] and sum(owner['opened'] for owner in home['owners']) == 1
+                        opened_after = {owner['route'] for owner in home['owners'] if owner['opened']}
+                        boot['homeOwnerAdmission'] = {'selected': home['homeSelected'],
+                                                     'before': sorted(opened_before), 'after': sorted(opened_after)}
+                        assert home['homeSelected'] and opened_after == opened_before, boot['homeOwnerAdmission']
                         assert features.read_bytes() == previous
                         client.navigate('skyweave_compat:features/navigation.wayfinder')
                         returned = client.until(lambda: editor(client), 'Home return did not reveal the retained editor')
