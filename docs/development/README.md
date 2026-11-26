@@ -8,6 +8,8 @@ Use Java 21 and the checked-in Gradle wrapper for Minecraft 1.21.1 / NeoForge 21
 
 Build outputs are in `build/libs`. The minimum installation requires Minecraft, NeoForge, Compat, and the qualified re:form library on both physical sides. Content integrations remain optional. `build.gradle` owns exact compilation and development-runtime pins; development dependencies are not bundled or implied runtime requirements. [Publishing](../publishing.md#shared-settings-dependency) describes staged candidates and clean release resolution.
 
+The release line uses public re:form 0.3.0 and Dynamic Waters 13.1.0 where that optional integration is enabled. [Release notes](../../RELEASE_NOTES.md) own shipped changes and update instructions. Proposed work such as [Longshot](longshot.md) does not add installed feature keys or establish runtime support; private development candidates retain their own evidence and qualification limits.
+
 ## Implementation boundaries
 
 `FeatureSettings` reads immutable startup switches before Mixin target resolution. `FeatureSelection` admits dependencies, physical sides, and explicit prerequisites from loader metadata; `OptionalMixinPlugin` selects only admitted mixins. Disabled integrations neither resolve foreign classes nor constrain their versions. `SkyweaveCompat` registers admitted callbacks. `IntegrationPacks` exposes separately gated built-in data packs rather than unconditional integration data at the JAR root.
@@ -33,6 +35,7 @@ Original project work uses Apache-2.0. Preserve the LGPL-3.0-only rendering head
 | Shapes, ocean admission, and metadata discovery                    | [Terrain variation](terrain-variation.md)         |
 | Targeting, search, teleport validation, and connection lifetimes   | [Wayfinder](wayfinder.md)                         |
 | ADQ structure discovery, endpoint custody, and retirement          | [Delivery generation](delivery.md)                |
+| Proposed extended projectile/rope authority and loading contracts  | [Longshot adaptation design](longshot.md)         |
 | DH lifecycle, cache, and optional data boundaries                  | [DH integration](lod.md)                          |
 | BlueMap's optional terrain view                                    | [BlueMap](bluemap.md)                             |
 | Client renderers, shaders, and item/model handoffs                 | [Rendering](rendering.md)                         |

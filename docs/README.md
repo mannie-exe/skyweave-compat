@@ -8,6 +8,7 @@
 - [Terrain variation](development/terrain-variation.md): horizontal sampling, ocean admission, metadata locator, and deferred special islands
 - [Questlog](development/questlog.md): journal UX, notification and reward contracts
 - [Publishing](publishing.md): GitHub and Modrinth release setup
+- [Release notes](../RELEASE_NOTES.md) and [changelog](../CHANGELOG.md): shipped behavior, update instructions, and generated commit history
 
 [Adapter maintenance](development/adapters.md) and [rendering boundaries](development/rendering.md) own optional integration updates and rendering contracts.
 

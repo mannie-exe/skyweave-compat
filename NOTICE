@@ -28,7 +28,7 @@ https://github.com/FoundryMC/Veil/pull/213
 Build and isolated Mixin test infrastructure adapted from dh-polygon-fix.
 https://github.com/mannie-exe/dh-polygon-fix
 
-The balloon guard follows the defect analysis in Simulated-Project PR #1298
+The retired balloon guard followed the defect analysis in Simulated-Project PR #1298
 (MoePus); construct material and model-data adapters follow the analysis in Sable
 PR #1417 (BlackCube4). These adapters are independently implemented against the
 installed APIs; upstream renderer implementations and assets are not bundled.
