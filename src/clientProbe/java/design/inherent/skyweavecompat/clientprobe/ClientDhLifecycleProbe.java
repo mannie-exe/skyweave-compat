@@ -66,6 +66,7 @@ public final class ClientDhLifecycleProbe {
     private final ClientDhDimensionJourney dimensionJourney = Boolean.getBoolean("skyweave_compat.probe.dhDimensions")
             ? new ClientDhDimensionJourney() : null;
     private final ClientDhFieldProbe field = Boolean.getBoolean("skyweave_compat.probe.dhField") ? new ClientDhFieldProbe() : null;
+    private final ClientDhRuntimeState runtime = Boolean.getBoolean("skyweave_compat.probe.dhRuntimeState") ? new ClientDhRuntimeState() : null;
     private WeakReference<ClientLevel> observedSourceLevel;
     private String currentNativeLevelId;
     private CompletableFuture<FullDataSourceV2> pending;
@@ -218,6 +219,8 @@ public final class ClientDhLifecycleProbe {
     }
     public static void worldClosing() { WORLD_CLOSE_DEPTH.set(WORLD_CLOSE_DEPTH.get()+1); }
     public static void worldClosed() { int depth=WORLD_CLOSE_DEPTH.get()-1; if(depth==0) WORLD_CLOSE_DEPTH.remove(); else WORLD_CLOSE_DEPTH.set(depth); }
+    public static void nativeFrame(String event) { var probe=active; if(probe!=null && probe.runtime!=null)probe.runtime.event(probe.epoch,event); }
+    public static void nativeRenderService(long budget) { var probe=active; if(probe!=null && probe.runtime!=null)probe.runtime.nativeService(probe.epoch,budget); }
     public static Object networkClosing(com.seibel.distanthorizons.core.multiplayer.client.AbstractFullDataNetworkRequestQueue queue, CompletableFuture<Void> prior, boolean interrupt) {
         var probe = active; return probe == null ? null : probe.network.closing(queue, prior, interrupt);
     }
@@ -489,18 +492,27 @@ public final class ClientDhLifecycleProbe {
     }
 
     private void finish(Minecraft mc) {
+        if (finished) return;
+        if(report.has("nativeRuntimeState"))report.add("runtimeStateBeforeFinish",report.get("nativeRuntimeState").deepCopy());
         finished = true;
         if (field!=null) field.retire();
         if (pending != null) { pending.whenComplete((source,failure)->{if(source!=null)source.close();}); pending=null; }
         pendingSample = null; pendingLevel = null;
         save();
         if (automationAllowed()) {
-            try {
-                if (mc.level != null) {
-                    report.addProperty("fixtureNativeDisconnectRequested", true);
-                    mc.level.disconnect();
-                }
-            } finally { save(); mc.stop(); }
+            // Failure teardown must use the same complete native disconnect outside this tick.
+            // Preserve the failed result; successful cleanup never turns a refusal into a pass.
+            if (mc.level!=null) mc.tell(() -> {
+                if (!automationAllowed()) return;
+                try {
+                    report.addProperty("fixtureNativeDisconnectRequested",true);
+                    if(mc.level!=null)mc.level.disconnect();
+                    mc.disconnect(new TitleScreen());mc.setScreen(new TitleScreen());
+                    report.addProperty("fixtureNativeDisconnectCompleted",true);
+                } catch(Throwable failure) { report.addProperty("fixtureCleanupFailure",failure.toString()); }
+                finally { save();mc.stop(); }
+            });
+            else mc.stop();
         }
     }
     private boolean automationAllowed() {
@@ -517,6 +529,14 @@ public final class ClientDhLifecycleProbe {
         report.addProperty("overlay", mc.getOverlay() == null ? "none" : mc.getOverlay().getClass().getName());
         report.addProperty("servicesInsideNativeClose",servicesDuringClose.get());
         report.addProperty("servicesInsideNativeWorldClose",servicesDuringWorldClose.get());
+        if(runtime!=null) try {
+            // Observe after native service/producer ingress, without starting its timer early.
+            report.add("nativeRuntimeState",runtime.snapshot(mc,
+                    !uploads.isEmpty() || runtime.nativeServiceObserved() ? queuedRenderTasks() : null));
+            report.getAsJsonObject("nativeRuntimeState").addProperty("physicalDataReadPending",pending!=null && !pending.isDone());
+            if(field!=null)report.getAsJsonObject("nativeRuntimeState").add("farDataRead",field.pendingObservation());
+        }
+        catch(Throwable failure) { report.addProperty("runtimeStateObservationFailure",failure.toString()); }
         if (gpu != null) report.add("nativeGpuResources", gpu.snapshot());
         if (cpu != null) report.add("nativeCpuResources", cpu.snapshot());
         if (workers != null) try { report.add("nativeWorkers", workers.snapshot()); }

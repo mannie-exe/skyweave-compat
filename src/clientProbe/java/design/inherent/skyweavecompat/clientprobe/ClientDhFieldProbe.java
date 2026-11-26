@@ -145,4 +145,13 @@ final class ClientDhFieldProbe {
         if(pending!=null) pending.whenComplete((source,failure)->{if(source!=null)source.close();});
         pending=null;pendingClient=null;
     }
+
+    JsonObject pendingObservation() {
+        var result=new JsonObject();result.addProperty("pending",pending!=null);
+        if(pending!=null) {
+            result.addProperty("done",pending.isDone());result.addProperty("nativeSection",pendingPosition);
+            result.addProperty("epoch",pendingEpoch);
+        }
+        return result;
+    }
 }

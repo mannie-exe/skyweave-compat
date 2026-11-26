@@ -11,4 +11,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 abstract class DhLifecycleTaskWitnessMixin {
     @Inject(method="runRenderThreadTasks()V",at=@At("HEAD"),require=1,allow=1)
     private void observed(CallbackInfo ci) { ClientDhLifecycleProbe.serviced(); }
+    @Inject(method="runRenderThreadTasks(J)V",at=@At("HEAD"),require=1,allow=1)
+    private void nativeService(long budget,CallbackInfo ci) { ClientDhLifecycleProbe.nativeRenderService(budget); }
 }
