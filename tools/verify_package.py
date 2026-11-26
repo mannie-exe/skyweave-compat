@@ -22,7 +22,7 @@ with zipfile.ZipFile(root / f'build/libs/skyweave-compat-{version}-mc1.21.1-neof
     assert deps['minecraft']['versionRange'] == '[1.21.1]'
     required = {'minecraft', 'neoforge', 'reform'}
     assert {name for name, d in deps.items() if d['type'] == 'required'} == required
-    assert deps['reform']['versionRange'] == f'[{reform_minimum},0.4)'
+    assert deps['reform']['versionRange'] == f'[{reform_version}],[{reform_minimum},0.5)'
     assert deps['reform']['side'] == 'BOTH'
     development = dict(line.split('=', 1) for line in jar.read('META-INF/skyweave-compat-development.properties').decode().splitlines() if line)
     assert development['reform'] == reform_version

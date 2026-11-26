@@ -8,8 +8,12 @@ import design.inherent.reform.minecraft.client.ClientForm;
 import design.inherent.reform.minecraft.client.ClientFormOptions;
 import design.inherent.reform.minecraft.client.ClientKeyBindings;
 import design.inherent.reform.minecraft.client.ClientWorkflowLayout;
+import design.inherent.reform.minecraft.client.ClientWorkspacePresentation;
+import design.inherent.reform.minecraft.client.HomePage;
 import design.inherent.reform.minecraft.client.IntegratedSettings;
+import design.inherent.reform.minecraft.client.WorkspaceIdentity;
 import design.inherent.reform.owner.ApplicationEffects;
+import design.inherent.reform.presentation.DestinationId;
 import design.inherent.skyweavecompat.Feature;
 import design.inherent.skyweavecompat.FeatureSettings;
 import design.inherent.skyweavecompat.OptionalIntegrations;
@@ -102,8 +106,9 @@ final class ClientSettingsMenus {
                         .inSection(new ClientWorkflowLayout.Section(id("section/controls"), text("controls"), Component.empty())
                                 .withEyebrow(text("mod.skyweave_compat")))), List.of()));
         var reviews = terrain == null ? List.<ClientWorkflowLayout.ReviewScope>of() : List.of(terrain.review());
-        return ClientEditingWorkflow.open(parent, text("local_files"), List.copyOf(forms.values()),
-                new ClientWorkflowLayout(groups, reviews)).screen();
+        var layout = new ClientWorkflowLayout(groups, reviews);
+        return ClientEditingWorkflow.open(parent, List.copyOf(forms.values()), layout,
+                workspace("local_files", "local_home_help", layout)).screen();
     }
 
     private ArrayList<ClientWorkflowLayout.Group> catalog(Map<String, ClientForm> forms) {
@@ -186,7 +191,19 @@ final class ClientSettingsMenus {
                                     .withEyebrow(Component.translatable("skyweave_compat.settings.document_context",
                                             text("mod." + page.label()), text("server_policy"))))), List.of()));
         }
-        return ClientEditingWorkflow.open(parent, text("running_server"), forms, new ClientWorkflowLayout(groups, List.of())).screen();
+        var layout = new ClientWorkflowLayout(groups, List.of());
+        return ClientEditingWorkflow.open(parent, forms, layout,
+                workspace("running_server", "server_home_help", layout)).screen();
+    }
+
+    /** Home links follow the actual authored navigation and admit no owner until selected. */
+    private static ClientWorkspacePresentation workspace(String context, String help, ClientWorkflowLayout layout) {
+        var featured = layout.groups().stream().filter(group -> !group.path().isEmpty())
+                .map(group -> new DestinationId(group.path().getFirst().id())).distinct().toList();
+        var home = new HomePage(new DestinationId(id("workspace/" + context + "/home")),
+                text("home"), text(help), featured);
+        return ClientWorkspacePresentation.standard(new WorkspaceIdentity(id("workspace/" + context),
+                Component.translatable("skyweave_compat.configuration.title"), text(context))).withHome(home);
     }
 
     private static <T> ClientForm policy(String filename, design.inherent.reform.definition.DocumentDefinition<T> definition) {

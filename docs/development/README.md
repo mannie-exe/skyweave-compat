@@ -8,7 +8,9 @@ Use Java 21 and the checked-in Gradle wrapper for Minecraft 1.21.1 / NeoForge 21
 
 Build outputs are in `build/libs`. The minimum installation requires Minecraft, NeoForge, Compat, and the qualified re:form library on both physical sides. Content integrations remain optional. `build.gradle` owns exact compilation and development-runtime pins; development dependencies are not bundled or implied runtime requirements. [Publishing](../publishing.md#shared-settings-dependency) describes staged candidates and clean release resolution.
 
-The release line uses public re:form 0.3.0 and Dynamic Waters 13.1.0 where that optional integration is enabled. [Release notes](../../RELEASE_NOTES.md) own shipped changes and update instructions. Proposed work such as [Longshot](longshot.md) does not add installed feature keys or establish runtime support; private development candidates retain their own evidence and qualification limits.
+The current unpublished 0.4 migration needs an explicit `-Preform_repository=<staged-maven-repository>` on Gradle commands. Use the immutable provider handoff matching `gradle.properties`. A default public-resolution build is a release gate after that library is published; it is not available for this engineering pin.
+
+Published 0.43.3 uses public re:form 0.3.0. The current migration changes only the configuration-library family; Dynamic Waters remains 13.1.0 where that optional integration is enabled. [Release notes](../../RELEASE_NOTES.md) own shipped changes and update instructions. Proposed work such as [Longshot](longshot.md) does not add installed feature keys or establish runtime support; private development candidates retain their own evidence and qualification limits.
 
 ## Implementation boundaries
 

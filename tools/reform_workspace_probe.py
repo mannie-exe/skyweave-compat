@@ -308,6 +308,11 @@ def run(java, artifacts, output, long_labels=False, layouts=False):
                     client.click('Local files')
                     catalog = client.proof('reform-catalog-proof', 'reform-catalog-proof.json')
                     boot['catalog'] = catalog
+                    assert catalog['workspace'] == 'skyweave_compat:workspace/local_files'
+                    assert catalog['workspaceTitle'] == client.context_title
+                    assert catalog['workspaceContext'] == 'Local files' and catalog['homeSelected']
+                    assert not any(owner['opened'] for owner in catalog['owners']), 'Home eagerly opened an owner'
+                    assert catalog['homeLinks'] and len(set(catalog['homeLinks'])) == len(catalog['homeLinks'])
                     assert catalog['documents'] == len(catalog['expectedRoutes'])
                     assert len(catalog['composition']) == catalog['placements']
                     assert all(row.get('section') and row.get('title') and row.get('eyebrow')
@@ -342,6 +347,14 @@ def run(java, artifacts, output, long_labels=False, layouts=False):
                         draft = client.until(lambda: value if (value := editor(client)) and value['dirty'] else None,
                                              'The actual startup draft did not change')
                         assert draft['draft']['navigation.wayfinder'] is False and features.read_bytes() == previous
+                        client.act('reform-home')
+                        home = client.proof('reform-catalog-proof', 'reform-catalog-proof.json')
+                        assert home['homeSelected'] and sum(owner['opened'] for owner in home['owners']) == 1
+                        assert features.read_bytes() == previous
+                        client.navigate('skyweave_compat:features/navigation.wayfinder')
+                        returned = client.until(lambda: editor(client), 'Home return did not reveal the retained editor')
+                        assert returned['context'] == draft['context'] and returned['draft'] == draft['draft']
+                        boot['homeRetainsActualDraft'] = True
                         boot['retainedWorkspace'] = retained_workspace(client, draft)
                         assert features.read_bytes() == previous
                         saved_actions = [widget['label'] for widget in client.state()['widgets']

@@ -138,6 +138,7 @@ final class ClientConfigurationProbe {
                         case "reform-receipt" -> reformReceipt(mc);
                         case "reform-batch-proof" -> reformBatchProof(mc);
                         case "reform-catalog-proof" -> reformCatalogProof(mc);
+                        case "reform-home" -> reformWorkflow(mc).showHome();
                         case "reform-show-placement" -> reformWorkflow(mc).showPlacement(
                                 design.inherent.reform.definition.DocumentId.parse(command.get("id").getAsString()));
                         case "reform-reveal-operation" -> revealOperation(mc, command);
@@ -493,6 +494,16 @@ final class ClientConfigurationProbe {
         var layout = workflow.getClass().getDeclaredField("layout"); layout.setAccessible(true);
         var declared = (design.inherent.reform.minecraft.client.ClientWorkflowLayout) layout.get(workflow);
         var proof = new JsonObject();
+        var presentationField = workflow.getClass().getDeclaredField("presentation"); presentationField.setAccessible(true);
+        var presentation = (design.inherent.reform.minecraft.client.ClientWorkspacePresentation) presentationField.get(workflow);
+        proof.addProperty("workspace", presentation.identity().id().toString());
+        proof.addProperty("workspaceTitle", presentation.identity().title().getString());
+        proof.addProperty("workspaceContext", presentation.identity().subtitle().getString());
+        proof.addProperty("homeSelected", workflow.navigation().current().orElse(null)
+                instanceof design.inherent.reform.minecraft.client.ClientDestination.Home);
+        var featured = new JsonArray();
+        presentation.home().orElseThrow().featured().forEach(id -> featured.add(id.toString()));
+        proof.add("homeLinks", featured);
         proof.addProperty("groups", declared.groups().size());
         proof.addProperty("placements", declared.groups().stream().mapToLong(group -> group.placements().size()).sum());
         proof.addProperty("documents", workflow.documents().size());
@@ -521,7 +532,7 @@ final class ClientConfigurationProbe {
             row.addProperty("title", action.title().getString()); actions.add(row);
         })); proof.add("actions", actions);
         var expected = new JsonArray();
-        if (mc.screen.getTitle().getString().equals(net.minecraft.network.chat.Component.translatable("skyweave_compat.settings.running_server").getString())) {
+        if (presentation.identity().id().path().equals("workspace/running_server")) {
             expected.add("skyweave_compat:wayfinder"); expected.add("skyweave_compat:search");
         } else {
             design.inherent.skyweavecompat.configuration.SettingsCatalog.FILES.forEach(entry -> expected.add(entry.id()));

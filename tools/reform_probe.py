@@ -141,8 +141,16 @@ class Client:
 
     def document_actions(self):
         self.click('Document actions…')
-        return self.until(lambda: value if (value := self.state()).get('screen', '').endswith('DocumentActionsScreen') else None,
-                          'Document actions did not open its actual auxiliary screen')
+        def opened():
+            value = self.state()
+            name = value.get('screen', '')
+            if name.endswith('DocumentActionsScreen'):
+                return value
+            if name.endswith('ClientEditingWorkflow$Overview') and any(
+                    widget['label'] == 'Back to settings' for widget in value.get('widgets', [])):
+                return value
+            return None
+        return self.until(opened, 'Document actions did not open its native body')
 
     def navigate(self, query, actions=('Open', 'Resume')):
         if not self.state().get('screen', '').endswith('ClientEditingWorkflow$Overview'):

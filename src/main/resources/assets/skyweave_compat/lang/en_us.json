@@ -1,5 +1,8 @@
 {
   "skyweave_compat.settings.local_files": "Local files",
+  "skyweave_compat.settings.home": "Home",
+  "skyweave_compat.settings.local_home_help": "Choose a settings category. Local files include preferences and defaults for a future launch or world. Each setting explains when a saved change takes effect. Open drafts remain when you return here.",
+  "skyweave_compat.settings.server_home_help": "Choose a running-server policy. These settings belong to the current singleplayer server and require operator permission. Saving, applying, and verifying changes are separate actions. Open drafts remain when you return here.",
   "skyweave_compat.settings.startup.restore_loaded": "Restore loaded choices",
   "skyweave_compat.settings.startup.restore_loaded.help": "Restore the switch choices loaded when the game started, including disabled choices. This stages values without changing the running game or saved file. Save for restart to use them. A switch's individual Default choice removes its override and uses the mod default.",
   "skyweave_compat.settings.running_server": "Running singleplayer server",

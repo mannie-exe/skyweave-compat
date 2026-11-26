@@ -67,7 +67,7 @@ public final class DependencyVersions {
                         "minecraft", exact(required(properties, "minecraft")),
                         "javafml", new Contract(required(properties, "javafml"), Set.of(), "[4,5)"),
                         "neoforge", new Contract(required(properties, "neoforge"), Set.of(), "[" + required(properties, "neoforge") + ",21.2)"),
-                        "reform", new Contract(required(properties, "reform"), Set.of(required(properties, "reform")), "[" + required(properties, "reform.minimum") + ",0.4)"));
+                        "reform", new Contract(required(properties, "reform"), Set.of(required(properties, "reform")), "[" + required(properties, "reform.minimum") + ",0.5)"));
             } catch (IOException failure) {
                 throw new IllegalStateException("Cannot read Skyweave: Compatibility Patches development dependency metadata", failure);
             }
