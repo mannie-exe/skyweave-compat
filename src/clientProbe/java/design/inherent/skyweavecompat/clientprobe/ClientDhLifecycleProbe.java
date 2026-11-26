@@ -57,6 +57,10 @@ public final class ClientDhLifecycleProbe {
     private int ticks, phase, phaseTicks;
     private boolean finished;
     private boolean closeQueued;
+    private int idleCloseTicks;
+    private long resizeContext;
+    private int resizeWidth, resizeHeight;
+    private boolean resizeVerified;
     private final Integer tcpPort = Integer.getInteger("skyweave_compat.probe.dhTcpPort");
     private CompletableFuture<FullDataSourceV2> pending;
     private BlockPos pendingSample;
@@ -272,6 +276,26 @@ public final class ClientDhLifecycleProbe {
                 if (currentColumn == null) readColumn(mc);
                 var stats = uploads.get(epoch);
                 if (currentColumn == null || stats == null || stats.completed.get() == 0) { save(); return; }
+                if (Boolean.getBoolean("skyweave_compat.probe.dhResize") && !resizeVerified) {
+                    long window=mc.getWindow().getWindow();
+                    if (!mc.isSameThread() || org.lwjgl.glfw.GLFW.glfwGetCurrentContext()!=window)
+                        throw new AssertionError("Native resize lost its actual render context");
+                    int[] width={0},height={0}; org.lwjgl.glfw.GLFW.glfwGetWindowSize(window,width,height);
+                    if (resizeContext==0) {
+                        resizeContext=window; resizeWidth=width[0]+64; resizeHeight=height[0]+32;
+                        report.addProperty("nativeResizeOriginalWidth",width[0]);
+                        report.addProperty("nativeResizeOriginalHeight",height[0]);
+                        org.lwjgl.glfw.GLFW.glfwSetWindowSize(window,resizeWidth,resizeHeight);
+                        return;
+                    }
+                    if (resizeContext!=window) throw new AssertionError("Native resize replaced the admitted context");
+                    if (width[0]!=resizeWidth || height[0]!=resizeHeight || mc.getWindow().getWidth()<=0 || mc.getWindow().getHeight()<=0)
+                        return;
+                    resizeVerified=true; currentColumn=null;
+                    report.addProperty("nativeResizeVerified",true);
+                    report.addProperty("nativeResizeWidth",width[0]); report.addProperty("nativeResizeHeight",height[0]);
+                    report.addProperty("nativeResizeContextPreserved",true); return;
+                }
                 if (firstColumn == null) firstColumn = currentColumn.deepCopy();
                 else if (!firstColumn.equals(currentColumn)) throw new AssertionError("Reopened native decoded column changed");
                 if (phase == 3 && reload == null) {
@@ -288,7 +312,11 @@ public final class ClientDhLifecycleProbe {
                     report.addProperty("newUsefulUploadsAfterReload", stats.completed.get() - uploadsBeforeReload);
                 }
                 int queued = queuedRenderTasks();
-                if (queued == 0 && stats.pending.get() == 0 && phaseTicks < 600) { save(); return; }
+                if (Boolean.getBoolean("skyweave_compat.probe.dhIdleClose")) {
+                    idleCloseTicks=queued==0 && stats.pending.get()==0 ? idleCloseTicks+1 : 0;
+                    report.addProperty("idleCloseConsecutiveTicks"+epoch,idleCloseTicks);
+                    if (idleCloseTicks<20) { save(); return; }
+                } else if (queued == 0 && stats.pending.get() == 0 && phaseTicks < 600) { save(); return; }
                 var before = new JsonObject(); before.addProperty("epoch", epoch); before.addProperty("queuedRenderTasks", queued);
                 before.addProperty("pendingNativeUploads", stats.pending.get()); before.addProperty("completedUsefulUploads", stats.completed.get());
                 before.addProperty("vertices", stats.vertices.get()); report.add("beforeClose" + epoch, before);
@@ -331,6 +359,7 @@ public final class ClientDhLifecycleProbe {
 
     private void open(Minecraft mc) {
         epoch++; pending = null; pendingSample = null; pendingLevel = null; physicalChunkWaits = 0; currentColumn = null;
+        idleCloseTicks=0;
         if (tcpPort != null) {
             String address = "127.0.0.1:" + tcpPort;
             var data = new ServerData("Skyweave disposable DH loopback", address, ServerData.Type.OTHER);
