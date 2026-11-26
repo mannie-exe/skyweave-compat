@@ -28,6 +28,11 @@ public final class ClientIpnProbe {
     private net.minecraft.client.multiplayer.ClientLevel settledLevel;
     private int joinedSamples;
     private ClientIpnInventoryProbe inventoryProbe;
+    private design.inherent.reform.minecraft.client.ClientEditingWorkflow textWorkflow;
+    private design.inherent.reform.minecraft.client.NavigationAttempt textNavigation;
+    private JsonObject textEditors;
+    private java.util.List<Integer> textKeys;
+    private int textDeadline, textRevealedAt;
 
     ClientIpnProbe() {
         if (!Files.isRegularFile(root.resolve("ipn-review-fixture.json")))
@@ -72,6 +77,11 @@ public final class ClientIpnProbe {
             if (settledLevel != mc.level) { settledLevel = mc.level; joinedSamples = 0; }
             if (++joinedSamples < 5) return;
             if (phase == 1) return;
+            if (phase == 4) {
+                if (!reformTextReady()) return;
+                inventoryProbe = new ClientIpnInventoryProbe(report); phase = 3;
+                return;
+            }
             if (phase == 3) {
                 if (!inventoryProbe.tick()) return;
                 mc.setScreen(new ChatScreen("")); key(82, 1);
@@ -116,7 +126,7 @@ public final class ClientIpnProbe {
             report.addProperty("pressedKeysEmpty", GlobalInputHandler.INSTANCE.getPressedKeys().isEmpty());
             if (Boolean.getBoolean("skyweave_compat.probe.ipn.extended") && !reopening) {
                 var expanded = new JsonObject(); report.add("extended", expanded); extended(expanded);
-                inventoryProbe = new ClientIpnInventoryProbe(report); phase = 3;
+                beginReformText(expanded.getAsJsonObject("editors")); phase = 4;
                 return;
             }
             report.addProperty("status", "OBSERVED");
@@ -127,6 +137,70 @@ public final class ClientIpnProbe {
             failure.printStackTrace();
             finish();
         }
+    }
+
+    private void beginReformText(JsonObject result) throws ReflectiveOperationException {
+        var mc = Minecraft.getInstance();
+        textEditors = result;
+        textKeys = java.util.List.copyOf(Hotkeys.INSTANCE.getRELOAD_CUSTOM_CONFIGS().getMainKeybind().getKeyCodes());
+        mc.setScreen(ClientConfigurationProbe.openScreen(null));
+        var local = textButtons(mc.screen).stream().filter(button -> button.getMessage().getString().equals("Local files"))
+                .findFirst().orElseThrow(() -> new IllegalStateException("Actual Configure context choice is missing"));
+        mc.screen.mouseClicked(local.getX() + 4, local.getY() + 4, 0);
+        textWorkflow = ClientConfigurationProbe.reformWorkflow(mc);
+        textNavigation = textWorkflow.navigation().open(new design.inherent.reform.minecraft.client.ClientDestination.Placement(
+                new design.inherent.reform.presentation.DestinationId(design.inherent.reform.definition.DocumentId.parse(
+                        "skyweave_compat:features/navigation.wayfinder"))));
+        textEditors.addProperty("reformNavigationId", textNavigation.id().toString());
+        textDeadline = ticks + 200;
+    }
+
+    private boolean reformTextReady() throws ReflectiveOperationException {
+        var mc = Minecraft.getInstance();
+        var navigation = textNavigation.result();
+        textEditors.addProperty("reformNavigationPending", navigation.isEmpty());
+        if (navigation.isEmpty()) {
+            if (ticks >= textDeadline) throw new IllegalStateException("Actual Configure navigation did not settle");
+            return false;
+        }
+        textEditors.addProperty("reformNavigationOutcome", navigation.orElseThrow().outcome().name());
+        textEditors.addProperty("reformNavigationReport", navigation.orElseThrow().report().toString());
+        if (navigation.orElseThrow().outcome() != design.inherent.reform.minecraft.client.NavigationAttempt.Outcome.REVEALED)
+            throw new IllegalStateException("Actual Configure document was not revealed: " + navigation.orElseThrow());
+        if (textRevealedAt == 0) { textRevealedAt = ticks; return false; }
+        if (ClientConfigurationProbe.reformWorkflow(mc) != textWorkflow)
+            throw new IllegalStateException("Actual Configure workflow was replaced");
+        textEditors.addProperty("reformSearchScreen", mc.screen.getClass().getName());
+        textEditors.add("reformButtons", new GsonBuilder().create().toJsonTree(textButtons(mc.screen).stream()
+                .map(button -> button.getMessage().getString()).toList()));
+        textEditors.add("reformFields", new GsonBuilder().create().toJsonTree(textFields(mc.screen, 0).stream()
+                .map(field -> field.getMessage().getString()).toList()));
+        if (textFields(mc.screen, 0).stream().noneMatch(field -> field.getMessage().getString().equals("Search settings"))) {
+            var categories = textButtons(mc.screen).stream().filter(button -> button.getMessage().getString().equals("Categories"))
+                    .findFirst().orElseThrow(() -> new IllegalStateException("Actual Configure categories action is missing"));
+            if (!mc.screen.mouseClicked(categories.getX() + 4, categories.getY() + 4, 0))
+                throw new IllegalStateException("Actual Configure categories click was refused");
+            mc.screen.mouseReleased(categories.getX() + 4, categories.getY() + 4, 0);
+            textEditors.addProperty("reformSearchViaCategories", true);
+        }
+        var workspace = mc.screen;
+        var nativeSearch = textFields(workspace, 0).stream().filter(field -> field.getMessage().getString().equals("Search settings"))
+                .findFirst().orElseThrow(() -> new IllegalStateException("Actual Configure search is missing"));
+        if (!workspace.mouseClicked(nativeSearch.getX() + 4, nativeSearch.getY() + 4, 0))
+            throw new IllegalStateException("Actual Configure search click was refused");
+        workspace.mouseReleased(nativeSearch.getX() + 4, nativeSearch.getY() + 4, 0);
+        nativeSearch.setValue("");
+        int before = reloads;
+        var accepted = new com.google.gson.JsonArray();
+        for (int key : textKeys) { key(key, 1); accepted.add(workspace.charTyped((char)Character.toLowerCase(key), 0)); }
+        for (int key : textKeys.reversed()) key(key, 0);
+        textEditors.addProperty("reformSearchReloads", reloads - before);
+        textEditors.add("reformTypedAccepted", accepted);
+        textEditors.addProperty("reformSearchText", textFields(workspace, 0).stream()
+                .filter(field -> field.getMessage().getString().equals("Search settings")).findFirst().orElseThrow().getValue());
+        textEditors.addProperty("reformScreenRetained", mc.screen == workspace);
+        mc.setScreen(null);
+        return true;
     }
 
     private static int chord(java.util.List<Integer> keys) {
@@ -288,39 +362,6 @@ public final class ClientIpnProbe {
             ipnConfig.getSearchBox().getTextField().setVanillaFocused(true);
             result.addProperty("ipnConfigSearchReloads", chord(keys));
             ipnConfig.getSearchBox().getTextField().setVanillaFocused(false);
-
-            mc.setScreen(ClientConfigurationProbe.openScreen(null));
-            var local = textButtons(mc.screen).stream().filter(button -> button.getMessage().getString().equals("Local files"))
-                    .findFirst().orElseThrow(() -> new IllegalStateException("Actual Configure context choice is missing"));
-            mc.screen.mouseClicked(local.getX() + 4, local.getY() + 4, 0);
-            var workflow = ClientConfigurationProbe.reformWorkflow(mc);
-            workflow.showPlacement(design.inherent.reform.definition.DocumentId.parse(
-                    "skyweave_compat:features/navigation.wayfinder"));
-            if (textFields(mc.screen, 0).stream().noneMatch(field -> field.getMessage().getString().equals("Search settings"))) {
-                var categories = textButtons(mc.screen).stream().filter(button -> button.getMessage().getString().equals("Categories"))
-                        .findFirst().orElseThrow(() -> new IllegalStateException("Actual Configure categories action is missing"));
-                if (!mc.screen.mouseClicked(categories.getX() + 4, categories.getY() + 4, 0))
-                    throw new IllegalStateException("Actual Configure categories click was refused");
-                mc.screen.mouseReleased(categories.getX() + 4, categories.getY() + 4, 0);
-                result.addProperty("reformSearchViaCategories", true);
-            }
-            var workspace = mc.screen;
-            result.addProperty("reformSearchScreen", workspace.getClass().getName());
-            var nativeSearch = textFields(workspace, 0).stream().filter(field -> field.getMessage().getString().equals("Search settings"))
-                    .findFirst().orElseThrow(() -> new IllegalStateException("Actual Configure search is missing"));
-            if (!workspace.mouseClicked(nativeSearch.getX() + 4, nativeSearch.getY() + 4, 0))
-                throw new IllegalStateException("Actual Configure search click was refused");
-            workspace.mouseReleased(nativeSearch.getX() + 4, nativeSearch.getY() + 4, 0);
-            nativeSearch.setValue("");
-            int searchBefore = reloads;
-            var accepted = new com.google.gson.JsonArray();
-            for (int key : keys) { key(key, 1); accepted.add(workspace.charTyped((char)Character.toLowerCase(key), 0)); }
-            for (int key : keys.reversed()) key(key, 0);
-            result.addProperty("reformSearchReloads", reloads - searchBefore);
-            result.add("reformTypedAccepted", accepted);
-            result.addProperty("reformSearchText", textFields(workspace, 0).stream()
-                    .filter(field -> field.getMessage().getString().equals("Search settings")).findFirst().orElseThrow().getValue());
-            result.addProperty("reformScreenRetained", mc.screen == workspace);
 
             if (ModList.get().isLoaded("emi")) {
                 var emi = Class.forName("dev.emi.emi.api.EmiApi");
