@@ -26,6 +26,8 @@ Use conventional commit subjects with relevant `- [tag]: message` body bullets. 
 
 Follow the shared [changelog and release-note policy](../../Minecraft/create-skyweave/AGENTS.md#changelogs-and-release-notes): generate history with git-cliff and this repository's configuration, and use categorized headings and bullet lists for authored summaries and change reviews.
 
+For client timing-sensitive work, follow the [timing and interference protocol](docs/development/testing.md#client-timing-and-interference). Disable Dynamic FPS through its native configuration in disposable baseline fixtures and verify effective state and actual render progress. Keep explicit full-cohort/background-throttling controls separate. Replay Studio exclusions are editing policies, not evidence to remove providers from the playing pack. Preserve personal instances, existing qualification scope, and independently configurable upstream engines.
+
 ## Configuration and interface design
 
 Follow the [configuration binding contract](docs/development/configuration.md). Organize settings by concern → mod → purpose, using recognizable mod names and stable routes. re:form owns shared controls, navigation, focus, draft review, and conflict handling; Compat owns adaptation semantics, validation, permissions, and application timing. Reuse one binding, retained draft, and save path per document across aliases and auxiliary views. Keep standalone defaults useful; author modpack-specific tuning with the pack's configuration owner.
