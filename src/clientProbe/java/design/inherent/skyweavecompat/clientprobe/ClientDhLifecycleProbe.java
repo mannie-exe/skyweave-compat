@@ -287,6 +287,14 @@ public final class ClientDhLifecycleProbe {
                     report.addProperty("sourceReadState", "waiting for delivered physical client chunks");
                     save(); return;
                 }
+                if (Boolean.getBoolean("skyweave_compat.probe.dhBackgroundGate") && epoch==2) {
+                    report.addProperty("nativeBackgroundGateReadyEpoch",epoch);
+                    var gate=root.resolve("dh-background-continue.txt");
+                    if (!Files.isRegularFile(gate)) { save();return; }
+                    if (!Files.readString(gate).equals("continue epoch2\n"))
+                        throw new AssertionError("Unexpected background fixture handshake");
+                    report.addProperty("nativeBackgroundGateReleased",true);
+                }
                 if (gpu != null) gpu.world(epoch, mc.level, SharedApi.getAbstractDhWorld());
                 if (observedSourceLevel==null || observedSourceLevel.get()!=mc.level) {
                     // A pending native read still owns its result; retire only this observation.
