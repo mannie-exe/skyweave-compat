@@ -251,7 +251,7 @@ def verify_owner_surfaces(client, config):
             client.click('Reload saved')
             client.wait_active('Review conflict…')
             client.click('Review conflict…')
-            client.until(lambda: client.act('snapshot')['screen'].endswith('.ConflictScreen'),
+            client.until(lambda: client.proof('reform-task-proof', 'reform-task-proof.json')['conflict'],
                          'The explicit native conflict review did not open')
             client.until(lambda: any(widget['active'] and widget['label'] in ('Choose a value', 'Resolve draft')
                                      for widget in client.act('snapshot')['widgets']),

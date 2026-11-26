@@ -138,6 +138,16 @@ final class ClientConfigurationProbe {
                         case "reform-receipt" -> reformReceipt(mc);
                         case "reform-batch-proof" -> reformBatchProof(mc);
                         case "reform-catalog-proof" -> reformCatalogProof(mc);
+                        case "reform-task-proof" -> {
+                            var workflow = reformWorkflow(mc);
+                            var proof = new JsonObject();
+                            proof.addProperty("conflict", workflow.conflictInspection().isPresent());
+                            proof.addProperty("batch", workflow.batchInspection().isPresent());
+                            proof.addProperty("import", workflow.importInspection().isPresent());
+                            proof.addProperty("operation", workflow.operationInspection().isPresent());
+                            proof.addProperty("root", System.identityHashCode(mc.screen));
+                            ProbeStateFiles.write(root.resolve("reform-task-proof.json"), proof.toString());
+                        }
                         case "reform-artifact-proof" -> {
                             var proof = new JsonObject();
                             for (String id : java.util.List.of("skyweave_compat", "reform")) {
@@ -591,9 +601,10 @@ final class ClientConfigurationProbe {
         ProbeStateFiles.write(root.resolve("reform-information-proof.json"), result.toString());
     }
     private void reformBatchProof(Minecraft mc) throws Exception {
-        if (!(mc.screen instanceof design.inherent.reform.minecraft.client.BatchReviewScreen screen))
-            throw new IllegalStateException("Expected the actual shared batch review screen");
-        var review = screen.reviewedInput().orElseThrow();
+        design.inherent.reform.operation.DocumentBatch.Review review;
+        if (mc.screen instanceof design.inherent.reform.minecraft.client.BatchReviewScreen screen)
+            review = screen.reviewedInput().orElseThrow();
+        else review = reformWorkflow(mc).batchInspection().orElseThrow().reviewedInput().orElseThrow();
         var evidence = new JsonObject(); var entries = new JsonObject();
         review.entries().forEach(entry -> entries.addProperty(entry.document().toString(), entry.intent().name()));
         evidence.add("intents", entries);
