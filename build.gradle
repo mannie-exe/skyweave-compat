@@ -520,6 +520,21 @@ tasks.register('dhUpdateQueueProbe', JavaExec) {
     } else args 'patched', 'expect-wait'
     if (providers.gradleProperty('dhClient').isPresent()) args 'client'
     if (providers.gradleProperty('dhOverdue').isPresent()) args 'overdue'
+    if (providers.gradleProperty('dhAdmission').isPresent()) args 'admission'
 }
 
 tasks.named('check') { dependsOn 'dhUpdateQueueProbe' }
+
+// Same constructor/dispatch observation boundary on original and repaired native workers.
+['ServerOriginal': ['admission'], 'ServerRepaired': ['admission', 'patched'],
+ 'ClientOriginal': ['admission', 'client'], 'ClientRepaired': ['admission', 'client', 'patched']].each { suffix, controlArgs ->
+    def admissionTask = tasks.register("dhQueueAdmission${suffix}", JavaExec) {
+        dependsOn 'testClasses'
+        classpath = sourceSets.test.runtimeClasspath
+        mainClass = 'design.inherent.skyweavecompat.dh.DhUpdateQueueProbe'
+        maxHeapSize = '512m'
+        javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+        args controlArgs
+    }
+    tasks.named('check') { dependsOn admissionTask }
+}

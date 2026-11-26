@@ -1,0 +1,1 @@
+{"required":true,"package":"design.inherent.skyweavecompat.dh","compatibilityLevel":"JAVA_21","mixins":["DhQueueAdmissionGateMixin"],"injectors":{"defaultRequire":1}}

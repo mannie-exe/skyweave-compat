@@ -14,6 +14,7 @@ import java.util.concurrent.TimeUnit;
 /** Actual DH manager/queue/worker, with only its platform wrapper and chunk input controlled. */
 public final class DhUpdateQueueProbe {
     public static void main(String[] args) throws Exception {
+        boolean admission = java.util.List.of(args).contains("admission");
         var loader = DhUpdateQueueProbe.class.getClassLoader();
         var wrapper = Class.forName("com.seibel.distanthorizons.core.wrapperInterfaces.minecraft.IMinecraftSharedWrapper");
         var bindable = Class.forName("com.seibel.distanthorizons.coreapi.interfaces.dependencyInjection.IBindable");
@@ -29,7 +30,8 @@ public final class DhUpdateQueueProbe {
             Object center = posType.getConstructor(int.class, int.class).newInstance(2, 3);
             Object client = Proxy.newProxyInstance(loader, new Class<?>[]{clientType}, (proxy, method, arguments) -> switch (method.getName()) {
                 case "getDelayedSetupComplete", "playerExists", "clientConnectedToDedicatedServer" -> true;
-                case "getPlayerChunkPos" -> center;
+                case "getPlayerChunkPos" -> admission && DhQueueAdmissionControls.clientCenter != null
+                        ? DhQueueAdmissionControls.clientCenter : center;
                 default -> method.getReturnType() == boolean.class ? false : null;
             });
             var type = Class.forName("com.seibel.distanthorizons.core.dependencyInjection.SingletonInjector");
@@ -43,14 +45,15 @@ public final class DhUpdateQueueProbe {
         String target = "com.seibel.distanthorizons.core.api.internal.chunkUpdating.ChunkUpdateQueueManager";
         boolean patched = java.util.List.of(args).contains("patched");
         ClassLoader managerLoader = loader;
-        if (patched) {
+        if (patched || admission) {
             MixinBootstrap.init();
             var service = (TestMixinService) MixinService.getService();
             var transformer = service.transformer();
             MixinEnvironment.getCurrentEnvironment().setActiveTransformer(transformer);
             MixinExtrasBootstrap.init();
             MixinEnvironment.getDefaultEnvironment().setSide(java.util.List.of(args).contains("client") ? MixinEnvironment.Side.CLIENT : MixinEnvironment.Side.SERVER);
-            Mixins.addConfiguration("dh-updatequeue-test.mixins.json");
+            if (patched) Mixins.addConfiguration("dh-updatequeue-test.mixins.json");
+            if (admission) Mixins.addConfiguration("dh-queue-admission-test.mixins.json");
             byte[] bytes;
             try (var input = service.getResourceAsStream(target.replace('.', '/') + ".class")) {
                 bytes = transformer.transformClassBytes(target, target, input.readAllBytes());
@@ -68,11 +71,16 @@ public final class DhUpdateQueueProbe {
             };
         }
         var managerType = Class.forName(target, true, managerLoader);
+        if (admission) DhQueueAdmissionControls.reset();
         var before = Thread.getAllStackTraces().keySet();
         Object manager = managerType.getConstructor(String.class).newInstance("compat-update-probe");
         var executorField = managerType.getDeclaredField("queueingThread"); executorField.setAccessible(true);
         var executor = (ExecutorService) executorField.get(manager);
         try {
+            if (admission) {
+                DhQueueAdmissionControls.verify(manager, executor, patched, java.util.List.of(args).contains("client"));
+                return;
+            }
             var worker = Thread.getAllStackTraces().keySet().stream().filter(t -> !before.contains(t) && t.getName().contains("compat-update-probe")).findFirst().orElseThrow();
             var positionType = Class.forName("com.seibel.distanthorizons.core.pos.DhChunkPos");
             Object position = positionType.getConstructor(int.class, int.class).newInstance(2, 3);
@@ -109,7 +117,7 @@ public final class DhUpdateQueueProbe {
             System.out.println("DH_RETRY_OBSERVATION runnable=" + runnable + " waiting=" + waiting + " queued=" + queued + " workerCpuNanos=" + (cpuStart < 0 ? -1 : cpuEnd - cpuStart));
             if (java.util.List.of(args).contains("expect-wait") && waiting < 50) throw new AssertionError("nonempty immature queue must wait rather than busy-retry");
         } finally {
-            managerType.getMethod("close").invoke(manager);
+            if (!executor.isShutdown()) managerType.getMethod("close").invoke(manager);
             if (!executor.awaitTermination(2, TimeUnit.SECONDS)) throw new AssertionError("native worker failed to close");
         }
     }
