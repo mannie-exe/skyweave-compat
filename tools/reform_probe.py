@@ -708,7 +708,8 @@ def main():
 
 
 def stop(_signum, _frame):
-    raise InterruptedError('Fixture interrupted by signal ' + str(_signum))
+    # subprocess.wait retries InterruptedError; SystemExit reaches the caller's finally cleanup.
+    raise SystemExit(128 + _signum)
 
 
 if __name__ == '__main__':
