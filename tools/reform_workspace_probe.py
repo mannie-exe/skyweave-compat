@@ -302,6 +302,11 @@ def run(java, artifacts, output, long_labels=False, layouts=False):
                     context = client.ready_context()
                     assert context['pid'] == process.pid, context
                     boot['loadedMods'] = client.state()['loadedMods']
+                    archives = client.proof('reform-artifact-proof', 'reform-artifact-proof.json')
+                    assert archives['skyweave_compat']['sha256'] == digest(artifacts[0])
+                    assert archives['reform']['sha256'] == digest(artifacts[2])
+                    assert all(value['classOrigin'] for value in archives.values())
+                    boot['loadedArchives'] = archives
                     if layouts and not reopen:
                         boot['contextScenes'] = context_scenes(client, output)
                     client.wait_active('Local files')

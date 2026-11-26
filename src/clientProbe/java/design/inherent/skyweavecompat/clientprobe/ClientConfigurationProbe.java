@@ -138,6 +138,23 @@ final class ClientConfigurationProbe {
                         case "reform-receipt" -> reformReceipt(mc);
                         case "reform-batch-proof" -> reformBatchProof(mc);
                         case "reform-catalog-proof" -> reformCatalogProof(mc);
+                        case "reform-artifact-proof" -> {
+                            var proof = new JsonObject();
+                            for (String id : java.util.List.of("skyweave_compat", "reform")) {
+                                var file = ModList.get().getModFileById(id).getFile().getFilePath();
+                                long bytes = Files.size(file);
+                                if (!Files.isRegularFile(file) || bytes > 32L * 1024 * 1024)
+                                    throw new IllegalStateException("Expected a bounded actual mod archive: " + id);
+                                var row = new JsonObject(); row.addProperty("path", file.toString()); row.addProperty("bytes", bytes);
+                                row.addProperty("sha256", java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                                        .digest(Files.readAllBytes(file))));
+                                Class<?> type = id.equals("reform") ? design.inherent.reform.minecraft.client.ClientEditingWorkflow.class
+                                        : design.inherent.skyweavecompat.SkyweaveCompat.class;
+                                row.addProperty("classOrigin", type.getProtectionDomain().getCodeSource().getLocation().toExternalForm());
+                                proof.add(id, row);
+                            }
+                            ProbeStateFiles.write(root.resolve("reform-artifact-proof.json"), proof.toString());
+                        }
                         case "reform-home" -> reformWorkflow(mc).showHome();
                         case "reform-show-placement" -> reformWorkflow(mc).showPlacement(
                                 design.inherent.reform.definition.DocumentId.parse(command.get("id").getAsString()));
