@@ -57,6 +57,17 @@ final class ClientDhRuntimeState {
             pool(pools,"networkCompression",com.seibel.distanthorizons.core.util.threading.ThreadPoolUtil.getNetworkCompressionExecutor());
             pool(pools,"chunkBuilder",com.seibel.distanthorizons.core.util.threading.ThreadPoolUtil.getChunkToLodBuilderExecutor());
             result.add("nativeSharedExecutors",pools);
+            result.addProperty("nativeConfiguredThreads",com.seibel.distanthorizons.core.config.Config.Common.MultiThreading.numberOfThreads.get());
+            try {
+                var field=com.seibel.distanthorizons.core.util.threading.ThreadPoolUtil.class.getDeclaredField("taskPicker");
+                field.setAccessible(true);var picker=field.get(null);
+                if(picker!=null) {
+                    var occupied=picker.getClass().getDeclaredField("occupiedThreadsRef");occupied.setAccessible(true);
+                    result.addProperty("nativeOccupiedThreads",((java.util.concurrent.atomic.AtomicInteger)occupied.get(picker)).get());
+                }
+            } catch(ReflectiveOperationException | RuntimeException unavailable) {
+                result.addProperty("nativePickerObservationFailure",unavailable.toString());
+            }
         }
         boolean owner=RenderSystem.isOnRenderThread();result.addProperty("snapshotOnRenderThread",owner);
         if(owner && mc.getWindow()!=null) {
