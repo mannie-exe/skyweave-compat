@@ -1,5 +1,15 @@
 # Verification
 
+## Configuration migration (0.4 engineering)
+
+Unpublished Compat `0.44.0-reform-dev.2`, SHA-256 `b623d8f63b847701facf4178fb9a95723b0d06d25ab2e09702671ab17567d159`, selects re:form `0.4.0-dev.138`, SHA-256 `3523c9559b9de44564db5cf5eb2513cab5ac0acfd351cb034f7e95867e30a8c9`. The build passes 542 Java and 23 tooling cases, package/upstream checks, and the actual loader-range parser control. The minimum dedicated server starts and exits normally. Metadata-only controls admit the stable floor and patch family, reject the old family, and refuse next-family prereleases and unselected snapshots. These controls do not qualify unreleased stable library implementations.
+
+The actual minimum Configure workflow passes two native JVM boots on NeoForge 21.1.265, Java 21, and macOS. Each observes the admitted original archive hashes and class origins. Home opens no owners; returning Home retains the same edited startup draft. Aliases, navigation history, filters/search, native information-button narration, narrow/high-scale information, loaded-choice restoration, missing-dependency facts, and closure pass. Saving reports `SAVED` and `STAGED`; the fresh JVM loads the saved disabled choice. A missing-file action refuses without creating the file, and explicit file-status inspection completes inside the retained root. Both JVMs exit normally.
+
+The 1,098 runtime-class set matches the qualified C4 candidate; only library admission and the settings-menu declarations differ, leaving 1,096 classes byte-identical. C1, C2, and C4 implementation is preserved rather than requalified as new gameplay. Candidate 1's overlapping Maven-range refusal and earlier standalone-host observer assumptions remain separate negatives. Correcting the loader declaration changes no runtime class; correcting the observers changes no product bytes.
+
+This is bounded local-file qualification. Running-server effects, typed generation/shape workflows, current-pack/Styled coexistence, the held JEI version, final public-library resolution, and publication remain pending. No personal instance, ordinary DW14, shader, sustained-performance, or complete configuration-migration acceptance follows from this pair.
+
 ## Published 0.43.3
 
 [GitHub 0.43.3](https://github.com/mannie-exe/skyweave-compat/releases/tag/v0.43.3) publishes source commit `c06f9916db6ad25935152dc0aba3270ca75f5f68` with installable JAR SHA-256 `d997bdb755695963681e6a52e91d7401eed39b2d65a884524d3d7af87196ad9f`. Tag and main CI pass on Linux, Windows, and Intel macOS. Each platform runs 510 Java cases with zero failures or errors; Windows skips the POSIX temporary-file-creation permission control. All three binary and source JARs match byte for byte. The five public assets, both checksum manifests, and source ZIP contents match their tagged inputs.
