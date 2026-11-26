@@ -17,6 +17,7 @@ final class ClientDhRuntimeState {
     private final Map<Integer,Map<String,AtomicLong>> events=new ConcurrentHashMap<>();
     private final Map<String,AtomicLong> windowStates=new ConcurrentHashMap<>();
     private final AtomicLong lastNativeService=new AtomicLong();
+    private final long observationStarted=System.nanoTime();
     boolean nativeServiceObserved() { return lastNativeService.get()!=0; }
 
     void event(int epoch,String name) {
@@ -45,6 +46,10 @@ final class ClientDhRuntimeState {
         }
         long last=lastNativeService.get();if(last!=0)result.addProperty("millisSinceNativeTaskService",(System.nanoTime()-last)/1_000_000L);
         result.addProperty("actualFps",mc.getFps());result.addProperty("windowActive",mc.isWindowActive());
+        result.addProperty("observationElapsedNanos",System.nanoTime()-observationStarted);
+        result.addProperty("minecraftFrameCap",mc.options.framerateLimit().get());
+        result.addProperty("minecraftVsync",mc.options.enableVsync().get());
+        result.add("dynamicFps",dynamicFps());
         result.addProperty("noRender",mc.noRender);result.addProperty("gamePaused",mc.isPaused());
         if(queued!=null)result.addProperty("nativeDhFrameLimit",SingletonInjector.INSTANCE.get(IMinecraftRenderWrapper.class).getFrameLimit());
         if(mc.level!=null && queued!=null) {
@@ -83,6 +88,23 @@ final class ClientDhRuntimeState {
         var windows=new JsonObject();windowStates.forEach((name,count)->windows.addProperty(name,count.get()));
         result.add("observedWindowStateCounts",windows);
         result.addProperty("scope","Passive native method entries and sampled current window/queue state; no rendered-pixel, timing comparison, queue service, focus or policy modification");
+        return result;
+    }
+
+    private static JsonObject dynamicFps() {
+        var result=new JsonObject();
+        boolean loaded=net.neoforged.fml.ModList.get().isLoaded("dynamic_fps");
+        result.addProperty("loaded",loaded);
+        if (!loaded) return result;
+        try {
+            var config=Class.forName("dynamic_fps.impl.config.DynamicFPSConfig");
+            var instance=config.getField("INSTANCE").get(null);
+            result.addProperty("enabled",(Boolean)config.getMethod("enabled").invoke(instance));
+            var mod=Class.forName("dynamic_fps.impl.DynamicFPSMod");
+            result.addProperty("disabled",(Boolean)mod.getMethod("isDisabled").invoke(null));
+        } catch (ReflectiveOperationException | RuntimeException unavailable) {
+            result.addProperty("observationFailure",unavailable.toString());
+        }
         return result;
     }
 
