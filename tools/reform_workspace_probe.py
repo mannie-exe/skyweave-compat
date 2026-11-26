@@ -128,7 +128,7 @@ def layout_scenes(client, output, catalog, result):
         initial = client.until(lambda: value if (value := editor(client)) and
                                value['document'] == 'skyweave_compat:' + suffix else None,
                                'The selected layout document did not become the actual native editor: ' + suffix)
-        row = {'document': initial['document'], 'initialEditor': initial, 'captures': []}
+        row = {'placement': matches[0], 'document': initial['document'], 'initialEditor': initial, 'captures': []}
         result.append(row)
         state = client.act('snapshot')
         focused = [widget for widget in state['widgets'] if widget.get('focused')]
@@ -356,7 +356,10 @@ def run(java, artifacts, output, long_labels=False, layouts=False):
                         opened_before = {owner['route'] for owner in before_home['owners'] if owner['opened']}
                         expected_opened = {'skyweave_compat:features'}
                         if layouts:
-                            expected_opened.update('skyweave_compat:' + name for name in ('generation', 'interiors', 'shapes'))
+                            visited = {scene['placement'] for scene in boot['layoutScenes']}
+                            groups = {row['group'] for row in catalog['composition'] if row['placement'] in visited}
+                            expected_opened.update(row['route'] for row in catalog['composition'] if row['group'] in groups)
+                        boot['declaredOwnerAdmission'] = {'actual': sorted(opened_before), 'expected': sorted(expected_opened)}
                         assert opened_before == expected_opened, (opened_before, expected_opened)
                         client.act('reform-home')
                         home = client.proof('reform-catalog-proof', 'reform-catalog-proof.json')

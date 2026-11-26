@@ -601,6 +601,7 @@ final class ClientConfigurationProbe {
         var composition = new JsonArray();
         declared.groups().forEach(group -> group.placements().forEach(placement -> {
             var row = new JsonObject();
+            row.addProperty("group", declared.groups().indexOf(group));
             row.addProperty("placement", placement.id().toString());
             row.addProperty("route", placement.route().toString());
             row.addProperty("field", placement.field().map(Object::toString).orElse(""));
