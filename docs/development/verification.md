@@ -1,5 +1,9 @@
 # Verification
 
+## Published 0.44.0
+
+[GitHub 0.44.0](https://github.com/mannie-exe/skyweave-compat/releases/tag/v0.44.0) publishes source `56e61d9a246fd98a81a8822bb8b8bce43cd44419` with installable JAR SHA-256 `3a837ce47d7d4d2c360a71cc1c5f67fef0061bde1d4ad625b51ceaada80611b8`. Source, final main, and tag workflows pass on Linux, Windows, and Intel macOS. The six tag binary/source artifacts match the qualified hosted inputs. All five public assets are anonymously downloaded and checked against both manifests; all 1,344 regular or symbolic source-file contents match the annotated tag. A public-only resolver check from the actual release commit selects the exact qualified re:form 0.4.0 binary without a development override. The compiler variant and candidate-native scopes below remain explicit. This delivery preserves C1, C2, and C4; it neither completes the remaining runtime program nor authorizes personal-world or instance changes. The modpack owner receives the coherent public Compat/re:form/Styled pin handoff separately.
+
 ## Public 0.4 dependency and 0.44 release preparation
 
 The local Compat `0.44.0` preparation, SHA-256 `2aceaf6ad5564360e255ee6e8e955c0c0c2202cdae58e88943ecae1279efb38a`, passes required check/build with 542 Java and 24 tooling cases using the default public dependency repository. A committed-source resolver check selects `design.inherent:reform-neoforge-1.21.1:0.4.0` from its public GitHub release without a development override or loopback mirror. An independent anonymous download matches both published checksum manifests and the qualified library SHA-256 `179dbbc9caf062a13435d71f128626ccc65340bf60000e93490a6eedea449d4e`. This local package's 1,098 runtime classes and source JAR match candidate 4; only its mod version declaration changes. Minimum dedicated startup with these local package and public-library bytes exits normally. The native workflows below retain their exact candidate attribution.
