@@ -45,6 +45,7 @@ public final class ClientDhLifecycleProbe {
     private final Path root = FMLPaths.GAMEDIR.get();
     private final JsonObject report = new JsonObject();
     private final ConcurrentHashMap<Integer, Uploads> uploads = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, AtomicInteger> usefulByNativeLevel = new ConcurrentHashMap<>();
     private final ConcurrentLinkedQueue<JsonObject> nativeCloses = new ConcurrentLinkedQueue<>();
     private final AtomicInteger servicesDuringClose = new AtomicInteger();
     private final AtomicInteger servicesDuringWorldClose = new AtomicInteger();
@@ -62,6 +63,10 @@ public final class ClientDhLifecycleProbe {
     private int resizeWidth, resizeHeight;
     private boolean resizeVerified;
     private final Integer tcpPort = Integer.getInteger("skyweave_compat.probe.dhTcpPort");
+    private final ClientDhDimensionJourney dimensionJourney = Boolean.getBoolean("skyweave_compat.probe.dhDimensions")
+            ? new ClientDhDimensionJourney() : null;
+    private WeakReference<ClientLevel> observedSourceLevel;
+    private String currentNativeLevelId;
     private CompletableFuture<FullDataSourceV2> pending;
     private BlockPos pendingSample;
     private WeakReference<ClientLevel> pendingLevel;
@@ -106,6 +111,8 @@ public final class ClientDhLifecycleProbe {
         var probe = active; if (probe == null || probe.finished || future == null) return;
         var mc = Minecraft.getInstance();
         int epoch = probe.levelEpoch(level, mc); if (epoch == 0) return;
+        var levelUseful=probe.usefulByNativeLevel.computeIfAbsent(epoch+":"+level.getLevelWrapper().getDhIdentifier(),
+                ignored -> new AtomicInteger());
         var stats = probe.uploads.computeIfAbsent(epoch, ignored -> new Uploads());
         stats.queued.incrementAndGet(); stats.pending.incrementAndGet();
         // Retain only primitive counters; do not keep the old world, section, future or GPU container alive.
@@ -118,7 +125,7 @@ public final class ClientDhLifecycleProbe {
                         probe.gpu.uploaded(epoch, container.vboTransparentWrappers);
                     }
                     long vertices = vertices(container.vboOpaqueWrappers) + vertices(container.vboTransparentWrappers);
-                    if (vertices > 0) { stats.completed.incrementAndGet(); stats.vertices.addAndGet(vertices); }
+                    if (vertices > 0) { stats.completed.incrementAndGet(); stats.vertices.addAndGet(vertices); levelUseful.incrementAndGet(); }
                 }
             } catch (Throwable failureInObserver) { probe.observerFailure = failureInObserver.toString(); }
             finally { stats.pending.decrementAndGet(); }
@@ -226,6 +233,7 @@ public final class ClientDhLifecycleProbe {
         var mc = Minecraft.getInstance();
         try {
             if (observerFailure != null) throw new AssertionError("Native upload observer failed: " + observerFailure);
+            if (dimensionJourney!=null) dimensionJourney.checkFailure();
             if (++ticks > Integer.getInteger("skyweave_compat.probe.dhLifecycleMaxTicks", 7200))
                 throw new AssertionError("Native client lifecycle observation exceeded its disposable window");
             phaseTicks++;
@@ -273,9 +281,19 @@ public final class ClientDhLifecycleProbe {
                     save(); return;
                 }
                 if (gpu != null) gpu.world(epoch, mc.level, SharedApi.getAbstractDhWorld());
+                if (observedSourceLevel==null || observedSourceLevel.get()!=mc.level) {
+                    // A pending native read still owns its result; retire only this observation.
+                    if (pending!=null) pending.whenComplete((source,failure)->{if(source!=null)source.close();});
+                    pending=null; pendingSample=null; pendingLevel=null; currentColumn=null; currentNativeLevelId=null;
+                    observedSourceLevel=new WeakReference<>(mc.level);
+                }
                 if (currentColumn == null) readColumn(mc);
                 var stats = uploads.get(epoch);
                 if (currentColumn == null || stats == null || stats.completed.get() == 0) { save(); return; }
+                if (dimensionJourney!=null && !dimensionJourney.ready(mc,currentColumn,currentNativeLevelId,
+                        usefulByNativeLevel.getOrDefault(epoch+":"+currentNativeLevelId,new AtomicInteger()).get(),report)) {
+                    save(); return;
+                }
                 if (Boolean.getBoolean("skyweave_compat.probe.dhResize") && !resizeVerified) {
                     long window=mc.getWindow().getWindow();
                     if (!mc.isSameThread() || org.lwjgl.glfw.GLFW.glfwGetCurrentContext()!=window)
@@ -360,6 +378,7 @@ public final class ClientDhLifecycleProbe {
     private void open(Minecraft mc) {
         epoch++; pending = null; pendingSample = null; pendingLevel = null; physicalChunkWaits = 0; currentColumn = null;
         idleCloseTicks=0;
+        observedSourceLevel=null; currentNativeLevelId=null;
         if (tcpPort != null) {
             String address = "127.0.0.1:" + tcpPort;
             var data = new ServerData("Skyweave disposable DH loopback", address, ServerData.Type.OTHER);
@@ -449,6 +468,7 @@ public final class ClientDhLifecycleProbe {
             }
             report.add("nativeLevelOwners", owners);
             for (var level : world.getAllLoadedLevels()) if (level instanceof IDhClientLevel client && ownsCurrentLevel(client, mc)) {
+                currentNativeLevelId=level.getLevelWrapper().getDhIdentifier();
                 var pos=mc.player.chunkPosition();
                 pendingSample = mc.player.blockPosition().immutable(); pendingLevel = new WeakReference<>(mc.level);
                 pendingSection = DhSectionPos.encodeContaining(DhSectionPos.SECTION_BLOCK_DETAIL_LEVEL,new DhChunkPos(pos.x,pos.z));
