@@ -30,6 +30,11 @@ final class ClientConfigurationProbe {
     private JsonObject nativeKey;
     private boolean wayfinderObserver;
     private volatile JsonObject serverProof;
+    private volatile JsonObject permissionProof;
+    private PermissionFixture permissionFixture;
+    private design.inherent.skyweavecompat.configuration.SettingsPolicy.Snapshot<design.inherent.skyweavecompat.wayfinder.WayfinderSettings> lastPolicyRead;
+    private record PermissionFixture(net.minecraft.server.MinecraftServer server, java.util.UUID actor,
+            net.minecraft.server.players.ServerOpListEntry original, int level) {}
     private net.minecraft.server.MinecraftServer firstServer;
     private java.util.UUID firstActor;
     private design.inherent.skyweavecompat.configuration.SettingsPolicy.Revision firstRevision;
@@ -62,9 +67,10 @@ final class ClientConfigurationProbe {
         var previousServer=firstServer; var previousActor=firstActor; var previousRevision=firstRevision;
         server.submit(() -> {
             var player=server.getPlayerList().getPlayer(actor); var result=new JsonObject();
+            result.addProperty("sequence",requested);result.addProperty("serverIdentity",System.identityHashCode(server));
             try {
                 var actual=design.inherent.skyweavecompat.wayfinder.Wayfinder.readPolicy(player.createCommandSourceStack());
-                result.addProperty("sequence",requested);result.addProperty("serverIdentity",System.identityHashCode(server));
+                lastPolicyRead = actual;
                 result.addProperty("revisionIdentity",System.identityHashCode(actual.revision()));
                 result.add("wayfinder",new GsonBuilder().create().toJsonTree(actual.value()));
                 if (previousServer!=null && previousServer!=server) {
@@ -76,8 +82,58 @@ final class ClientConfigurationProbe {
 
                 }
                 if (previousServer==null) mc.execute(() -> {firstServer=server;firstActor=actor;firstRevision=actual.revision();});
-            } catch (Exception failure) {result.addProperty("error",failure.toString());}
+            } catch (Exception failure) {
+                result.addProperty("error",failure.toString());result.addProperty("errorType",failure.getClass().getName());
+            }
             serverProof=result;
+        });
+    }
+    /** Native operator-list mutation in this marked disposable host, never a frontend-only permission override. */
+    private void permission(String action) {
+        var mc = Minecraft.getInstance(); var server = mc.getSingleplayerServer();
+        if (server == null || mc.player == null || !java.util.Set.of("revoke", "restore").contains(action))
+            throw new IllegalStateException("Expected a marked integrated permission fixture");
+        var actor = mc.player.getUUID(); int requested = sequence;
+        server.execute(() -> {
+            var result = new JsonObject(); result.addProperty("sequence", requested);
+            try {
+                var player = server.getPlayerList().getPlayer(actor);
+                if (player == null) throw new IllegalStateException("The fixture actor left this host");
+                var profile = player.getGameProfile(); var ops = server.getPlayerList().getOps();
+                if (action.equals("revoke")) {
+                    int before = server.getProfilePermissions(profile);
+                    if (permissionFixture != null || before < 2)
+                        throw new IllegalStateException("Expected one admitted native operator before revocation");
+                    permissionFixture = new PermissionFixture(server, actor, ops.get(profile), before);
+                    ops.add(new net.minecraft.server.players.ServerOpListEntry(profile, 0, false));
+                    if (server.getProfilePermissions(profile) != 0)
+                        throw new IllegalStateException("The native operator entry did not revoke permission");
+                    if (lastPolicyRead == null) throw new IllegalStateException("Observe the actual policy before revocation");
+                    boolean readRefused = false, applyRefused = false;
+                    try { design.inherent.skyweavecompat.wayfinder.Wayfinder.readPolicy(player.createCommandSourceStack()); }
+                    catch (SecurityException expected) { readRefused = true; }
+                    try { design.inherent.skyweavecompat.wayfinder.Wayfinder.applyPolicy(player.createCommandSourceStack(),
+                            lastPolicyRead.revision(), lastPolicyRead.value()); }
+                    catch (SecurityException expected) { applyRefused = true; }
+                    result.addProperty("nativeReadRefused", readRefused); result.addProperty("nativeApplyRefused", applyRefused);
+                } else {
+                    var retained = permissionFixture;
+                    if (retained == null || retained.server() != server || !retained.actor().equals(actor))
+                        throw new IllegalStateException("The original permission belongs to another host or actor");
+                    ops.remove(profile);
+                    if (retained.original() != null) ops.add(retained.original());
+                    if (server.getProfilePermissions(profile) != retained.level())
+                        throw new IllegalStateException("The original native permission was not restored");
+                    permissionFixture = null;
+                }
+                server.getPlayerList().sendPlayerPermissionLevel(player);
+                result.addProperty("action", action); result.addProperty("nativeLevel", server.getProfilePermissions(profile));
+                result.addProperty("sourceCanAdmin", player.createCommandSourceStack().hasPermission(2));
+                result.addProperty("actor", actor.toString()); result.addProperty("server", System.identityHashCode(server));
+            } catch (Exception failure) {
+                result.addProperty("error", failure.toString()); result.addProperty("errorType", failure.getClass().getName());
+            }
+            permissionProof = result;
         });
     }
     private void world(int slot) { world(slot, false); }
@@ -131,6 +187,7 @@ final class ClientConfigurationProbe {
                         }
                         case "open" -> open();
                         case "server-proof" -> serverProof();
+                        case "reform-permission" -> permission(command.get("action").getAsString());
                         case "world" -> world(command.get("slot").getAsInt());
                         case "environment-world" -> world(command.get("slot").getAsInt(), true);
                         case "environment-proof" -> ClientPresentationProbe.observe(root, mc);
@@ -799,6 +856,8 @@ final class ClientConfigurationProbe {
                 report.add("wayfinderBinding", binding);
             }
             report.addProperty("playerReady",mc.player!=null);
+            if (mc.player != null) report.addProperty("clientCanAdmin", mc.player.hasPermissions(2));
+            if (permissionProof != null) report.add("permissionProof", permissionProof);
             report.add("loadedMods",new GsonBuilder().create().toJsonTree(ModList.get().getMods().stream().map(mod -> mod.getModId()+"@"+mod.getVersion()).sorted().toList()));
             if (mc.screen != null) report.addProperty("focusOwner", String.valueOf(mc.screen.getFocused()));
             if (mc.screen != null) report.addProperty("screenFocusAttached", mc.screen.getFocused() == null || mc.screen.children().contains(mc.screen.getFocused()));

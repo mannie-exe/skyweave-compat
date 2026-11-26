@@ -503,6 +503,43 @@ def verify_integrated_policy(client, config):
     return dict(before=original, after=after, saved=saved, receipt=receipt, originalSha256=original_hash)
 
 
+def verify_integrated_permission(client, config):
+    observations = verify_integrated_policy(client, config)
+    path = config / 'skyweave_compat-wayfinder.json'
+    saved_hash = digest(path)
+    client.edit_field('stepsPerTick', '128', '129')
+    client.wait_active('Save and apply')
+
+    def permission(action, allowed):
+        response = client.act('reform-permission', action=action)
+        sequence = response['sequence']
+        proof = client.until(lambda: value if (value := client.state().get('permissionProof', {}))
+                             .get('sequence') == sequence else None, 'Native permission change did not settle')
+        assert 'error' not in proof, proof
+        assert proof['sourceCanAdmin'] is allowed, proof
+        client.until(lambda: client.state().get('clientCanAdmin') is allowed,
+                     'The native permission packet did not update the client')
+        return proof
+
+    denied = permission('revoke', False)
+    assert denied['nativeLevel'] == 0 and denied['nativeReadRefused'] and denied['nativeApplyRefused'], denied
+    client.until(lambda: not any(widget['label'] == 'Save and apply' and widget['active']
+                                 for widget in client.act('snapshot')['widgets']),
+                 'The retained UI still admitted submission without native permission')
+    assert digest(path) == saved_hash
+    observations['permissionLoss'] = denied
+    observations['deniedUi'] = client.state()
+    restored = permission('restore', True)
+    assert restored['server'] == denied['server'] and restored['actor'] == denied['actor']
+    client.open_form('skyweave_compat:server/wayfinder', 'Running singleplayer server')
+    client.until(lambda: any(widget.get('value') == '128' for widget in client.state()['widgets']),
+                 'Explicit reopening did not retain the saved policy after permission restoration')
+    assert digest(path) == saved_hash
+    observations['permissionRestore'] = restored
+    observations['refusedDraftDidNotPersist'] = json.loads(path.read_text())['stepsPerTick'] == 128
+    return observations
+
+
 def verify_startup_property(client, config):
     client.until(lambda: client.state('misc').get('loaded'), 'integrated fixture did not join')
     path = config / 'skyweave_compat-features.properties'
@@ -574,6 +611,7 @@ def main():
     scenario = parser.add_mutually_exclusive_group()
     scenario.add_argument('--terrain-pair', action='store_true')
     scenario.add_argument('--integrated-policy', action='store_true')
+    scenario.add_argument('--integrated-permission', action='store_true')
     scenario.add_argument('--startup-property', action='store_true')
     scenario.add_argument('--native-preferences', action='store_true')
     scenario.add_argument('--owner-surfaces', action='store_true')
@@ -582,7 +620,7 @@ def main():
     args = parser.parse_args()
     if args.output.exists():
         parser.error('Choose a new receipt path')
-    if any((args.terrain_pair, args.integrated_policy, args.startup_property, args.native_preferences,
+    if any((args.terrain_pair, args.integrated_policy, args.integrated_permission, args.startup_property, args.native_preferences,
             args.owner_surfaces, args.action_surfaces)) and not args.reform:
         parser.error('This settings scenario requires a re:form artifact')
     artifacts = [args.compat, args.probe, *args.mod]
@@ -591,7 +629,7 @@ def main():
     evidence = {'artifacts': {path.name: digest(path) for path in artifacts},
                 'connectorCleanSha256': digest(args.clean),
                 'scenario': ('action-surfaces' if args.action_surfaces else 'owner-surfaces' if args.owner_surfaces else 'native-preferences' if args.native_preferences else 'startup-property' if args.startup_property else 'terrain-pair' if args.terrain_pair
-                             else 'integrated-policy' if args.integrated_policy
+                             else 'integrated-permission' if args.integrated_permission else 'integrated-policy' if args.integrated_policy
                              else 'migrated' if args.reform else 'baseline')}
     started = time.monotonic()
     with tempfile.TemporaryDirectory(prefix='skyweave-reform-client-') as directory:
@@ -622,6 +660,8 @@ def main():
                     evidence['observations'] = verify_owner_surfaces(client, config.parent)
                 elif args.terrain_pair:
                     evidence['observations'] = verify_terrain_pair(client, config.parent)
+                elif args.integrated_permission:
+                    evidence['observations'] = verify_integrated_permission(client, config.parent)
                 elif args.integrated_policy:
                     evidence['observations'] = verify_integrated_policy(client, config.parent)
                 elif args.startup_property:
