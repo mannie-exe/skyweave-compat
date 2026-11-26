@@ -11,9 +11,10 @@ import org.spongepowered.asm.mixin.Mixin;
 abstract class DhLifecycleCloseWitnessMixin {
     @WrapMethod(method="shutdownNow")
     private void observed(Operation<Void> original) {
-        long start=ClientDhLifecycleProbe.closing(); Throwable failure=null;
+        var picker = (PriorityTaskPicker)(Object)this;
+        long start=ClientDhLifecycleProbe.closing(picker); Throwable failure=null;
         try { original.call(); }
         catch(Throwable error) { failure=error;throw error; }
-        finally { ClientDhLifecycleProbe.closed(start,failure); }
+        finally { ClientDhLifecycleProbe.closed(picker,start,failure); }
     }
 }

@@ -42,6 +42,10 @@ public final class ClientDhLifecycleProbe {
     private final ConcurrentHashMap<Integer, Uploads> uploads = new ConcurrentHashMap<>();
     private final ConcurrentLinkedQueue<JsonObject> nativeCloses = new ConcurrentLinkedQueue<>();
     private final AtomicInteger servicesDuringClose = new AtomicInteger();
+    private record LevelEpoch(WeakReference<IDhClientLevel> level, int epoch) {}
+    private final CopyOnWriteArrayList<LevelEpoch> enrolledLevels = new CopyOnWriteArrayList<>();
+    private final AtomicInteger lateNativeEntries = new AtomicInteger();
+    private final ClientDhWorkers workers = Boolean.getBoolean("skyweave_compat.probe.dhWorkers") ? new ClientDhWorkers() : null;
     private volatile int epoch;
     private int ticks, phase, phaseTicks;
     private boolean finished;
@@ -76,8 +80,8 @@ public final class ClientDhLifecycleProbe {
     public static void uploaded(IDhClientLevel level, CompletableFuture<LodBufferContainer> future) {
         var probe = active; if (probe == null || probe.finished || future == null) return;
         var mc = Minecraft.getInstance();
-        if (!ownsCurrentLevel(level, mc)) return;
-        int epoch = probe.epoch; var stats = probe.uploads.computeIfAbsent(epoch, ignored -> new Uploads());
+        int epoch = probe.levelEpoch(level, mc); if (epoch == 0) return;
+        var stats = probe.uploads.computeIfAbsent(epoch, ignored -> new Uploads());
         stats.queued.incrementAndGet(); stats.pending.incrementAndGet();
         // Retain only primitive counters; do not keep the old world, section, future or GPU container alive.
         future.whenComplete((container, failure) -> {
@@ -107,7 +111,7 @@ public final class ClientDhLifecycleProbe {
     public static long enterCpuFrame(IDhClientLevel level) {
         var probe = active;
         if (probe == null || probe.cpu == null) return 0;
-        return probe.cpu.enter(!probe.finished && ownsCurrentLevel(level, Minecraft.getInstance()) ? probe.epoch : 0);
+        return probe.cpu.enter(!probe.finished ? probe.levelEpoch(level, Minecraft.getInstance()) : 0);
     }
     public static void leaveCpuFrame(long id) {
         var probe = active; if (id == 0 || probe == null || probe.cpu == null) return;
@@ -148,13 +152,26 @@ public final class ClientDhLifecycleProbe {
         var server = mc.getSingleplayerServer();
         return server != null && wrapped == server.getLevel(mc.level.dimension());
     }
-    public static long closing() {
+    private synchronized int levelEpoch(IDhClientLevel level, Minecraft mc) {
+        for (var enrolled : enrolledLevels) if (enrolled.level().get() == level) {
+            if (!ownsCurrentLevel(level, mc)) lateNativeEntries.incrementAndGet();
+            return enrolled.epoch();
+        }
+        if (!ownsCurrentLevel(level, mc) || epoch == 0) return 0;
+        enrolledLevels.add(new LevelEpoch(new WeakReference<>(level), epoch)); return epoch;
+    }
+    public static long closing(com.seibel.distanthorizons.core.util.threading.PriorityTaskPicker picker) {
+        var probe = active;
+        if (probe != null && probe.workers != null) try { probe.workers.capture(picker); }
+        catch (Throwable failure) { probe.observerFailure = failure.toString(); }
         long start = System.nanoTime(); CLOSES.get().push(start); return start;
     }
-    public static void closed(long start, Throwable failure) {
+    public static void closed(com.seibel.distanthorizons.core.util.threading.PriorityTaskPicker picker, long start, Throwable failure) {
         var probe = active; if (!CLOSES.get().isEmpty()) CLOSES.get().pop();
         if (probe == null) return;
-        var row = new JsonObject(); row.addProperty("epoch", probe.epoch); row.addProperty("thread", Thread.currentThread().getName());
+        var row = new JsonObject(); row.addProperty("observerPhaseEpoch", probe.epoch); row.addProperty("pickerIdentity", System.identityHashCode(picker)); row.addProperty("thread", Thread.currentThread().getName());
+        if (probe.workers != null) try { row.addProperty("sharedPickerGeneration", probe.workers.capture(picker)); }
+        catch (Throwable error) { probe.observerFailure = error.toString(); }
         row.addProperty("elapsedNanos", System.nanoTime() - start); row.addProperty("nativeReturned", failure == null);
         if (failure != null) row.addProperty("failure", failure.toString()); probe.nativeCloses.add(row);
     }
@@ -238,6 +255,7 @@ public final class ClientDhLifecycleProbe {
                 var stats = uploads.get(epoch); if (stats != null && stats.pending.get() != 0) { save(); return; }
                 if (gpu != null && !gpu.retired(epoch)) { save(); return; }
                 if (cpu != null && !cpu.retired(epoch)) { save(); return; }
+                if (workers != null && !workers.snapshot().get("retired").getAsBoolean()) { save(); return; }
                 report.addProperty("nativeWorldRetired" + epoch, true);
                 if (phase == 2) { open(mc); phase = 3; phaseTicks = 0; }
                 else { report.add("decodedColumn", firstColumn); report.addProperty("complete", true); finish(mc); }
@@ -373,6 +391,10 @@ public final class ClientDhLifecycleProbe {
         report.addProperty("servicesInsideNativeClose",servicesDuringClose.get());
         if (gpu != null) report.add("nativeGpuResources", gpu.snapshot());
         if (cpu != null) report.add("nativeCpuResources", cpu.snapshot());
+        if (workers != null) try { report.add("nativeWorkers", workers.snapshot()); }
+        catch (Throwable error) { observerFailure = error.toString(); }
+        report.addProperty("lateEnrolledNativeEntries", lateNativeEntries.get());
+        report.addProperty("weakEnrolledNativeLevels", enrolledLevels.size());
         var states = new JsonObject(); uploads.forEach((key,value)->{
             var row=new JsonObject();row.addProperty("queued",value.queued.get());row.addProperty("pending",value.pending.get());
             row.addProperty("usefulCompleted",value.completed.get());row.addProperty("failed",value.failed.get());row.addProperty("vertices",value.vertices.get());states.add(key.toString(),row);
