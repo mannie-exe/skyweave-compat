@@ -30,8 +30,19 @@ final class ClientDhCpuResources {
     private final Map<Long, Frame> frames = new HashMap<>();
     private final Map<Integer, List<Loan>> outstandingByIdentity = new HashMap<>();
     private final List<Loan> loans = new ArrayList<>();
+    private final Map<java.util.concurrent.CompletableFuture<?>, Integer> nativeUploads = new WeakHashMap<>();
     private long sequence;
-    private int faults;
+    private int faults, uploadFaults;
+
+    synchronized void nativeUpload(java.util.concurrent.CompletableFuture<?> result) {
+        var frame = current.get().peek();
+        if (frame != null && frame.epoch > 0) nativeUploads.put(result, frame.epoch);
+    }
+    synchronized int claimUploadFault(java.util.concurrent.CompletableFuture<?> result) {
+        int epoch = nativeUploads.getOrDefault(result, 0);
+        if (!Boolean.getBoolean("skyweave_compat.probe.dhGpuFault") || uploadFaults != 0 || epoch <= 0) return 0;
+        uploadFaults++; return epoch;
+    }
 
     synchronized long enter(int epoch) {
         var frame = new Frame(++sequence, epoch); frames.put(frame.id, frame); current.get().push(frame); return frame.id;
@@ -92,6 +103,7 @@ final class ClientDhCpuResources {
         long active = frames.values().stream().filter(frame -> !frame.ended).count();
         result.add("poolsByEpoch", pools); result.addProperty("activeNativeFrames", active);
         result.addProperty("faultsAfterActualUploadCompletion", faults);
+        result.addProperty("faultsInsideActualUpload", uploadFaults);
         result.addProperty("scope", "Actual byte-buffer checkouts inside admitted native render workers and successful native returnCheckout calls; weak identity/generation observation only, no returns/frees or total native/heap claim");
         return result;
     }

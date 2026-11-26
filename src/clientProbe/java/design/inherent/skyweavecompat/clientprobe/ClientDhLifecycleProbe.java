@@ -113,6 +113,20 @@ public final class ClientDhLifecycleProbe {
     public static void afterActualCpuJoin(Object value) {
         var probe = active; if (probe != null && probe.cpu != null) probe.cpu.afterActualJoin(value);
     }
+    public static void nativeCpuUpload(CompletableFuture<?> result) {
+        var probe = active; if (probe != null && probe.cpu != null) probe.cpu.nativeUpload(result);
+    }
+    public static void afterActualVertexUpload(CompletableFuture<?> result,
+            com.seibel.distanthorizons.core.wrapperInterfaces.render.objects.IVertexBufferWrapper buffer) {
+        var probe = active;
+        if (probe == null || probe.cpu == null || buffer.getVertexCount() <= 0) return;
+        int epoch = probe.cpu.claimUploadFault(result); if (epoch == 0) return;
+        if (probe.gpu != null) probe.gpu.uploaded(epoch,
+                new com.seibel.distanthorizons.core.wrapperInterfaces.render.objects.IVertexBufferWrapper[]{buffer});
+        // Throw inside the real child task only after its native upload call returns.
+        // The native catch/allOf/close pipeline, not this observer, owns settlement.
+        throw new IllegalStateException("Skyweave disposable native vertex-upload child fault");
+    }
     private static boolean ownsCurrentLevel(IDhClientLevel level, Minecraft mc) {
         if (mc.level == null) return false;
         // DhClientServerLevel.getClientLevelWrapper() returns the global current client wrapper,
