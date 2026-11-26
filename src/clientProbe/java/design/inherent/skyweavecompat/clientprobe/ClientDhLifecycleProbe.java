@@ -22,6 +22,10 @@ import net.minecraft.client.gui.components.Checkbox;
 import net.minecraft.client.gui.screens.BackupConfirmScreen;
 import net.minecraft.client.gui.screens.ReceivingLevelScreen;
 import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.gui.screens.ConnectScreen;
+import net.minecraft.client.gui.screens.DisconnectedScreen;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.client.multiplayer.resolver.ServerAddress;
 import net.minecraft.network.chat.Component;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
@@ -46,10 +50,12 @@ public final class ClientDhLifecycleProbe {
     private final CopyOnWriteArrayList<LevelEpoch> enrolledLevels = new CopyOnWriteArrayList<>();
     private final AtomicInteger lateNativeEntries = new AtomicInteger();
     private final ClientDhWorkers workers = Boolean.getBoolean("skyweave_compat.probe.dhWorkers") ? new ClientDhWorkers() : null;
+    private final ClientDhNetwork network = new ClientDhNetwork();
     private volatile int epoch;
     private int ticks, phase, phaseTicks;
     private boolean finished;
     private boolean closeQueued;
+    private final Integer tcpPort = Integer.getInteger("skyweave_compat.probe.dhTcpPort");
     private CompletableFuture<FullDataSourceV2> pending;
     private BlockPos pendingSample;
     private WeakReference<ClientLevel> pendingLevel;
@@ -73,8 +79,20 @@ public final class ClientDhLifecycleProbe {
         try {
             var marker = JsonParser.parseString(Files.readString(root.resolve("dh-client-fixture.json"))).getAsJsonObject();
             if (!marker.get("owner").getAsString().equals("skyweave-dh-client")) throw new IllegalStateException("Wrong client fixture owner");
+            if (System.getProperty("skyweave_compat.probe.dhTcpPort") != null && tcpPort == null)
+                throw new IllegalStateException("Invalid explicit loopback port");
+            if (tcpPort != null) {
+                if (tcpPort < 1024 || tcpPort > 65535 || !marker.has("tcpPort") || marker.get("tcpPort").getAsInt() != tcpPort)
+                    throw new IllegalStateException("Loopback port is not admitted by this fixture");
+                var serverRoot = Path.of(marker.get("tcpServerRuntime").getAsString()).toRealPath();
+                var serverMarker = JsonParser.parseString(Files.readString(serverRoot.resolve("owned-startup-fixture.json"))).getAsJsonObject();
+                if (!serverMarker.get("owner").getAsString().equals("startup_probe.py")
+                        || !serverMarker.get("artifactSha256").getAsString().equals(marker.get("productSha256").getAsString()))
+                    throw new IllegalStateException("Loopback server does not belong to the matching marked product fixture");
+            }
         } catch (Exception failure) { throw new IllegalStateException("Refusing DH lifecycle outside its marked disposable client", failure); }
-        report.addProperty("scope", "Actual integrated native DH data, GPU upload futures, disconnect/reopen and reload; no screenshots, copied renderer or synthetic uploads");
+        report.addProperty("scope", "Actual native client DH data, GPU upload futures, disconnect/reopen and reload; marked integrated or loopback transport, no copied renderer or synthetic uploads");
+        report.addProperty("transport", tcpPort == null ? "integrated" : "native TCP to marked loopback server");
         active = this; NeoForge.EVENT_BUS.addListener(this::tick);
     }
 
@@ -180,6 +198,15 @@ public final class ClientDhLifecycleProbe {
         var probe = active;
         if (probe != null && !CLOSES.get().isEmpty()) probe.servicesDuringClose.incrementAndGet();
     }
+    public static Object networkClosing(com.seibel.distanthorizons.core.multiplayer.client.AbstractFullDataNetworkRequestQueue queue, CompletableFuture<Void> prior, boolean interrupt) {
+        var probe = active; return probe == null ? null : probe.network.closing(queue, prior, interrupt);
+    }
+    public static void networkCloseRequested(Object call, CompletableFuture<Void> future) {
+        var probe = active; if (probe != null && call != null) probe.network.requested((ClientDhNetwork.Call)call, future);
+    }
+    public static void networkSplitReceived() { var probe=active; if(probe!=null) probe.network.splitMessages.incrementAndGet(); }
+    public static void networkPayloadDecoded() { var probe=active; if(probe!=null) probe.network.decodedPayloads.incrementAndGet(); }
+    public static void networkLateSubmission(CompletableFuture<?> future) { var probe=active; if(probe!=null) probe.network.lateSubmission(future); }
     @SuppressWarnings("unchecked") private static int queuedRenderTasks() throws ReflectiveOperationException {
         var field = RenderThreadTaskHandler.class.getDeclaredField("RENDER_THREAD_RUNNABLE_QUEUE"); field.setAccessible(true);
         return ((Queue<?>)field.get(null)).size();
@@ -195,6 +222,8 @@ public final class ClientDhLifecycleProbe {
             phaseTicks++;
             if (mc.getOverlay() != null) return;
             if (closeQueued) return;
+            if (tcpPort != null && (phase == 1 || phase == 3) && mc.screen instanceof DisconnectedScreen)
+                throw new AssertionError("Native loopback connection was refused or disconnected before useful data");
             if (phase == 3 && mc.screen instanceof BackupConfirmScreen
                     && mc.screen.getTitle().getString().equals(Component.translatable("selectWorld.backupQuestion.experimental").getString())) {
                 if (epoch != 2 || !Files.isDirectory(root.resolve("saves/dh-native-review"))
@@ -220,6 +249,14 @@ public final class ClientDhLifecycleProbe {
                 report.addProperty("effectiveDhThreads", Config.Common.MultiThreading.numberOfThreads.get());
                 open(mc); phase = 1; phaseTicks = 0;
             } else if ((phase == 1 || phase == 3) && mc.level != null && mc.player != null) {
+                if (tcpPort != null) {
+                    var connection = mc.getConnection() == null ? null : mc.getConnection().getConnection();
+                    if (mc.getSingleplayerServer() != null || connection == null || connection.isMemoryConnection()
+                            || !(connection.getRemoteAddress() instanceof java.net.InetSocketAddress endpoint)
+                            || !endpoint.getAddress().isLoopbackAddress() || endpoint.getPort() != tcpPort)
+                        throw new AssertionError("Native connection is not the admitted loopback TCP server");
+                    report.addProperty("verifiedNativeTcpEpoch" + epoch, true);
+                }
                 var physical = mc.player.chunkPosition();
                 if (mc.screen instanceof ReceivingLevelScreen || !mc.level.hasChunk(physical.x, physical.z)) {
                     report.addProperty("physicalClientChunkWaits" + epoch, ++physicalChunkWaits);
@@ -289,6 +326,15 @@ public final class ClientDhLifecycleProbe {
 
     private void open(Minecraft mc) {
         epoch++; pending = null; pendingSample = null; pendingLevel = null; physicalChunkWaits = 0; currentColumn = null;
+        if (tcpPort != null) {
+            String address = "127.0.0.1:" + tcpPort;
+            var data = new ServerData("Skyweave disposable DH loopback", address, ServerData.Type.OTHER);
+            mc.tell(() -> {
+                if (!automationAllowed() || finished) return;
+                ConnectScreen.startConnecting(new TitleScreen(), mc, ServerAddress.parseString(address), data, false, null);
+            });
+            return;
+        }
         String world = "dh-native-review";
         if (Files.isDirectory(root.resolve("saves/" + world))) mc.createWorldOpenFlows().openWorld(world, () -> mc.setScreen(new TitleScreen()));
         else mc.createWorldOpenFlows().createFreshLevel(world,
@@ -416,6 +462,7 @@ public final class ClientDhLifecycleProbe {
         catch (Throwable error) { observerFailure = error.toString(); }
         report.addProperty("lateEnrolledNativeEntries", lateNativeEntries.get());
         report.addProperty("weakEnrolledNativeLevels", enrolledLevels.size());
+        report.add("nativeNetwork", network.snapshot());
         var states = new JsonObject(); uploads.forEach((key,value)->{
             var row=new JsonObject();row.addProperty("queued",value.queued.get());row.addProperty("pending",value.pending.get());
             row.addProperty("usefulCompleted",value.completed.get());row.addProperty("failed",value.failed.get());row.addProperty("vertices",value.vertices.get());states.add(key.toString(),row);

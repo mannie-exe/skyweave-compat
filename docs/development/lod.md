@@ -74,6 +74,14 @@ Queue progress is specified separately below; native worker tuning remains with 
 
 The new adaptations default off in this engineering cohort until the full affected native acceptance is qualified. Explicit false remains authoritative. They are independent of the installed unload, cache-identity, and client-wrapper handoff adaptations. Their current real-executor and transformed-native tests establish narrower boundaries than complete useful-data, client-upload, lifetime, or performance acceptance.
 
+## Network request lifecycle
+
+`distant_horizons.network_requests` is a separate, default-off physical-client adaptation for exact DH 3.3.3. Native TCP controls verify actual loopback connections across two connections per process and an independent second JVM using the first client's closed cache. Native data matches the delivered physical column, reopening/reload and the observed render resources retire, and the second process observes 119 successful native DH payload decodes. Those process-total wire observations do not attribute every sampled column exclusively to the wire.
+
+The native logs also retain remote-generation request-queue shutdown timeouts. Passive observation records 7,156 submissions after closing has started, including new pending results. Native tick refuses to dispatch once `closingFuture` is present, while the original submit method still adds requests. The first diagnostic's bounded late-request records obscured later close events; the next observer prioritizes close events and reports omitted late details separately. These are qualified admission findings, not a proved explanation of every timeout or a complete network-retirement claim.
+
+The engineering adapter serializes submission and close publication with the native tick monitor. Before closing it delegates the original request unchanged. After closing it returns a new, already-cancelled result for that refused submission, without cancelling existing shared data futures or creating a placeholder terrain result. Repeated close requests reuse the native queue's existing close future, including its failure or cancellation. The original close body, cancellation policy, semaphore accounting, and five-second diagnostic remain unchanged. Runtime qualification of this new adapter is still pending; the earlier TCP results exercised the unmodified request boundary.
+
 ## Executor retirement
 
 `distant_horizons.executor_lifecycle` is an independently configurable, engineering-default-off adaptation for exact DH 3.3.3 on either physical side. The native task picker and its six executors are shared facilities, not individual world identities. Native world unloading shuts those executors down, but their thread-count listeners remain registered. An actual dedicated-server stop then runs a native preset update that recreates all six inner pools through those listeners, after the native shutdown has returned.

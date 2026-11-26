@@ -73,6 +73,8 @@
   "skyweave_compat.configuration.feature.delivery.structure_search": "Delivery structure search",
   "skyweave_compat.configuration.feature.delivery.village_landing": "Village landing",
   "skyweave_compat.configuration.feature.analog_audio.movement_registration": "Moving radios",
+  "skyweave_compat.configuration.feature.distant_horizons.network_requests": "Close network request queues",
+  "skyweave_compat.settings.summary.distant_horizons.network_requests": "Refuse new LOD requests after closing starts and reuse each queue’s native close result.",
   "skyweave_compat.configuration.feature.distant_horizons.executor_lifecycle": "Retire LOD workers",
   "skyweave_compat.settings.summary.distant_horizons.executor_lifecycle": "Release retired LOD tasks and keep worker pools shut down when thread settings change.",
   "skyweave_compat.configuration.feature.distant_horizons.update_queue": "Update queue progress",

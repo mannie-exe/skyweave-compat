@@ -70,6 +70,7 @@ public enum Feature {
     LINEAR_JADE("linear_bearing.jade"),
     DH_CLIENT_COMPLETION("distant_horizons.client_completion", false),
     DH_RENDER_RESOURCES("distant_horizons.render_resources", false),
+    DH_NETWORK_REQUESTS("distant_horizons.network_requests", false),
     DH_EXECUTOR_LIFECYCLE("distant_horizons.executor_lifecycle", false),
     DH_UPDATE_QUEUE("distant_horizons.update_queue", false),
     DH_HANDOFF("distant_horizons.client_handoff"),

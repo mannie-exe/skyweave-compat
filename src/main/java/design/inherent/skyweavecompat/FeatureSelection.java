@@ -117,7 +117,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
         return switch (feature) {
             case C2ME_CLIENT_LIGHT, BOW_MODEL_HANDOFF -> true;
             case WAYFINDER_DH, MAIN_MENU_IDENTITY, IPN_TEXT_INPUT, MOVES_KEY_MODIFIERS, EFFORTLESS_KEY_MODIFIERS, POWER_GRID_KEY_MODIFIERS, CREATE_COPYCAT_BACKFACES, COPYCATS_BACKFACES, MOVES_TOUCH_MOTION, HAND_EFFECTS, HELD_MATERIALS, MODEL_ROTATIONS, ITEM_DEFINITIONS, CONSTRUCT_COVERAGE -> true;
-            case GRASSRISE_SHADERS, HOOFPRINT_ZOOM, ISLAND_CLOUDS, ISLAND_VOID, ISLAND_SHADER_ENVIRONMENT, CONFECTIONERY_BACKFACES, BUBBLE_GUM_BACKFACES, ORNATE_GRATE_BACKFACES, INDUSTRIAL_GRATING_BACKFACES, MACAW_GLASS, CONSTRUCT_DISTANCE, CONSTRUCT_OCCLUSION, SHADER_PATCHES, TEXT_DISPLAY_LIGHTING, NAMETAG_LIGHTING, TEXT_DISPLAY_SHADOW, NAMETAG_SHADOW, CREATE_BACKFACES, FUSION_BACKFACES, CREATE_WINDOWS, RECHISELED_GLASS, AUDIO_TIMELINE, LINEAR_PONDER, COLORWHEEL_SAMPLERS, COLORWHEEL_MATERIALS, LIGHTING_LIFECYCLE, SODIUM_LIGHTING, DH_RENDER_RESOURCES, DH_CLIENT_COMPLETION, DH_HANDOFF, FRAMEBUFFER, MATERIAL_IDS, MODEL_DATA, SINGLE_BLOCK_PASSES,
+            case GRASSRISE_SHADERS, HOOFPRINT_ZOOM, ISLAND_CLOUDS, ISLAND_VOID, ISLAND_SHADER_ENVIRONMENT, CONFECTIONERY_BACKFACES, BUBBLE_GUM_BACKFACES, ORNATE_GRATE_BACKFACES, INDUSTRIAL_GRATING_BACKFACES, MACAW_GLASS, CONSTRUCT_DISTANCE, CONSTRUCT_OCCLUSION, SHADER_PATCHES, TEXT_DISPLAY_LIGHTING, NAMETAG_LIGHTING, TEXT_DISPLAY_SHADOW, NAMETAG_SHADOW, CREATE_BACKFACES, FUSION_BACKFACES, CREATE_WINDOWS, RECHISELED_GLASS, AUDIO_TIMELINE, LINEAR_PONDER, COLORWHEEL_SAMPLERS, COLORWHEEL_MATERIALS, LIGHTING_LIFECYCLE, SODIUM_LIGHTING, DH_NETWORK_REQUESTS, DH_RENDER_RESOURCES, DH_CLIENT_COMPLETION, DH_HANDOFF, FRAMEBUFFER, MATERIAL_IDS, MODEL_DATA, SINGLE_BLOCK_PASSES,
                     FTB_CREATIVE_RETURN, QUESTLOG_INTERFACE, QUESTLOG_NOTIFICATIONS -> true;
             default -> false;
         };
@@ -200,7 +200,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             case LINEAR_GYRO -> Map.of("linearbearing", "1.3.5", "create", "6.0.10", "sable", "2.0.6");
             case LINEAR_PONDER -> Map.of("linearbearing", "1.3.5", "create", "6.0.10", "ponder", "1.0.87+mc1.21.1");
             case LINEAR_JADE -> Map.of("linearbearing", "1.3.5", "jade", "15.10.6+neoforge");
-            case DH_EXECUTOR_LIFECYCLE, DH_RENDER_RESOURCES, DH_CLIENT_COMPLETION, DH_UPDATE_QUEUE, DH_HANDOFF -> Map.of("distanthorizons", "3.3.3");
+            case DH_NETWORK_REQUESTS, DH_EXECUTOR_LIFECYCLE, DH_RENDER_RESOURCES, DH_CLIENT_COMPLETION, DH_UPDATE_QUEUE, DH_HANDOFF -> Map.of("distanthorizons", "3.3.3");
             case DH_SHUTDOWN, DH_CACHE -> Map.of("distanthorizons", "3.3.3", "sky_archipelago", "1.4");
             case BLUEMAP -> Map.of("bluemap", "5.7", "sky_archipelago", "1.4");
             case SURVEYOR_STRUCTURES -> Map.of("surveyor", "1.2.4_1.21", "sky_archipelago", "1.4");
@@ -326,6 +326,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                 case LINEAR_GYRO -> List.of("linear.GyroSensorMixin");
                 case DH_CLIENT_COMPLETION -> List.of("dh.ClientCompletionWaitMixin");
                 case DH_RENDER_RESOURCES -> List.of("dh.RenderBufferWorkerMixin", "dh.RenderBufferSetupMixin", "dh.RenderBufferPoolMixin");
+                case DH_NETWORK_REQUESTS -> List.of("dh.NetworkRequestLifecycleMixin");
                 case DH_EXECUTOR_LIFECYCLE -> List.of("dh.ExecutorLifecycleMixin", "dh.TaskPickerLifecycleMixin");
                 case DH_UPDATE_QUEUE -> List.of("dh.UpdateQueueProgressMixin");
                 case DH_HANDOFF -> List.of("dh.ClientWrapperHandoffMixin");

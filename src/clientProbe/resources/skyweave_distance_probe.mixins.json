@@ -36,6 +36,8 @@
     "DhLifecycleGpuWitnessMixin",
     "DhLifecycleCpuFrameWitnessMixin",
     "DhLifecycleCpuPoolWitnessMixin",
-    "DhLifecycleUploadFaultWitnessMixin"
+    "DhLifecycleUploadFaultWitnessMixin",
+    "DhLifecycleNetworkCloseWitnessMixin",
+    "DhLifecycleNetworkPayloadWitnessMixin"
   ]
 }
