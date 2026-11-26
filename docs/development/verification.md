@@ -8,9 +8,11 @@ The actual minimum Configure workflow passes two native JVM boots on NeoForge 21
 
 A separate integrated workflow reports `SAVED / APPLIED` while changing the same server's actual Wayfinder policy from 256 to 128 steps per tick. Native permission revocation through a level-zero operator entry then makes both policy reads and applies throw `SecurityException`; the native permission packet removes client admission, and the retained UI offers no save. The staged value 129 does not reach the file. Restoring the original operator entry or absence permits the same actor on the same server to reopen the saved value 128. Both controls exit normally. They do not qualify remote configuration or arbitrary third-party permission engines.
 
+The required generation/shape review reports `COMMIT` for generation and `CHECK` for its unchanged partner, saves spacing from 2400 to 2500, and preserves the shape file bytes. A separate staged-control run accepts precise input and a native 0.01 increment, attributes coupled errors to related fields, preserves inactive fringe values while refusing typing, and saves the valid shape through the original paired review. Both native clients exit normally; these edits do not qualify applying new terrain settings to an existing world.
+
 The 1,098 runtime-class set matches the qualified C4 candidate; only library admission and the settings-menu declarations differ, leaving 1,096 classes byte-identical. C1, C2, and C4 implementation is preserved rather than requalified as new gameplay. Candidate 1's overlapping Maven-range refusal and earlier standalone-host observer assumptions remain separate negatives. Correcting the loader declaration changes no runtime class; correcting the observers changes no product bytes.
 
-Typed generation/shape workflows, current-pack/Styled coexistence, the held JEI version, final public-library resolution, and publication remain pending. No personal instance, ordinary DW14, shader, sustained-performance, or complete configuration-migration acceptance follows from these controls.
+Additional numeric/reference and native-owner workflows, current-pack/Styled coexistence, the held JEI version, final public-library resolution, and publication remain pending. No personal instance, ordinary DW14, shader, sustained-performance, or complete configuration-migration acceptance follows from these controls.
 
 ## Published 0.43.3
 
