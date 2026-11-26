@@ -59,6 +59,8 @@ def main():
     parser.add_argument('--dh-data-capture', action='store_true', help='Retain the closed native overworld DH store after a successful data fixture')
     parser.add_argument('--dh-data-store', type=Path, help='Read a marked closed native store through the actual repo/DTO codec; copied into the disposable fixture')
     parser.add_argument('--dh-data', action='store_true', help='With --dh-queue, read actual nonempty native server LOD data and compare it to the naturally loaded spawn material')
+    parser.add_argument('--dh-worker-repair', action='store_true', help='With --dh-workers, enable only the executor retirement adaptation')
+    parser.add_argument('--dh-workers', action='store_true', help='With --dh-data, inspect actual native executor queues, listeners and picker callback after server stop')
     parser.add_argument('--dh-queue', choices=['original', 'repaired'], help='Qualify exact optional DH worker startup and dedicated-server client exclusion; requires explicit DH artifact')
     parser.add_argument('--curio-break', choices=['original','repaired'], help='Observe native equipment break custody and notification ownership')
     parser.add_argument('--curio-break-slot', choices=['back','glider'], default='back', help='Native equipment slot; glider requires the authored slot subset')
@@ -83,6 +85,10 @@ def main():
         parser.error('Capture and independent closed-store readback are separate native fixtures')
     if args.dh_data and not args.dh_queue:
         parser.error('--dh-data requires a separate --dh-queue native fixture')
+    if args.dh_worker_repair and not args.dh_workers:
+        parser.error('--dh-worker-repair requires --dh-workers')
+    if args.dh_workers and not args.dh_data:
+        parser.error('--dh-workers requires --dh-data')
     if args.adq_cargo and (not args.adq_world or args.adq_search or args.adq_capture_world or args.serve
                           or args.cookery or args.connector or args.curio_break or args.scenario not in {'terrain','full'}):
         parser.error('--adq-cargo requires a separate terrain/full saved ADQ world, without other fixture modes')
@@ -234,7 +240,8 @@ def main():
             feature_path = run / 'config/skyweave/skyweave_compat-features.properties'
             # Retain ordinary minimum controls; explicitly select both new keys to test physical-side exclusion.
             overrides = {'distant_horizons.update_queue': args.dh_queue == 'repaired',
-                         'distant_horizons.client_completion': True}
+                         'distant_horizons.client_completion': True,
+                         'distant_horizons.executor_lifecycle': args.dh_worker_repair}
             feature_path.write_text(''.join(f'{key}={str(value).lower()}\n' for key,value in overrides.items()))
             if not args.dh_data:
                 (run / 'config/DistantHorizons.toml').write_text('[common.worldGenerator]\ngeneratorPlan="DISABLED"\n')
@@ -333,6 +340,7 @@ def main():
             command[1:1] = ['-Dneighbors.probe.curioBreak=' + args.curio_break, '-Dneighbors.probe.curioBreakSlot=' + args.curio_break_slot]
         if args.dh_data:
             command[1:1] = ['-Dneighbors.probe.dhData=true', '-Dneighbors.probe.output=' + str(run / 'dh-data-proof.json')]
+            if args.dh_workers: command.insert(1, '-Dneighbors.probe.dhWorkers=true')
             if args.dh_data_store: command.insert(1, '-Dneighbors.probe.dhDataStore=' + str(run / 'dh-readback'))
         if args.adq_cargo:
             command[1:1] = ['-Dneighbors.probe.adqCargo=true', '-Dneighbors.probe.cargoOutput=' + str(run / 'adq-cargo-proof.json')]
@@ -489,6 +497,8 @@ def main():
                         'class/net/minecraft/world/level/levelgen/PatrolSpawner.class']
             if args.dh_queue == 'repaired':
                 expected += ['class/com/seibel/distanthorizons/core/api/internal/chunkUpdating/ChunkUpdateQueueManager.class']
+            if args.dh_workers:
+                expected += ['class/com/seibel/distanthorizons/core/util/threading/PriorityTaskPicker$Executor.class']
             if args.curio_break or args.cookery or args.connector or args.dh_data:
                 # The explicit probe JAR instruments these native classes; ordinary standalone
                 # startup retains its stricter three-target boundary.
@@ -532,6 +542,8 @@ def main():
             report['passed'] = report['passed'] and report['curioBreak'].get('passed',False)
         if args.dh_data:
             report['passed'] = report['passed'] and report['dhData'].get('complete',False)
+            if args.dh_workers:
+                report['passed'] = report['passed'] and report['dhData'].get('actualServerStopped',False) and not report['dhData'].get('nativeWorldPresentAfterStop',True) and report['dhData'].get('nativeWorkers',{}).get('retired',False) and report['dhData'].get('nativeWorkers',{}).get('nativeLifecycleControls',{}).get('passed',False)
         if args.adq_cargo:
             report['passed'] = report['passed'] and report['adqCargo'].get('complete',False)
         if args.adq_search:

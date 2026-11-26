@@ -19,3 +19,6 @@ config="skyweave_curio_break_probe.mixins.json"
 
 [[mixins]]
 config="skyweave_adq_search_probe.mixins.json"
+
+[[mixins]]
+config="skyweave_dh_worker_probe.mixins.json"

@@ -28,6 +28,7 @@ final class DhUsefulDataProbe {
     private java.util.concurrent.ExecutorService readbackWorker;
     private int ticks, reads;
     private boolean terminal;
+    private final DhWorkerStateProbe workers = Boolean.getBoolean("neighbors.probe.dhWorkers") ? new DhWorkerStateProbe() : null;
 
     DhUsefulDataProbe() {
         try {
@@ -41,12 +42,18 @@ final class DhUsefulDataProbe {
             throw new IllegalStateException("Refusing DH data observation outside its marked disposable native fixture", failure);
         }
         report.addProperty("scope", "Native server chunk-update output and decoded material; no fabricated LOD, distant generation, client upload, or performance claim");
-        NeoForge.EVENT_BUS.addListener((ServerStartedEvent event) -> server = event.getServer());
+        NeoForge.EVENT_BUS.addListener((ServerStartedEvent event) -> {
+            server = event.getServer();
+            if (workers != null) try { workers.capture(); }
+            catch (Throwable failure) { report.addProperty("workerCaptureFailure", failure.toString()); }
+        });
         NeoForge.EVENT_BUS.addListener(this::tick);
         NeoForge.EVENT_BUS.addListener(net.neoforged.bus.api.EventPriority.LOWEST, (ServerStoppedEvent event) -> {
             if (server != event.getServer()) return;
             report.addProperty("actualServerStopped", true);
             report.addProperty("nativeWorldPresentAfterStop", SharedApi.tryGetDhServerWorld() != null);
+            if (workers != null) try { report.add("nativeWorkers", workers.afterStop()); }
+            catch (Throwable failure) { report.addProperty("workerSnapshotFailure", failure.toString()); }
             if (readbackWorker != null) {
                 readbackWorker.shutdown();
                 try { report.addProperty("readbackWorkerTerminated", readbackWorker.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS)); }

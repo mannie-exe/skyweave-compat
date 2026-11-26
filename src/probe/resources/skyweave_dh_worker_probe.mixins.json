@@ -1,0 +1,9 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "design.inherent.skyweavecompat.probe.mixin.dh",
+  "plugin": "design.inherent.skyweavecompat.probe.DhWorkerProbePlugin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [],
+  "injectors": {"defaultRequire": 1}
+}

@@ -200,7 +200,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             case LINEAR_GYRO -> Map.of("linearbearing", "1.3.5", "create", "6.0.10", "sable", "2.0.6");
             case LINEAR_PONDER -> Map.of("linearbearing", "1.3.5", "create", "6.0.10", "ponder", "1.0.87+mc1.21.1");
             case LINEAR_JADE -> Map.of("linearbearing", "1.3.5", "jade", "15.10.6+neoforge");
-            case DH_RENDER_RESOURCES, DH_CLIENT_COMPLETION, DH_UPDATE_QUEUE, DH_HANDOFF -> Map.of("distanthorizons", "3.3.3");
+            case DH_EXECUTOR_LIFECYCLE, DH_RENDER_RESOURCES, DH_CLIENT_COMPLETION, DH_UPDATE_QUEUE, DH_HANDOFF -> Map.of("distanthorizons", "3.3.3");
             case DH_SHUTDOWN, DH_CACHE -> Map.of("distanthorizons", "3.3.3", "sky_archipelago", "1.4");
             case BLUEMAP -> Map.of("bluemap", "5.7", "sky_archipelago", "1.4");
             case SURVEYOR_STRUCTURES -> Map.of("surveyor", "1.2.4_1.21", "sky_archipelago", "1.4");
@@ -326,6 +326,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                 case LINEAR_GYRO -> List.of("linear.GyroSensorMixin");
                 case DH_CLIENT_COMPLETION -> List.of("dh.ClientCompletionWaitMixin");
                 case DH_RENDER_RESOURCES -> List.of("dh.RenderBufferWorkerMixin", "dh.RenderBufferSetupMixin", "dh.RenderBufferPoolMixin");
+                case DH_EXECUTOR_LIFECYCLE -> List.of("dh.ExecutorLifecycleMixin");
                 case DH_UPDATE_QUEUE -> List.of("dh.UpdateQueueProgressMixin");
                 case DH_HANDOFF -> List.of("dh.ClientWrapperHandoffMixin");
                 case DH_SHUTDOWN -> List.of("dh.ChunkUnloadBudgetMixin");

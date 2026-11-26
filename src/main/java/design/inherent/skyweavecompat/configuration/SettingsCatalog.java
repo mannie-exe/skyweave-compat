@@ -271,7 +271,7 @@ public final class SettingsCatalog {
             case ANALOG_AUDIO -> Group.AUDIO;
             case DELIVERY_DISTANCE, DELIVERY_CHUNKS, DELIVERY_STRUCTURE_SEARCH, DELIVERY_LANDING -> Group.DELIVERY;
             case QUESTLOG_REWARD_VALIDATION -> Group.QUESTLOG_SERVER;
-            case DH_UPDATE_QUEUE, DH_SHUTDOWN, DH_CACHE -> Group.DH;
+            case DH_EXECUTOR_LIFECYCLE, DH_UPDATE_QUEUE, DH_SHUTDOWN, DH_CACHE -> Group.DH;
             case BLUEMAP -> Group.BLUEMAP;
             case SURVEYOR_STRUCTURES -> Group.SURVEYOR;
             case NETHER_ACCESS -> Group.TERRAIN;

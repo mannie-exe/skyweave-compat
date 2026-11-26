@@ -43,7 +43,7 @@ public final class OptionalIntegrations {
     }
     public static boolean blueMap() { return enabled(Feature.BLUEMAP); }
     public static boolean distantHorizons() {
-        return enabled(Feature.DH_RENDER_RESOURCES) || enabled(Feature.DH_CLIENT_COMPLETION) || enabled(Feature.DH_UPDATE_QUEUE) || enabled(Feature.DH_HANDOFF) || enabled(Feature.DH_SHUTDOWN) || enabled(Feature.DH_CACHE);
+        return enabled(Feature.DH_EXECUTOR_LIFECYCLE) || enabled(Feature.DH_RENDER_RESOURCES) || enabled(Feature.DH_CLIENT_COMPLETION) || enabled(Feature.DH_UPDATE_QUEUE) || enabled(Feature.DH_HANDOFF) || enabled(Feature.DH_SHUTDOWN) || enabled(Feature.DH_CACHE);
     }
     public static boolean analogAudio() { return enabled(Feature.ANALOG_AUDIO); }
 }

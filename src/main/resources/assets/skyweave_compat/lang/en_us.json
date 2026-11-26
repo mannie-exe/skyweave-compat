@@ -73,6 +73,8 @@
   "skyweave_compat.configuration.feature.delivery.structure_search": "Delivery structure search",
   "skyweave_compat.configuration.feature.delivery.village_landing": "Village landing",
   "skyweave_compat.configuration.feature.analog_audio.movement_registration": "Moving radios",
+  "skyweave_compat.configuration.feature.distant_horizons.executor_lifecycle": "Retire worker subscriptions",
+  "skyweave_compat.settings.summary.distant_horizons.executor_lifecycle": "Keep retired LOD executors shut down when thread settings change.",
   "skyweave_compat.configuration.feature.distant_horizons.update_queue": "Update queue progress",
   "skyweave_compat.settings.summary.distant_horizons.update_queue": "Wait for pending LOD updates without repeatedly retrying unchanged work.",
   "skyweave_compat.configuration.feature.distant_horizons.client_completion": "Client shutdown progress",

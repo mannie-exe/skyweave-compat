@@ -98,6 +98,17 @@ class FeatureSelectionTest {
         assertEquals(SettingsCatalog.Group.DH, SettingsCatalog.group(Feature.DH_UPDATE_QUEUE));
     }
 
+    @Test void dhExecutorLifecycleRemainsIndependentlyOptionalOnBothSides() {
+        var feature = Feature.DH_EXECUTOR_LIFECYCLE;
+        for (boolean client : List.of(false, true)) {
+            assertEquals(List.of("dh.ExecutorLifecycleMixin"), FeatureSelection.select(only(feature), Map.of("distanthorizons", "3.3.3"), client).mixins(client));
+            assertTrue(FeatureSelection.select(only(feature), Map.of(), client).mixins(client).isEmpty());
+            assertTrue(FeatureSelection.select(only(), Map.of("distanthorizons", "future"), client).mixins(client).isEmpty());
+            assertThrows(IllegalStateException.class, () -> FeatureSelection.select(only(feature), Map.of("distanthorizons", "future"), client));
+        }
+        assertEquals(SettingsCatalog.Group.DH, SettingsCatalog.group(feature));
+    }
+
     @Test void dhRenderLoansRemainOptionalClientOnlyAndExact() {
         var feature = Feature.DH_RENDER_RESOURCES;
         assertEquals(List.of("dh.RenderBufferWorkerMixin", "dh.RenderBufferSetupMixin", "dh.RenderBufferPoolMixin"),
@@ -991,7 +1002,7 @@ class FeatureSelectionTest {
         assertThrows(IllegalArgumentException.class, () -> FeatureSettings.read(new StringReader("terrain.preset=true\nterrain.preset=false")));
         var defaults = FeatureSettings.load(directory);
         assertTrue(defaults.enabled(Feature.TERRAIN));
-        for (Feature feature : Feature.values()) assertEquals(feature != Feature.ACCESSORIES_CURIOS_BINDINGS && feature != Feature.DH_RENDER_RESOURCES && feature != Feature.DH_CLIENT_COMPLETION && feature != Feature.DH_UPDATE_QUEUE, defaults.enabled(feature), feature.key);
+        for (Feature feature : Feature.values()) assertEquals(feature != Feature.ACCESSORIES_CURIOS_BINDINGS && feature != Feature.DH_RENDER_RESOURCES && feature != Feature.DH_CLIENT_COMPLETION && feature != Feature.DH_UPDATE_QUEUE && feature != Feature.DH_EXECUTOR_LIFECYCLE, defaults.enabled(feature), feature.key);
         Files.writeString(directory.resolve(FeatureSettings.FILE), "terrain.preset=false\n");
         assertFalse(FeatureSettings.load(directory).enabled(Feature.TERRAIN));
         assertEquals("terrain.preset=false\n", Files.readString(directory.resolve(FeatureSettings.FILE)));
