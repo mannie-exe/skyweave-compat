@@ -484,7 +484,7 @@ final class ClientConfigurationProbe {
         proof.addProperty("screenIdentity",System.identityHashCode(mc.screen));
         ProbeStateFiles.write(root.resolve("hoofprint-observation.json"),new GsonBuilder().setPrettyPrinting().create().toJson(proof));
     }
-    static design.inherent.reform.minecraft.client.ClientEditingWorkflow reformWorkflow(Minecraft mc) throws Exception {
+    static design.inherent.reform.minecraft.client.ClientEditingWorkflow reformWorkflow(Minecraft mc) throws ReflectiveOperationException {
         if (!mc.screen.getClass().getName().equals("design.inherent.reform.minecraft.client.ClientEditingWorkflow$Overview"))
             throw new IllegalStateException("Expected the actual shared workspace");
         var owner = mc.screen.getClass().getDeclaredField("this$0"); owner.setAccessible(true);

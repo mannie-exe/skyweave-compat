@@ -293,7 +293,19 @@ public final class ClientIpnProbe {
             var local = textButtons(mc.screen).stream().filter(button -> button.getMessage().getString().equals("Local files"))
                     .findFirst().orElseThrow(() -> new IllegalStateException("Actual Configure context choice is missing"));
             mc.screen.mouseClicked(local.getX() + 4, local.getY() + 4, 0);
+            var workflow = ClientConfigurationProbe.reformWorkflow(mc);
+            workflow.showPlacement(design.inherent.reform.definition.DocumentId.parse(
+                    "skyweave_compat:features/navigation.wayfinder"));
+            if (textFields(mc.screen, 0).stream().noneMatch(field -> field.getMessage().getString().equals("Search settings"))) {
+                var categories = textButtons(mc.screen).stream().filter(button -> button.getMessage().getString().equals("Categories"))
+                        .findFirst().orElseThrow(() -> new IllegalStateException("Actual Configure categories action is missing"));
+                if (!mc.screen.mouseClicked(categories.getX() + 4, categories.getY() + 4, 0))
+                    throw new IllegalStateException("Actual Configure categories click was refused");
+                mc.screen.mouseReleased(categories.getX() + 4, categories.getY() + 4, 0);
+                result.addProperty("reformSearchViaCategories", true);
+            }
             var workspace = mc.screen;
+            result.addProperty("reformSearchScreen", workspace.getClass().getName());
             var nativeSearch = textFields(workspace, 0).stream().filter(field -> field.getMessage().getString().equals("Search settings"))
                     .findFirst().orElseThrow(() -> new IllegalStateException("Actual Configure search is missing"));
             if (!workspace.mouseClicked(nativeSearch.getX() + 4, nativeSearch.getY() + 4, 0))
