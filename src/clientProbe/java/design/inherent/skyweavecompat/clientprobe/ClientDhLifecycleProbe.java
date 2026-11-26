@@ -10,12 +10,20 @@ import com.seibel.distanthorizons.core.level.IDhClientLevel;
 import com.seibel.distanthorizons.core.pos.DhChunkPos;
 import com.seibel.distanthorizons.core.pos.DhSectionPos;
 import com.seibel.distanthorizons.core.render.RenderThreadTaskHandler;
+import java.lang.ref.WeakReference;
 import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Checkbox;
+import net.minecraft.client.gui.screens.BackupConfirmScreen;
+import net.minecraft.client.gui.screens.ReceivingLevelScreen;
 import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.Difficulty;
@@ -38,6 +46,10 @@ public final class ClientDhLifecycleProbe {
     private int ticks, phase, phaseTicks;
     private boolean finished;
     private CompletableFuture<FullDataSourceV2> pending;
+    private BlockPos pendingSample;
+    private WeakReference<ClientLevel> pendingLevel;
+    private long pendingSection;
+    private int pendingEpoch, pendingMinY, physicalChunkWaits;
     private CompletableFuture<Void> reload;
     private boolean reloadVerified;
     private int uploadsBeforeReload;
@@ -164,6 +176,22 @@ public final class ClientDhLifecycleProbe {
                 throw new AssertionError("Native client lifecycle observation exceeded its disposable window");
             phaseTicks++;
             if (mc.getOverlay() != null) return;
+            if (phase == 3 && mc.screen instanceof BackupConfirmScreen
+                    && mc.screen.getTitle().getString().equals(Component.translatable("selectWorld.backupQuestion.experimental").getString())) {
+                if (epoch != 2 || !Files.isDirectory(root.resolve("saves/dh-native-review"))
+                        || report.has("nativeExperimentalReopenConfirmed"))
+                    throw new AssertionError("Unexpected repeated experimental-world confirmation");
+                if (mc.screen.children().stream().anyMatch(child -> child instanceof Checkbox checkbox && checkbox.selected()))
+                    throw new AssertionError("Refusing cache erasure in the native reopen fixture");
+                String skip = Component.translatable("selectWorld.backupJoinSkipButton").getString();
+                var button = mc.screen.children().stream().filter(child -> child instanceof Button nativeButton
+                        && nativeButton.active && nativeButton.getMessage().getString().equals(skip)).findFirst();
+                if (button.isEmpty()) throw new AssertionError("Native experimental-world choice is unavailable");
+                report.addProperty("nativeExperimentalReopenTitle", mc.screen.getTitle().getString());
+                report.addProperty("nativeExperimentalReopenChoice", skip);
+                report.addProperty("nativeExperimentalReopenConfirmed", true);
+                ((Button)button.get()).onPress(); save(); return;
+            }
             if (phase == 0 && mc.screen instanceof TitleScreen) {
                 mc.options.pauseOnLostFocus = false;
                 Config.Client.Advanced.Graphics.Quality.lodChunkRenderDistanceRadius.set(32);
@@ -173,6 +201,12 @@ public final class ClientDhLifecycleProbe {
                 report.addProperty("effectiveDhThreads", Config.Common.MultiThreading.numberOfThreads.get());
                 open(mc); phase = 1; phaseTicks = 0;
             } else if ((phase == 1 || phase == 3) && mc.level != null && mc.player != null) {
+                var physical = mc.player.chunkPosition();
+                if (mc.screen instanceof ReceivingLevelScreen || !mc.level.hasChunk(physical.x, physical.z)) {
+                    report.addProperty("physicalClientChunkWaits" + epoch, ++physicalChunkWaits);
+                    report.addProperty("sourceReadState", "waiting for delivered physical client chunks");
+                    save(); return;
+                }
                 if (gpu != null) gpu.world(epoch, mc.level, SharedApi.getAbstractDhWorld());
                 if (currentColumn == null) readColumn(mc);
                 var stats = uploads.get(epoch);
@@ -215,7 +249,7 @@ public final class ClientDhLifecycleProbe {
     }
 
     private void open(Minecraft mc) {
-        epoch++; pending = null; currentColumn = null;
+        epoch++; pending = null; pendingSample = null; pendingLevel = null; physicalChunkWaits = 0; currentColumn = null;
         String world = "dh-native-review";
         if (Files.isDirectory(root.resolve("saves/" + world))) mc.createWorldOpenFlows().openWorld(world, () -> mc.setScreen(new TitleScreen()));
         else mc.createWorldOpenFlows().createFreshLevel(world,
@@ -229,9 +263,18 @@ public final class ClientDhLifecycleProbe {
             report.addProperty("sourceReadState", pending.isDone() ? "completed" : "pending native future");
             if (!pending.isDone()) return;
             var future = pending; pending = null;
+            var sample = pendingSample; pendingSample = null;
+            var owner = pendingLevel; pendingLevel = null;
             try (var source = future.join()) {
+                if (owner == null || owner.get() != mc.level || pendingEpoch != epoch || sample == null
+                        || mc.player.blockPosition().getX() != sample.getX() || mc.player.blockPosition().getZ() != sample.getZ()
+                        || !mc.level.hasChunk(sample.getX() >> 4, sample.getZ() >> 4)) {
+                    report.addProperty("sourceReadState", "retired observation after client source or position changed"); return;
+                }
                 if (source == null || source.isEmpty) { report.addProperty("sourceReadState", "empty native source"); return; }
-                var pos = mc.player.blockPosition(); var rows = new JsonArray(); int cells = 0, hiddenDifferences = 0;
+                if (source.getPos() != pendingSection || mc.level.getMinBuildHeight() != pendingMinY)
+                    throw new AssertionError("Native readback crossed its requested section or height frame");
+                var pos = sample; var rows = new JsonArray(); int cells = 0, hiddenDifferences = 0;
                 var occupied = new HashSet<Integer>();
                 var column = source.getApiDataPointColumn(Math.floorMod(pos.getX(),64), Math.floorMod(pos.getZ(),64));
                 report.addProperty("sourceColumnPoints", column.size()); report.addProperty("sourceBlockPosition", pos.toShortString());
@@ -243,7 +286,7 @@ public final class ClientDhLifecycleProbe {
                     for (int y=bottom; y<top; y++) {
                         if (!occupied.add(y)) throw new AssertionError("Native client returned overlapping solid intervals");
                         var at = new net.minecraft.core.BlockPos(pos.getX(),y,pos.getZ()); var actual = mc.level.getBlockState(at);
-                        if (actual.isAir()) throw new AssertionError("Native client LOD occupied an actual AIR cell");
+                        if (actual.isAir()) throw new AssertionError("Native client LOD occupied actual AIR at " + at);
                         if (!actual.equals(point.blockStateWrapper.getWrappedMcObject())) {
                             if (Config.Common.LodBuilding.worldCompression.get()
                                     != com.seibel.distanthorizons.api.enums.config.EDhApiWorldCompressionMode.VISUALLY_EQUAL || !actual.canOcclude())
@@ -288,7 +331,13 @@ public final class ClientDhLifecycleProbe {
             report.add("nativeLevelOwners", owners);
             for (var level : world.getAllLoadedLevels()) if (level instanceof IDhClientLevel client && ownsCurrentLevel(client, mc)) {
                 var pos=mc.player.chunkPosition();
-                pending=client.getFullDataProvider().getAsync(DhSectionPos.encodeContaining(DhSectionPos.SECTION_BLOCK_DETAIL_LEVEL,new DhChunkPos(pos.x,pos.z)));
+                pendingSample = mc.player.blockPosition().immutable(); pendingLevel = new WeakReference<>(mc.level);
+                pendingSection = DhSectionPos.encodeContaining(DhSectionPos.SECTION_BLOCK_DETAIL_LEVEL,new DhChunkPos(pos.x,pos.z));
+                pendingEpoch = epoch; pendingMinY = mc.level.getMinBuildHeight();
+                report.addProperty("requestedSourcePosition" + epoch, pendingSample.toShortString());
+                report.addProperty("requestedSourceSection" + epoch, pendingSection);
+                report.addProperty("requestedSourceMinY" + epoch, pendingMinY);
+                pending=client.getFullDataProvider().getAsync(pendingSection);
                 report.addProperty("sourceReadState", "requested actual native source");
                 return;
             }
@@ -298,7 +347,16 @@ public final class ClientDhLifecycleProbe {
     private void finish(Minecraft mc) {
         finished = true;
         if (pending != null) { pending.whenComplete((source,failure)->{if(source!=null)source.close();}); pending=null; }
-        save(); if (automationAllowed()) mc.stop();
+        pendingSample = null; pendingLevel = null;
+        save();
+        if (automationAllowed()) {
+            try {
+                if (mc.level != null) {
+                    report.addProperty("fixtureNativeDisconnectRequested", true);
+                    mc.level.disconnect();
+                }
+            } finally { save(); mc.stop(); }
+        }
     }
     private boolean automationAllowed() {
         try {
