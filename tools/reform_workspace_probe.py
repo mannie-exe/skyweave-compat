@@ -242,7 +242,7 @@ def loaded_choices(client, features, loaded, output, name):
     return {'loadedChoice': loaded, 'sourceUnchanged': True, 'restoredDraft': restored, 'capture': frame}
 
 
-def run(java, artifacts, output, long_labels=False, layouts=False):
+def run(java, artifacts, output, long_labels=False, layouts=False, owner_visits=False):
     if output.exists():
         raise ValueError('Choose a new receipt directory')
     output.mkdir(parents=True)
@@ -329,6 +329,16 @@ def run(java, artifacts, output, long_labels=False, layouts=False):
                     if layouts and not reopen:
                         boot['layoutScenes'] = []
                         layout_scenes(client, output, catalog, boot['layoutScenes'])
+                    elif owner_visits and not reopen:
+                        boot['ownerVisits'] = []
+                        for name in ('generation', 'interiors', 'shapes'):
+                            matches = [identity for identity in catalog['placementIds'] if identity.endswith('/' + name)]
+                            assert len(matches) == 1, (name, matches)
+                            client.navigate(matches[0])
+                            observed = client.ready_editor()
+                            assert observed['document'] == 'skyweave_compat:' + name, observed
+                            boot['ownerVisits'].append({'placement': matches[0], 'editor': observed})
+                        client.navigate('skyweave_compat:features/navigation.wayfinder')
                     client.navigate('skyweave_compat:features/navigation.wayfinder')
                     boot['initialEditor'] = client.until(lambda: editor(client), 'Startup owner is unavailable')
                     first = open_information(client, expected_label=LONG_LABEL if long_labels else 'Wayfinder')
@@ -355,10 +365,13 @@ def run(java, artifacts, output, long_labels=False, layouts=False):
                         before_home = client.proof('reform-catalog-proof', 'reform-catalog-proof.json')
                         opened_before = {owner['route'] for owner in before_home['owners'] if owner['opened']}
                         expected_opened = {'skyweave_compat:features'}
-                        if layouts:
-                            visited = {scene['placement'] for scene in boot['layoutScenes']}
+                        if layouts or owner_visits:
+                            visited = {scene['placement'] for scene in boot.get('layoutScenes', boot.get('ownerVisits', []))}
                             groups = {row['group'] for row in catalog['composition'] if row['placement'] in visited}
                             expected_opened.update(row['route'] for row in catalog['composition'] if row['group'] in groups)
+                        available = {owner['route'] for owner in before_home['owners'] if owner['available']}
+                        expected_opened.intersection_update(available)
+                        assert all(not owner['opened'] for owner in before_home['owners'] if not owner['available'])
                         boot['declaredOwnerAdmission'] = {'actual': sorted(opened_before), 'expected': sorted(expected_opened)}
                         assert opened_before == expected_opened, (opened_before, expected_opened)
                         client.act('reform-home')
@@ -468,5 +481,8 @@ if __name__ == '__main__':
         parser.add_argument('--' + name, type=Path, required=True)
     parser.add_argument('--long-labels', action='store_true', help='Use an owned temporary language pack for long-label layout and native narration checks')
     parser.add_argument('--layout-scenes', action='store_true', help='Capture the actual context chooser and generation, interior and shape forms at matched wide/narrow/high-GUI sizes without editing')
+    parser.add_argument('--owner-visits', action='store_true', help='Visit the actual composed document owners before Home retention checks, without repeating layout captures')
     args = parser.parse_args()
-    run(args.java, [args.compat, args.probe, args.reform], args.output, args.long_labels, args.layout_scenes)
+    if args.layout_scenes and args.owner_visits:
+        parser.error('Choose layout scenes or owner visits')
+    run(args.java, [args.compat, args.probe, args.reform], args.output, args.long_labels, args.layout_scenes, args.owner_visits)
