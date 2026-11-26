@@ -519,14 +519,14 @@ def main():
             report['passed'] = (done and process.returncode == 0 and
                 (not references if args.without_compat else sorted(references) == sorted(expected)
                  and any('PATROL_CHANCE' in line and 'WAYFINDER' in line for line in report['active_lines'])))
-            if args.reform_metadata_version in ('0.2.0', '0.3.0', '0.3.99', '0.4.0-rc.1', '0.5.0-rc.1'):
+            if args.reform_metadata_version in ('0.2.0', '0.3.0', '0.3.99', '0.4.0-rc.1'):
                 report['passed'] = (not done and not report['active_lines']
                                     and "Mod ID: 'reform', Requested by: 'skyweave_compat'" in text
                                     and 'Missing or unsupported mandatory dependencies' in text)
-            if args.reform_metadata_version == '0.4.99-SNAPSHOT':
+            if args.reform_metadata_version in ('0.4.99-SNAPSHOT', '0.5.0-rc.1'):
                 report['passed'] = (not done and not report['active_lines']
                                     and 'reform: developed against ' in text
-                                    and 'installed 0.4.99-SNAPSHOT' in text)
+                                    and f'installed {args.reform_metadata_version}' in text)
         if args.capture_config:
             configs = sorted(path for path in (run / 'config').rglob('*') if path.is_file())
             if len(configs) > 64 or sum(path.stat().st_size for path in configs) > 4 * 1024 * 1024:

@@ -8,6 +8,20 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class DependencyVersionsTest {
+    @Test void loaderRangeParsesAndAdmitsBothTheCandidateAndStableFamily() throws Exception {
+        String metadata;
+        try (var input = getClass().getResourceAsStream("/META-INF/neoforge.mods.toml")) {
+            metadata = new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        }
+        var declaration = java.util.regex.Pattern.compile("modId=\"reform\"[\\s\\S]*?versionRange=\"([^\"]+)\"").matcher(metadata);
+        assertTrue(declaration.find());
+        var range = org.apache.maven.artifact.versioning.VersionRange.createFromVersionSpec(declaration.group(1));
+        for (var version : List.of(DependencyVersions.base().get("reform").developedAgainst(), "0.4.0", "0.4.99"))
+            assertTrue(range.containsVersion(new org.apache.maven.artifact.versioning.DefaultArtifactVersion(version)), version);
+        for (var version : List.of("0.3.99", "0.5.0"))
+            assertFalse(range.containsVersion(new org.apache.maven.artifact.versioning.DefaultArtifactVersion(version)), version);
+    }
+
     @Test void baseApiFamiliesAdmitStablePatchesAndRejectOtherGamesFamiliesAndPrereleases() {
         var installed = new HashMap<String, String>();
         DependencyVersions.base().forEach((id, contract) -> installed.put(id, contract.developedAgainst()));
