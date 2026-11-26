@@ -32,6 +32,7 @@ public final class PatchTest {
         Mixins.addConfiguration("rendering-test.mixins.json");
         Mixins.addConfiguration("coverage-test.mixins.json");
         Mixins.addConfiguration("dh-completion-test.mixins.json");
+        Mixins.addConfiguration("dh-resources-test.mixins.json");
         byte[] original;
         try (var in = service.getResourceAsStream(TARGET.replace('.', '/') + ".class")) {
             original = in.readAllBytes();
@@ -79,6 +80,11 @@ public final class PatchTest {
         for (String pass : java.util.List.of("renderSectionLayer", "renderAfterSections", "renderBlockEntities"))
             assertEquals(1, calls(method(constructDispatcher, pass), "skyweave$coverage"));
         var coverageSection = transformed(service, transformer, "com.seibel.distanthorizons.core.render.QuadTree.LodRenderSection");
+        assertEquals(1, coverageSection.methods.stream().mapToLong(m -> calls(m, "skyweave$loans")).sum());
+        assertEquals(1, coverageSection.methods.stream().mapToLong(m -> calls(m, "skyweave$upload")).sum());
+        var nativeBufferPool = transformed(service, transformer, "com.seibel.distanthorizons.core.util.objects.pooling.PhantomArrayList.PhantomArrayListPool");
+        assertEquals(1, calls(method(nativeBufferPool, "checkoutByteBuffers"), "skyweave$borrow"));
+        assertEquals(1, nativeBufferPool.methods.stream().mapToLong(m -> calls(m, "skyweave$return")).sum());
         assertEquals(1, coverageSection.methods.stream().mapToLong(m -> calls(m, "skyweave$bindBuilder")).sum());
         assertEquals(1, calls(method(coverageSection, "getAndBuildRenderData"), "skyweave$retain"));
         assertEquals(1, calls(method(coverageSection, "uploadToGpuAsync"), "skyweave$bindUpload"));
@@ -86,6 +92,10 @@ public final class PatchTest {
                 "com.seibel.distanthorizons.core.dataObjects.render.bufferBuilding.LodQuadBuilder",
                 "com.seibel.distanthorizons.core.dataObjects.render.bufferBuilding.LodBufferContainer")) {
             var carrier = transformed(service, transformer, target);
+            if (target.endsWith("LodBufferContainer")) {
+                assertEquals(1, calls(method(carrier, "tryMakeAndUploadBuffersAsync"), "skyweave$returnOwner"));
+                assertEquals(1, calls(method(carrier, "tryMakeAndUploadBuffersAsync"), "skyweave$submitted"));
+            }
             assertTrue(carrier.interfaces.contains("design/inherent/skyweavecompat/rendering/CoverageCarrier"));
             if (target.endsWith("LodQuadBuilder")) assertEquals(1, calls(method(carrier, "close"), "skyweave$releaseSourceOwner"));
         }

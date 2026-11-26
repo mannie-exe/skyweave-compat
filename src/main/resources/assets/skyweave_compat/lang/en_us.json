@@ -77,6 +77,8 @@
   "skyweave_compat.settings.summary.distant_horizons.update_queue": "Wait for pending LOD updates without repeatedly retrying unchanged work.",
   "skyweave_compat.configuration.feature.distant_horizons.client_completion": "Client shutdown progress",
   "skyweave_compat.settings.summary.distant_horizons.client_completion": "Complete pending LOD render tasks during the original shutdown wait.",
+  "skyweave_compat.configuration.feature.distant_horizons.render_resources": "Return rendering buffers",
+  "skyweave_compat.settings.summary.distant_horizons.render_resources": "Return borrowed rendering buffers after native upload work finishes, including failed attempts.",
   "skyweave_compat.configuration.feature.distant_horizons.client_handoff": "Client handoff",
   "skyweave_compat.configuration.feature.distant_horizons.shutdown": "Shutdown",
   "skyweave_compat.configuration.feature.distant_horizons.world_cache": "Saved-world caches",

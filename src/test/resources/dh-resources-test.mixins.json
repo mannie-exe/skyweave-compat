@@ -1,0 +1,7 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "design.inherent.skyweavecompat.mixin.dh",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": ["RenderBufferWorkerMixin", "RenderBufferPoolMixin", "RenderBufferSetupMixin"]
+}

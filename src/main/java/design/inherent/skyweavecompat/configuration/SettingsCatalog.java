@@ -252,7 +252,7 @@ public final class SettingsCatalog {
             case RECHISELED_GLASS -> Group.RECHISELED;
             case QUESTLOG_INTERFACE, QUESTLOG_NOTIFICATIONS -> Group.JOURNAL;
             case AUDIO_TIMELINE -> Group.AUDIO_CLIENT;
-            case DH_CLIENT_COMPLETION, DH_HANDOFF -> Group.DH_CLIENT;
+            case DH_RENDER_RESOURCES, DH_CLIENT_COMPLETION, DH_HANDOFF -> Group.DH_CLIENT;
             case CONSTRUCT_DISTANCE, CONSTRUCT_OCCLUSION, CONSTRUCT_COVERAGE -> Group.SSRD;
             case MODEL_DATA, MATERIAL_IDS, SINGLE_BLOCK_PASSES -> Group.SABLE_CLIENT;
             case FRAMEBUFFER -> Group.VEIL;

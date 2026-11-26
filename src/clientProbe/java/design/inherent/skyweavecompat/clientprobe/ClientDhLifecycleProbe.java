@@ -45,6 +45,7 @@ public final class ClientDhLifecycleProbe {
     private JsonArray currentColumn;
     private volatile String observerFailure;
     private final ClientDhGpuResources gpu = Boolean.getBoolean("skyweave_compat.probe.dhResources") ? new ClientDhGpuResources() : null;
+    private final ClientDhCpuResources cpu = Boolean.getBoolean("skyweave_compat.probe.dhCpuResources") ? new ClientDhCpuResources() : null;
 
     private static final class Uploads {
         final AtomicInteger queued = new AtomicInteger(), pending = new AtomicInteger(), completed = new AtomicInteger(), failed = new AtomicInteger();
@@ -90,6 +91,27 @@ public final class ClientDhLifecycleProbe {
         if (probe == null || probe.gpu == null) return;
         try { probe.gpu.nativeDeleted(id); }
         catch (Throwable failure) { probe.observerFailure = failure.toString(); }
+    }
+    public static long enterCpuFrame(IDhClientLevel level) {
+        var probe = active;
+        if (probe == null || probe.cpu == null) return 0;
+        return probe.cpu.enter(!probe.finished && ownsCurrentLevel(level, Minecraft.getInstance()) ? probe.epoch : 0);
+    }
+    public static void leaveCpuFrame(long id) {
+        var probe = active; if (id == 0 || probe == null || probe.cpu == null) return;
+        try { probe.cpu.leave(id); } catch (Throwable failure) { probe.observerFailure = failure.toString(); }
+    }
+    public static void cpuBorrowed(String pool, com.seibel.distanthorizons.core.util.objects.pooling.PhantomArrayList.PhantomArrayListCheckout checkout) {
+        var probe = active; if (probe != null && probe.cpu != null) probe.cpu.borrowed(pool, checkout);
+    }
+    public static Object cpuReturning(com.seibel.distanthorizons.core.util.objects.pooling.PhantomArrayList.PhantomArrayListCheckout checkout) {
+        var probe = active; return probe == null || probe.cpu == null ? null : probe.cpu.returning(checkout);
+    }
+    public static void cpuReturned(Object observation) {
+        var probe = active; if (observation != null && probe != null && probe.cpu != null) probe.cpu.returned(observation);
+    }
+    public static void afterActualCpuJoin(Object value) {
+        var probe = active; if (probe != null && probe.cpu != null) probe.cpu.afterActualJoin(value);
     }
     private static boolean ownsCurrentLevel(IDhClientLevel level, Minecraft mc) {
         if (mc.level == null) return false;
@@ -167,6 +189,7 @@ public final class ClientDhLifecycleProbe {
                 if (SharedApi.getAbstractDhWorld() != null) { save(); return; }
                 var stats = uploads.get(epoch); if (stats != null && stats.pending.get() != 0) { save(); return; }
                 if (gpu != null && !gpu.retired(epoch)) { save(); return; }
+                if (cpu != null && !cpu.retired(epoch)) { save(); return; }
                 report.addProperty("nativeWorldRetired" + epoch, true);
                 if (phase == 2) { open(mc); phase = 3; phaseTicks = 0; }
                 else { report.add("decodedColumn", firstColumn); report.addProperty("complete", true); finish(mc); }
@@ -277,6 +300,7 @@ public final class ClientDhLifecycleProbe {
         report.addProperty("overlay", mc.getOverlay() == null ? "none" : mc.getOverlay().getClass().getName());
         report.addProperty("servicesInsideNativeClose",servicesDuringClose.get());
         if (gpu != null) report.add("nativeGpuResources", gpu.snapshot());
+        if (cpu != null) report.add("nativeCpuResources", cpu.snapshot());
         var states = new JsonObject(); uploads.forEach((key,value)->{
             var row=new JsonObject();row.addProperty("queued",value.queued.get());row.addProperty("pending",value.pending.get());
             row.addProperty("usefulCompleted",value.completed.get());row.addProperty("failed",value.failed.get());row.addProperty("vertices",value.vertices.get());states.add(key.toString(),row);

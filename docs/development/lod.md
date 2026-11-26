@@ -72,7 +72,15 @@ Queue progress is specified separately below; native worker tuning remains with 
 
 `distant_horizons.update_queue` selects the exact DH 3.3.3 native chunk-update manager on either physical side. After a non-progressing pass with queued updates, only that manager's own worker waits, for at most 50 ms or the remaining native debounce interval. A successful dispatch keeps native progress immediate. External enqueue, center updates, clear, and close wake the worker; its own center update does not fabricate new work. Keep native queue/debounce identity, priorities, source ownership, and executor behavior. No caller sleep, new content cutoff, or copied task queue is introduced.
 
-Both new adaptations default off in this engineering cohort until the full affected native acceptance is qualified. Explicit false remains authoritative. They are independent of the installed unload, cache-identity, and client-wrapper handoff adaptations. Their current real-executor and transformed-native tests establish narrower boundaries than complete useful-data, client-upload, lifetime, or performance acceptance.
+The new adaptations default off in this engineering cohort until the full affected native acceptance is qualified. Explicit false remains authoritative. They are independent of the installed unload, cache-identity, and client-wrapper handoff adaptations. Their current real-executor and transformed-native tests establish narrower boundaries than complete useful-data, client-upload, lifetime, or performance acceptance.
+
+## Rendering buffer loans
+
+The native render worker borrows vertex buffers before building upload input and closes those checkouts after joining the upload result. A controlled exception after an actual nonempty upload completed skipped two vertex-checkout returns. The observer saw no active native worker frames or pending uploads, and all observed VBOs were deleted, but the two loans remained unreturned. This is evidence of the native exception edge, not a measured physical-memory leak. A separate normal run returned all 9,452 observed vertex/index loans across busy disconnect, reopen and reload.
+
+`distant_horizons.render_resources` is a separate, default-off client adaptation for exact DH 3.3.3. It scopes the native worker's vertex/index checkouts and retains native upload futures, pool operations and error handling. Cleanup returns missing loans only before submission or after the private native upload result establishes completed usage. Pending work retains its bytes; cancellation or unknown partial submission alone cannot authorize recycling. The wrapper does not cancel shared futures, pump tasks or change the original wait.
+
+Native index-return callbacks retain their original loan generation. If worker cleanup already returned that object and another worker reused it, the old callback cannot return the new loan. Identity comparison and a return-once gate preserve normal returns and concurrent cleanup; a failed pool publication is not blindly retried. The helper's unit controls and actual transformed native methods pass. Qualification against the retained original native fault and normal/lifecycle controls remains required before admission or a default change.
 
 ## Dependency updates
 

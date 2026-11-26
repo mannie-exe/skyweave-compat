@@ -33,6 +33,8 @@
     "DhLifecycleUploadWitnessMixin",
     "DhLifecycleCloseWitnessMixin",
     "DhLifecycleTaskWitnessMixin",
-    "DhLifecycleGpuWitnessMixin"
+    "DhLifecycleGpuWitnessMixin",
+    "DhLifecycleCpuFrameWitnessMixin",
+    "DhLifecycleCpuPoolWitnessMixin"
   ]
 }

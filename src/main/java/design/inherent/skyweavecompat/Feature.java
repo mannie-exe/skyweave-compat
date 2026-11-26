@@ -69,6 +69,7 @@ public enum Feature {
     LINEAR_PONDER("linear_bearing.ponder"),
     LINEAR_JADE("linear_bearing.jade"),
     DH_CLIENT_COMPLETION("distant_horizons.client_completion", false),
+    DH_RENDER_RESOURCES("distant_horizons.render_resources", false),
     DH_UPDATE_QUEUE("distant_horizons.update_queue", false),
     DH_HANDOFF("distant_horizons.client_handoff"),
     DH_SHUTDOWN("distant_horizons.shutdown"),
