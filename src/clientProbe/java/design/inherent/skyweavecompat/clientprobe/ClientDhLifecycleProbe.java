@@ -77,6 +77,7 @@ public final class ClientDhLifecycleProbe {
     private CompletableFuture<Void> reload;
     private boolean reloadVerified;
     private int uploadsBeforeReload;
+    private int uploadsBeforeRenderRebuild;
     private JsonArray firstColumn;
     private JsonArray currentColumn;
     private volatile String observerFailure;
@@ -338,11 +339,24 @@ public final class ClientDhLifecycleProbe {
                 if (reload != null && !reload.isDone()) return;
                 if (reload != null && !reloadVerified) {
                     reload.join(); report.addProperty("nativeResourceReloadCompleted", true);
+                    if (Boolean.getBoolean("skyweave_compat.probe.dhRebuildAfterReload")) {
+                        // Native public draw-cache rebuild; no terrain/store deletion or fabricated upload.
+                        var result=com.seibel.distanthorizons.api.DhApi.Delayed.renderProxy.clearRenderDataCache();
+                        report.addProperty("nativeRenderRebuildAccepted",result.success);
+                        if (!result.success) throw new AssertionError("Native render rebuild refused: "+result.message);
+                        uploadsBeforeRenderRebuild=stats.completed.get();
+                        report.addProperty("usefulUploadsAtNativeRebuild",uploadsBeforeRenderRebuild);
+                    }
                     currentColumn = null; reloadVerified = true; return;
                 }
                 if (reloadVerified) {
                     report.addProperty("sourceColumnVerifiedAfterReload", true);
                     report.addProperty("newUsefulUploadsAfterReload", stats.completed.get() - uploadsBeforeReload);
+                    if (Boolean.getBoolean("skyweave_compat.probe.dhRebuildAfterReload")) {
+                        int rebuilt=stats.completed.get()-uploadsBeforeRenderRebuild;
+                        report.addProperty("newUsefulUploadsAfterNativeRebuild",rebuilt);
+                        if (rebuilt<=0) { save();return; }
+                    }
                 }
                 if (field!=null && !field.ready(mc,epoch,report)) { save(); return; }
                 int queued = queuedRenderTasks();
