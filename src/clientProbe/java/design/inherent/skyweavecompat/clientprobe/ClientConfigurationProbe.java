@@ -218,10 +218,12 @@ final class ClientConfigurationProbe {
                                 throw new IllegalStateException("The actual selected section is unavailable");
                         }
                         case "reform-operation-proof" -> {
-                            if (!(mc.screen instanceof design.inherent.reform.minecraft.client.OperationScreen<?> screen))
-                                throw new IllegalStateException("Expected an actual contributed operation screen");
-                            var current = screen.observedOperation().orElseThrow();
+                            design.inherent.reform.operation.OperationSnapshot<?> current;
+                            if (mc.screen instanceof design.inherent.reform.minecraft.client.OperationScreen<?> screen)
+                                current = screen.observedOperation().orElseThrow();
+                            else current = reformWorkflow(mc).operationInspection().orElseThrow().observedOperation().orElseThrow();
                             var result = new JsonObject(); result.addProperty("operation", current.operation().toString());
+                            result.addProperty("retainedRoot", !(mc.screen instanceof design.inherent.reform.minecraft.client.OperationScreen<?>));
                             result.addProperty("state", current.state().name()); result.addProperty("terminal", current.terminal());
                             result.addProperty("report", current.report().toString());
                             result.addProperty("hasResult", current.result().isPresent());
