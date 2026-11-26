@@ -49,6 +49,7 @@ public final class ClientDhLifecycleProbe {
     private volatile int epoch;
     private int ticks, phase, phaseTicks;
     private boolean finished;
+    private boolean closeQueued;
     private CompletableFuture<FullDataSourceV2> pending;
     private BlockPos pendingSample;
     private WeakReference<ClientLevel> pendingLevel;
@@ -193,6 +194,7 @@ public final class ClientDhLifecycleProbe {
                 throw new AssertionError("Native client lifecycle observation exceeded its disposable window");
             phaseTicks++;
             if (mc.getOverlay() != null) return;
+            if (closeQueued) return;
             if (phase == 3 && mc.screen instanceof BackupConfirmScreen
                     && mc.screen.getTitle().getString().equals(Component.translatable("selectWorld.backupQuestion.experimental").getString())) {
                 if (epoch != 2 || !Files.isDirectory(root.resolve("saves/dh-native-review"))
@@ -248,8 +250,27 @@ public final class ClientDhLifecycleProbe {
                 var before = new JsonObject(); before.addProperty("epoch", epoch); before.addProperty("queuedRenderTasks", queued);
                 before.addProperty("pendingNativeUploads", stats.pending.get()); before.addProperty("completedUsefulUploads", stats.completed.get());
                 before.addProperty("vertices", stats.vertices.get()); report.add("beforeClose" + epoch, before);
-                mc.level.disconnect(); mc.disconnect(new TitleScreen()); mc.setScreen(new TitleScreen());
-                phase++; phaseTicks = 0; currentColumn = null;
+                closeQueued = true;
+                var closingLevel = new WeakReference<>(mc.level); int closingEpoch = epoch;
+                // Native disconnect can pump its own loading screen. Leave this listener first
+                // so later ClientTick.Post listeners do not run across our synchronous teardown.
+                mc.tell(() -> {
+                    closeQueued = false;
+                    if (!automationAllowed() || finished) return;
+                    try {
+                        if (mc.level == null || mc.level != closingLevel.get() || epoch != closingEpoch)
+                            throw new AssertionError("Deferred native disconnect lost its admitted level");
+                        boolean stillInObserverTick = StackWalker.getInstance().walk(frames -> frames.anyMatch(frame ->
+                                frame.getClassName().equals(ClientDhLifecycleProbe.class.getName()) && frame.getMethodName().equals("tick")));
+                        if (stillInObserverTick) throw new AssertionError("Native disconnect was not deferred out of the observer tick");
+                        report.addProperty("nativeDisconnectDeferredOutsideObserverTick", true);
+                        phase++; phaseTicks = 0; currentColumn = null;
+                        mc.level.disconnect(); mc.disconnect(new TitleScreen()); mc.setScreen(new TitleScreen());
+                    } catch (Throwable failure) {
+                        report.addProperty("complete", false); report.addProperty("failure", failure.toString());
+                        failure.printStackTrace(); finish(mc);
+                    }
+                });
             } else if ((phase == 2 || phase == 4) && mc.screen instanceof TitleScreen && mc.level == null && mc.getSingleplayerServer() == null) {
                 if (SharedApi.getAbstractDhWorld() != null) { save(); return; }
                 var stats = uploads.get(epoch); if (stats != null && stats.pending.get() != 0) { save(); return; }
