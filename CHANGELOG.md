@@ -2,6 +2,142 @@
 
 Generated from Git history. Player-facing release summaries are in [release notes](RELEASE_NOTES.md).
 
+## v0.44.0 · 2026-11-26
+
+### Features
+
+- **dh:** Isolate progress repairs for native qualification ([9bf0ad6](https://github.com/mannie-exe/skyweave-compat/commit/9bf0ad61cd52a42cd9e118c490a17c19dafeabf6))
+
+- **configuration:** Adopt re:form 0.4 workspace declarations ([9595c41](https://github.com/mannie-exe/skyweave-compat/commit/9595c41f6ed01df7f24316d1a5e2a617b0dd804f))
+
+- **configuration:** Adopt retained-input provider correction ([7f2e132](https://github.com/mannie-exe/skyweave-compat/commit/7f2e13221a367e4ccb1800d15ae42dd90fd98124))
+
+- **configuration:** Select frozen stable re:form 0.4 ([2832ace](https://github.com/mannie-exe/skyweave-compat/commit/2832acef1b48ad1a53effbbc0367fe83d6ea5945))
+
+### Fixes
+
+- **dh:** Return settled rendering buffer loans once ([ecfad5a](https://github.com/mannie-exe/skyweave-compat/commit/ecfad5a6dd628fa08330a8614f0a217023c07333))
+
+- **dh:** Retire executor config subscriptions ([c2e76f8](https://github.com/mannie-exe/skyweave-compat/commit/c2e76f886f72de16b8e3d1cdd561f91b094a2ff9))
+
+- **dh:** Retire paused picker retries ([60a1a5f](https://github.com/mannie-exe/skyweave-compat/commit/60a1a5f0ff594cb31f59885e29811f66e426debe))
+
+- **dh:** Fence closing network request admission ([179ee8a](https://github.com/mannie-exe/skyweave-compat/commit/179ee8a443100a6ec6ef9141c9873ea63a9afc03))
+
+- **dh:** Service render dependencies during world close ([5dd2a7a](https://github.com/mannie-exe/skyweave-compat/commit/5dd2a7a75e5ab2dfb27d500006134935bb4a936b))
+
+- **dh:** Enable qualified lifecycle and queue repairs ([e782223](https://github.com/mannie-exe/skyweave-compat/commit/e782223b5ba7cc89cc8a53be3c75150a56f91335))
+
+- **configuration:** Use a nonoverlapping loader range ([69852a5](https://github.com/mannie-exe/skyweave-compat/commit/69852a50e137a8dda4cbcc3c4b98a25e344285aa))
+
+- **tooling:** Interrupt waits before fixture cleanup ([d59a8ea](https://github.com/mannie-exe/skyweave-compat/commit/d59a8eaf0bb37e17c3d9d9361667aaf40aa66900))
+
+### Documentation
+
+- Record public 0.43.3 qualification ([8b9bc15](https://github.com/mannie-exe/skyweave-compat/commit/8b9bc15a43ad6c2db5ccf7e339c45b80b8469264))
+
+- **delivery:** Align terrain guide with public defaults ([98f2253](https://github.com/mannie-exe/skyweave-compat/commit/98f2253862e823cda5a81c9041e8c6d677fe7f36))
+
+- **dh:** Record world close control ([2a7c7dd](https://github.com/mannie-exe/skyweave-compat/commit/2a7c7ddecd19a9a10d62521963012bc8e9d9d754))
+
+- **dh:** Retain shader lifecycle proof ([8e889d6](https://github.com/mannie-exe/skyweave-compat/commit/8e889d6516cc82030829b8d484426b5180bbfa13))
+
+- **dh:** Retain native lifecycle controls ([d2ac331](https://github.com/mannie-exe/skyweave-compat/commit/d2ac33199664a22f18828ec05ca0d8291bae5aaf))
+
+- **dh:** Retain far-field timeout ([8fdc8ab](https://github.com/mannie-exe/skyweave-compat/commit/8fdc8ab57bd255f20185e6954f94b90d588bcecc))
+
+- **dh:** Retain scoped far-field diagnostic ([eb73423](https://github.com/mannie-exe/skyweave-compat/commit/eb7342371d8a9dd46c6d519978c36933469346be))
+
+- **dh:** Record matched background rebuilds ([473b8f5](https://github.com/mannie-exe/skyweave-compat/commit/473b8f5b1dd9f89c7be0971a5f6b1fea96fddce6))
+
+- **dh:** Distinguish raw compression parity ([b9fe426](https://github.com/mannie-exe/skyweave-compat/commit/b9fe42624a39be1807d3e7777e49142765026a0e))
+
+- **testing:** Control client throttling in native fixtures ([7821201](https://github.com/mannie-exe/skyweave-compat/commit/7821201f03c07ce31b3ab962c12bee588dd39367))
+
+- **dh:** Record controlled unthrottled native pair ([c42f155](https://github.com/mannie-exe/skyweave-compat/commit/c42f15567380676988fa5bc7073e4460b118cd6b))
+
+- **configuration:** Record native 0.4 workspace scope ([2e1bd9b](https://github.com/mannie-exe/skyweave-compat/commit/2e1bd9b485b91e5f677e928751466fbe7d5588c9))
+
+- **configuration:** Record native policy permission controls ([410796b](https://github.com/mannie-exe/skyweave-compat/commit/410796b8f23e5c8a41ed3bcf4e40c65e05c808e0))
+
+- **configuration:** Retain paired and staged control evidence ([2bda8ab](https://github.com/mannie-exe/skyweave-compat/commit/2bda8ab549acb7cea6ee30e76e1e340bdd31a862))
+
+- **configuration:** Scope native owner and precision evidence ([eb7fdd5](https://github.com/mannie-exe/skyweave-compat/commit/eb7fdd5c5d17db578a0d17756d66ec622c219acf))
+
+- **configuration:** Record corrected-provider native checks ([3350f48](https://github.com/mannie-exe/skyweave-compat/commit/3350f484c5cebddc5e03246cb6918f06122c9523))
+
+- **configuration:** Bind production and input qualification ([cb2fddb](https://github.com/mannie-exe/skyweave-compat/commit/cb2fddb4aef7a9632e9bb5bbd8224c6a521b4973))
+
+- **configuration:** Record clean-source engineering reproduction ([8388e32](https://github.com/mannie-exe/skyweave-compat/commit/8388e323af1a8d072361fd10653ea3f38e633b9c))
+
+- **configuration:** Record stable binding native acceptance ([ad8ab2a](https://github.com/mannie-exe/skyweave-compat/commit/ad8ab2a99bce56db9d1c5d685cfa9998e67dfa9f))
+
+- **configuration:** Record stable production cohort checks ([90953a2](https://github.com/mannie-exe/skyweave-compat/commit/90953a2670af8f67284fee7622040853e62e9bc4))
+
+- **release:** Record public resolution and final package carry ([990549a](https://github.com/mannie-exe/skyweave-compat/commit/990549ad47de84319791b24f9a4ad141647316be))
+
+### Build and verification
+
+- **dh:** Verify native data and upload lifecycles ([0fd799a](https://github.com/mannie-exe/skyweave-compat/commit/0fd799a09f8dc2acb65c82aef0a7cd86a033ff9f))
+
+- **dh:** Observe native buffer generations ([b4defa8](https://github.com/mannie-exe/skyweave-compat/commit/b4defa83932c848c0d088da42e20bd5530a11d40))
+
+- **dh:** Verify failed native upload retirement ([dc8dafe](https://github.com/mannie-exe/skyweave-compat/commit/dc8dafe8e7e1d3df895db618b0164365c058cc2b))
+
+- **dh:** Bind full-pack reads to delivered source ([3fbb0c7](https://github.com/mannie-exe/skyweave-compat/commit/3fbb0c72de57475cd7e23f5dacabe69076cbe7d3))
+
+- **dh:** Observe shared worker generations ([c33a58c](https://github.com/mannie-exe/skyweave-compat/commit/c33a58c6db3e2df5b003f53a94379b7aac3cbaef))
+
+- **dh:** Defer native close beyond observer tick ([61fcd0e](https://github.com/mannie-exe/skyweave-compat/commit/61fcd0e3dc320fd6345a5083f4d97bd9d809a837))
+
+- **dh:** Distinguish native world and pool close service ([95e01af](https://github.com/mannie-exe/skyweave-compat/commit/95e01af87c5bdad1aabc41bc58a9da2c326323dd))
+
+- **dh:** Observe idle close and resize ([782178e](https://github.com/mannie-exe/skyweave-compat/commit/782178e4d2e6b36e6c29f388bc5048a38e33f932))
+
+- **dh:** Trace native dimension sources ([2b4acaa](https://github.com/mannie-exe/skyweave-compat/commit/2b4acaa14c5ce8569b76eb48c10ecd22fc33d9d0))
+
+- **dh:** Verify uploaded far-field data ([b1caa5e](https://github.com/mannie-exe/skyweave-compat/commit/b1caa5ed5b46c53f2e78138cdd57de2e3495d388))
+
+- **dh:** Query actual client residency ([d4cb46c](https://github.com/mannie-exe/skyweave-compat/commit/d4cb46cfeeda1e6cea6a0cc2eb0e56103d76f911))
+
+- **dh:** Trace pending render dependencies ([127e268](https://github.com/mannie-exe/skyweave-compat/commit/127e268ec64bc538c8be31611e3bbc37f6231646))
+
+- **dh:** Observe native shared occupancy ([f50f600](https://github.com/mannie-exe/skyweave-compat/commit/f50f600a827e1b21ce0fff508ac4e20290d385f1))
+
+- **dh:** Gate background fixture transition ([3f6b2e2](https://github.com/mannie-exe/skyweave-compat/commit/3f6b2e2dfd1409f0468fa596338c5f6f2f3c40da))
+
+- **dh:** Demand native rebuild after reload ([52af414](https://github.com/mannie-exe/skyweave-compat/commit/52af41491e596a8c39f272cd0b1c49ce39d7278e))
+
+- **dh:** Qualify native queue admission races ([67a6aaf](https://github.com/mannie-exe/skyweave-compat/commit/67a6aafefcae07812e5ebec28cb2c9fdc885ea23))
+
+- **dh:** Gate cold world creation in background ([cf4a1b9](https://github.com/mannie-exe/skyweave-compat/commit/cf4a1b9f7c4e55d0f33957bc8081ec5e3711f80f))
+
+- **dh:** Observe effective client throttling ([6b68b0b](https://github.com/mannie-exe/skyweave-compat/commit/6b68b0b2bd67caaa4218b0188edb9da17990fed5))
+
+- **configuration:** Follow declared operation captions ([1c59380](https://github.com/mannie-exe/skyweave-compat/commit/1c5938047cbd4b580e24135d095c5238cdafcf91))
+
+- **configuration:** Observe retained operation results ([2f51d06](https://github.com/mannie-exe/skyweave-compat/commit/2f51d06bc47a0b97b71c6f5543861c04b3329a42))
+
+- **configuration:** Bind loaded archive identities ([0800dff](https://github.com/mannie-exe/skyweave-compat/commit/0800dff1e31d6e737767db6589427fe1f8664ec2))
+
+- **configuration:** Inspect retained review owners ([4a4eacd](https://github.com/mannie-exe/skyweave-compat/commit/4a4eacd7ea09ca275d90915cf8aa8c79135ff207))
+
+- **configuration:** Exercise native permission retirement ([36870eb](https://github.com/mannie-exe/skyweave-compat/commit/36870eb97c57ce1031afe4c282bc477a8df861ca))
+
+- **configuration:** Verify staged saves by receipt ([fbda6e7](https://github.com/mannie-exe/skyweave-compat/commit/fbda6e7bd3234cd44981dc10b8808d29a88aa619))
+
+- **configuration:** Select declared native operation action ([8e0eed3](https://github.com/mannie-exe/skyweave-compat/commit/8e0eed3596b39e0445b37a61b8895577dc39f521))
+
+- **configuration:** Verify Home preserves admitted owners ([2b5f596](https://github.com/mannie-exe/skyweave-compat/commit/2b5f596bb3cddab6b08258a95cf68eb198008f34))
+
+- **configuration:** Observe declared composed owner groups ([c973b83](https://github.com/mannie-exe/skyweave-compat/commit/c973b832d70e77b8ca1c7714b2e771feb35b5e9b))
+
+- **configuration:** Respect native owner availability ([98ec5d4](https://github.com/mannie-exe/skyweave-compat/commit/98ec5d44327a631675fb4e775a6c4622243a9edc))
+
+- **configuration:** Enter browsing before input checks ([9a02512](https://github.com/mannie-exe/skyweave-compat/commit/9a025126226d75c4508df766f7bc724b2417fe85))
+
+- **configuration:** Await native document reveal for input ([d83d279](https://github.com/mannie-exe/skyweave-compat/commit/d83d2792fef8d090f60239371bba497e942d9ee0))
+
 ## v0.43.3 · 2026-11-26
 
 ### Features
