@@ -94,7 +94,9 @@ final class ClientDhFieldProbe {
         var columns=new JsonArray(); int cells=0,hidden=0;
         scan: for(int x=0;x<64;x++) for(int z=0;z<64;z++) {
             int blockX=x0+x,blockZ=z0+z;
-            if(mc.level.hasChunk(blockX>>4,blockZ>>4)) continue;
+            // ClientLevel.hasChunk is unconditionally true in this native version.
+            // ChunkSource.hasChunk delegates getChunk(FULL,false), so it observes real residency.
+            if(mc.level.getChunkSource().hasChunk(blockX>>4,blockZ>>4)) continue;
             var column=source.getApiDataPointColumn(x,z); if(column.isEmpty()) continue;
             var decoded=new HashMap<Integer,Object>(); var runs=new JsonArray();
             for(var point:column) {
@@ -126,7 +128,10 @@ final class ClientDhFieldProbe {
                 cells++;
             }
             var row=new JsonObject();row.addProperty("x",blockX);row.addProperty("z",blockZ);
-            row.addProperty("physicalClientChunkAbsent",true);row.add("nativeRuns",runs);columns.add(row);
+            row.addProperty("physicalClientChunkAbsent",true);
+            row.addProperty("nativeClientLevelHasChunk",mc.level.hasChunk(blockX>>4,blockZ>>4));
+            row.addProperty("nativeClientChunkCacheHasChunk",mc.level.getChunkSource().hasChunk(blockX>>4,blockZ>>4));
+            row.add("nativeRuns",runs);columns.add(row);
             if(columns.size()==4) break scan;
         }
         if(columns.size()!=4) return null;

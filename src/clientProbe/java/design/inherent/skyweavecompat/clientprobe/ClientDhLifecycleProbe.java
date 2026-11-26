@@ -279,7 +279,7 @@ public final class ClientDhLifecycleProbe {
                     report.addProperty("verifiedNativeTcpEpoch" + epoch, true);
                 }
                 var physical = mc.player.chunkPosition();
-                if (mc.screen instanceof ReceivingLevelScreen || !mc.level.hasChunk(physical.x, physical.z)) {
+                if (mc.screen instanceof ReceivingLevelScreen || !mc.level.getChunkSource().hasChunk(physical.x, physical.z)) {
                     report.addProperty("physicalClientChunkWaits" + epoch, ++physicalChunkWaits);
                     report.addProperty("sourceReadState", "waiting for delivered physical client chunks");
                     save(); return;
@@ -411,7 +411,7 @@ public final class ClientDhLifecycleProbe {
             try (var source = future.join()) {
                 if (owner == null || owner.get() != mc.level || pendingEpoch != epoch || sample == null
                         || mc.player.blockPosition().getX() != sample.getX() || mc.player.blockPosition().getZ() != sample.getZ()
-                        || !mc.level.hasChunk(sample.getX() >> 4, sample.getZ() >> 4)) {
+                        || !mc.level.getChunkSource().hasChunk(sample.getX() >> 4, sample.getZ() >> 4)) {
                     report.addProperty("sourceReadState", "retired observation after client source or position changed"); return;
                 }
                 if (source == null || source.isEmpty) { report.addProperty("sourceReadState", "empty native source"); return; }
@@ -436,7 +436,7 @@ public final class ClientDhLifecycleProbe {
                                 throw new AssertionError("Native client changed an unadmitted material at " + at);
                             for (var direction : net.minecraft.core.Direction.values()) {
                                 var neighbor = at.relative(direction);
-                                if (!mc.level.hasChunk(neighbor.getX() >> 4, neighbor.getZ() >> 4)
+                                if (!mc.level.getChunkSource().hasChunk(neighbor.getX() >> 4, neighbor.getZ() >> 4)
                                         || !mc.level.getBlockState(neighbor).canOcclude())
                                     throw new AssertionError("Native client changed an exposed or unverified material at " + at);
                             }
