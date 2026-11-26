@@ -2,6 +2,92 @@
 
 Generated from Git history. Player-facing release summaries are in [release notes](RELEASE_NOTES.md).
 
+## v0.43.3 · 2026-11-26
+
+### Features
+
+- **config:** Adopt shared responsive settings composition ([86b05b8](https://github.com/mannie-exe/skyweave-compat/commit/86b05b8b3c69657ca3fe14f6922213bcaa64fed8))
+
+### Fixes
+
+- **connector:** Retain authored launcher ranges ([581c0b1](https://github.com/mannie-exe/skyweave-compat/commit/581c0b18949f7a501d70511c09216f489aac1865))
+
+- **equipment:** Permit native break replacement ([27c8c34](https://github.com/mannie-exe/skyweave-compat/commit/27c8c34ca9fa348469aa34d1482c3c2924b17d0b))
+
+- **lighting:** Preserve opaque sample sentinels ([e264498](https://github.com/mannie-exe/skyweave-compat/commit/e2644987c30870344ed826c3ca7e64bea6eac210))
+
+- **lighting:** Order initial client checks ([a9c1ca5](https://github.com/mannie-exe/skyweave-compat/commit/a9c1ca5614e0ca1933f6014c111fc4161b83b87b))
+
+- **grassrise:** Admit verified generated shaders ([c2f0848](https://github.com/mannie-exe/skyweave-compat/commit/c2f0848374ebff6d3577e75655d2e26814da37c4))
+
+- **lighting:** Enable qualified initial client ordering ([d3ea790](https://github.com/mannie-exe/skyweave-compat/commit/d3ea790eceb0fe26954e343b7ddf688d8af7e7de))
+
+- **lighting:** Wrap production engine operations ([828a831](https://github.com/mannie-exe/skyweave-compat/commit/828a83122c27b8e5d625069c50f8c2e4adced68a))
+
+- **compat:** Coordinate bow and island snow consumers ([99b1c8a](https://github.com/mannie-exe/skyweave-compat/commit/99b1c8a3e3017e4adc24a6c50276b27936b1ea92))
+
+- **delivery:** Bound native structure lookup admission ([68ddba3](https://github.com/mannie-exe/skyweave-compat/commit/68ddba396e5e470e1e453cd952f72fc527f7c652))
+
+- **delivery:** Retain tickets across admission faults ([28cc244](https://github.com/mannie-exe/skyweave-compat/commit/28cc24452507a676774c7d97f7c11df6484f87d8))
+
+- **search:** Resume complete structure discovery in bounded batches ([f7744ca](https://github.com/mannie-exe/skyweave-compat/commit/f7744caa0308cb189b15730d9a3211d3325c70c3))
+
+- **delivery:** Enable qualified asynchronous structure discovery ([7624ea8](https://github.com/mannie-exe/skyweave-compat/commit/7624ea8d0ca8c486884124a97e6c6e6603dd16d4))
+
+### Performance
+
+- **terrain:** Reuse query and style wrappers ([979c754](https://github.com/mannie-exe/skyweave-compat/commit/979c754b4f337bba5935d2cf4e4cefdec6391e23))
+
+- **delivery:** Retain native status readiness between reads ([c3f73b4](https://github.com/mannie-exe/skyweave-compat/commit/c3f73b4b8e2dbdeb2b0978ac178417be06d963d7))
+
+- **delivery:** Admit bounded asynchronous status work promptly ([c994f23](https://github.com/mannie-exe/skyweave-compat/commit/c994f23a2c8eee4e2d58d3a189d8b7f79a12ff1b))
+
+### Refactoring
+
+- **ships:** Adopt Aeronautics 1.3.3 ([9ceec1d](https://github.com/mannie-exe/skyweave-compat/commit/9ceec1da4823c228a7f859ee43011e72afc63032))
+
+- **input:** Adopt Moves 1.0.9b ([29c6ca7](https://github.com/mannie-exe/skyweave-compat/commit/29c6ca728b852e45670090376ba1d96d0f39ab04))
+
+- **shaders:** Adopt qualified Euphoria baseline ([63bd205](https://github.com/mannie-exe/skyweave-compat/commit/63bd205fdb021895632ec1da292ca84e17c0fa5e))
+
+### Documentation
+
+- Record public 0.42.1 qualification ([083757f](https://github.com/mannie-exe/skyweave-compat/commit/083757f0da15058a7246d679272bed0d205a74b6))
+
+- Align redstone integration summary ([6aa2a1d](https://github.com/mannie-exe/skyweave-compat/commit/6aa2a1d442af169edd1b1f82a000b78f6aa1c455))
+
+- Align license format and copyright holder ([a0f42a7](https://github.com/mannie-exe/skyweave-compat/commit/a0f42a72d3c5c6cef9f14b576395f6e86a0f73bf))
+
+- **maintenance:** Reconcile release guidance and metadata ([299899b](https://github.com/mannie-exe/skyweave-compat/commit/299899b1ec4e217e9d311b826defe402940204d3))
+
+### Build and verification
+
+- **maintenance:** Retain native light and break controls ([0a5f29d](https://github.com/mannie-exe/skyweave-compat/commit/0a5f29d008effd6276c3b4985e802dbd8973bed5))
+
+- **grassrise:** Retain explicit-off native fallback ([dc24cc0](https://github.com/mannie-exe/skyweave-compat/commit/dc24cc0cb39042c038286bc1ce4a4b595b044f5b))
+
+- **lighting:** Observe native saved-world prompts ([b2d7228](https://github.com/mannie-exe/skyweave-compat/commit/b2d72283929fa0668bf2115f09fdc822527cb5da))
+
+- **delivery:** Correlate native locate chunk waits ([92eb73c](https://github.com/mannie-exe/skyweave-compat/commit/92eb73ca9124f12005d89f5913b672d3c68115e3))
+
+- **delivery:** Qualify expiry and explicit fixture inputs ([9b43e9b](https://github.com/mannie-exe/skyweave-compat/commit/9b43e9b46af5637c5eb823940094d1d55f7360d8))
+
+- **delivery:** Qualify reconnect and manual search lifetime ([a18a0b0](https://github.com/mannie-exe/skyweave-compat/commit/a18a0b0ea039f513b8b32d205eddfcaf6883c9e8))
+
+- **delivery:** Observe default selection without overriding it ([f9d257f](https://github.com/mannie-exe/skyweave-compat/commit/f9d257ff78495b19f40ef94c4dc61c3b6b021c08))
+
+### Maintenance
+
+- Adopt Apache 2.0 and credit upstream authors ([a85345b](https://github.com/mannie-exe/skyweave-compat/commit/a85345ba9e847763e74a032b8ab556b64dee596d))
+
+- Align inherent.design attribution and Apache licensing ([7d57cdc](https://github.com/mannie-exe/skyweave-compat/commit/7d57cdcfde1dd1836bb25440ce336a57e51573e5))
+
+- **deps:** Qualify re:form reference correction ([a064f2e](https://github.com/mannie-exe/skyweave-compat/commit/a064f2e9f604bc01b335918dddfe7bbb7b2b99c5))
+
+- **deps:** Adopt public re:form 0.3.0 ([1e6bea2](https://github.com/mannie-exe/skyweave-compat/commit/1e6bea2f317912a1c3f0d0bd242580a28da19c9c))
+
+- **docs:** Align the Moves support table ([d887f45](https://github.com/mannie-exe/skyweave-compat/commit/d887f45b98db85ea741e025d3ceeced4824746ba))
+
 ## v0.42.1 · 2026-11-22
 
 ### Fixes
