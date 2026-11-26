@@ -32,6 +32,7 @@
     "BowDurationWitnessMixin",
     "DhLifecycleUploadWitnessMixin",
     "DhLifecycleCloseWitnessMixin",
-    "DhLifecycleTaskWitnessMixin"
+    "DhLifecycleTaskWitnessMixin",
+    "DhLifecycleGpuWitnessMixin"
   ]
 }

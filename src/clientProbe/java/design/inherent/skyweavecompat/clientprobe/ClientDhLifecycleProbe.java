@@ -44,6 +44,7 @@ public final class ClientDhLifecycleProbe {
     private JsonArray firstColumn;
     private JsonArray currentColumn;
     private volatile String observerFailure;
+    private final ClientDhGpuResources gpu = Boolean.getBoolean("skyweave_compat.probe.dhResources") ? new ClientDhGpuResources() : null;
 
     private static final class Uploads {
         final AtomicInteger queued = new AtomicInteger(), pending = new AtomicInteger(), completed = new AtomicInteger(), failed = new AtomicInteger();
@@ -70,6 +71,10 @@ public final class ClientDhLifecycleProbe {
             try {
                 if (failure != null) stats.failed.incrementAndGet();
                 else if (container != null && container.buffersUploaded) {
+                    if (probe.gpu != null) {
+                        probe.gpu.uploaded(epoch, container.vboOpaqueWrappers);
+                        probe.gpu.uploaded(epoch, container.vboTransparentWrappers);
+                    }
                     long vertices = vertices(container.vboOpaqueWrappers) + vertices(container.vboTransparentWrappers);
                     if (vertices > 0) { stats.completed.incrementAndGet(); stats.vertices.addAndGet(vertices); }
                 }
@@ -79,6 +84,12 @@ public final class ClientDhLifecycleProbe {
     }
     private static long vertices(com.seibel.distanthorizons.core.wrapperInterfaces.render.objects.IVertexBufferWrapper[] buffers) {
         long count = 0; if (buffers != null) for (var buffer : buffers) if (buffer != null) count += buffer.getVertexCount(); return count;
+    }
+    public static void deletedGpuBuffer(int id) {
+        var probe = active;
+        if (probe == null || probe.gpu == null) return;
+        try { probe.gpu.nativeDeleted(id); }
+        catch (Throwable failure) { probe.observerFailure = failure.toString(); }
     }
     private static boolean ownsCurrentLevel(IDhClientLevel level, Minecraft mc) {
         if (mc.level == null) return false;
@@ -126,6 +137,7 @@ public final class ClientDhLifecycleProbe {
                 report.addProperty("effectiveDhThreads", Config.Common.MultiThreading.numberOfThreads.get());
                 open(mc); phase = 1; phaseTicks = 0;
             } else if ((phase == 1 || phase == 3) && mc.level != null && mc.player != null) {
+                if (gpu != null) gpu.world(epoch, mc.level, SharedApi.getAbstractDhWorld());
                 if (currentColumn == null) readColumn(mc);
                 var stats = uploads.get(epoch);
                 if (currentColumn == null || stats == null || stats.completed.get() == 0) { save(); return; }
@@ -154,6 +166,7 @@ public final class ClientDhLifecycleProbe {
             } else if ((phase == 2 || phase == 4) && mc.screen instanceof TitleScreen && mc.level == null && mc.getSingleplayerServer() == null) {
                 if (SharedApi.getAbstractDhWorld() != null) { save(); return; }
                 var stats = uploads.get(epoch); if (stats != null && stats.pending.get() != 0) { save(); return; }
+                if (gpu != null && !gpu.retired(epoch)) { save(); return; }
                 report.addProperty("nativeWorldRetired" + epoch, true);
                 if (phase == 2) { open(mc); phase = 3; phaseTicks = 0; }
                 else { report.add("decodedColumn", firstColumn); report.addProperty("complete", true); finish(mc); }
@@ -263,6 +276,7 @@ public final class ClientDhLifecycleProbe {
         report.addProperty("screen", mc.screen == null ? "none" : mc.screen.getClass().getName());
         report.addProperty("overlay", mc.getOverlay() == null ? "none" : mc.getOverlay().getClass().getName());
         report.addProperty("servicesInsideNativeClose",servicesDuringClose.get());
+        if (gpu != null) report.add("nativeGpuResources", gpu.snapshot());
         var states = new JsonObject(); uploads.forEach((key,value)->{
             var row=new JsonObject();row.addProperty("queued",value.queued.get());row.addProperty("pending",value.pending.get());
             row.addProperty("usefulCompleted",value.completed.get());row.addProperty("failed",value.failed.get());row.addProperty("vertices",value.vertices.get());states.add(key.toString(),row);
