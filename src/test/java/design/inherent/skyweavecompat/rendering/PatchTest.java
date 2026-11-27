@@ -170,6 +170,15 @@ public final class PatchTest {
         var model = transformed(service, transformer, "net.minecraft.client.renderer.block.ModelBlockRenderer");
         assertEquals(2, model.methods.stream().filter(m -> calls(m, "skyweave$material") > 0).count(),
                 "both AO and flat NeoForge methods must be wrapped");
+        var chunks = transformed(service, transformer, "dev.ryanhcode.sable.sublevel.render.vanilla.VanillaChunkedSubLevelRenderData");
+        assertEquals(1, calls(method(chunks, "rebuild"), "skyweave$invalidateMaterials"));
+        var invalidation = method(chunks, "skyweave$invalidateMaterials");
+        assertEquals(1, calls(invalidation, "isReloadRequired"));
+        assertEquals(1, calls(invalidation, "skyweave$resetMaterial"));
+        var section = transformed(service, transformer, "net.minecraft.client.renderer.chunk.SectionRenderDispatcher$RenderSection");
+        assertEquals(1, calls(method(section, "skyweave$resetMaterial"), "reset"));
+        assertEquals(1, calls(method(section, "reset"), "cancelTasks"));
+        assertEquals(0, calls(method(section, "skyweave$resetMaterial"), "releaseBuffers"));
         var colorwheel = transformed(service, transformer, "dev.djefrey.colorwheel.compile.ClrwlProgram");
         assertEquals(1, calls(method(colorwheel, "postLink"), "skyweave$availableSamplers"));
         assertEquals(9, calls(method(colorwheel, "postLink"), "skyweave$unusedOitSampler"));
@@ -182,6 +191,21 @@ public final class PatchTest {
         assertEquals(1, calls(method(dispatcher, "renderSectionLayer"), "skyweave$flushCurrentPass"));
         assertEquals(1, calls(method(dispatcher, "skyweave$flushCurrentPass"), "isShaderPackInUse"));
         assertEquals(1, calls(method(dispatcher, "skyweave$flushCurrentPass"), "renderAfterSections"));
+        assertEquals(1, calls(method(dispatcher, "renderAfterSections"), "skyweave$singleCameraView"));
+        assertEquals(1, calls(method(dispatcher, "skyweave$singleCameraView"), "isShaderPackInUse"));
+        var originalSingle = new ClassNode();
+        try (var in = service.getResourceAsStream("dev/ryanhcode/sable/sublevel/render/vanilla/VanillaSingleSubLevelRenderData.class")) {
+            new ClassReader(in.readAllBytes()).accept(originalSingle, 0);
+        }
+        var singleGeometry = method(originalSingle, "renderSingleBlock");
+        // The incoming view is consumed only as the right-hand operand of a matrix multiply.
+        // Reusing our private identity must not hand it to a native mutator or a retained field.
+        var incomingViewReads = Arrays.stream(singleGeometry.instructions.toArray())
+                .filter(i -> i instanceof VarInsnNode v && v.getOpcode() == Opcodes.ALOAD && v.var == 3).toList();
+        assertEquals(1, incomingViewReads.size());
+        assertTrue(incomingViewReads.getFirst().getNext() instanceof MethodInsnNode call
+                && call.owner.equals("org/joml/Matrix4f") && call.name.equals("mul")
+                && call.desc.equals("(Lorg/joml/Matrix4fc;)Lorg/joml/Matrix4f;"));
         Files.createDirectories(Path.of("build/verification"));
         Files.write(Path.of("build/verification/Wrapper-patched.class"), transformed);
     }

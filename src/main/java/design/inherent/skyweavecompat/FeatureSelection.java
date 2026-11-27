@@ -347,7 +347,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                 case CONSTRUCT_OCCLUSION -> List.of("client.ConstructShaderMixin", "client.ConstructDepthLifecycleMixin", "client.ConstructSamplerBudgetAccessor");
                 case CONSTRUCT_COVERAGE -> List.of("dh.CoverageSourceMixin", "dh.CoverageBuilderLifecycleMixin", "dh.CoverageBufferMixin", "dh.CoverageTransformMixin",
                         "dh.CoverageSectionMixin", "client.ConstructCoverageDrawMixin", "client.ConstructCoverageLifecycleMixin");
-                case MATERIAL_IDS -> List.of("client.ConstructMaterialMixin");
+                case MATERIAL_IDS -> List.of("client.ConstructMaterialMixin", "client.ConstructMaterialReloadMixin", "client.ConstructMaterialSectionAccess");
                 case COLORWHEEL_SAMPLERS -> List.of("client.ColorwheelSamplerMixin");
                 case COLORWHEEL_MATERIALS -> List.of("client.ColorwheelMaterialMixin");
                 case LIGHTING_LIFECYCLE -> List.of("client.CreateLightSourcesAccessor", "client.SableLightStateAccessor", "client.LightingLifecycleMixin",

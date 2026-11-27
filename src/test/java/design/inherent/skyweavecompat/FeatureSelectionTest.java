@@ -789,6 +789,19 @@ class FeatureSelectionTest {
             Map.entry("flywheel", "1.0.6"), Map.entry("colorwheel", "1.3.2+mc1.21.1"),
             Map.entry("aeronautics", "1.3.3"), Map.entry("questlog", "3.5.0"));
 
+    @Test void constructMaterialReloadSharesItsOwnerAndOptionalBoundary() {
+        var settings = only(Feature.MATERIAL_IDS);
+        assertEquals(java.util.Set.of("client.ConstructMaterialMixin", "client.ConstructMaterialReloadMixin",
+                "client.ConstructMaterialSectionAccess"), java.util.Set.copyOf(FeatureSelection.select(settings, SUPPORTED, true).mixins(true)));
+        for (var dependency : java.util.List.of("sable", "iris", "sodium")) {
+            var missing = new HashMap<>(SUPPORTED); missing.remove(dependency);
+            assertTrue(FeatureSelection.select(settings, missing, true).mixins(true).isEmpty());
+        }
+        var future = new HashMap<>(SUPPORTED); future.put("sable", "future"); future.put("iris", "future");
+        assertTrue(FeatureSelection.select(only(), future, true).mixins(true).isEmpty());
+        assertTrue(FeatureSelection.select(settings, future, false).mixins(false).isEmpty());
+    }
+
     @Test void colorwheelBridgeRequiresItsOwnerAndRespectsAbsenceDisableAndSide() {
         var settings = only(Feature.MATERIAL_IDS, Feature.COLORWHEEL_MATERIALS);
         assertTrue(FeatureSelection.select(settings, SUPPORTED, true).enabled(Feature.COLORWHEEL_MATERIALS));
@@ -962,6 +975,15 @@ class FeatureSelectionTest {
     @Test void singleBlockPassesAreIndependentAndNeedTheirRendererStack() {
         var selection = FeatureSelection.select(only(Feature.SINGLE_BLOCK_PASSES), SUPPORTED, true);
         assertEquals(java.util.List.of("client.SingleBlockPassMixin"), selection.mixins(true));
+        for (String dependency : java.util.List.of("sable", "iris", "sodium")) {
+            var absent = new HashMap<>(SUPPORTED); absent.remove(dependency);
+            assertFalse(FeatureSelection.select(only(Feature.SINGLE_BLOCK_PASSES), absent, true)
+                    .mixins(true).contains("client.SingleBlockPassMixin"));
+        }
+        assertFalse(FeatureSelection.select(new FeatureSettings(Map.of(Feature.SINGLE_BLOCK_PASSES, false)), SUPPORTED, true)
+                .mixins(true).contains("client.SingleBlockPassMixin"));
+        assertFalse(FeatureSelection.select(only(Feature.SINGLE_BLOCK_PASSES), SUPPORTED, false)
+                .mixins(false).contains("client.SingleBlockPassMixin"));
         var missing = new HashMap<>(SUPPORTED);
         missing.remove("iris");
         assertTrue(FeatureSelection.select(only(Feature.SINGLE_BLOCK_PASSES), missing, true).active().isEmpty());
