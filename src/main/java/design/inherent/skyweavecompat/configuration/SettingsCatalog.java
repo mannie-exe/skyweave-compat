@@ -20,7 +20,7 @@ public final class SettingsCatalog {
         DH_CLIENT(Category.MAPS, "distant_horizons"), SABLE_CLIENT(Category.RENDERING, "sable"),
         GRASSRISE(Category.RENDERING, "grassrise"), VEIL(Category.RENDERING, "veil"), IRIS(Category.RENDERING, "iris"),
         PUNCHY(Category.RENDERING, "punchy"),
-        PLAYER_ANIMATION(Category.RENDERING, "punchy_moves"), MODEFITE(Category.RENDERING, "modefite"),
+        PLAYER_ANIMATION(Category.RENDERING, "punchy_moves"), COMBAT(Category.RENDERING, "bettercombat"), MODEFITE(Category.RENDERING, "modefite"),
         SSRD(Category.MAPS, "ssrd"), COLORWHEEL(Category.RENDERING, "colorwheel"), LIGHTS(Category.RENDERING, "lighting"),
         CREATE_CLIENT(Category.RENDERING, "create"), FUSION(Category.RENDERING, "fusion"),
         RECHISELED(Category.RENDERING, "rechiseled"), MACAW_GLASS(Category.RENDERING, "mcwwindows"),
@@ -225,6 +225,7 @@ public final class SettingsCatalog {
             case COOKERY_MILLSTONE -> Group.COOKERY;
             case ROPE_CONNECTOR_RANGES -> Group.ROPE_CONNECTOR;
             case IPN_TEXT_INPUT -> Group.IPN;
+            case COMBAT_ATTACK_PITCH -> Group.COMBAT;
             case MOVES_KEY_MODIFIERS -> Group.MOVES_INPUT;
             case EFFORTLESS_KEY_MODIFIERS -> Group.EFFORTLESS_INPUT;
             case POWER_GRID_KEY_MODIFIERS -> Group.POWER_GRID_INPUT;
@@ -233,7 +234,7 @@ public final class SettingsCatalog {
             case SNOW_REAL_MAGIC_CLIMATE -> Group.SNOW_REAL_MAGIC;
             case SNOW_UNDER_TREES_CLIMATE -> Group.SNOW_UNDER_TREES;
             case PATROL_CHANCE, VARIANT_SPAWNERS, VARIANT_TRIAL_ALIASES, MURK_WATER -> Group.ENCOUNTERS;
-            case MOVES_TOUCH_MOTION, GLIDER_MOVES_RENDERING -> Group.PLAYER_ANIMATION;
+            case LANTERN_GRIP, MOVES_OVERLAY_BONES, MOVES_TOUCH_MOTION, GLIDER_MOVES_RENDERING -> Group.PLAYER_ANIMATION;
             case BETTER_VILLAGE_CONFIG -> Group.BETTER_VILLAGE;
             case WAYFINDER, WAYFINDER_DH -> Group.NAVIGATION;
             case FTB_ITEM_FILTERS -> Group.FTB_QUESTS;

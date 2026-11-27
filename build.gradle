@@ -70,6 +70,11 @@ dependencies {
     compileOnly('maven.modrinth:modefite-item-definition-backport:cy8BkRZc') { transitive = false }
     compileOnly('maven.modrinth:punchy-fpa:aVZEe0j8') { transitive = false }
     compileOnly('maven.modrinth:punchymoves:8dHgPPh6') { transitive = false }
+    testRuntimeOnly('maven.modrinth:punchymoves:8dHgPPh6') { transitive = false }
+    compileOnly('maven.modrinth:better-combat:VhIOvcXP') { transitive = false }
+    testRuntimeOnly('maven.modrinth:better-combat:VhIOvcXP') { transitive = false }
+    compileOnly('maven.modrinth:playeranimator:HJZB6bmA') { transitive = false }
+    testRuntimeOnly('maven.modrinth:playeranimator:HJZB6bmA') { transitive = false }
     compileOnly('maven.modrinth:reliable-gliders:rW61WzQF') { transitive = false }
     compileOnly('maven.modrinth:variants-and-ventures:Efvt97uC') { transitive = false }
     compileOnly('maven.modrinth:kaleidoscope-cookery:g8w0b2ly') { transitive = false }
@@ -228,7 +233,9 @@ tasks.register('verifyUpstream') {
         if (grassrise == null || java.security.MessageDigest.getInstance('SHA-256').digest(grassrise.bytes).encodeHex().toString() != '469aeeb0d368b1a37e5c5b02af206bfced496722b64e1c350a4aca8367d15351')
             throw new GradleException('Unexpected Grassrise compile-only dependency')
 
-        ['create-aeronautics-throwable-rope-connector': '2c926061b2ace48446ea65193f44a56a5326f48da218c0e1fc5bc2d8182528c8',
+        ['better-combat': '0446e9faa98b764ba010ac31e337d14ac96bbb2fbfeff9b599e1efd510dfde5a',
+         'playeranimator': 'dbe5de45f5cd60c0e5e47af14e6d564534a98456e973cf670cb881f6938eee92',
+         'create-aeronautics-throwable-rope-connector': '2c926061b2ace48446ea65193f44a56a5326f48da218c0e1fc5bc2d8182528c8',
          'kaleidoscope-cookery': 'e93784a3f17e546ebfa7c449572933bf67c6b694c01cb26b83ad120c40452b33',
          'modefite-item-definition-backport': '959272d5a7acc809881da7bcadda84ec8b1bf75ffcd8f84e989758a262bc6696',
          'inventory-profiles-next': '05f1b8660f74f543fba61d4ce7cf8632d4c69a95b7c15b1a6fd442be2e397ca6',

@@ -31,6 +31,7 @@ public final class ClientConfiguration {
             HoofprintPreferences.register(modBus, container);
         if (OptionalIntegrations.enabled(Feature.CLIMATE)) ClimateClient.register();
         modBus.addListener(ClientResourceRevision::register);
+        if (OptionalIntegrations.enabled(Feature.LANTERN_GRIP)) modBus.addListener(LanternResources::register);
         if (OptionalIntegrations.enabled(Feature.HELD_MATERIALS)) HandMaterials.register(modBus);
         if (OptionalIntegrations.enabled(Feature.ITEM_DEFINITIONS))
             design.inherent.skyweavecompat.client.model.ItemDefinitions.register();

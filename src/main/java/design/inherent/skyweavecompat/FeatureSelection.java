@@ -54,6 +54,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                 reasons.put(feature, new Reason(InactiveKind.WRONG_SIDE, List.of())); continue;
             }
             Feature prerequisite = prerequisite(feature);
+            if (feature == Feature.LANTERN_GRIP && !active.contains(Feature.ITEM_DEFINITIONS)) prerequisite = Feature.ITEM_DEFINITIONS;
             if (prerequisite != null && !active.contains(prerequisite)) {
                 reasons.put(feature, new Reason(InactiveKind.PREREQUISITE, List.of(prerequisite.key))); continue;
             }
@@ -102,6 +103,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             case ORE_PLACEMENT, CARVERS, CAVE_BIOMES, ANCIENT_CITIES, SPAWN, NETHER_ACCESS, C2ME_SEARCH, STRUCTURE_LOCATION, STRUCTURE_COMMAND, STRUCTURE_DISTRIBUTION,
                     ALTITUDE_HABITATS, WATER_SPAWNS, CLIMATE, DYNAMIC_WATERS, ISLAND_CLOUDS, ISLAND_VOID, ISLAND_SHADER_ENVIRONMENT, VILLAGE_PLACEMENT, PRESSURE, DELIVERY_DISTANCE,
                     DELIVERY_CHUNKS, DELIVERY_LANDING -> Feature.TERRAIN;
+            case LANTERN_GRIP -> Feature.MOVES_OVERLAY_BONES;
             case COLORWHEEL_MATERIALS -> Feature.MATERIAL_IDS;
             case DYNAMIC_WATERS_SABLE -> Feature.DYNAMIC_WATERS;
             case SABLE_CLIMATE, SNOW_REAL_MAGIC_CLIMATE, SNOW_UNDER_TREES_CLIMATE -> Feature.CLIMATE;
@@ -115,7 +117,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
 
     public static boolean clientOnly(Feature feature) {
         return switch (feature) {
-            case C2ME_CLIENT_LIGHT, BOW_MODEL_HANDOFF, GLIDER_MOVES_RENDERING, GLIDER_PUNCHY_RENDERING -> true;
+            case LANTERN_GRIP, COMBAT_ATTACK_PITCH, MOVES_OVERLAY_BONES, C2ME_CLIENT_LIGHT, BOW_MODEL_HANDOFF, GLIDER_MOVES_RENDERING, GLIDER_PUNCHY_RENDERING -> true;
             case WAYFINDER_DH, MAIN_MENU_IDENTITY, IPN_TEXT_INPUT, MOVES_KEY_MODIFIERS, EFFORTLESS_KEY_MODIFIERS, POWER_GRID_KEY_MODIFIERS, CREATE_COPYCAT_BACKFACES, COPYCATS_BACKFACES, MOVES_TOUCH_MOTION, HAND_EFFECTS, HELD_MATERIALS, MODEL_ROTATIONS, ITEM_DEFINITIONS, CONSTRUCT_COVERAGE -> true;
             case GRASSRISE_SHADERS, HOOFPRINT_ZOOM, ISLAND_CLOUDS, ISLAND_VOID, ISLAND_SHADER_ENVIRONMENT, CONFECTIONERY_BACKFACES, BUBBLE_GUM_BACKFACES, ORNATE_GRATE_BACKFACES, INDUSTRIAL_GRATING_BACKFACES, MACAW_GLASS, CONSTRUCT_DISTANCE, CONSTRUCT_OCCLUSION, SHADER_PATCHES, TEXT_DISPLAY_LIGHTING, NAMETAG_LIGHTING, TEXT_DISPLAY_SHADOW, NAMETAG_SHADOW, CREATE_BACKFACES, FUSION_BACKFACES, CREATE_WINDOWS, RECHISELED_GLASS, AUDIO_TIMELINE, LINEAR_PONDER, COLORWHEEL_SAMPLERS, COLORWHEEL_MATERIALS, LIGHTING_LIFECYCLE, SODIUM_LIGHTING, DH_NETWORK_REQUESTS, DH_RENDER_RESOURCES, DH_CLIENT_COMPLETION, DH_HANDOFF, FRAMEBUFFER, MATERIAL_IDS, MODEL_DATA, SINGLE_BLOCK_PASSES,
                     FTB_CREATIVE_RETURN, QUESTLOG_INTERFACE, QUESTLOG_NOTIFICATIONS -> true;
@@ -129,6 +131,9 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             case COOKERY_MILLSTONE -> Map.of("kaleidoscope_cookery", "1.6.0-neoforge+mc1.21.1");
             case ROPE_CONNECTOR_RANGES -> Map.of("create_aeronautics_throwable_rope_connector", "0.4.3", "simulated", "1.3.3");
             case IPN_TEXT_INPUT -> Map.of("inventoryprofilesnext", "2.2.5", "libipn", "6.6.3");
+            case LANTERN_GRIP -> Map.of("punchy_moves", "1.0.9b", "punchy", "3.2b", "modefite", "1.0.1+1.21.1");
+            case MOVES_OVERLAY_BONES -> Map.of("punchy_moves", "1.0.9b");
+            case COMBAT_ATTACK_PITCH -> Map.of("bettercombat", "2.4.0+1.21.1", "playeranimator", "2.0.4+1.21.1");
             case MOVES_KEY_MODIFIERS -> Map.of("punchy_moves", "1.0.9b");
             case EFFORTLESS_KEY_MODIFIERS -> Map.of("effortlessbuilding", "4.2");
             case POWER_GRID_KEY_MODIFIERS -> Map.of("powergrid", "0.6.2");
@@ -229,6 +234,9 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                 case ITEM_DEFINITIONS -> List.of("client.definitions.DefinitionLoadingMixin", "client.definitions.DefinitionBakeryMixin",
                         "client.definitions.DefinitionBindingMixin", "client.definitions.DefinitionRegistryMixin",
                         "client.definitions.DefinitionResolverMixin", "client.definitions.DefinitionRenderingMixin");
+                case LANTERN_GRIP -> List.of("client.LanternGripMixin");
+                case MOVES_OVERLAY_BONES -> List.of("client.MovesOverlayBoneMixin");
+                case COMBAT_ATTACK_PITCH -> List.of("client.CombatAdjustmentAccess", "client.CombatPitchMixin", "client.CombatArmViewMixin");
                 case MOVES_TOUCH_MOTION -> List.of("client.MovesTouchMotionApiMixin", "client.TouchMotionCapeInvoker");
                 case GLIDER_MOVES_RENDERING -> List.of("client.GliderMovesRenderingMixin");
                 case GLIDER_PUNCHY_RENDERING -> List.of("client.GliderPunchyRenderingMixin");

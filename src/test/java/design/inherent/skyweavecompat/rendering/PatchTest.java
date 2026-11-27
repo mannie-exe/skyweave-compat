@@ -206,6 +206,19 @@ public final class PatchTest {
         assertTrue(incomingViewReads.getFirst().getNext() instanceof MethodInsnNode call
                 && call.owner.equals("org/joml/Matrix4f") && call.name.equals("mul")
                 && call.desc.equals("(Lorg/joml/Matrix4fc;)Lorg/joml/Matrix4f;"));
+        var overlay = transformed(service, transformer, "punchymoves.client.animation.ItemAnimationBindings");
+        assertEquals(1, calls(method(overlay, "parseOverlays"), "skyweave$boneName"));
+        assertEquals(0, calls(method(overlay, "parseOverlays"), "normalize"));
+        assertTrue(overlay.methods.stream().filter(m -> !m.name.equals("parseOverlays"))
+                .anyMatch(m -> calls(m, "normalize") > 0), "action/group normalization retains its native owner");
+        var attack = transformed(service, transformer, "net.bettercombat.client.animation.AttackAnimationSubStack");
+        assertEquals(1, calls(method(attack, "<init>"), "skyweave$attackPitch"));
+        var modifier = transformed(service, transformer, "dev.kosmx.playerAnim.api.layered.modifier.AdjustmentModifier");
+        assertEquals(2, modifier.methods.stream().filter(m -> m.name.equals("skyweave$source")).count());
+        var applier = transformed(service, transformer, "dev.kosmx.playerAnim.impl.animation.AnimationApplier");
+        assertEquals(1, calls(method(applier, "updatePart"), "skyweave$attackArm"));
+        assertEquals(2, calls(method(applier, "updatePart"), "get3DTransform"),
+                "native position and scale queries remain unchanged");
         Files.createDirectories(Path.of("build/verification"));
         Files.write(Path.of("build/verification/Wrapper-patched.class"), transformed);
     }

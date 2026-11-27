@@ -8,9 +8,9 @@ Use Java 21 and the checked-in Gradle wrapper for Minecraft 1.21.1 / NeoForge 21
 
 Build outputs are in `build/libs`. The minimum installation requires Minecraft, NeoForge, Compat, and the qualified re:form library on both physical sides. Content integrations remain optional. `build.gradle` owns exact compilation and development-runtime pins; development dependencies are not bundled or implied runtime requirements. [Publishing](../publishing.md#shared-settings-dependency) describes staged candidates and clean release resolution.
 
-The current unpublished 0.4 migration needs an explicit `-Preform_repository=<staged-maven-repository>` on Gradle commands. Use the immutable provider handoff matching `gradle.properties`. A default public-resolution build is a release gate after that library is published; it is not available for this engineering pin.
+Main resolves the qualified public re:form 0.4.0 release without a development repository override. Private runtime work may select a separate immutable engineering provider; that does not change main or the released dependency contract.
 
-Published 0.43.3 uses public re:form 0.3.0. The current migration changes only the configuration-library family; Dynamic Waters remains 13.1.0 where that optional integration is enabled. [Release notes](../../RELEASE_NOTES.md) own shipped changes and update instructions. Proposed work such as [Longshot](longshot.md) does not add installed feature keys or establish runtime support; private development candidates retain their own evidence and qualification limits.
+Published 0.44.0 uses public re:form 0.4.0. Dynamic Waters remains 13.1.0 where that optional integration is enabled. [Release notes](../../RELEASE_NOTES.md) own shipped changes and update instructions. Proposed work such as [Longshot](longshot.md) does not add installed feature keys or establish runtime support; private development candidates retain their own evidence and qualification limits.
 
 ## Implementation boundaries
 
@@ -33,6 +33,7 @@ Original project work uses Apache-2.0. Preserve the LGPL-3.0-only rendering head
 | Optional admission, dependency updates, and retirement             | [Adapter maintenance](adapters.md)                |
 | Settings definitions, storage, commands, and native callbacks      | [Configuration](configuration.md)                 |
 | IPN shortcut ownership, text focus, and native input boundaries    | [Input ownership](input.md)                       |
+| Overlay filters, attack posture, and managed lantern grip          | [Animation adapters](animation.md)                |
 | Island geometry, geological frames, structures, and saved identity | [Island generation](terrain.md)                   |
 | Shapes, ocean admission, and metadata discovery                    | [Terrain variation](terrain-variation.md)         |
 | Targeting, search, teleport validation, and connection lifetimes   | [Wayfinder](wayfinder.md)                         |
