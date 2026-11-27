@@ -2,6 +2,32 @@
 
 Generated from Git history. Player-facing release summaries are in [release notes](RELEASE_NOTES.md).
 
+## v0.45.0 · 2026-11-27
+
+### Features
+
+- **animation:** Repair native pose and overlay handoffs ([6f33304](https://github.com/mannie-exe/skyweave-compat/commit/6f33304f2f323d164f0f6ca51f11c11c4492eabb))
+
+### Fixes
+
+- **rendering:** Preserve equipped glider draws ([b8144cc](https://github.com/mannie-exe/skyweave-compat/commit/b8144cc018323dd610d7e77c2b28e692ec785c9c))
+
+- **rendering:** Backport construct shader repairs ([a6768ef](https://github.com/mannie-exe/skyweave-compat/commit/a6768ef9ba9c7427e9eb47e5904317b5e98115f2))
+
+- **animation:** Admit discoverable lantern profile bundle ([caab79d](https://github.com/mannie-exe/skyweave-compat/commit/caab79d0349b18c23ccc27c01bedd5af9f63d3eb))
+
+- **animation:** Retain managed lantern hand mount ([6803a06](https://github.com/mannie-exe/skyweave-compat/commit/6803a06eb30ad6a4080da07d084bcd9c373224be))
+
+- **animation:** Admit exact-item lantern profile bundle ([b4fc17e](https://github.com/mannie-exe/skyweave-compat/commit/b4fc17eaab5cf0c6f8b29c84c85f3e6c2e34da06))
+
+- **animation:** Admit hand-centred lantern profile bundle ([564ce6d](https://github.com/mannie-exe/skyweave-compat/commit/564ce6d04caed455a48f86e7c285d7999d525fa8))
+
+### Documentation
+
+- **release:** Record public 0.44.0 qualification ([b363475](https://github.com/mannie-exe/skyweave-compat/commit/b36347563f09170bd5daca03685bdb5318fd7db4))
+
+- **config:** List independent glider switches ([b506823](https://github.com/mannie-exe/skyweave-compat/commit/b50682301af4d3527b212f526dc98fcecd48f31e))
+
 ## v0.44.0 · 2026-11-26
 
 ### Features
