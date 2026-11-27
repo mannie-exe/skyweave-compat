@@ -88,6 +88,8 @@ public enum Feature {
     CONSTRUCT_OCCLUSION("rendering.construct_occlusion"),
     CONSTRUCT_COVERAGE("rendering.construct_coverage"),
     MOVES_TOUCH_MOTION("punchy_moves.touch_n_motion"),
+    GLIDER_MOVES_RENDERING("reliable_gliders.moves_rendering"),
+    GLIDER_PUNCHY_RENDERING("reliable_gliders.punchy_rendering"),
     HAND_EFFECTS("iris.hand_effects"),
     HELD_MATERIALS("iris.held_materials"),
     BOW_MODEL_HANDOFF("punchy.modefite_bow_handoff"),

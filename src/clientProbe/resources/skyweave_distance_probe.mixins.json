@@ -41,6 +41,13 @@
     "DhLifecycleCpuPoolWitnessMixin",
     "DhLifecycleUploadFaultWitnessMixin",
     "DhLifecycleNetworkCloseWitnessMixin",
-    "DhLifecycleNetworkPayloadWitnessMixin"
+    "DhLifecycleNetworkPayloadWitnessMixin",
+    "GliderVisualFirstPersonArmMixin",
+    "GliderVisualFirstPersonPassMixin",
+    "GliderVisualItemWitnessMixin",
+    "GliderVisualLayerWitnessMixin",
+    "GliderVisualModelWitnessMixin",
+    "GliderVisualQuadWitnessMixin",
+    "GliderVisualSodiumQuadWitnessMixin"
   ]
 }

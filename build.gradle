@@ -70,6 +70,7 @@ dependencies {
     compileOnly('maven.modrinth:modefite-item-definition-backport:cy8BkRZc') { transitive = false }
     compileOnly('maven.modrinth:punchy-fpa:aVZEe0j8') { transitive = false }
     compileOnly('maven.modrinth:punchymoves:8dHgPPh6') { transitive = false }
+    compileOnly('maven.modrinth:reliable-gliders:rW61WzQF') { transitive = false }
     compileOnly('maven.modrinth:variants-and-ventures:Efvt97uC') { transitive = false }
     compileOnly('maven.modrinth:kaleidoscope-cookery:g8w0b2ly') { transitive = false }
     compileOnly('maven.modrinth:create-aeronautics-throwable-rope-connector:EDzeTV17') { transitive = false }
@@ -238,6 +239,7 @@ tasks.register('verifyUpstream') {
          'copycats': 'eab9c71e0cc133c38f1063fc9c892599207240a1f0559ce1e3ecddc4ad7aa759',
          'punchy-fpa': '05c8258943d9cbd9aec4c929b78d00a4d42eb6126fbed761dc2f4bef3affdbbd',
          'punchymoves': '972d6e872935c5144b02e7d990a2f13a8f082577f02fc48d3101fe2de80f6850',
+         'reliable-gliders': '857fc17f126196a93d4a53663860ced411b2fcdca4e9492f887e4cf554cea989',
          'surveyor': '4c4534517021e5b7212346e25510123944558e5b0fcf1d605189548b6811a6a0',
          'macaws-bridges': '070b817d3282760d9789b22ce13779613c8b558e02012fd5884d343175d88fd9',
          'fusion-connected-textures': '29920a6838f4f942947d208349480d7f5737f9fac6411c6eac5f3e824a438048',

@@ -115,7 +115,7 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
 
     public static boolean clientOnly(Feature feature) {
         return switch (feature) {
-            case C2ME_CLIENT_LIGHT, BOW_MODEL_HANDOFF -> true;
+            case C2ME_CLIENT_LIGHT, BOW_MODEL_HANDOFF, GLIDER_MOVES_RENDERING, GLIDER_PUNCHY_RENDERING -> true;
             case WAYFINDER_DH, MAIN_MENU_IDENTITY, IPN_TEXT_INPUT, MOVES_KEY_MODIFIERS, EFFORTLESS_KEY_MODIFIERS, POWER_GRID_KEY_MODIFIERS, CREATE_COPYCAT_BACKFACES, COPYCATS_BACKFACES, MOVES_TOUCH_MOTION, HAND_EFFECTS, HELD_MATERIALS, MODEL_ROTATIONS, ITEM_DEFINITIONS, CONSTRUCT_COVERAGE -> true;
             case GRASSRISE_SHADERS, HOOFPRINT_ZOOM, ISLAND_CLOUDS, ISLAND_VOID, ISLAND_SHADER_ENVIRONMENT, CONFECTIONERY_BACKFACES, BUBBLE_GUM_BACKFACES, ORNATE_GRATE_BACKFACES, INDUSTRIAL_GRATING_BACKFACES, MACAW_GLASS, CONSTRUCT_DISTANCE, CONSTRUCT_OCCLUSION, SHADER_PATCHES, TEXT_DISPLAY_LIGHTING, NAMETAG_LIGHTING, TEXT_DISPLAY_SHADOW, NAMETAG_SHADOW, CREATE_BACKFACES, FUSION_BACKFACES, CREATE_WINDOWS, RECHISELED_GLASS, AUDIO_TIMELINE, LINEAR_PONDER, COLORWHEEL_SAMPLERS, COLORWHEEL_MATERIALS, LIGHTING_LIFECYCLE, SODIUM_LIGHTING, DH_NETWORK_REQUESTS, DH_RENDER_RESOURCES, DH_CLIENT_COMPLETION, DH_HANDOFF, FRAMEBUFFER, MATERIAL_IDS, MODEL_DATA, SINGLE_BLOCK_PASSES,
                     FTB_CREATIVE_RETURN, QUESTLOG_INTERFACE, QUESTLOG_NOTIFICATIONS -> true;
@@ -141,6 +141,8 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
             case VARIANT_TRIAL_ALIASES -> Map.of("variantsandventures","1.0.30","lithostitched","1.8.1");
             case MURK_WATER -> Map.of("variantsandventures", "1.0.30", "sky_archipelago", "1.4");
             case MOVES_TOUCH_MOTION -> Map.of("punchy_moves", "1.0.9b", "touch_n_motion", "1.0.5");
+            case GLIDER_MOVES_RENDERING -> Map.of("punchy_moves", "1.0.9b", "reliable_gliders", "2.1.0+1.21.1");
+            case GLIDER_PUNCHY_RENDERING -> Map.of("punchy", "3.2b", "reliable_gliders", "2.1.0+1.21.1");
             case HELD_MATERIALS -> Map.of("iris", "1.8.14-beta.1+mc1.21.1", "punchy", "3.2b");
             case HAND_EFFECTS -> Map.of("iris", "1.8.14-beta.1+mc1.21.1", "hmioutline", "2.4.0+mc1.21.1");
             case BETTER_VILLAGE_CONFIG -> Map.of("bettervillage", "3.3.1", "libraryferret", "4.0.0");
@@ -228,6 +230,8 @@ public record FeatureSelection(Set<Feature> active, Map<Feature, String> inactiv
                         "client.definitions.DefinitionBindingMixin", "client.definitions.DefinitionRegistryMixin",
                         "client.definitions.DefinitionResolverMixin", "client.definitions.DefinitionRenderingMixin");
                 case MOVES_TOUCH_MOTION -> List.of("client.MovesTouchMotionApiMixin", "client.TouchMotionCapeInvoker");
+                case GLIDER_MOVES_RENDERING -> List.of("client.GliderMovesRenderingMixin");
+                case GLIDER_PUNCHY_RENDERING -> List.of("client.GliderPunchyRenderingMixin");
                 case COOKERY_MILLSTONE -> List.of("inventory.CookeryMillstoneInputMixin");
                 case ROPE_CONNECTOR_RANGES -> List.of("RopeConnectorRangeMixin");
                 case IPN_TEXT_INPUT -> List.of("client.input.IpnKeybindMixin", "client.input.IpnInputDispatchMixin", "client.input.IpnInventoryInputMixin", "client.input.RecipeSearchAccess", "client.input.IpnWindowMixin", "client.input.IpnContainerAccess");

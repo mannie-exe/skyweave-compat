@@ -40,6 +40,12 @@ public final class OptionalMixinPlugin implements IMixinConfigPlugin {
             design.inherent.skyweavecompat.accessories.CurioBreakAdjuster.register();
         if (OptionalIntegrations.enabled(Feature.ACCESSORIES_CURIOS_BINDINGS))
             design.inherent.skyweavecompat.accessories.CuriosBindingAdjuster.register();
+        if (OptionalIntegrations.enabled(Feature.GLIDER_MOVES_RENDERING))
+            org.spongepowered.asm.mixin.injection.selectors.TargetSelector.register(
+                    design.inherent.skyweavecompat.client.GliderMovesSelector.class,"skyweave");
+        if (OptionalIntegrations.enabled(Feature.GLIDER_PUNCHY_RENDERING))
+            org.spongepowered.asm.mixin.injection.selectors.TargetSelector.register(
+                    design.inherent.skyweavecompat.client.GliderPunchySelector.class,"skyweave");
         org.spongepowered.asm.mixin.injection.selectors.TargetSelector.register(
                 design.inherent.skyweavecompat.water.WaterCallbackSelector.class, "skyweave");
     }

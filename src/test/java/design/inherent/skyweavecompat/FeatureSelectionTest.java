@@ -13,6 +13,22 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class FeatureSelectionTest {
+    @Test void gliderRenderersHaveIndependentExactClientAdmission() {
+        for(var feature:List.of(Feature.GLIDER_MOVES_RENDERING,Feature.GLIDER_PUNCHY_RENDERING)) {
+            assertTrue(feature.defaultEnabled);assertNull(FeatureSelection.prerequisite(feature));
+            var mods=FeatureSelection.dependencies(feature);
+            assertTrue(FeatureSelection.select(only(feature),mods,true).enabled(feature));
+            assertTrue(FeatureSelection.select(only(feature),mods,false).mixins(false).isEmpty());
+            for(var provider:mods.keySet()) {
+                var partial=new HashMap<>(mods);partial.remove(provider);
+                assertTrue(FeatureSelection.select(only(feature),partial,true).mixins(true).isEmpty());
+                partial.put(provider,"future");
+                assertThrows(IllegalStateException.class,()->FeatureSelection.select(only(feature),partial,true));
+                assertTrue(FeatureSelection.select(only(),partial,true).mixins(true).isEmpty());
+            }
+        }
+    }
+
     @Test void snowConsumersRequireTheirActualProviderAndClimate() {
         for (var feature : List.of(Feature.SNOW_REAL_MAGIC_CLIMATE, Feature.SNOW_UNDER_TREES_CLIMATE)) {
             var mods = new HashMap<String,String>(FeatureSelection.dependencies(feature)); mods.put("sky_archipelago", "1.4");

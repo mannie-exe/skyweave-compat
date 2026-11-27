@@ -222,6 +222,20 @@ final class ClientConfigurationProbe {
                             }
                             ProbeStateFiles.write(root.resolve("reform-artifact-proof.json"), proof.toString());
                         }
+                        case "client-window-policy-proof" -> {
+                            var proof = new JsonObject(); proof.addProperty("actualFps", mc.getFps());
+                            proof.addProperty("noRender", mc.noRender); proof.addProperty("windowActive", mc.isWindowActive());
+                            boolean loaded = ModList.get().isLoaded("dynamic_fps"); proof.addProperty("dynamicFpsLoaded", loaded);
+                            if (loaded) {
+                                var config = Class.forName("dynamic_fps.impl.config.DynamicFPSConfig");
+                                proof.addProperty("dynamicFpsEnabled", (Boolean)config.getMethod("enabled").invoke(config.getField("INSTANCE").get(null)));
+                                var nativeMod = Class.forName("dynamic_fps.impl.DynamicFPSMod");
+                                proof.addProperty("dynamicFpsDisabled", (Boolean)nativeMod.getMethod("isDisabled").invoke(null));
+                                proof.addProperty("dynamicFpsRenderedCurrentFrame", (Boolean)nativeMod.getMethod("renderedCurrentFrame").invoke(null));
+                            }
+                            proof.addProperty("scope", "Passive current window/native frame gate; no timing comparison or window-policy change");
+                            ProbeStateFiles.write(root.resolve("client-window-policy-proof.json"), proof.toString());
+                        }
                         case "reform-home" -> reformWorkflow(mc).showHome();
                         case "reform-show-placement" -> reformWorkflow(mc).showPlacement(
                                 design.inherent.reform.definition.DocumentId.parse(command.get("id").getAsString()));

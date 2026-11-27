@@ -155,6 +155,20 @@ Moves already calls the released `Posed.keep`. Its subsequent legacy `Drawn.keep
 
 This is a startup-selectable API repair, not a locomotion or cape engine. Keep one cape animation authority in the pack. 3D Skin Layers supplies overlay geometry separately. Another cape mod, remote-player transport, moving control frames, and arbitrary future versions need their own qualification. On updates, inspect constructor descriptors, reflection names, actual helper methods, native snapshot/foot-grounding order, overlay copies, and ownership cleanup before changing the exact version gates.
 
+## Equipped glider rendering
+
+Reliable Gliders supplies an equipped attachment through the ordinary hand and held-item rendering paths. That synthetic operand is distinct from the player's actual held items. `reliable_gliders.moves_rendering` requires Reliable Gliders `2.1.0+1.21.1` and Moves `1.0.9b`; `reliable_gliders.punchy_rendering` independently requires Reliable Gliders and Punchy `3.2b`. Both are physical-client startup switches, default on when their exact dependencies qualify. Explicit false excludes the corresponding mixin and foreign-class resolution.
+
+The Moves adapter recognizes the original equipped glider operand while the native player is gliding and neither actual hand holds a glider. It preserves the supplied stack, components, context, pose, buffers, and light through the original draw continuation instead of substituting Moves' delayed inventory item or applying held-item animation. Spatial GUI camera and equipment-hiding policies retain their native branches. Ordinary held items keep Moves' original behavior.
+
+Punchy independently suppresses the first-person attachment. Its adapter skips only the final ordinary cancellation for the same native equipped-glider case. Earlier interface, blacklist, equipment, and action branches remain authoritative. Punchy's actual hand rendering and Reliable Gliders' native attachment rendering retain their respective owners. Neither adapter changes inventory, flight physics, input, model geometry, or dye handling.
+
+Qualify native supplied operands and submitted geometry separately from final appearance. Keep original/OFF controls, both main-arm settings, first- and third-person views, actual equipment removal, and native resource reload. Preserve the public pack's ordered resource selections and inspect the actual active roster; a mod-only resource scene does not establish authored resource-pack compatibility. Likewise, an item display context alone does not identify the first-person pass because custom renderers can request third-person item transforms. Keep ordinary-hand preservation checks tied to the actual native route and matched control rather than assuming every held item reaches the same model entry.
+
+Shader-off, BSL, and Complementary/Euphoria require separate pipeline and geometry witnesses. Sodium's native encoder can bypass vanilla bulk-quad calls; observing only the latter cannot establish missing rendering. A shader recipe build does not qualify a live shader on unsupported hardware. Keep Photon runtime acceptance with its supported GPU requirement. Tracked-actor equipment/data packet consumption is useful receiver evidence but does not establish authenticated multiplayer or automatic server tracking.
+
+On dependency updates, inspect the exact merged Moves callback and Punchy's cancellation branches before changing version gates. Preserve one original draw continuation and independent opt-outs; retire each adapter only when its upstream owner supplies the corresponding attachment behavior.
+
 ## Distant constructs with shaders
 
 `rendering.construct_distance` requires SSRD, Sable and Iris on the physical client. It scopes Iris's `far` uniform to the greater of its current value and SSRD's effective, server-capped range. It does not change view distance, tracking, simulation or the projection. `rendering.construct_occlusion` independently adds DH opaque-terrain depth testing; DH is not required by the distance correction. Both switches default on and require a game restart when changed.
