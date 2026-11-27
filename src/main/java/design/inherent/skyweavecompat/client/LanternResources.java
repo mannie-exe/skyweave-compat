@@ -26,7 +26,7 @@ import net.neoforged.neoforge.event.AddPackFindersEvent;
 public final class LanternResources {
     public static final String PACK_ID = "skyweave_compat/lantern-grip";
     // Updated only with the matching pack owner's immutable resource handoff.
-    public static final String SHA256 = "18f7068d843b87b00ef4e131c8fbdcc407fba1f1aeb11f3c2177e21ad08b3056";
+    public static final String SHA256 = "fcd4b651e3e3ee86469892b4814bb6e166154d34b71041fd3b67854800fb459f";
     private static final ResourceLocation MARKER = ResourceLocation.parse("skyweave_compat:animation/lantern_grip.json");
 
     private LanternResources() {}
