@@ -17,7 +17,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import punchymoves.client.animation.LocomotionController.ItemPose;
 import punchymoves.client.compat.SpatialGuiCompat;
 
-/** Change only the original Moves item-bone rotation for the delivered managed lantern. */
+/** Correct only the original Moves item-bone pose for the delivered managed lantern. */
 @Mixin(value = ItemInHandLayer.class, priority = 1500)
 abstract class LanternGripMixin {
     @WrapOperation(method = "@skyweave:glidermoves(item)", at = @At(value = "INVOKE",

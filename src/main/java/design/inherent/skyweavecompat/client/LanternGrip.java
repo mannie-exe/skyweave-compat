@@ -13,7 +13,9 @@ public final class LanternGrip {
 
     public static ItemPose pose(ModelPart arm, ItemPose nativePose) {
         Vector3f rotation = counterRotation(arm.xRot, arm.yRot, arm.zRot);
-        return rotation == null ? nativePose : new ItemPose(nativePose.position(), rotation, nativePose.scale());
+        // Managed wrappers place the handle at the native mount. The authored item-bone
+        // offset would move that handle a second time; retain the live equip scale only.
+        return rotation == null ? nativePose : new ItemPose(new Vector3f(), rotation, nativePose.scale());
     }
 
     static Vector3f counterRotation(float x, float y, float z) {

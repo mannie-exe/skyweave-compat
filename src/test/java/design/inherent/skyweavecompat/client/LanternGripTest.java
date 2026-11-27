@@ -31,12 +31,33 @@ class LanternGripTest {
         }
     }
 
-    @Test void nativeEquipScalePositionAndNonfiniteFallbackArePreserved() {
+    @Test void managedHandleStaysAtNativeMountAcrossItemOffsetsAndEquipScales() {
+        // Native production control: main offsets +/-7.5,0,7.5 displace the handle by
+        // 0.62148 render units after the player's .9375 scale. Offhand offset is zero.
+        var arm = new ModelPart(List.of(), Map.of());
+        arm.xRot = (float) -Math.PI / 2; arm.zRot = (float) Math.PI / 4;
+        for (float side : new float[]{-1, 0, 1}) {
+            for (float scale : new float[]{.4993f, .75f, 1}) {
+                var offset = new Vector3f(side * 7.5f, 0, side == 0 ? 0 : 7.5f);
+                var source = new ItemPose(new Vector3f(offset), new Vector3f(), new Vector3f(scale));
+                var corrected = LanternGrip.pose(arm, source);
+                var appliedTranslation = new Vector3f(-corrected.position().x / 16,
+                        -corrected.position().z / 16, corrected.position().y / 16).mul(.9375f);
+                assertEquals(new Vector3f(), corrected.position());
+                assertEquals(0f, appliedTranslation.length(), 0f, "managed handle leaves native mount");
+                assertSame(source.scale(), corrected.scale());
+                assertEquals(offset, source.position(), "native pose is borrowed, never mutated");
+            }
+        }
+    }
+
+    @Test void nativeEquipScaleAndNonfiniteFallbackArePreserved() {
         var arm = new ModelPart(List.of(), Map.of());
         arm.xRot = -1.3f; arm.yRot = .2f; arm.zRot = .7f;
         var source = new ItemPose(new Vector3f(.1f, .2f, .3f), new Vector3f(7, 8, 9), new Vector3f(.4f, .6f, .8f));
         var corrected = LanternGrip.pose(arm, source);
-        assertSame(source.position(), corrected.position()); assertSame(source.scale(), corrected.scale());
+        assertEquals(new Vector3f(), corrected.position()); assertSame(source.scale(), corrected.scale());
+        assertEquals(new Vector3f(.1f, .2f, .3f), source.position());
         assertNotEquals(source.rotation(), corrected.rotation());
         assertEquals(new Vector3f(7, 8, 9), source.rotation());
         arm.yRot = Float.NaN;
