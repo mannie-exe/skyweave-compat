@@ -1,31 +1,32 @@
-# Skyweave: Compatibility Patches 0.44.0
+# Skyweave: Compatibility Patches 0.45.0
 
-Install with Minecraft 1.21.1, Java 21, NeoForge 21.1.265 or later in the stable 21.1 series, and [re:form 0.4.0](https://github.com/mannie-exe/reform/releases/tag/v0.4.0). Use the same Compat version on client and server. This release preserves the published 0.43.3 gameplay fixes and adds the qualified settings migration and Distant Horizons repairs.
+Install with Minecraft 1.21.1, Java 21, NeoForge 21.1.265 or later in the stable 21.1 series, and [re:form 0.4.0](https://github.com/mannie-exe/reform/releases/tag/v0.4.0). Use the same Compat version on client and server. This release preserves C1, C2, and C4 while adding the qualified animation, equipment, and construct-rendering repairs below.
 
-## Configuration
+## Animation and equipment
 
-- Use separate Home pages for local files and the running singleplayer server, a stable context header, navigation history, retained drafts, and shared review, inspection, and operation results. Home opens no settings owner until selected; composed pages reuse the existing owners and save paths.
-- Preserve native configuration formats, exact numeric input, coupled validation, explicit opt-outs, and operator permissions. Saved settings remain distinct from effective runtime values; saving a next-launch choice does not activate it in the current process.
-- Preserve native input ownership. Settings search does not trigger IPN shortcuts, while ordinary inventory, wheel, drag, and keybinding actions retain their native behavior and item custody.
+- Match authored Moves overlay filters to the correct arm and held-item bones. Action/group names, animation selection, and clocks remain owned by Moves.
+- Limit Better Combat's extra upward body and leg lean to 20 degrees while preserving composed arm aim and native attack authority. First-person, level, and downward adjustments retain Better Combat's behavior.
+- Load the matching modpack lantern/soul-lantern resources and align the held model with its hand and native physics pivot. Keep native equip scale, arm profiles, and physics behavior without copied animation curves. The lantern switch requires the overlay-bone and item-definition adapters; disabling it or either prerequisite withdraws the complete managed bundle.
+- Preserve Reliable Gliders' equipped attachment alongside Moves third-person items and Punchy first-person hands, with separate switches for the two render owners. Inventory and flight physics stay native.
 
-## Distant terrain
+## Construct rendering
 
-- Enable five independently configurable repairs for Distant Horizons 3.3.3: update-queue progress, executor lifetime, client completion, rendering resources, and network requests. Explicit false selections remain authoritative.
-- Retire paused work and native subscriptions, refuse new requests during closure, service rendering dependencies during world close, and return settled buffer loans once. Preserve saved formats, completed terrain output, and render fidelity.
+- Retire old compiled material IDs when Iris requires a renderer rebuild, so constructs use the current shader map after switching packs. Sable retains rebuild and publication ownership.
+- Apply camera rotation once for shader-rendered single-block constructs while retaining their body transform and translucent pass.
 
-## Existing fixes and update procedure
+## Dependencies, settings, and update procedure
 
-- Preserve the qualified bow handoff, island snow and snowlogging climate, launcher range, delivery-search, lighting, equipment-callback, shader-family, Aeronautics, and Moves adaptations. Their earlier checks retain their original version and input attribution.
-- Replace the old Compat and re:form JARs with exactly one of each, and restart both sides. Update any installed Styled consumer to its matching 0.4 library cohort. Do not mix old 0.3-only consumers with the new library.
-- Keep saved worlds and generation settings unchanged. Existing startup-switch opt-outs remain authoritative. No retrogen, personal-world cleanup, or automatic configuration reset is part of this update.
-- Outside the modpack, the tested Curios/Accessories/layer combination still requires the explicit `accessories_compat_layer.curios_bindings=true` selection on both sides; see [installation](README.md#installation).
+- Keep public re:form 0.4.0 and the matching Styled 0.2.0 cohort. No engineering UI or new water/physics provider is required. Newer re:form development work remains separate from this release.
+- Keep exactly one Compat JAR on each side and restart Minecraft/server after updating startup switches. Existing explicit opt-outs, saved worlds, generation settings, and configuration ownership remain authoritative. No world reset or retrogen is required by these changes.
+- Use the matching modpack's managed lantern bundle. Standalone Compat does not contain the pack's models, profiles, textures, or resource-only photograph/item handoffs. A missing or mismatched bundle does not activate partial lantern resources.
+- Outside the modpack, the tested Curios/Accessories/layer combination still requires `accessories_compat_layer.curios_bindings=true` on both sides; see [installation](README.md#installation).
 
 ## Qualification and limits
 
-- The public-dependency preparation passes 542 Java and 24 tooling checks. Hosted Linux, Windows, and Intel Mac builds agree byte for byte; Windows skips the existing POSIX directory-permission case. Their binary carries the same compiler-generated climate-position bridges already shipped in public 0.43.3; the other 1,097 runtime classes and the source JAR match the local preparation. Minimum dedicated startup passes with the actual hosted binary and public library. A committed-source resolver check uses the public library without a development override, and an anonymous library download matches both published checksum manifests.
-- The stable-bound engineering candidate supplies an actual minimum settings initial/reopen pair and an actual two-JVM production-loader Configure/save/reopen pair with the held JEI/EMI providers and final Styled 0.2.0. These results retain their original artifact attribution and the reviewed compiler-class difference described in [verification](docs/development/verification.md).
-- The production-pack check covers title/Configure persistence, with Dynamic FPS and shader rendering disabled only in its disposable fixture. It opens no world and does not qualify world unloading, Styled's own interface or previews, shader output, sustained performance, or personal-instance acceptance. Independent provider and consumer evidence remains separate in [verification](docs/development/verification.md).
-- Intermittent re:form qualification-fixture failures in Minecraft's native chunk-unload loop remain unresolved, including a no-recipe-viewer case. Later passing cases do not establish a causal repair or universal shutdown reliability.
-- Photon supported-GPU visual/performance acceptance remains deferred. This release does not adopt ordinary DW14, the Beyond-first force handoff, Longshot, or unfinished shadow work. Configuration and runtime integration continue in their separate development workstreams.
+- Implementation checks pass 554 Java and 24 tooling cases, including released-target transformation, optional/disabled/server admission, package, and upstream checks. [Verification](docs/development/verification.md#animation-maintenance-0450-preparation) retains exact preparation artifacts, native scope, and delivery checks.
+- Actual OFF/default-ON controls preserve native attack input, one seven-damage server hit, release, and inactive animation without extra hits through 100 ticks. Original FF arm-consumer controls qualify canonical filtering separately from natural bow gameplay. Final-model and composed-arm comparisons support the posture repair; they do not establish every weapon, moving combat, or authenticated multiplayer.
+- Lantern controls cover both IDs, both arm settings and equipment hands, both views, removal/re-equipment, native resource reload, Fluid & Foolish selected/unselected, and explicit opt-out. Geometry follows the actual native physics pivot; native motion is retained. Moving-player, shader, remote, equipped-lantern, and arbitrary foreign-provider action matrices remain outside this bounded check.
+- Glider geometry/tint and shader OFF/BSL/Complementary-Euphoria controls retain their original artifact attribution. Construct repairs carry the native material-switch, CPU/GPU transform, raster, translucent-pass, and GL-state evidence. No complete C5, final PBR/refraction/shadow, universal model, or sustained-performance claim is made. Photon supported-GPU acceptance remains deferred.
+- Native-use arms, selfie and other third-person pose conflicts, ordinary DW14, the Beyond-first force handoff, Longshot, and remaining audited corrections keep their separate workstreams. Existing intermittent native chunk-unload negatives remain unresolved; later positive fixtures do not establish a causal repair.
 
-See the generated [changelog](CHANGELOG.md), [configuration matrix](docs/configuration.md#adaptation-switches), and [verification scope](docs/development/verification.md) for exact switches, provider versions, and retained limitations.
+See the generated [changelog](CHANGELOG.md), [configuration matrix](docs/configuration.md#adaptation-switches), and [animation contract](docs/development/animation.md).
